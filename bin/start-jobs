@@ -1,0 +1,21 @@
+#!/bin/bash -i
+
+usage() { echo "Usage: $0 [-q] <max proc>"; exit 1; }
+case $1 in
+    -q)	quiet=1; shift ;;
+esac
+max=$1
+
+let max=$max+0
+[ $max -gt 0 ] || usage
+started=0
+finished=0
+
+set -bm
+while read line; do
+    while [ $(jobs|wc -l) -ge $max ] ; do
+	sleep 1
+    done
+    [ -z "$quiet" ] && echo $line
+    $line &
+done
