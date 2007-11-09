@@ -5,10 +5,11 @@
 
 usage() { 
     echo "Usage: $0 [-q] <max proc>"; 
-    echo " Reads command lines from stdin"
+    echo " Reads commands line by line from stdin"
+    echo " and starts them concurrently."
     echo " -q: run quiet, don't echo executed command line"
     echo " <max proc>: a number greater or equal 1"
-    echo "             controls how many processes are started in parallel"
+    echo "             controls how many processes are started concurrently"
     exit 1; 
 }
 case $1 in
