@@ -1,6 +1,16 @@
 #!/bin/bash -i
+# Read lines from standard input.
+# Starts each line as command in background.
+# Command line parameter controls maximum number of running commands.
 
-usage() { echo "Usage: $0 [-q] <max proc>"; exit 1; }
+usage() { 
+    echo "Usage: $0 [-q] <max proc>"; 
+    echo " Reads command lines from stdin"
+    echo " -q: run quiet, don't echo executed command line"
+    echo " <max proc>: a number greater or equal 1"
+    echo "             controls how many processes are started in parallel"
+    exit 1; 
+}
 case $1 in
     -q)	quiet=1; shift ;;
 esac
@@ -11,9 +21,12 @@ let max=$max+0
 started=0
 finished=0
 
+# -b Report the status of terminated background jobs immediately.
+# -m Monitor mode. Job control is enabled.
 set -bm
 while read line; do
-    while [ $(jobs|wc -l) -ge $max ] ; do
+    # Count running (-r) jobs.
+    while [ $(jobs -r|wc -l) -ge $max ] ; do
 	sleep 1
     done
     [ -z "$quiet" ] && echo $line
