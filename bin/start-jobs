@@ -32,3 +32,4 @@ while read line; do
     [ -z "$quiet" ] && echo $line
     $line &
 done
+[ -z "$quiet" ] && echo '*Finished*'
