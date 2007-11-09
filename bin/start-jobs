@@ -31,7 +31,7 @@ while read line; do
 	sleep 1
     done
     [ -z "$quiet" ] && echo $line
-    $line &
+    eval $line &
 done
 
 # Wait for remaining processes to be finished.
