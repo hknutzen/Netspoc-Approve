@@ -32,4 +32,7 @@ while read line; do
     [ -z "$quiet" ] && echo $line
     $line &
 done
+
+# Wait for remaining processes to be finished.
+wait
 [ -z "$quiet" ] && echo '*Finished*'
