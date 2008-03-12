@@ -131,12 +131,11 @@ sub build_db ($) {
             $OBJ{RO},      # RO community string
             $OBJ{RW},      # RW community string
             $OBJ{SN},      # Serial Number
-            $OBJ{UF1}
-            , # User Field 1  <-- Hier Eintrag ob Geraet hinter "ISDN" oder "Stand"
-            $OBJ{UF2}
-            , # User Field 2  <-- Zugehoerigkeit zu einer Netz-Gruppe (LN,SH,KR,DZ)
-            $OBJ{CW_TYP}
-            ,    # User Field 3  <-- Typ (sw,rt,pix) fuer switch,router,pix
+            $OBJ{UF1},     # User Field 1 <-- Geraet hinter "ISDN" oder "Stand"
+            $OBJ{UF2},     # User Field 2 <-- Zugehoerigkeit zu einer
+	                   # Netz-Gruppe (LN,SH,KR,DZ)
+            $OBJ{CW_TYP},  # User Field 3 <-- Typ (sw,rt,pix) fuer
+                           # switch,router,pix
             $OBJ{UF4},                # User Field 4
             $OBJ{TELNET_PASS},        # Name = Telnet password
             $OBJ{ENABLE_PASS},        # Name = Enable password
@@ -160,8 +159,8 @@ sub build_db ($) {
         }
         else {
             mypr "PASS_DBB: CiscoWorks pass db: discarded line \'$line\'\n";
-            mypr
-"PASS_DBB:  -> object name already found in \'$NAME_HASH{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
+            mypr "PASS_DBB:  -> object name already found in " . 
+		"\'$NAME_HASH{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
         }
     }
     close CSVDB;
@@ -185,9 +184,10 @@ sub build_db ($) {
         }
         else {
             unless ( $line eq $CW_IP_DB{ $OBJ{NAME} }->{SOURCE}->{LINE} ) {
-                mypr "PASS_DBB: CiscoWorks ip db: discarded line   \'$line\'\n";
-                mypr
-"PASS_DBB:    -> object name already found in \'$CW_IP_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
+                mypr "PASS_DBB: CiscoWorks ip db: discarded line " .
+		    "\'$line\'\n";
+                mypr "PASS_DBB:   -> object name already found " .
+		    "in \'$CW_IP_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
             }
         }
     }
@@ -248,8 +248,8 @@ sub build_db ($) {
 
             #unless($line eq $LEG_NAME_DB{$OBJ{NAME}}->{SOURCE}->{LINE}){
             mypr "PASS_DBB: legacy name db: discarded line     \'$line\'\n";
-            mypr
-"PASS_DBB:    -> object name already found in \'$LEG_NAME_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
+            mypr "PASS_DBB:   -> object name already found in " .
+		"\'$LEG_NAME_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
 
             #}
         }
@@ -260,10 +260,10 @@ sub build_db ($) {
             else {
 
                 #unless($line eq $LEG_ALIAS_DB{$OBJ{ALIAS}}->{SOURCE}->{LINE}){
-                mypr
-                  "PASS_DBB: legacy alias db: discarded line     \'$line\'\n";
-                mypr
-"PASS_DBB:    -> object alias already found in \'$LEG_ALIAS_DB{$OBJ{ALIAS}}->{SOURCE}->{LINE}\'\n";
+                mypr "PASS_DBB: legacy alias db: discarded line  " .
+		    "\'$line\'\n";
+                mypr "PASS_DBB:    -> object alias already found " .
+		    "in \'$LEG_ALIAS_DB{$OBJ{ALIAS}}->{SOURCE}->{LINE}\'\n";
 
                 #}
             }
@@ -275,8 +275,8 @@ sub build_db ($) {
 
             #unless($line eq $LEG_IP_DB{$OBJ{IP}}->{SOURCE}->{LINE}){
             mypr "PASS_DBB: legacy ip db:   discarded line     \'$line\'\n";
-            mypr
-"PASS_DBB:    -> object ip already found in   \'$LEG_IP_DB{$OBJ{IP}}->{SOURCE}->{LINE}\'\n";
+            mypr "PASS_DBB:    -> object ip already found in  " .
+		"\'$LEG_IP_DB{$OBJ{IP}}->{SOURCE}->{LINE}\'\n";
 
             #}
         }
@@ -299,14 +299,12 @@ sub build_db ($) {
         my $found;
         if ( exists $LEG_NAME_DB{ $entry->{NAME} } ) {
             $found = $LEG_NAME_DB{ $entry->{NAME} };
-            $found->{PASS} =
-              $entry->{PASS};    # use password from Cisco Works in legacy DB!
-            $found->{ENABLE_PASS} = $entry
-              ->{ENABLE_PASS};    # use password from Cisco Works in legacy DB!
-            $found->{LOCAL_USER} =
-              $entry->{LOCAL_USER};    # use user from Cisco Works in legacy DB!
-                                       # enhance
-                                       #$entry->{TYPE}  = $found->{TYPE};
+	    # use password from Cisco Works in legacy DB!
+            $found->{PASS} = $entry->{PASS};
+	    # use password from Cisco Works in legacy DB!
+            $found->{ENABLE_PASS} = $entry->{ENABLE_PASS};
+	    # use user from Cisco Works in legacy DB!
+            $found->{LOCAL_USER}  = $entry->{LOCAL_USER};
             $entry->{ALIAS} = $found->{ALIAS};
 
             # mark as used
@@ -315,22 +313,20 @@ sub build_db ($) {
         if ( exists $LEG_ALIAS_DB{ $entry->{NAME} } ) {
             if ( $found ) {
                 if ( $found ne $LEG_ALIAS_DB{ $entry->{NAME} } ) {
-                    mypr
-"PASS_DBB: while enhancing %NAME_HASH: name match \'$found->{SOURCE}->{LINE}\'\n";
-                    mypr
-"PASS_DBB:                            alias match \'$LEG_ALIAS_DB{$entry->{NAME}}->{SOURCE}->{LINE}\'\n";
+                    mypr "PASS_DBB: while enhancing %NAME_HASH: " .
+			"name match \'$found->{SOURCE}->{LINE}\'\n";
+                    mypr"PASS_DBB:          alias match \' " .
+			"$LEG_ALIAS_DB{$entry->{NAME}}->{SOURCE}->{LINE}\'\n";
                 }
             }
             else {
                 $found = $LEG_ALIAS_DB{ $entry->{NAME} };
-                $found->{PASS} =
-                  $entry->{PASS};  # use password from Cisco Works in legacy DB!
-                $found->{ENABLE_PASS} = $entry
-                  ->{ENABLE_PASS}; # use password from Cisco Works in legacy DB!
-                $found->{LOCAL_USER} = $entry
-                  ->{LOCAL_USER};    # use user from Cisco Works in legacy DB!
-                                     # enhance
-                                     #$entry->{TYPE}  = $found->{TYPE};
+		# use password from Cisco Works in legacy DB!
+                $found->{PASS} = $entry->{PASS};
+		# use password from Cisco Works in legacy DB!
+                $found->{ENABLE_PASS} = $entry->{ENABLE_PASS};
+		# use user from Cisco Works in legacy DB!
+                $found->{LOCAL_USER}  = $entry->{LOCAL_USER};
                 $entry->{ALIAS} = $entry->{NAME};
                 $entry->{NAME}  = $found->{NAME};
 
@@ -341,31 +337,29 @@ sub build_db ($) {
         if ( $entry->{IP} and exists $LEG_IP_DB{ $entry->{IP} } ) {
             if ( $found ) {
                 if ( $found ne $LEG_IP_DB{ $entry->{IP} } ) {
-                    errpr
-"while enhancing %NAME_HASH: name/alias match \'$found->{SOURCE}->{LINE}\'\n";
-                    errpr
-"                                    ip match \'$LEG_IP_DB{$entry->{IP}}->{SOURCE}->{LINE}\'\n";
+                    errpr "while enhancing %NAME_HASH: name/alias " .
+			"match \'$found->{SOURCE}->{LINE}\'\n";
+                    errpr "                                    ip match " .
+			"\'$LEG_IP_DB{$entry->{IP}}->{SOURCE}->{LINE}\'\n";
                 }
             }
             else {
                 $found = $LEG_IP_DB{ $entry->{IP} };
-                $found->{PASS} =
-                  $entry->{PASS};  # use password from Cisco Works in legacy DB!
-                $found->{ENABLE_PASS} = $entry
-                  ->{ENABLE_PASS}; # use password from Cisco Works in legacy DB!
-                $found->{LOCAL_USER} = $entry
-                  ->{LOCAL_USER};    # use user from Cisco Works in legacy DB!
-                                     # enhance
-                                     #$entry->{TYPE}  = $found->{TYPE};
+		# use password from Cisco Works in legacy DB!
+                $found->{PASS} = $entry->{PASS};
+		# use password from Cisco Works in legacy DB!
+                $found->{ENABLE_PASS} = $entry->{ENABLE_PASS};
+		# use user from Cisco Works in legacy DB!
+                $found->{LOCAL_USER} = $entry->{LOCAL_USER};
                 $entry->{ALIAS} = $found->{ALIAS};
 
                 # mark as used
                 $found->{USED} = 1;
                 unless ( $found->{PASS} eq $entry->{PASS} ) {
-                    mypr
-"PASS_DBB: while enhancing %NAME_HASH: match \'$entry->{SOURCE}->{LINE}\'\n";
-                    mypr
-"PASS_DBB:           through ip address with \'$found->{SOURCE}->{LINE}\'\n";
+                    mypr "PASS_DBB: while enhancing %NAME_HASH: " .
+			"match \'$entry->{SOURCE}->{LINE}\'\n";
+                    mypr "PASS_DBB:           through ip address " .
+			"with \'$found->{SOURCE}->{LINE}\'\n";
                 }
             }
         }
@@ -387,7 +381,9 @@ sub build_db ($) {
         #}
     }
 
-#mypr "legacy DB: ". (scalar (values %LEG_ALL_DB) - $used_entrys)." out of ".scalar (values %LEG_ALL_DB)." entries not covered by CiscoWorks DB\n";
+#mypr "legacy DB: ". (scalar (values %LEG_ALL_DB) - $used_entrys) . 
+#" out of ".scalar (values %LEG_ALL_DB)." entries not covered " .
+#"by CiscoWorks DB\n";
 
     $self->{DEVICEDATABASE} = {
         NAME_HASH   => \%NAME_HASH,
@@ -440,8 +436,8 @@ sub build_obj($$) {
         my $user = getpwuid( $> );
         if ( $user ne $self->{GLOBAL_CONFIG}->{SYSTEMUSER} ) {
             my $fh = $self->{STDOUT};
-            print $fh
-"Running in non privileged mode an no password in database found.\n";
+            print $fh "Running in non privileged mode an no " .
+		"password in database found.\n";
             print $fh "Password for $user?";
             system( 'stty', '-echo' );
             my $password = <STDIN>;
@@ -455,8 +451,8 @@ sub build_obj($$) {
 
             # no pasword in Database - use aaa_credentials
             open( AAA, $self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL} )
-              or die
-              "could not open $self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL} $!\n";
+              or die "could not open " .
+	      "$self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL} $!\n";
             my $credentials = <AAA>;
             $credentials =~ ( /^\s*(\S+)\s*(\S+)\s*$/ )
               or die "no aaa credential found\n";
@@ -498,10 +494,12 @@ sub load_epilog($) {
         $epilog = "$self->{GLOBAL_CONFIG}->{EPILOGPATH}$self->{JOBNAME}";
     }
     else {
-        die "no file for rawdata specified and standard raw DIR doesn't exist;";
+        die "no file for rawdata specified and standard raw " .
+	    "DIR doesn't exist;";
     }
     if ( -f $epilog ) {
-        open( EPI, "<$epilog" ) or die "could not open rawdata: $epilog\n$!\n";
+        open( EPI, "<$epilog" )
+	    or die "could not open rawdata: $epilog\n$!\n";
         @{ $self->{EPILOG} } = <EPI>;
         mypr "rawdata file ($epilog) for ", $self->{JOBNAME}, " has ",
           scalar @{ $self->{EPILOG} }, " lines\n";
@@ -595,7 +593,8 @@ sub logging($) {
     unless ( -f "$logfile" ) {
         ( open( STDOUT, "$appmode$logfile" ) )
           or die "could not open $logfile\n$!\n";
-        defined chmod 0644, "$logfile" or die " couldn't chmod $logfile\n$!\n";
+        defined chmod 0644, "$logfile"
+	    or die " couldn't chmod $logfile\n$!\n";
     }
     else {
         ( open( STDOUT, "$appmode$logfile" ) )
