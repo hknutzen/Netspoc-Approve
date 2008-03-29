@@ -104,17 +104,17 @@ sub issue_cmd( $$$ ) {
 
 sub cmd( $$ ) {
     my ($self, $cmd) = @_;
-    my $prompt = $self->{ENA_MODE} ? $$self{ENAPROMPT} : $$self{PROMPT};
+    my $prompt = $self->{ENA_MODE} ? $self->{ENAPROMPT} : $self->{PROMPT};
     my $out = $self->issue_cmd($cmd, $prompt) or return 0;
 
     # check for  errors
     # argument is ref to prematch from issue_cmd
-    return $self->cmd_check_error(\${$out}[0], $$self{TYPE});
+    return $self->cmd_check_error(\${$out}[0], $self->{TYPE});
 }
 
 sub shcmd( $$ ) {
     my ($self, $cmd) = @_;
-    my $prompt = $self->{ENA_MODE} ? $$self{ENAPROMPT} : $$self{PROMPT};
+    my $prompt = $self->{ENA_MODE} ? $self->{ENAPROMPT} : $self->{PROMPT};
     my $out = $self->issue_cmd($cmd, $prompt) or die "...giving up\n";
     return @$out;
 }
@@ -157,7 +157,7 @@ sub login_enabel( $ ) {
                   "RSA key for $self->{IP} permanently added to the list of known hosts\n";
                 $con->con_dump();
             }
-            $con->{PROMPT}  = $$self{PROMPT};
+            $con->{PROMPT}  = $self->{PROMPT};
             $con->{TIMEOUT} = $self->{telnet_timeout};
             $con->con_cmd("$pass\n") or $con->con_error();
             $con->con_dump();
@@ -175,7 +175,7 @@ sub login_enabel( $ ) {
             $con->con_issue_cmd("$user\n", "[Pp]assword:", $tmt)
               or $con->con_error();
             $con->con_dump();
-            $con->{PROMPT}  = $$self{PROMPT};
+            $con->{PROMPT}  = $self->{PROMPT};
             $con->{TIMEOUT} = $tmt;
             $con->con_cmd("$pass\n") or $con->con_error();
             $con->con_dump();
@@ -191,16 +191,16 @@ sub login_enabel( $ ) {
         $con->con_wait("$prm", $tmt) or $con->con_error();
         $con->con_dump();
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-        $con->{PROMPT}          = $$self{PROMPT};
+        $con->{PROMPT}          = $self->{PROMPT};
         $con->{TIMEOUT}         = $self->{telnet_timeout};
         $con->con_cmd("$pass\n") or $con->con_error();
         $con->con_dump();
     }
-    my $psave = $$self{PROMPT};
-    $$self{PROMPT} = qr/Password:/;
+    my $psave = $self->{PROMPT};
+    $self->{PROMPT} = qr/Password:/;
     $self->cmd('enable') or return 0;
-    $$self{PROMPT} = $psave;
-    $self->cmd($$self{PASS}) or return 0;
+    $self->{PROMPT} = $psave;
+    $self->cmd($self->{PASS}) or return 0;
     return 1;
 }
 
@@ -384,7 +384,7 @@ sub parse_spocfile ( $$$ ) {
         errpr "unexpected line: $line\n";
         return 0;
     }
-    if (!$$p{DEVICE}) {
+    if (!$p->{DEVICE}) {
         errpr "START tag not found or no device name specified in spocfile\n";
         return 0;
     }
