@@ -27,7 +27,7 @@ use SDBM_File;
 use IO::Socket ();
 
 use Netspoc::Approve::Helper;
-use Acltools;
+use Netspoc::Approve::Acltools;
 
 
 my $con;
@@ -751,7 +751,7 @@ sub pix_parse ( $$$ ) {
 
     # *** parse ***
 
-    my $pix_parser = Dprs->new(MODE => 'pix');
+    my $pix_parser = Netspoc::Approve::Dprs->new(MODE => 'pix');
     if ($self->{VERSION} =~ /7\./) {
         $pix_parser->pix7_write_term_config($p, \$conf_as_string);
     }
