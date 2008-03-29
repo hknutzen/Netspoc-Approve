@@ -27,30 +27,16 @@ use SDBM_File;
 use IO::Socket ();
 
 use Netspoc::Approve::Helper;
-use Ping;
 use Acltools;
 
-my $nob;
 
 my $con;
 
-#-------------- helper start
-##########################################
-# tie dbm file for migrate reporting data
-##########################################
-sub tie_migrep_dbm($) {
-    my $job      = shift;
-    my $filename = "$job->{GLOBAL_CONFIG}->{MIGSTATPATH}$job->{JOBNAME}";
-    umask 002;
-    tie(%{ $nob->{MIGRATE_STATUS} },
-        'SDBM_File', "$filename", O_RDWR | O_CREAT, 0666)
-      or die "Couldn't tie SDBM file \'$filename\': $!; aborting";
-}
 ##############################################################
 # issue command to nob
 ##############################################################
-sub cmd_check_error($$) {
-    my ($out, $type) = @_;
+sub cmd_check_error($$$) {
+    my ($self, $out, $type) = @_;
 
     # do ERROR if unexpected line appears
     if ($$out =~ /\n.*\n/m) {
@@ -105,8 +91,8 @@ sub cmd_check_error($$) {
     return 1;
 }
 
-sub issue_cmd( $$ ) {
-    my ($cmd, $prompt) = @_;
+sub issue_cmd( $$$ ) {
+    my ($self, $cmd, $prompt) = @_;
     my @output;
 
     $con->{PROMPT} = $prompt;
@@ -116,35 +102,36 @@ sub issue_cmd( $$ ) {
 
 }
 
-sub cmd( $ ) {
-    my ($cmd) = @_;
-    my $prompt = $nob->{ENA_MODE} ? $$nob{ENAPROMPT} : $$nob{PROMPT};
-    my $out = issue_cmd($cmd, $prompt) or return 0;
+sub cmd( $$ ) {
+    my ($self, $cmd) = @_;
+    my $prompt = $self->{ENA_MODE} ? $$self{ENAPROMPT} : $$self{PROMPT};
+    my $out = $self->issue_cmd($cmd, $prompt) or return 0;
 
     # check for  errors
     # argument is ref to prematch from issue_cmd
-    return cmd_check_error(\${$out}[0], $$nob{TYPE});
+    return $self->cmd_check_error(\${$out}[0], $$self{TYPE});
 }
 
-sub shcmd( $ ) {
-    my ($cmd) = @_;
-    my $prompt = $nob->{ENA_MODE} ? $$nob{ENAPROMPT} : $$nob{PROMPT};
-    my $out = issue_cmd($cmd, $prompt) or die "...giving up\n";
+sub shcmd( $$ ) {
+    my ($self, $cmd) = @_;
+    my $prompt = $self->{ENA_MODE} ? $$self{ENAPROMPT} : $$self{PROMPT};
+    my $out = $self->issue_cmd($cmd, $prompt) or die "...giving up\n";
     return @$out;
 }
 
-sub login_enabel() {
-    my $ip = $nob->{IP};
+sub login_enabel( $ ) {
+    my ($self) = @_;
+    my $ip = $self->{IP};
     my $user;
     my $pass;
 
-    if ($nob->{PASS} =~ /:/ or $nob->{LOCAL_USER}) {
-        if ($nob->{LOCAL_USER}) {
-            $pass = $nob->{PASS};
-            $user = $nob->{LOCAL_USER} or die "no user found\n";
+    if ($self->{PASS} =~ /:/ or $self->{LOCAL_USER}) {
+        if ($self->{LOCAL_USER}) {
+            $pass = $self->{PASS};
+            $user = $self->{LOCAL_USER} or die "no user found\n";
         }
         else {
-            ($user, $pass) = split(/:/, $nob->{PASS});
+            ($user, $pass) = split(/:/, $self->{PASS});
         }
         mypr "Username found\n";
         mypr "checking for SSH access at port 22\n";
@@ -158,37 +145,37 @@ sub login_enabel() {
             $con->{EXPECT}->spawn("ssh", ("-l", "$user", "$ip"))
               or die "Cannot spawn ssh: $!\n";
             my $prm = qr/password:|\(yes\/no\)\?/i;
-            my $tmt = $nob->{telnet_timeout};
+            my $tmt = $self->{telnet_timeout};
             $con->con_wait("$prm", $tmt) or $con->con_error();
             if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
                 $con->con_dump();
                 $con->{PROMPT}  = qr/password:/i;
-                $con->{TIMEOUT} = $nob->{telnet_timeout};
+                $con->{TIMEOUT} = $self->{telnet_timeout};
                 $con->con_cmd("yes\n") or $con->con_error();
                 mypr "\n";
                 warnpr
-                  "RSA key for $nob->{IP} permanently added to the list of known hosts\n";
+                  "RSA key for $self->{IP} permanently added to the list of known hosts\n";
                 $con->con_dump();
             }
-            $con->{PROMPT}  = $$nob{PROMPT};
-            $con->{TIMEOUT} = $nob->{telnet_timeout};
+            $con->{PROMPT}  = $$self{PROMPT};
+            $con->{TIMEOUT} = $self->{telnet_timeout};
             $con->con_cmd("$pass\n") or $con->con_error();
             $con->con_dump();
-            $nob->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+            $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
         }
         else {
             mypr "port 22 closed -  trying telnet for login\n";
             $con->{EXPECT}->spawn("telnet", ($ip))
               or die "Cannot spawn telnet: $!\n";
-            my $tmt = $nob->{telnet_timeout};
+            my $tmt = $self->{telnet_timeout};
             my $prm = "Username:";
             $con->con_wait("$prm", $tmt) or $con->con_error();
             $con->con_dump();
-            $nob->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+            $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
             $con->con_issue_cmd("$user\n", "[Pp]assword:", $tmt)
               or $con->con_error();
             $con->con_dump();
-            $con->{PROMPT}  = $$nob{PROMPT};
+            $con->{PROMPT}  = $$self{PROMPT};
             $con->{TIMEOUT} = $tmt;
             $con->con_cmd("$pass\n") or $con->con_error();
             $con->con_dump();
@@ -196,56 +183,56 @@ sub login_enabel() {
     }
     else {
         mypr "using simple TELNET for login\n";
-        $pass = $nob->{PASS};
+        $pass = $self->{PASS};
         $con->{EXPECT}->spawn("telnet", ($ip))
           or die "Cannot spawn telnet: $!\n";
         my $prm = "PIX passwd:|Password:";
-        my $tmt = $nob->{telnet_timeout};
+        my $tmt = $self->{telnet_timeout};
         $con->con_wait("$prm", $tmt) or $con->con_error();
         $con->con_dump();
-        $nob->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-        $con->{PROMPT}          = $$nob{PROMPT};
-        $con->{TIMEOUT}         = $nob->{telnet_timeout};
+        $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+        $con->{PROMPT}          = $$self{PROMPT};
+        $con->{TIMEOUT}         = $self->{telnet_timeout};
         $con->con_cmd("$pass\n") or $con->con_error();
         $con->con_dump();
     }
-    my $psave = $$nob{PROMPT};
-    $$nob{PROMPT} = qr/Password:/;
-    cmd('enable') or return 0;
-    $$nob{PROMPT} = $psave;
-    cmd($$nob{PASS}) or return 0;
+    my $psave = $$self{PROMPT};
+    $$self{PROMPT} = qr/Password:/;
+    $self->cmd('enable') or return 0;
+    $$self{PROMPT} = $psave;
+    $self->cmd($$self{PASS}) or return 0;
     return 1;
 }
 
 #
 #    *** some checking ***
 #
-sub checkidentity($) {
-    my ($name) = @_;
-    if ($name ne $nob->{NAME}) {
-        if ($nob->{ALIAS} ne 0) {
-            if ($name eq $nob->{ALIAS}) {
-                mypr "devicename matched by ALIAS \"$nob->{ALIAS}\"\n";
+sub checkidentity($$) {
+    my ($self, $name) = @_;
+    if ($name ne $self->{NAME}) {
+        if ($self->{ALIAS} ne 0) {
+            if ($name eq $self->{ALIAS}) {
+                mypr "devicename matched by ALIAS \"$self->{ALIAS}\"\n";
                 return 1;
             }
             else {
                 errpr
-                  "wrong device name: $name expected: $nob->{NAME} or ALIAS $nob->{ALIAS}\n ";
+                  "wrong device name: $name expected: $self->{NAME} or ALIAS $self->{ALIAS}\n ";
                 return 0;
             }
         }
         else {
             errpr
-              "wrong device name: $name expected: $nob->{NAME} (no ALIAS defined)\n ";
+              "wrong device name: $name expected: $self->{NAME} (no ALIAS defined)\n ";
             return 0;
         }
     }
     return 1;
 }
 
-sub checkinterfaces($$) {
+sub checkinterfaces($$$) {
+    my ($self, $devconf, $spocconf) = @_;
     mypr " === check for unknown or missconfigured interfaces at device ===\n";
-    my ($devconf, $spocconf) = @_;
     for my $intf (sort keys %{ $devconf->{IF} }) {
         next if ($devconf->{IF}->{$intf}->{SHUTDOWN} == 1);
         unless (exists $spocconf->{IF}->{$intf}) {
@@ -255,14 +242,15 @@ sub checkinterfaces($$) {
     mypr " === done ===\n";
 }
 
-sub checkbanner() {
-    if ($nob->{VERSION} < 6.3) {
-        mypr "banner checking disabled for $nob->{TYPE} $nob->{VERSION}\n";
+sub checkbanner($) {
+    my ($self) = @_;    
+    if ($self->{VERSION} < 6.3) {
+        mypr "banner checking disabled for $self->{TYPE} $self->{VERSION}\n";
     }
-    elsif ( $nob->{CHECKBANNER}
-        and $nob->{PRE_LOGIN_LINES} !~ /$nob->{CHECKBANNER}/)
+    elsif ( $self->{CHECKBANNER}
+        and $self->{PRE_LOGIN_LINES} !~ /$self->{CHECKBANNER}/)
     {
-        if ($nob->{APPROVE}) {
+        if ($self->{APPROVE}) {
             errpr "Missing banner at NetSPoC managed device.\n";
         }
         else {
@@ -273,19 +261,20 @@ sub checkbanner() {
 #######################################################
 # telnet login, check name and set convenient options
 #######################################################
-sub prepare() {
-    $nob->{PROMPT}    = qr/\n.*[\%\>\$\#]\s?$/;
-    $nob->{ENAPROMPT} = qr/\n.*#\s?$/;
-    $nob->{ENA_MODE}  = 0;
-    login_enabel() or exit -1;
+sub prepare($) {
+    my ($self) = @_; 
+    $self->{PROMPT}    = qr/\n.*[\%\>\$\#]\s?$/;
+    $self->{ENAPROMPT} = qr/\n.*#\s?$/;
+    $self->{ENA_MODE}  = 0;
+    $self->login_enabel() or exit -1;
     mypr "logged in\n";
-    $nob->{ENA_MODE} = 1;
-    my @output = shcmd('') or exit -1;
+    $self->{ENA_MODE} = 1;
+    my @output = $self->shcmd('') or exit -1;
     $output[1] =~ m/^\n\s?(\S+)\#\s?$/;
     my $name = $1;
 
-    unless ($nob->{CHECKHOST} eq 'no') {
-        checkidentity($name) or exit -1;
+    unless ($self->{CHECKHOST} eq 'no') {
+        $self->checkidentity($name) or exit -1;
     }
     else {
         mypr "hostname checking disabled!\n";
@@ -293,12 +282,12 @@ sub prepare() {
 
     # setting Enableprompt again for pix because of performance impact of
     # standard prompt
-    $nob->{ENAPROMPT} = qr/\x0d$name\S*#\s?$/;
+    $self->{ENAPROMPT} = qr/\x0d$name\S*#\s?$/;
 
     #
     # set/check  pager settings
     #
-    my @tmp = shcmd('sh pager');
+    my @tmp = $self->shcmd('sh pager');
     if ($tmp[0] !~ /no pager/) {
 
         # pix OS 7.x needs conf mode for setting this - because of IDS do
@@ -308,17 +297,17 @@ sub prepare() {
     mypr "---\n";
 
     # max. term width is 511 for pix 512 for ios
-    @tmp = shcmd('sh ver');
+    @tmp = $self->shcmd('sh ver');
     $tmp[0] =~ /Version +(\d+\.\d+)/i
       or die "fatal error: could not identify PIX Version from $tmp[0]\n";
-    $nob->{VERSION} = $1;
+    $self->{VERSION} = $1;
     $tmp[0] =~ /Hardware:\s+(\S+),/i
       or die "fatal error: could not identify PIX Version from $tmp[0]\n";
-    $nob->{HARDWARE} = $1;
-    @tmp = shcmd('sh term');
+    $self->{HARDWARE} = $1;
+    @tmp = $self->shcmd('sh term');
     if ($tmp[0] !~ /511/) {
 
-        if ($nob->{VERSION} eq "6.3" or $nob->{VERSION} =~ /7\./) {
+        if ($self->{VERSION} eq "6.3" or $self->{VERSION} =~ /7\./) {
 
             # only warn.  otherwise the generated configure message triggers IDS at night
             if ($tmp[0] =~ /idth\s+=\s+(\d+)/) {
@@ -330,21 +319,21 @@ sub prepare() {
             warnpr "terminal width should be 511\n";
         }
         else {
-            cmd('term width 511') or exit -1;
+            $self->cmd('term width 511') or exit -1;
         }
     }
-    @tmp = shcmd('sh fixup');
+    @tmp = $self->shcmd('sh fixup');
     if ($tmp[0] =~ /\n\s*fixup\s+protocol\s+smtp\s+25/) {
-        unless ($nob->{COMPARE}) {
-            cmd('configure terminal') or exit -1;
-            cmd('no fixup protocol smtp 25')
+        unless ($self->{COMPARE}) {
+            $self->cmd('configure terminal') or exit -1;
+            $self->cmd('no fixup protocol smtp 25')
               or exit -1;    # needed for enhanced smtp faetures
             mypr "fixup for protocol smtp at port 25 now disabled!\n";
-            cmd('quit') or exit -1;
+            $self->cmd('quit') or exit -1;
         }
     }
     mypr "-----------------------------------------------------------\n";
-    mypr " DINFO: $nob->{HARDWARE} $nob->{TYPE} $nob->{VERSION}\n";
+    mypr " DINFO: $self->{HARDWARE} $self->{TYPE} $self->{VERSION}\n";
     mypr "-----------------------------------------------------------\n";
 }
 #######################################################
@@ -358,8 +347,8 @@ my %spotags = (
     IGNORE  => [ q(^\s*$), '^\[ ACL \]', '^\[ Routing \]', '^\[ Static \]', ]
 );
 
-sub eat_shit ( $ ) {
-    my $l = shift;
+sub eat_shit ( $$ ) {
+    my($self, $l) = @_;
     if (   $l =~ /$spotags{START}/o
         or $l =~ /$spotags{MODEL}/o
         or $l =~ /$spotags{STOP}/o)
@@ -379,28 +368,19 @@ sub eat_shit ( $ ) {
 
 # parse START - payload - STOP from config payload
 sub parse_spocfile ( $$$ ) {
-    my ($p, $sfile, $type) = @_;
+    my ($self, $p, $sfile) = @_;
     $p->{DEVICE} = '';
     while (defined(my $line = shift @$sfile)) {
-        eat_shit($line) and next;
+        $self->eat_shit($line) and next;
         if ($line =~ /$spotags{START}/o) {
             $p->{DEVICE} = $1;
             next;
         }
         if ($line =~ /$spotags{MODEL}/o) {
             $p->{MODEL} = $1;
-            if ($type eq 'pix') {
-                pix_parse($p, $sfile);
-            }
-            else {
-                errpr "unexpected type $type\n";
-                return 0;
-            }
+	    pix_parse($p, $sfile);
             last;
         }
-        my $ttt = unpack("H*", "$line");
-
-        #errpr "unexpected line (hex): $ttt\n";
         errpr "unexpected line: $line\n";
         return 0;
     }
@@ -414,36 +394,36 @@ sub parse_spocfile ( $$$ ) {
     }
 
     # unified pixparser eats up all, so do not check for STOP Tag
-    if ($p->{DEVICE} ne $nob->{NAME}) {
-        if ($nob->{CHECK_DEVICE_IN_SPOCFILE} eq "yes") {
+    if ($p->{DEVICE} ne $self->{NAME}) {
+        if ($self->{CHECK_DEVICE_IN_SPOCFILE} eq "yes") {
             errpr
-              "wrong device name in spocfile - expected: $nob->{NAME} found: $p->{DEVICE}\n";
+              "wrong device name in spocfile - expected: $self->{NAME} found: $p->{DEVICE}\n";
             return 0;
         }
-        elsif ($nob->{CHECK_DEVICE_IN_SPOCFILE} eq "no") {
-            mypr "compare $nob->{NAME} and $p->{DEVICE}\n";
+        elsif ($self->{CHECK_DEVICE_IN_SPOCFILE} eq "no") {
+            mypr "compare $self->{NAME} and $p->{DEVICE}\n";
         }
         else {
             warnpr
-              "wrong device name in spocfile - expected: $nob->{NAME} found: $p->{DEVICE}\n";
-            $p->{DEVICE} = $nob->{NAME};
+              "wrong device name in spocfile - expected: $self->{NAME} found: $p->{DEVICE}\n";
+            $p->{DEVICE} = $self->{NAME};
 
         }
     }
     return 1;
 }
 
-sub get_parsed_config_from_device( $ ) {
-    my ($conf_hash) = @_;
+sub get_parsed_config_from_device( $$ ) {
+    my ($self, $conf_hash) = @_;
 
     # *** FETCH CONFIG ***
     my @out;
-    @out = shcmd('wr t') or exit -1;
+    @out = $self->shcmd('wr t') or exit -1;
     my @conf = split /(?=\n)/, $out[0];
     mypr "got config from device\n";
 
     # *** PARSE CONFIG ***
-    unless (pix_parse($conf_hash, \@conf)) {
+    unless ($self->pix_parse($conf_hash, \@conf)) {
         errpr "could not parse pix config\n";
         return 0;
     }
@@ -451,22 +431,21 @@ sub get_parsed_config_from_device( $ ) {
 }
 
 sub get_config_from_device( $ ) {
-    my $job = shift;
+    my($self) = @_;
     my ($conf_hash) = @_;
 
     # *** FETCH CONFIG ***
     my @out;
-    @out = shcmd('wr t') or exit -1;
+    @out = $self->shcmd('wr t') or exit -1;
     my @conf = split /(?=\n)/, $out[0];
-    $job->{DEVICECONFIG} = \@conf;
     mypr "got config from device\n";
+    return(\@conf);
 }
 ##############################################################
 # rawdata processing
 ##############################################################
-sub process_rawdata( $$$ ) {
-    my ($conf, $pspoc, $cnob) =
-      @_;    # $cnob holds the current_nob only different from $nob in filemode
+sub process_rawdata( $$$$ ) {
+    my ($self, $pspoc, $epilog) = @_;    
     my $epilogacl;
     my $spocacl;
     ### helper ###
@@ -480,10 +459,13 @@ sub process_rawdata( $$$ ) {
 
         # there is an epilog acl for this interface
         my $ep_name = $epi->{IF}->{$intf}->{ACCESS};
-        unless (exists $conf->{IF}->{$intf}) {
-            errpr "rawdata: interface not found on device: $intf\n";
-            exit -1;
-        }
+
+## It is sufficient to check for spoc-interface below.
+#
+#        unless (exists $conf->{IF}->{$intf}) {
+#            errpr "rawdata: interface not found on device: $intf\n";
+#            exit -1;
+#        }
 
         # the interface exists on the device
         my $sp_name;
@@ -505,21 +487,21 @@ sub process_rawdata( $$$ ) {
         $spocacl   = $pspoc->{ACCESS}->{$sp_name};
         return 1;
     };
-    $cnob->{MIGRATE_STATUS}->{"NO LINES"} = 0;
-    if (scalar @{ $cnob->{EPILOG} }) {
-        my $epilog_conf = $cnob->{RAWDATA} = {};
+#    $cnob->{MIGRATE_STATUS}->{"NO LINES"} = 0;
+    if (scalar @{ $epilog }) {
+        my $epilog_conf = {};
 
         # *** PARSE RAWDATA ***
         mypr " *** rawdata parsed by NEWPARSER - no MIGRATE in effect ***\n";
         $epilog_conf->{STD} = {};
-        pix_parse($epilog_conf->{STD}, $cnob->{EPILOG});
+        $self->pix_parse($epilog_conf->{STD}, $epilog);
         ######################################################################
         # *** STANDARD ***
         ######################################################################
         mypr "--- STANDARD raw processing\n";
         my $std = $epilog_conf->{STD};
         ### ACL PROCESSING STD ###
-        my $active_std_interfaces = '';
+#        my $active_std_interfaces = '';
         for my $intf (keys %{ $std->{IF} }) {
             mypr " interface: $intf\n";
             &$check($intf, $std) or next;
@@ -530,7 +512,7 @@ sub process_rawdata( $$$ ) {
                 for my $epi (@$epilogacl) {
                     if (acl_line_a_eq_b($epi, $spocacl->[$i])) {
                         warnpr "RAW: double ACE \'"
-                          . acl_line_to_string($cnob->{TYPE}, $spocacl->[$i])
+                          . $self->acl_line_to_string($spocacl->[$i])
                           . "\' scheduled for remove from spocacl.\n";
                         push @remove, $i;
                     }
@@ -543,12 +525,14 @@ sub process_rawdata( $$$ ) {
                 unshift @{$spocacl}, $$epilogacl[$i];
             }
             mypr "   entries prepended: " . scalar @{$epilogacl} . "\n";
-            $cnob->{IF}->{$intf}->{STD_ACCESS} = $epilogacl;
-            $cnob->{MIGRATE_STATUS}->{"STD ACL TRANS:: $intf"} =
-              scalar @{ $cnob->{IF}->{$intf}->{STD_ACCESS} };
-            $active_std_interfaces = $active_std_interfaces . " $intf";
+
+# Attribute STD_ACCESS isn't used anywere.
+#            $cnob->{IF}->{$intf}->{STD_ACCESS} = $epilogacl;
+#            $cnob->{MIGRATE_STATUS}->{"STD ACL TRANS:: $intf"} =
+#              scalar @{ $cnob->{IF}->{$intf}->{STD_ACCESS} };
+#            $active_std_interfaces = $active_std_interfaces . " $intf";
         }
-        $cnob->{MIGRATE_STATUS}->{"STD INTERFACES"} = $active_std_interfaces;
+#        $cnob->{MIGRATE_STATUS}->{"STD INTERFACES"} = $active_std_interfaces;
         ### ROUTE PROCESSING STD ###
         if (defined $pspoc->{ROUTING}) {
             my $newroutes = ();
@@ -557,7 +541,7 @@ sub process_rawdata( $$$ ) {
                 for my $re (@{ $std->{ROUTING} }) {
                     if (route_line_a_eq_b($se, $re)) {
                         warnpr "RAW: double RE \'"
-                          . route_line_to_string($cnob->{TYPE}, $re)
+                          . $self->route_line_to_string($re)
                           . "\' scheduled for remove from spocconf.\n";
                         next SPOC;
                     }
@@ -567,10 +551,10 @@ sub process_rawdata( $$$ ) {
                         warnpr
                           "RAW: inconsistent NEXT HOP in routing entries:\n";
                         warnpr "     spoc: "
-                          . route_line_to_string($cnob->{TYPE}, $se)
+                          . $self->route_line_to_string($se)
                           . " (scheduled for remove)\n";
                         warnpr "     raw:  "
-                          . route_line_to_string($cnob->{TYPE}, $re) . "\n";
+                          . $self->route_line_to_string($re) . "\n";
                         next SPOC;
                     }
                 }
@@ -582,9 +566,12 @@ sub process_rawdata( $$$ ) {
             push @{ $pspoc->{ROUTING} }, $re;
         }
         mypr " attached routing entries: " . scalar @{ $std->{ROUTING} } . "\n";
-        $cnob->{STD_ROUTING} = $std->{ROUTING};
+
+# Attribute STD_ROUTING isn't used anywere.
+#        $cnob->{STD_ROUTING} = $std->{ROUTING};
+
         ### STATIC PROCESSING ###
-        @{ $cnob->{STD_STATIC} } = ();
+        my @std_static = ();
         if ($std->{STATIC}) {
             my @remove = ();
             for my $s (@{ $std->{STATIC} }) {
@@ -615,18 +602,18 @@ sub process_rawdata( $$$ ) {
                         }
                     }
                 }
-                $covered or push @{ $cnob->{STD_STATIC} }, $s;
+                $covered or push @std_static, $s;
             }
             for my $r (reverse sort @remove) {
                 splice @{ $pspoc->{STATIC} }, $r, 1;
             }
             @{ $pspoc->{STATIC} } =
-              (@{ $pspoc->{STATIC} }, @{ $cnob->{STD_STATIC} }),
+              (@{ $pspoc->{STATIC} }, @std_static),
               mypr " attached static entries: "
-              . scalar @{ $cnob->{STD_STATIC} } . "\n";
+              . scalar @std_static . "\n";
         }
         ### GLOBAL PROCESSING ###
-        @{ $cnob->{STD_GLOBAL} } = ();
+        my @std_global = ();
         if ($std->{GLOBAL}) {
             for my $s (@{ $std->{GLOBAL} }) {
                 my $covered = 0;
@@ -639,15 +626,15 @@ sub process_rawdata( $$$ ) {
                         $covered = 1;
                     }
                 }
-                $covered or push @{ $cnob->{STD_GLOBAL} }, $s;
+                $covered or push @std_global, $s;
             }
             @{ $pspoc->{GLOBAL} } =
-              (@{ $pspoc->{GLOBAL} }, @{ $cnob->{STD_GLOBAL} }),
+              (@{ $pspoc->{GLOBAL} }, @std_global),
               mypr " attached global entries: "
-              . scalar @{ $cnob->{STD_GLOBAL} } . "\n";
+              . scalar @std_global . "\n";
         }
         ### NAT PROCESSING ###
-        @{ $cnob->{STD_NAT} } = ();
+        my @std_nat = ();
         if ($std->{NAT}) {
             for my $s (@{ $std->{NAT} }) {
                 my $covered = 0;
@@ -660,11 +647,11 @@ sub process_rawdata( $$$ ) {
                         $covered = 1;
                     }
                 }
-                $covered or push @{ $cnob->{STD_NAT} }, $s;
+                $covered or push @std_nat, $s;
             }
-            @{ $pspoc->{NAT} } = (@{ $pspoc->{NAT} }, @{ $cnob->{STD_NAT} }),
+            @{ $pspoc->{NAT} } = (@{ $pspoc->{NAT} }, @std_nat),
               mypr " attached nat entries: "
-              . scalar @{ $cnob->{STD_NAT} } . "\n";
+              . scalar @std_nat . "\n";
         }
 
     }
@@ -704,12 +691,12 @@ sub copy_structure {
     }
 }
 
-sub pix_expand_acl_entry($$$) {
 
-    #
-    # supports only object-group type 'network' !!
-    #
-    my ($ace, $parsed, $acl_name) = @_;
+#
+# supports only object-group type 'network' !!
+#
+sub pix_expand_acl_entry($$$$) {
+    my ($self, $ace, $parsed, $acl_name) = @_;
 
     my $groups = $parsed->{OBJECT_GROUP};
     my $replace;
@@ -755,9 +742,9 @@ sub pix_expand_acl_entry($$$) {
     return \@expanded;
 }
 
-sub pix_parse ( $$ ) {
+sub pix_parse ( $$$ ) {
 
-    my ($p, $conf) = @_;
+    my ($self, $p, $conf) = @_;
 
     # standard conf arg is an arry :(
     my $conf_as_string = join '', @{$conf};
@@ -765,7 +752,7 @@ sub pix_parse ( $$ ) {
     # *** parse ***
 
     my $pix_parser = Dprs->new(MODE => 'pix');
-    if ($nob->{VERSION} =~ /7\./) {
+    if ($self->{VERSION} =~ /7\./) {
         $pix_parser->pix7_write_term_config($p, \$conf_as_string);
     }
     else {
@@ -784,7 +771,7 @@ sub pix_parse ( $$ ) {
         for my $entry (@{ $p->{ACCESS_LIST}->{$acl_name}->{RAW_ARRAY} }) {
             next
               unless $entry->{MODE};   # filter out 'remark', 'compiled', etc...
-            my $e_acl = pix_expand_acl_entry($entry, $p, $acl_name);
+            my $e_acl = $self->pix_expand_acl_entry($entry, $p, $acl_name);
 
 #	    push @{$p->{ACCESS}->{$acl_name}},@$e_acl;
 #	    $acl_counter += scalar @$e_acl;
@@ -813,7 +800,7 @@ sub pix_parse ( $$ ) {
     }
 
     # interface and nameif
-    if ($nob->{VERSION} =~ /7\./) {
+    if ($self->{VERSION} =~ /7\./) {
 
         # bind ip address to IF_NAME
         for my $hw_id (sort keys %{ $p->{HWIF} }) {
@@ -929,8 +916,8 @@ sub pix_parse ( $$ ) {
     return 1;
 }
 
-sub pix_transfer_lines( $$$$ ) {
-    my ($printstring, $compare, $spoc_lines, $device_lines) = @_;
+sub pix_transfer_lines( $$$$$ ) {
+    my ($self, $printstring, $compare, $spoc_lines, $device_lines) = @_;
     my $counter;
     my $change = 0;
     mypr "compare device entries with netspoc:\n";
@@ -947,14 +934,14 @@ sub pix_transfer_lines( $$$$ ) {
         }
     }
     mypr "\n";
-    unless ($nob->{COMPARE}) {
+    unless ($self->{COMPARE}) {
         mypr "deleting non matching entries from device:\n";
         $counter = 0;
         for my $d (@{$device_lines}) {
             ($d->{DELETE}) and next;
             $counter++;
             my $tr = join ' ', "no", &$printstring($d);
-            cmd($tr) or exit -1;
+            $self->cmd($tr) or exit -1;
             mypr " $counter";
         }
         $counter and $change = 1;
@@ -964,7 +951,7 @@ sub pix_transfer_lines( $$$$ ) {
         for my $s (@{$spoc_lines}) {
             ($s->{DELETE}) and next;
             $counter++;
-            cmd(&$printstring($s)) or exit -1;
+            $self->cmd(&$printstring($s)) or exit -1;
             mypr " $counter";
         }
         $counter and $change = 1;
@@ -995,8 +982,8 @@ sub pix_transfer_lines( $$$$ ) {
     return $change;
 }
 
-sub pix_acls_textual_identical($$) {
-    my ($confacl, $spocacl) = @_;
+sub pix_acls_textual_identical($$$) {
+    my ($self, $confacl, $spocacl) = @_;
     mypr "check for textual identity\n";
     if (scalar @{$spocacl} == scalar @{$confacl}) {
         mypr " acls have equal lenght: ", scalar @{$spocacl}, "\n";
@@ -1023,9 +1010,9 @@ sub pix_acls_textual_identical($$) {
     }
 }
 
-sub pix_acls_semantical_indentical($$$) {
-    my ($confacl, $spocacl, $if) = @_;
-    unless ($nob->{COMPARE}) {
+sub pix_acls_semantical_indentical($$$$) {
+    my ($self, $confacl, $spocacl, $if) = @_;
+    unless ($self->{COMPARE}) {
         mypr "  do semantic compare - at interface $if:\n";
         if (
             acl_array_compare_a_in_b($spocacl, $confacl, 'pix', 4)    # 4 silent
@@ -1045,11 +1032,11 @@ sub pix_acls_semantical_indentical($$$) {
         # show compare results
         mypr "#### BEGIN NEW in OLD - interface $if\n";
         my $newinold =
-          acl_array_compare_a_in_b($spocacl, $confacl, 'pix', $nob->{CMPVAL});
+          acl_array_compare_a_in_b($spocacl, $confacl, 'pix', $self->{CMPVAL});
         mypr "#### END   NEW in OLD - interface $if\n";
         mypr "#### BEGIN OLD in NEW - interface $if\n";
         my $oldinnew =
-          acl_array_compare_a_in_b($confacl, $spocacl, 'pix', $nob->{CMPVAL});
+          acl_array_compare_a_in_b($confacl, $spocacl, 'pix', $self->{CMPVAL});
         mypr "#### END   OLD in NEW - interface $if\n";
         if ($newinold && $oldinnew) {
             mypr "#### ACLs equal for interface $if\n";
@@ -1063,121 +1050,112 @@ sub pix_acls_semantical_indentical($$$) {
     }
 }
 
-sub prepare_filemode($) {
-    my ($job, $nob2) = @_;
-    if ($nob->{TYPE} ne 'pix') {
-        die "got 1. device type $nob->{TYPE} expected: pix - aborted\n";
-    }
-    if ($nob2->{TYPE} ne 'pix') {
-        die "got 2. device type $nob->{TYPE} expected: pix - aborted\n";
-    }
-    my $pspoc = {};
-    my $conf  = {};
+sub prepare_filemode($$$) {
+    my ($self, $path1, $path2) = @_;
+    my $parsed1 = {};
+    my $parsed2 = {};
 
-    # compare two spocfiles!
-    if (!parse_spocfile($pspoc, $job->{SPOCFILE}, 'pix')) {
+    my $conf1 = $self->load_spocfile($path1);
+    my $epi1 = $self->load_epilog($self->get_epilog_name($path1));
+    my $conf2 = $self->load_spocfile($path2);
+    my $epi2 = $self->load_epilog($self->get_epilog_name($path2));
+    if (!$self->parse_spocfile($parsed1, $conf1)) {
         errpr "parse error\n";
         return 0;
     }
-    unless ($pspoc->{MODEL} eq "PIX") {
-        mypr "wrong MODEL $1 in parsed pix config\n";
+    unless ($parsed1->{MODEL} eq "PIX") {
+        mypr "wrong MODEL $parsed1->{MODEL} in parsed pix config\n";
         return 0;
     }
 
-    # tricky - use conf var for 2nd spocfile
-    if (!parse_spocfile($conf, $job->{DEVICECONFIG}, 'pix')) {
+    if (!$self->parse_spocfile($parsed2, $conf2)) {
         errpr "parse error\n";
         return 0;
     }
-    unless ($conf->{MODEL} eq "PIX") {
-        mypr "wrong MODEL $1 in parsed pix config\n";
+    unless ($parsed2->{MODEL} eq "PIX") {
+        mypr "wrong MODEL $parsed2->{MODEL} in parsed pix config\n";
         return 0;
     }
 
     #
     # *** merge EPILOG into SPOCCONFIG
     #
-    process_rawdata($conf,  $pspoc, $nob)  or return 0;
-    process_rawdata($pspoc, $conf,  $nob2) or return 0;
+    $self->process_rawdata($parsed1, $epi1)  or return 0;
+    $self->process_rawdata($parsed2, $epi2) or return 0;
 
-    $job->{PARSED_SPOCFILE}     = $pspoc;
-    $job->{PARSED_DEVICECONFIG} = $conf;
+    return($parsed1, $parsed2);
 }
 
-sub prepare_devicemode() {
-    my ($job) = @_;
-    if ($nob->{TYPE} ne 'pix') {
-        die "got device type $nob->{TYPE} expected: pix - aborted\n";
-    }
+sub prepare_devicemode( $$$ ) {
+    my ($self, $device_lines, $path) = @_;
     my $pspoc = {};
     my $conf  = {};
 
+    my $spoc_lines = $self->load_spocfile($path);
+    my $epilog_lines = $self->load_epilog($self->get_epilog_name($path));
+
     # *** PARSE SPOC CONFIG ***
-    if (!parse_spocfile($pspoc, $job->{SPOCFILE}, 'pix')) {
+    if (!$self->parse_spocfile($pspoc, $spoc_lines)) {
         errpr "parse error\n";
         return 0;
     }
     unless ($pspoc->{MODEL} eq "PIX") {
-        mypr "wrong MODEL $1 in parsed pix config\n";
+        mypr "wrong MODEL $pspoc->{MODEL} in parsed pix config\n";
         return 0;
     }
 
     # *** PARSE DEVICE CONFIG ***
-    unless (pix_parse($conf, $job->{DEVICECONFIG})) {
+    unless ($self->pix_parse($conf, $device_lines)) {
         errpr "could not parse pix config\n";
         return 0;
     }
 
     # *** check for unknown interfaces at device ***
-    checkinterfaces($conf, $pspoc);
+    $self->checkinterfaces($conf, $pspoc);
 
     #
     # *** merge EPILOG into SPOCCONFIG
     #
-    process_rawdata($conf, $pspoc, $nob) or return 0;
-    $job->{PARSED_SPOCFILE}     = $pspoc;
-    $job->{PARSED_DEVICECONFIG} = $conf;
+    $self->process_rawdata($pspoc, $epilog_lines) or return 0;
+    return($conf, $pspoc);
 }
 
 sub pixtrans () {
-    my $job = shift;
-
-    my %pspoc = %{ $job->{PARSED_SPOCFILE} };
-    my %conf  = %{ $job->{PARSED_DEVICECONFIG} };
+    my($self, $conf, $pspoc) = @_;
 
     # *** BEGIN TRANSFER ***
-    unless ($nob->{COMPARE}) {
-        cmd('configure terminal') or exit -1;
+    unless ($self->{COMPARE}) {
+        $self->cmd('configure terminal') or exit -1;
     }
 
     #
     # *** routing ***
     #
-    if ($pspoc{ROUTING} and scalar @{ $pspoc{ROUTING} }) {
+    if ($pspoc->{ROUTING} and scalar @{ $pspoc->{ROUTING} }) {
 
         #mypr "found:\n";
         my $counter;
-        if (exists $conf{ROUTING} && !scalar(@{ $conf{ROUTING} })) {
+        if (exists $conf->{ROUTING} && !scalar(@{ $conf->{ROUTING} })) {
             errpr "ERROR: no routing entries found on device\n";
             return 0;
         }
 
         # sort netspoc-generated routing entries (long masks first)
         my @route_sort =
-          sort { $b->{MASK} <=> $a->{MASK} } @{ $pspoc{ROUTING} };
-        $pspoc{ROUTING} = \@route_sort;
+          sort { $b->{MASK} <=> $a->{MASK} } @{ $pspoc->{ROUTING} };
+        $pspoc->{ROUTING} = \@route_sort;
         mypr "==== compare routing information ====\n\n";
-        mypr " routing entries on device:    ", scalar @{ $conf{ROUTING} },
+        mypr " routing entries on device:    ", scalar @{ $conf->{ROUTING} },
           "\n";
-        mypr " routing entries from netspoc: ", scalar @{ $pspoc{ROUTING} },
+        mypr " routing entries from netspoc: ", scalar @{ $pspoc->{ROUTING} },
           "\n";
-        for my $c (@{ $conf{ROUTING} }) {    # from device
+        for my $c (@{ $conf->{ROUTING} }) {    # from device
             $counter++;
 
-            #unless($nob->{COMPARE}){
+            #unless($self->{COMPARE}){
             #	mypr " $counter";
             #   }
-            for my $s (@{ $pspoc{ROUTING} }) {    # from netspoc
+            for my $s (@{ $pspoc->{ROUTING} }) {    # from netspoc
                                                   #($s) or next;
                 if (route_line_a_eq_b($c, $s)) {
                     $c->{DELETE} = $s->{DELETE} = 1;
@@ -1188,39 +1166,39 @@ sub pixtrans () {
             }
         }
         mypr "\n";
-        unless ($nob->{COMPARE}) {
+        unless ($self->{COMPARE}) {
             mypr "transfer routing entries to device:\n";
             $counter = 0;
-            for my $r (@{ $pspoc{ROUTING} }) {
+            for my $r (@{ $pspoc->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
 
                 # pix did not allow 2 entries for same destination
-                for my $c (@{ $conf{ROUTING} }) {
+                for my $c (@{ $conf->{ROUTING} }) {
                     ($c->{DELETE}) and next;
                     if (route_line_destination_a_eq_b($r, $c)) {
                         my $tr = join ' ', "no",
                           route_line_to_string('pix', $c);
-                        cmd($tr) or exit -1;
+                        $self->cmd($tr) or exit -1;
                         $c->{DELETE} = 1;    # could not deleted 2 times
                     }
                 }
-                cmd(route_line_to_string('pix', $r)) or exit -1;
+                $self->cmd(route_line_to_string('pix', $r)) or exit -1;
                 mypr " $counter";
             }
-            $counter and $nob->{ROUTE_CHANGE} = '*** routing changed ***';
+            $counter and $self->{ROUTE_CHANGE} = '*** routing changed ***';
             mypr " $counter";
             mypr "\n";
             mypr "deleting non matching routing entries from device:\n";
             $counter = 0;
-            for my $r (@{ $conf{ROUTING} }) {
+            for my $r (@{ $conf->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
                 my $tr = join ' ', "no", route_line_to_string('pix', $r);
-                cmd($tr) or exit -1;
+                $self->cmd($tr) or exit -1;
                 mypr " $counter";
             }
-            $counter and $nob->{ROUTE_CHANGE} = '*** routing changed ***';
+            $counter and $self->{ROUTE_CHANGE} = '*** routing changed ***';
             mypr " $counter";
             mypr "\n";
         }
@@ -1229,22 +1207,22 @@ sub pixtrans () {
             # show compare results
             mypr "additional routing entries from spoc:\n";
             $counter = 0;
-            for my $r (@{ $pspoc{ROUTING} }) {
+            for my $r (@{ $pspoc->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
                 mypr route_line_to_string('pix', $r), "\n";
             }
             mypr "total: $counter\n";
-            ($counter) and $nob->{ROUTE_CHANGE} = '*** routing changed ***';
+            ($counter) and $self->{ROUTE_CHANGE} = '*** routing changed ***';
             mypr "non matching routing entries on device:\n";
             $counter = 0;
-            for my $r (@{ $conf{ROUTING} }) {
+            for my $r (@{ $conf->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
                 mypr route_line_to_string('pix', $r), "\n";
             }
             mypr "total: $counter\n";
-            ($counter) and $nob->{ROUTE_CHANGE} = '*** routing changed ***';
+            ($counter) and $self->{ROUTE_CHANGE} = '*** routing changed ***';
         }
         mypr "==== done ====\n";
     }
@@ -1257,13 +1235,13 @@ sub pixtrans () {
     #
     my $get_acl_names_and_objects = sub {
         my ($intf)  = @_;
-        my $sa_name = $pspoc{IF}->{$intf}->{ACCESS};
-        my $spocacl = $pspoc{ACCESS}->{$sa_name};
+        my $sa_name = $pspoc->{IF}->{$intf}->{ACCESS};
+        my $spocacl = $pspoc->{ACCESS}->{$sa_name};
         my $ca_name =
-          (exists $conf{IF}->{$intf}->{ACCESS})
-          ? $conf{IF}->{$intf}->{ACCESS}
+          (exists $conf->{IF}->{$intf}->{ACCESS})
+          ? $conf->{IF}->{$intf}->{ACCESS}
           : '';
-        my $confacl = $ca_name ? $conf{ACCESS}->{$ca_name} : '';
+        my $confacl = $ca_name ? $conf->{ACCESS}->{$ca_name} : '';
         return ($confacl, $spocacl, $ca_name, $sa_name);
     };
 
@@ -1283,18 +1261,18 @@ sub pixtrans () {
     my $pix_mark_for_transfer;
     $pix_mark_for_transfer = sub {
         my ($acl_name) = @_;
-        ($pspoc{ACCESS_LIST}->{$acl_name}->{TRANSFER}) and return;
-        $pspoc{ACCESS_LIST}->{$acl_name}->{TRANSFER} = 1;
+        ($pspoc->{ACCESS_LIST}->{$acl_name}->{TRANSFER}) and return;
+        $pspoc->{ACCESS_LIST}->{$acl_name}->{TRANSFER} = 1;
         mypr "marked acl $acl_name for transfer\n";
         for my $gid (
-            keys %{ $pspoc{ACCESS_LIST}->{$acl_name}->{GROUP_REFERENCES} })
+            keys %{ $pspoc->{ACCESS_LIST}->{$acl_name}->{GROUP_REFERENCES} })
         {
-            unless ($pspoc{OBJECT_GROUP}->{$gid}->{TRANSFER}) {
-                $pspoc{OBJECT_GROUP}->{$gid}->{TRANSFER} = 1;
+            unless ($pspoc->{OBJECT_GROUP}->{$gid}->{TRANSFER}) {
+                $pspoc->{OBJECT_GROUP}->{$gid}->{TRANSFER} = 1;
                 print "marked group $gid for transfer\n";
             }
             for my $name (
-                keys %{ $pspoc{OBJECT_GROUP}->{$gid}->{ACL_REFERENCES} })
+                keys %{ $pspoc->{OBJECT_GROUP}->{$gid}->{ACL_REFERENCES} })
             {
                 &$pix_mark_for_transfer($name);
             }
@@ -1305,44 +1283,44 @@ sub pixtrans () {
 
         # non recursive!
         my ($acl_name) = @_;
-        ($conf{ACCESS_LIST}->{$acl_name}->{REMOVE})
+        ($conf->{ACCESS_LIST}->{$acl_name}->{REMOVE})
           and errpr "unexpected REMOVE mark\n";
-        $conf{ACCESS_LIST}->{$acl_name}->{REMOVE} = 1;
+        $conf->{ACCESS_LIST}->{$acl_name}->{REMOVE} = 1;
         mypr "marked acl $acl_name for remove\n";
         for my $gid (
-            keys %{ $conf{ACCESS_LIST}->{$acl_name}->{GROUP_REFERENCES} })
+            keys %{ $conf->{ACCESS_LIST}->{$acl_name}->{GROUP_REFERENCES} })
         {
-            next if ($conf{OBJECT_GROUP}->{$gid}->{REMOVE});
+            next if ($conf->{OBJECT_GROUP}->{$gid}->{REMOVE});
             my $remove_group = "OK";
             for
-              my $name (keys %{ $conf{OBJECT_GROUP}->{$gid}->{ACL_REFERENCES} })
+              my $name (keys %{ $conf->{OBJECT_GROUP}->{$gid}->{ACL_REFERENCES} })
             {
 
                 # only remove group from pix if all ACLs that reference
                 # this group are renewed by netspoc!
-                unless ($pspoc{ACCESS_LIST}->{$name}->{TRANSFER}) {
+                unless ($pspoc->{ACCESS_LIST}->{$name}->{TRANSFER}) {
                     $remove_group = "NO";
                     last;
                 }
             }
             if ($remove_group eq "OK") {
-                $conf{OBJECT_GROUP}->{$gid}->{REMOVE} = 1;
+                $conf->{OBJECT_GROUP}->{$gid}->{REMOVE} = 1;
                 mypr "marked group $gid for remove\n";
 
             }
         }
     };
-    unless (exists $pspoc{IF}) {
+    unless (exists $pspoc->{IF}) {
         warnpr " no interfaces specified - leaving access-lists untouched\n";
     }
     else {
         mypr "processing access-lists\n";
 
-        mypr keys %{ $pspoc{IF} };
+        mypr keys %{ $pspoc->{IF} };
         mypr "+++\n";
 
-        for my $intf (keys %{ $pspoc{IF} }) {
-            unless (exists $conf{IF}->{$intf}) {
+        for my $intf (keys %{ $pspoc->{IF} }) {
+            unless (exists $conf->{IF}->{$intf}) {
                 errpr
                   "netspoc configured interface \'$intf\' not found on device\n";
 
@@ -1353,26 +1331,26 @@ sub pixtrans () {
         }
 
         # detect diffs
-        if ($nob->{COMPARE}) {
-            for my $intf (keys %{ $pspoc{IF} }) {
+        if ($self->{COMPARE}) {
+            for my $intf (keys %{ $pspoc->{IF} }) {
                 mypr "interface $intf\n";
                 my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
                   &$get_acl_names_and_objects($intf);
 
                 if ($confacl_name && $confacl) {
                     unless (
-                        pix_acls_textual_identical($confacl, $spocacl)
-                        or pix_acls_semantical_indentical(
+                        $self->pix_acls_textual_identical($confacl, $spocacl)
+                        or $self->pix_acls_semantical_indentical(
                             $confacl, $spocacl, $intf
                         )
                       )
                     {
-                        $nob->{ACL_CHANGE} = '*** acls    changed ***';
+                        $self->{ACL_CHANGE} = '*** acls    changed ***';
                     }
                 }
                 else {
 
-                    $nob->{ACL_CHANGE} = '*** new acls!       ***';
+                    $self->{ACL_CHANGE} = '*** new acls!       ***';
                     mypr "#### OOPS:  $spocacl_name at interface $intf:\n";
                     mypr "#### OOPS:  no corresponding acl on device\n";
                 }
@@ -1382,73 +1360,73 @@ sub pixtrans () {
         else {
 
             # mark objects to transfer
-            for my $intf (keys %{ $pspoc{IF} }) {
+            for my $intf (keys %{ $pspoc->{IF} }) {
                 mypr "interface $intf\n";
                 my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
                   &$get_acl_names_and_objects($intf);
-                if ($pspoc{ACCESS_LIST}->{$spocacl_name}->{TRANSFER}) {
+                if ($pspoc->{ACCESS_LIST}->{$spocacl_name}->{TRANSFER}) {
                     mypr " ...already marked for transfer\n";
                     next;
                 }
                 if (!$confacl) {
                     warnpr "interface $intf no acl on device - new acl has ",
-                      scalar @{ $pspoc{ACCESS}->{$spocacl_name} }, " entries\n";
-                    $nob->{ACL_CHANGE} = 1;
+                      scalar @{ $pspoc->{ACCESS}->{$spocacl_name} }, " entries\n";
+                    $self->{ACL_CHANGE} = 1;
                     &$pix_mark_for_transfer($spocacl_name);
                 }
-                elsif (!pix_acls_textual_identical($confacl, $spocacl)
-                    && !pix_acls_semantical_indentical($confacl, $spocacl,
+                elsif (!$self->pix_acls_textual_identical($confacl, $spocacl)
+                    && !$self->pix_acls_semantical_indentical($confacl, $spocacl,
                         $intf))
                 {
 
                     # either there is no acl on $intf or the acl differs
                     # mark groups and interfaces recursive for transfer of spocacls
-                    $nob->{ACL_CHANGE} = 1;
+                    $self->{ACL_CHANGE} = 1;
                     &$pix_mark_for_transfer($spocacl_name);
                 }
-                elsif ($nob->{FORCE_TRANSFER}->{SWITCH}) {
+                elsif ($self->{FORCE_TRANSFER}) {
                     warnpr "Interface $intf: transfer of ACL forced!\n";
-                    $nob->{ACL_CHANGE} = 1;
+                    $self->{ACL_CHANGE} = 1;
                     &$pix_mark_for_transfer($spocacl_name);
                 }
                 mypr "-------------------------------------------------\n";
             }
 
             # mark objects to remove
-            for my $intf (keys %{ $pspoc{IF} }) {
+            for my $intf (keys %{ $pspoc->{IF} }) {
 
-                #next if($conf{IF}->{$intf}->{REMOVE}); # allready marked
+                #next if($conf->{IF}->{$intf}->{REMOVE}); # allready marked
                 my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
                   &$get_acl_names_and_objects($intf);
-                next unless ($pspoc{ACCESS_LIST}->{$spocacl_name}->{TRANSFER});
+                next unless ($pspoc->{ACCESS_LIST}->{$spocacl_name}->{TRANSFER});
                 next unless ($confacl);    # no ACL on device - nothing to mark
                 &$pix_mark_for_remove($confacl_name);
             }
 
             # generate names for transfer
-            for my $obj_id (keys %{ $pspoc{OBJECT_GROUP} }) {
-                next unless ($pspoc{OBJECT_GROUP}->{$obj_id}->{TRANSFER});
-                $pspoc{OBJECT_GROUP}->{$obj_id}->{TRANSFER_ID} =
-                  &$generate_names_for_transfer($obj_id, $conf{OBJECT_GROUP});
+            for my $obj_id (keys %{ $pspoc->{OBJECT_GROUP} }) {
+                next unless ($pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER});
+                $pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER_ID} =
+                  &$generate_names_for_transfer($obj_id, $conf->{OBJECT_GROUP});
             }
-            for my $obj_id (keys %{ $pspoc{ACCESS_LIST} }) {
-                next unless ($pspoc{ACCESS_LIST}->{$obj_id}->{TRANSFER});
-                $pspoc{ACCESS_LIST}->{$obj_id}->{TRANSFER_ID} =
-                  &$generate_names_for_transfer($obj_id, $conf{ACCESS_LIST});
+            for my $obj_id (keys %{ $pspoc->{ACCESS_LIST} }) {
+                next unless ($pspoc->{ACCESS_LIST}->{$obj_id}->{TRANSFER});
+                $pspoc->{ACCESS_LIST}->{$obj_id}->{TRANSFER_ID} =
+                  &$generate_names_for_transfer($obj_id, $conf->{ACCESS_LIST});
             }
             my $pix_printer = Dprs->new(MODE => 'pix', PRINT => 'yes');
 
             # transfer groups
             mypr "transfer object-groups to device\n";
-            for my $obj_id (keys %{ $pspoc{OBJECT_GROUP} }) {
-                next unless ($pspoc{OBJECT_GROUP}->{$obj_id}->{TRANSFER});
+            for my $obj_id (keys %{ $pspoc->{OBJECT_GROUP} }) {
+                next unless ($pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER});
                 mypr
-                  "object-group $pspoc{OBJECT_GROUP}->{$obj_id}->{TRANSFER_ID}\n";
-                my $copy = copy_structure($pspoc{OBJECT_GROUP}->{$obj_id});
+                  "object-group $pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER_ID}\n";
+                my $copy = copy_structure($pspoc->{OBJECT_GROUP}->{$obj_id});
 
                 # build transfer object group
                 my $group_obj =
-                  ({ $pspoc{OBJECT_GROUP}->{$obj_id}->{TRANSFER_ID} => $copy });
+                  ({ $pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER_ID} => $copy });
 
                 # generate commands
                 my $string;
@@ -1464,20 +1442,20 @@ sub pixtrans () {
                     }
                     else {
                         $DDH{$_} = 1;
-                        cmd($_) or exit -1;
+                        $self->cmd($_) or exit -1;
                     }
                 }
             }
 
             # transfer ACLs
             mypr "transfer access-lists to device\n";
-            for my $obj_id (keys %{ $pspoc{ACCESS_LIST} }) {
-                next unless ($pspoc{ACCESS_LIST}->{$obj_id}->{TRANSFER});
-                my $transfer_id = $pspoc{ACCESS_LIST}->{$obj_id}->{TRANSFER_ID};
+            for my $obj_id (keys %{ $pspoc->{ACCESS_LIST} }) {
+                next unless ($pspoc->{ACCESS_LIST}->{$obj_id}->{TRANSFER});
+                my $transfer_id = $pspoc->{ACCESS_LIST}->{$obj_id}->{TRANSFER_ID};
                 mypr "access-list $transfer_id\n";
                 my $counter = 0;
                 my $tr;
-                for my $ace (@{ $pspoc{ACCESS}->{$obj_id} }) {
+                for my $ace (@{ $pspoc->{ACCESS}->{$obj_id} }) {
                     if ($ace->{EXPANDED_FROM}) {
                         next if ($ace->{EXPANDED_FROM}->{COLLAPSED});
                         $ace->{EXPANDED_FROM}->{COLLAPSED} =
@@ -1487,12 +1465,12 @@ sub pixtrans () {
                         if ($new_ace->{PROTO}->{SRC}->{OBJECT_GROUP}) {
                             $gid = $new_ace->{PROTO}->{SRC}->{OBJECT_GROUP};
                             $new_ace->{PROTO}->{SRC}->{OBJECT_GROUP} =
-                              $pspoc{OBJECT_GROUP}->{$gid}->{TRANSFER_ID};
+                              $pspoc->{OBJECT_GROUP}->{$gid}->{TRANSFER_ID};
                         }
                         if ($new_ace->{PROTO}->{DST}->{OBJECT_GROUP}) {
                             $gid = $new_ace->{PROTO}->{DST}->{OBJECT_GROUP};
                             $new_ace->{PROTO}->{DST}->{OBJECT_GROUP} =
-                              $pspoc{OBJECT_GROUP}->{$gid}->{TRANSFER_ID};
+                              $pspoc->{OBJECT_GROUP}->{$gid}->{TRANSFER_ID};
                         }
                         $tr = join ' ', "access-list", $transfer_id,
                           acl_line_to_string('pix', $new_ace);
@@ -1501,7 +1479,7 @@ sub pixtrans () {
                         $tr = join ' ', "access-list", $transfer_id,
                           acl_line_to_string('pix', $ace);
                     }
-                    cmd($tr) or exit -1;
+                    $self->cmd($tr) or exit -1;
 
                     #mypr "$tr\n";
                     $counter++;
@@ -1510,37 +1488,37 @@ sub pixtrans () {
                 mypr "\n";
 
                 # assign list to interface
-                my $intf = $pspoc{ACCESS_GROUP}->{$obj_id}->{IF_NAME};
+                my $intf = $pspoc->{ACCESS_GROUP}->{$obj_id}->{IF_NAME};
                 mypr "access-group $transfer_id in interface $intf\n";
-                cmd("access-group $transfer_id in interface $intf") or exit -1;
+                $self->cmd("access-group $transfer_id in interface $intf") or exit -1;
             }
 
             # remove ACLs (first, because otherwise group remove would not work)
             mypr "remove spare acls from device\n";
-            for my $acl_name (keys %{ $conf{ACCESS_LIST} }) {
-                if (   $conf{ACCESS_LIST}->{$acl_name}->{REMOVE}
-                    or $conf{ACCESS_LIST}->{$acl_name}->{NO_REFERENCES})
+            for my $acl_name (keys %{ $conf->{ACCESS_LIST} }) {
+                if (   $conf->{ACCESS_LIST}->{$acl_name}->{REMOVE}
+                    or $conf->{ACCESS_LIST}->{$acl_name}->{NO_REFERENCES})
                 {
-                    if ($nob->{VERSION} =~ /7\./) {
+                    if ($self->{VERSION} =~ /7\./) {
                         mypr " clear configure access-list $acl_name\n";
-                        cmd("clear configure access-list $acl_name") or exit -1;
+                        $self->cmd("clear configure access-list $acl_name") or exit -1;
                     }
                     else {
                         mypr " no access-list $acl_name\n";
-                        cmd("no access-list $acl_name") or exit -1;
+                        $self->cmd("no access-list $acl_name") or exit -1;
                     }
                 }
             }
 
             # remove groups
             mypr "remove spare object-groups from device\n";
-            for my $gid (keys %{ $conf{OBJECT_GROUP} }) {
-                my $type = $conf{OBJECT_GROUP}->{$gid}->{TYPE};
-                if (!$conf{OBJECT_GROUP}->{$gid}->{ACL_REFERENCES}
-                    or $conf{OBJECT_GROUP}->{$gid}->{REMOVE})
+            for my $gid (keys %{ $conf->{OBJECT_GROUP} }) {
+                my $type = $conf->{OBJECT_GROUP}->{$gid}->{TYPE};
+                if (!$conf->{OBJECT_GROUP}->{$gid}->{ACL_REFERENCES}
+                    or $conf->{OBJECT_GROUP}->{$gid}->{REMOVE})
                 {
                     mypr " no object-group $type $gid\n";
-                    cmd("no object-group $type $gid") or exit -1;
+                    $self->cmd("no object-group $type $gid") or exit -1;
                 }
             }
 
@@ -1551,35 +1529,35 @@ sub pixtrans () {
     # *** static nat ***
     #
     mypr " === processing statics ===\n";
-    pix_transfer_lines(\&static_line_to_string, \&static_line_a_eq_b,
-        $pspoc{STATIC}, $conf{STATIC})
-      and $nob->{STAT_CHANGE} = '*** statics changed ***';
+    $self->pix_transfer_lines(\&static_line_to_string, \&static_line_a_eq_b,
+        $pspoc->{STATIC}, $conf->{STATIC})
+      and $self->{STAT_CHANGE} = '*** statics changed ***';
 
     #
     # *** global pools ***
     #
     mypr " === processing global pools ===\n";
-    pix_transfer_lines(\&pix_global_line_to_string, \&pix_global_line_a_eq_b,
-        $pspoc{GLOBAL}, $conf{GLOBAL})
-      and $nob->{GLOB_CHANGE} = '*** globals changed ***';
+    $self->pix_transfer_lines(\&pix_global_line_to_string, \&pix_global_line_a_eq_b,
+        $pspoc->{GLOBAL}, $conf->{GLOBAL})
+      and $self->{GLOB_CHANGE} = '*** globals changed ***';
 
     #
     # *** (dynamic) nat ***
     #
     mypr " === processing nat ===\n";
-    pix_transfer_lines(\&pix_nat_line_to_string, \&pix_nat_line_a_eq_b,
-        $pspoc{NAT}, $conf{NAT})
-      and $nob->{NAT_CHANGE} = '*** nat changed ***';
+    $self->pix_transfer_lines(\&pix_nat_line_to_string, \&pix_nat_line_a_eq_b,
+        $pspoc->{NAT}, $conf->{NAT})
+      and $self->{NAT_CHANGE} = '*** nat changed ***';
 
-    unless ($nob->{COMPARE}) {
-        if (   $nob->{ROUTE_CHANGE}
-            or $nob->{ACL_CHANGE}
-            or $nob->{STAT_CHANGE}
-            or $nob->{GLOB_CHANGE}
-            or $nob->{NAT_CHANGE})
+    unless ($self->{COMPARE}) {
+        if (   $self->{ROUTE_CHANGE}
+            or $self->{ACL_CHANGE}
+            or $self->{STAT_CHANGE}
+            or $self->{GLOB_CHANGE}
+            or $self->{NAT_CHANGE})
         {
             mypr "saving config to flash\n";
-            cmd('write memory') or exit -1;
+            $self->cmd('write memory') or exit -1;
             mypr "...done\n";
         }
         else {
@@ -1596,254 +1574,164 @@ sub pixtrans () {
 ##################################################################
 
 sub adaption($) {
-    my $self = shift;
+    my($self) = @_;
 
-    my $pixname = $self->get_pix_name();
+    $self->{telnet_timeout} = $self->{OPTS}->{t} || 300;
+    $self->{telnet_port}    = $self->{OPTS}->{T} || 23;
+    $self->{telnet_logs}    = $self->{OPTS}->{L} || undef;
 
-    $nob = $self->{DEVICES}->{$pixname};
+    $self->{CHECKHOST}   = $self->{GLOBAL_CONFIG}->{CHECKHOST};
+    $self->{CHECKBANNER} = $self->{GLOBAL_CONFIG}->{CHECKBANNER};
 
-    $nob->{telnet_timeout} = $self->{OPTS}->{t} ? $self->{OPTS}->{t} : 300;
-    $nob->{telnet_port}    = $self->{OPTS}->{T} ? $self->{OPTS}->{T} : 23;
-    $nob->{telnet_logs}    = $self->{OPTS}->{L} ? $self->{OPTS}->{L} : undef;
-
-    $nob->{CHECKHOST}   = $self->{GLOBAL_CONFIG}->{CHECKHOST};
-    $nob->{CHECKBANNER} = $self->{GLOBAL_CONFIG}->{CHECKBANNER};
-
-    $nob->{CHECK_DEVICE_IN_SPOCFILE} =
-      $self->{OPTS}->{h} ? $self->{OPTS}->{h} : "yes";
-    $nob->{FORCE_TRANSFER}->{SWITCH} = $self->{OPTS}->{F} ? 1 : 0;
-    $nob->{PRINT_STATUS} = $self->{OPTS}->{S} ? "yes" : "no";
-
-    $nob->{EPILOG} = $self->{EPILOG};
+    $self->{CHECK_DEVICE_IN_SPOCFILE} = $self->{OPTS}->{h} || "yes";
+    $self->{FORCE_TRANSFER} = $self->{OPTS}->{F};
+    $self->{PRINT_STATUS} = $self->{OPTS}->{S} ? "yes" : "no";
 }
 
-sub con_setup( $ ) {
-    my ($startup_message) = @_;
-    if ($nob->{telnet_logs}) {
-        my $logfile = "$nob->{telnet_logs}$nob->{NAME}.tel";
-        $con =
-          drc2_helper->new_console($nob, "telnet", $logfile, $startup_message);
-    }
-    else {
-        $con = drc2_helper->new_console($nob, "telnet", "", $startup_message);
-    }
+sub con_setup( $$ ) {
+    my ($self, $startup_message) = @_;
+    my $logfile =   $self->{telnet_logs} 
+                  ? "$self->{telnet_logs}$self->{NAME}.tel"
+		  : '';
+
+    # Set global variable.
+    $con =
+          drc2_helper->new_console($self, "telnet", $logfile, $startup_message);
 }
 
-sub con_shutdown( $ ) {
-    my ($shutdown_message) = @_;
+sub con_shutdown( $$ ) {
+    my ($self, $shutdown_message) = @_;
     $con->con_issue_cmd("exit\n", eof, 5);
     $con->shutdown_console("$shutdown_message");
 }
 
-sub get_pix_name($) {
-    my $job = shift;
-    if (scalar keys %{ $job->{DEVICES} } ne 1) {
-        die "drc2_pix module accepts only exactly 1 device!\n";
-    }
-    for my $name (keys %{ $job->{DEVICES} }) {
-        if ($name ne $job->{JOBNAME}) {
-            die "for pix devices the jobname must be equal to devicename!\n";
-        }
-        return $name;
-    }
-}
 ##################################################################
 #    methods
 ##################################################################
 
-sub AUTOLOAD {
-    my $job = shift;
-    our $AUTOLOAD;
-    return if $AUTOLOAD =~ /::DESTROY$/;
-    warnpr "Method $AUTOLOAD not implemented by $job->{JOBTYPE}\n";
+sub check_device( $ ) {
+    my($self)   = @_;
+    my $retries = $self->{OPTS}->{p} || 3;
+    return &checkping($self->{IP}, $retries);
 }
 
-# funktion is a quick hack to grant access to network objekt from outside
-sub get_nob() {
-    return \$nob;
-}
-
-sub check_device($) {
-    my $job    = shift;
-    my $retrys = $job->{OPTS}->{p} ? $job->{OPTS}->{p} : 3;
-    my $name   = $job->get_pix_name();
-    return &checkping($job->{DEVICES}->{$name}->{IP}, $retrys);
-}
-
-sub migrate_report($) {
-    my $job = shift;
-    mypr "migrate report not relevant to devices of "
-      . "type \'$job->{JOBTYPE}\'\n";
-}
-
-sub check_crypto($) {
-    my $job = shift;
+sub check_crypto( $ ) {
+    my($self) = @_;
     mypr "Sorry - Check Crypto Config not supported for devices of "
-      . "type \'$job->{JOBTYPE}\'\n";
+      . "type \'$self->{JOBTYPE}\'\n";
 }
 
-sub remote_execute() {
-    my $self = shift;
-    &adaption($self);
-    con_setup(
-        "STAR: execute user command at > " . scalar localtime() . " < ($id)");
-    prepare();
+sub remote_execute( $ ) {
+    my($self) = @_;
+    $self->adaption();
+    $self->con_setup(
+        "START: execute user command at > " . scalar localtime() . " < ($id)");
+    $self->prepare();
     $self->{OPTS}->{E} =~ s/\\n/\n/g;
-    for my $line (split /;/, $self->{OPTS}->{E}) {
-        my @output = shcmd($line) or exit -1;
+    for my $line (split /[;]/, $self->{OPTS}->{E}) {
+        my @output = $self->shcmd($line) or exit -1;
         mypr @output, "\n";
     }
     mypr "\n";
-    con_shutdown("STOP");
+    $self->con_shutdown("STOP");
 }
 
-sub check_acl() {
-    my $self = shift;
-    &adaption($self);
-    my $packet        = {};
-    my $packet_string = "permit $self->{OPTS}->{A}";
-    eval { parse_acl_line($nob->{TYPE}, $packet_string, $packet) };
-    if ($@) {
-        errpr $@;
-        exit -1;
-    }
-    $packet_string = acl_line_to_string($nob->{TYPE}, $packet);
-    mypr "check if \'$packet_string\' is permitted by $nob->{NAME}\n";
-    con_setup("START: Check if packet is permitted by device at > "
-          . scalar localtime()
-          . " < ($id)");
-    prepare();
-    my %conf;
-    get_parsed_config_from_device(\%conf) or die "could not get config\n";
+sub approve( $$ ) {
+    my($self, $spoc_path) = @_;
+    $self->adaption();
 
-    # check ace
-    if (exists $conf{IF}) {
-        for my $if (keys %{ $conf{IF} }) {
-            my $confacl =
-              (exists $conf{IF}->{$if}->{ACCESS})
-              ? $conf{IF}->{$if}->{ACCESS}
-              : '';
-            my $confacl_out =
-              (exists $conf{IF}->{$if}->{ACCESS_OUT})
-              ? $conf{IF}->{$if}->{ACCESS_OUT}
-              : '';
-            mypr "--- interface: $if\n";
-            if ($confacl && exists $conf{ACCESS}->{$confacl}) {
-                mypr "      in  acl: $confacl\n";
-                my $single_line = [$packet];
-                acl_array_compare_a_in_b($single_line,
-                    $conf{ACCESS}->{$confacl},
-                    $nob->{TYPE}, 2);
-            }
-            if ($confacl_out && exists $conf{ACCESS}->{$confacl_out}) {
-                mypr "      out acl: $confacl_out\n";
-                my $single_line = [$packet];
-                acl_array_compare_a_in_b($single_line,
-                    $conf{ACCESS}->{$confacl_out},
-                    $nob->{TYPE}, 2);
-            }
-        }
-    }
-    else {
-        die "no interfaces found\n";
-    }
-    con_shutdown("STOP");
-}
-
-sub approve() {
-    my $job = shift;
-    &adaption($job);
-    &tie_migrep_dbm($job);
-
-    # remeber approve mode
-    $nob->{APPROVE}       = 1;
-    $nob->{COMPARE}       = undef;
-    $nob->{ROUTE_CHANGE}  = $nob->{ACL_CHANGE} = $nob->{STAT_CHANGE} =
-      $nob->{GLOB_CHANGE} = $nob->{NAT_CHANGE} = 0;
+    # remember approve mode
+    $self->{APPROVE}       = 1;
+    $self->{COMPARE}       = undef;
+    $self->{ROUTE_CHANGE}  = $self->{ACL_CHANGE} = $self->{STAT_CHANGE} =
+      $self->{GLOB_CHANGE} = $self->{NAT_CHANGE} = 0;
 
     # set up console
-    con_setup("START: $job->{OPTS}->{P} (telnet) at > "
-          . scalar localtime()
-          . " < ($id)");
+    $self->con_setup("START: $self->{OPTS}->{P} (telnet) at > "
+		     . scalar localtime()
+		     . " < ($id)");
 
     # prepare device for configuration
-    prepare();
+    $self->prepare();
 
     # check if Netspoc message in device banner
-    checkbanner();
+    $self->checkbanner();
 
     # fetch device configuration
-    $job->get_config_from_device();
+    my $device_lines = $self->get_config_from_device();
 
     #
     # now do the main thing
     #
-    $job->prepare_devicemode() or errpr "devicemode prepare failed\n";
-    if ($job->pixtrans(0)) {
+    my ($device_conf, $spoc_conf) = 
+	$self->prepare_devicemode($device_lines, $spoc_path) 
+	or errpr "devicemode prepare failed\n";
+    if ($self->pixtrans($device_conf, $spoc_conf)) {
         mypr "approve done\n";
     }
     else {
         errpr "approve failed\n";
     }
-    con_shutdown("STOP: $job->{OPTS}->{P} (telnet) at > "
-          . scalar localtime()
-          . " < ($id)");
+    $self->con_shutdown("STOP: $self->{OPTS}->{P} (telnet) at > "
+			. scalar localtime()
+			. " < ($id)");
 }
 
-sub compare() {
-    my $job = shift;
-    &adaption($job);
-    &tie_migrep_dbm($job);
+sub compare( $$ ) {
+    my($self, $spoc_path) = @_;
+    $self->adaption();
 
     # save compare mode
-    $nob->{COMPARE}      = 1;
-    $nob->{CMPVAL}       = $job->{OPTS}->{C};
-    $nob->{ROUTE_CHANGE} = 'routing unchanged';
-    $nob->{ACL_CHANGE}   = 'acls unchanged';
-    $nob->{STAT_CHANGE}  = 'statics unchanged';
-    $nob->{GLOB_CHANGE}  = 'globals unchanged';
-    $nob->{NAT_CHANGE}   = 'nat unchanged';
+    $self->{COMPARE}      = 1;
+    $self->{CMPVAL}       = $self->{OPTS}->{C};
+    $self->{ROUTE_CHANGE} = 'routing unchanged';
+    $self->{ACL_CHANGE}   = 'acls unchanged';
+    $self->{STAT_CHANGE}  = 'statics unchanged';
+    $self->{GLOB_CHANGE}  = 'globals unchanged';
+    $self->{NAT_CHANGE}   = 'nat unchanged';
 
     # set up console
-    con_setup("START: $job->{OPTS}->{P} (telnet) at > "
-          . scalar localtime()
-          . " < ($id)");
+    $self->con_setup("START: $self->{OPTS}->{P} (telnet) at > "
+		     . scalar localtime()
+		     . " < ($id)");
 
     # prepare device for configuration
-    prepare();
+    $self->prepare();
 
     # check if Netspoc message in device banner
-    checkbanner();
+    $self->checkbanner();
 
     # fetch device configuration
-    $job->get_config_from_device();
+    my $device_lines = $self->get_config_from_device();
 
     #
     # now do the main thing
     #
-    $job->prepare_devicemode() or errpr "devicemode prepare failed\n";
-    if ($job->pixtrans()) {
+    my ($device_conf, $spoc_conf) = 
+	$self->prepare_devicemode($device_lines, $spoc_path) 
+	or errpr "devicemode prepare failed\n";
+    if ($self->pixtrans($device_conf, $spoc_conf)) {
         mypr "compare done\n";
     }
     else {
         errpr "compare failed\n";
     }
 
-    con_shutdown("STOP: $job->{OPTS}->{P} (telnet) at > "
-          . scalar localtime()
-          . " < ($id)");
-    mypr "comp: $job->{OPTS}->{P} ", scalar localtime, " ($id)\n";
-    mypr "comp: $job->{OPTS}->{P} $nob->{NAME} $nob->{ROUTE_CHANGE}\n";
-    mypr "comp: $job->{OPTS}->{P} $nob->{NAME} $nob->{ACL_CHANGE}\n";
-    mypr "comp: $job->{OPTS}->{P} $nob->{NAME} $nob->{STAT_CHANGE}\n";
-    mypr "comp: $job->{OPTS}->{P} $nob->{NAME} $nob->{GLOB_CHANGE}\n";
-    mypr "comp: $job->{OPTS}->{P} $nob->{NAME} $nob->{NAT_CHANGE}\n";
+    $self->con_shutdown("STOP: $self->{OPTS}->{P} (telnet) at > "
+			. scalar localtime()
+			. " < ($id)");
+    mypr "comp: $self->{OPTS}->{P} ", scalar localtime, " ($id)\n";
+    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{ROUTE_CHANGE}\n";
+    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{ACL_CHANGE}\n";
+    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{STAT_CHANGE}\n";
+    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{GLOB_CHANGE}\n";
+    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{NAT_CHANGE}\n";
 
-    if (   $nob->{ROUTE_CHANGE} ne 'routing unchanged'
-        or $nob->{ACL_CHANGE}  ne 'acls unchanged'
-        or $nob->{STAT_CHANGE} ne 'statics unchanged'
-        or $nob->{GLOB_CHANGE} ne 'globals unchanged'
-        or $nob->{NAT_CHANGE}  ne 'nat unchanged')
+    if (   $self->{ROUTE_CHANGE} ne 'routing unchanged'
+        or $self->{ACL_CHANGE}  ne 'acls unchanged'
+        or $self->{STAT_CHANGE} ne 'statics unchanged'
+        or $self->{GLOB_CHANGE} ne 'globals unchanged'
+        or $self->{NAT_CHANGE}  ne 'nat unchanged')
     {
         return 1;
     }
@@ -1854,55 +1742,44 @@ sub compare() {
     }
 }
 
-sub compare_files() {
-    my ($job, $job2) = @_;
-    &adaption($job);
+sub compare_files( $$$) {
+    my ($self, $path1, $path2) = @_;
+    &adaption($self);
 
     # save compare mode
-    $nob->{COMPARE} = 1;
+    $self->{COMPARE} = 1;
 
     # default compare is silent(4) mode
-    if (defined $job->{OPTS}->{C}) {
-        $nob->{CMPVAL} = $job->{OPTS}->{C};
-    }
-    else {
-        $nob->{CMPVAL} = 4;
-    }
-    $nob->{ROUTE_CHANGE} = 'routing unchanged';
-    $nob->{ACL_CHANGE}   = 'acls unchanged';
-    $nob->{STAT_CHANGE}  = 'statics unchanged';
-    $nob->{GLOB_CHANGE}  = 'globals unchanged';
-    $nob->{NAT_CHANGE}   = 'nat unchanged';
-    $job->{DEVICECONFIG} = $job2->{SPOCFILE};
+    $self->{CMPVAL} = $self->{OPTS}->{C} || 4;
 
-    #$nob->{CHECK_DEVICE_IN_SPOCFILE} = "no";
-    $nob->{VERSION} = "unknown";
-    my $pixname = $job2->get_pix_name();
+    $self->{ROUTE_CHANGE} = 'routing unchanged';
+    $self->{ACL_CHANGE}   = 'acls unchanged';
+    $self->{STAT_CHANGE}  = 'statics unchanged';
+    $self->{GLOB_CHANGE}  = 'globals unchanged';
+    $self->{NAT_CHANGE}   = 'nat unchanged';
+    $self->{VERSION}      = "unknown";
 
-    my $nob2 = $job2->{DEVICES}->{$pixname};
+    my ($conf1, $conf2) = $self->prepare_filemode($path1, $path2) 
+	or errpr "filemode prepare failed\n";
 
-    $nob2->{EPILOG} = $job2->{EPILOG};
-
-    $job->prepare_filemode($nob2) or errpr "filemode prepare failed\n";
-
-    if ($job->pixtrans()) {
+    if ($self->pixtrans($conf1, $conf2)) {
         mypr "compare done\n";
     }
     else {
         errpr "compare failed\n";
     }
     mypr "comp: ", scalar localtime, " ($id)\n";
-    mypr "comp: $nob->{NAME} $nob->{ROUTE_CHANGE}\n";
-    mypr "comp: $nob->{NAME} $nob->{ACL_CHANGE}\n";
-    mypr "comp: $nob->{NAME} $nob->{STAT_CHANGE}\n";
-    mypr "comp: $nob->{NAME} $nob->{GLOB_CHANGE}\n";
-    mypr "comp: $nob->{NAME} $nob->{NAT_CHANGE}\n";
+    mypr "comp: $self->{NAME} $self->{ROUTE_CHANGE}\n";
+    mypr "comp: $self->{NAME} $self->{ACL_CHANGE}\n";
+    mypr "comp: $self->{NAME} $self->{STAT_CHANGE}\n";
+    mypr "comp: $self->{NAME} $self->{GLOB_CHANGE}\n";
+    mypr "comp: $self->{NAME} $self->{NAT_CHANGE}\n";
 
-    if (   $nob->{ROUTE_CHANGE} ne 'routing unchanged'
-        or $nob->{ACL_CHANGE}  ne 'acls unchanged'
-        or $nob->{STAT_CHANGE} ne 'statics unchanged'
-        or $nob->{GLOB_CHANGE} ne 'globals unchanged'
-        or $nob->{NAT_CHANGE}  ne 'nat unchanged')
+    if (   $self->{ROUTE_CHANGE} ne 'routing unchanged'
+        or $self->{ACL_CHANGE}  ne 'acls unchanged'
+        or $self->{STAT_CHANGE} ne 'statics unchanged'
+        or $self->{GLOB_CHANGE} ne 'globals unchanged'
+        or $self->{NAT_CHANGE}  ne 'nat unchanged')
     {
         return 1;
     }
@@ -1912,7 +1789,6 @@ sub compare_files() {
         return 0;
     }
 }
-1;
 
 # Packages must return a true value;
 1;
