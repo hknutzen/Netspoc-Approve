@@ -148,7 +148,7 @@ sub build_db ($) {
             $OBJ{LOCAL_PASS},         # = 17; Name = Local password
             $OBJ{RCP_USER},           # = 18; Name = Rcp user
             $OBJ{RCP_PASS}            # = 19; Name = Rcp password
-        ) = split /,/, $line;
+        ) = split /[,]/, $line;
         unless ( exists $NAME_HASH{ $OBJ{NAME} } ) {
             $NAME_HASH{ $OBJ{NAME} }->{SOURCE}->{LINE} = $line;
             $NAME_HASH{ $OBJ{NAME} }->{NAME}           = $OBJ{NAME};
@@ -484,67 +484,54 @@ sub build_obj($$) {
     return ( $object->{NAME}, $object->{TYPE} );
 }
 
-sub load_epilog($) {
-    my $self = shift;
-    my $epilog;
-    if ( $self->{OPTS}->{G} ) {
-        $epilog = $self->{OPTS}->{G};
+sub load_spocfile($$){
+    my ($self, $path) = shift;
+    my @result;
+    # read (spoc) config    
+    if($path eq "STDIN"){
+	(open(NET,"<&STDIN")) or die "could not dup STDIN\n$!\n";
+	@result = <NET>;
+	close (NET);
     }
-    elsif ( -d $self->{GLOBAL_CONFIG}->{EPILOGPATH} ) {
-        $epilog = "$self->{GLOBAL_CONFIG}->{EPILOGPATH}$self->{JOBNAME}";
+    elsif(-f $path){  
+	(open(NET,$path)) or die "could not open spocfile: $path\n$!\n";
+	@result = <NET>;
+	close (NET);
     }
-    else {
-        die "no file for rawdata specified and standard raw " .
-	    "DIR doesn't exist;";
+    elsif(-f "${path}.gz"){
+	mypr "decompressing config file...";
+	@result = `gunzip -c "$path.gz"`;
+	$? and die "error running gunzip\n";
+	mypr "done.\n";
     }
-    if ( -f $epilog ) {
-        open( EPI, "<$epilog" )
-	    or die "could not open rawdata: $epilog\n$!\n";
-        @{ $self->{EPILOG} } = <EPI>;
-        mypr "rawdata file ($epilog) for ", $self->{JOBNAME}, " has ",
-          scalar @{ $self->{EPILOG} }, " lines\n";
-        close EPI;
+    else{
+	die "spocfile \'$path\' not found!\n";	
     }
-    elsif ( -f "${epilog}.gz" ) {
-        mypr "decompressing raw file...";
-        @{ $self->{EPILOG} } = `gunzip -c "${epilog}.gz"`;
-        $? and die "error running gunzip\n";
-        mypr "done.\n";
-    }
-    else {
-        @{ $self->{EPILOG} } = ();
-        mypr "no rawdata found...\n";
-    }
-    return scalar @{ $self->{EPILOG} };
+    mypr "config file ($path) for  ",$self->{JOBNAME}," has ", scalar @result," lines\n";
+    return \@result;
 }
 
-sub load_spocfile($) {
-    my $self = shift;
-
-    # read (spoc) config
-    if ( $self->{OPTS}->{N} eq "STDIN" ) {
-        ( open( NET, "<&STDIN" ) ) or die "could not dup STDIN\n$!\n";
-        @{ $self->{SPOCFILE} } = <NET>;
-        close( NET );
+sub load_epilog($$){
+    my ($self, $path) @_;
+    my @result;
+    if(-f $path){ 
+	open(EPI,"<$path") or die "could not open rawdata: $path\n$!\n";
+	@result = <EPI>;
+	close EPI;
+	mypr "rawdata file ($path) for ",
+	$self->{JOBNAME}," has ", scalar @result," lines\n";
     }
-    elsif ( -f $self->{OPTS}->{N} ) {
-        ( open( NET, $self->{OPTS}->{N} ) )
-          or die "could not open spocfile: $self->{OPTS}->{N}\n$!\n";
-        @{ $self->{SPOCFILE} } = <NET>;
-        close( NET );
+    elsif(-f "${epilog}.gz"){
+	mypr "decompressing raw file...";
+	@result = `gunzip -c "${epilog}.gz"`;
+	$? and die "error running gunzip\n";
+	mypr "done.\n";
     }
-    elsif ( -f "$self->{OPTS}->{N}.gz" ) {
-        mypr "decompressing config file...";
-        @{ $self->{SPOCFILE} } = `gunzip -c "$self->{OPTS}->{N}.gz"`;
-        $? and die "error running gunzip\n";
-        mypr "done.\n";
+    else{
+	@result = ();
+	mypr "no rawdata found...\n";
     }
-    else {
-        die "spocfile \'$self->{OPTS}->{N}\' not found!\n";
-    }
-    mypr "config file ($self->{OPTS}->{N}) for  ", $self->{JOBNAME}, " has ",
-      scalar @{ $self->{SPOCFILE} }, " lines\n";
-    return scalar @{ $self->{SPOCFILE} };
+    return \@result
 }
 
 sub logging($) {
