@@ -27,7 +27,7 @@ use Fcntl qw/:flock/;    # import LOCK_* constants
 
 use File::Basename;
 
-use drc2_helper;
+use Netspoc::Approve::Helper;
 
 ############################################################
 # --- constructor ---
@@ -485,7 +485,7 @@ sub build_obj($$) {
 }
 
 sub load_spocfile($$){
-    my ($self, $path) = shift;
+    my ($self, $path) = @_;
     my @result;
     # read (spoc) config    
     if($path eq "STDIN"){
@@ -512,7 +512,7 @@ sub load_spocfile($$){
 }
 
 sub load_epilog($$){
-    my ($self, $path) @_;
+    my ($self, $path) = @_;
     my @result;
     if(-f $path){ 
 	open(EPI,"<$path") or die "could not open rawdata: $path\n$!\n";
@@ -521,9 +521,9 @@ sub load_epilog($$){
 	mypr "rawdata file ($path) for ",
 	$self->{JOBNAME}," has ", scalar @result," lines\n";
     }
-    elsif(-f "${epilog}.gz"){
+    elsif(-f "${path}.gz"){
 	mypr "decompressing raw file...";
-	@result = `gunzip -c "${epilog}.gz"`;
+	@result = `gunzip -c "${path}.gz"`;
 	$? and die "error running gunzip\n";
 	mypr "done.\n";
     }
