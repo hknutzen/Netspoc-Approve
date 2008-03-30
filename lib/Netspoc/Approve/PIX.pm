@@ -27,16 +27,73 @@ use SDBM_File;
 use IO::Socket ();
 
 use Netspoc::Approve::Helper;
-use Netspoc::Approve::Acltools;
-
 
 my $con;
 
+#
+# pix parser up to 6.3
+#
+sub write_term_config($$$){
+    my ($self, $ah, $al) = @_;
+    $self->{func} = \&write_term_config;
+    if($self->{PRINT} eq 'yes'){
+	$$al = "";
+	$self->parse_old_interface($ah->{HWIF},$al);
+	$self->parse_nameif($ah->{HWIF},$al);
+	$self->parse_object_group($ah->{OBJECT_GROUP},$al); 
+	$self->parse_write_term_acl($ah->{ACCESS_LIST},$al);
+	$self->parse_ip_address($ah->{IP},$al);
+	$self->parse_global_lines($ah->{GLOBAL},$al);
+	$self->parse_nat_lines($ah->{NAT},$al);
+	$self->parse_static_lines($ah->{STATIC},$al);	
+	$self->parse_access_group($ah->{ACCESS_GROUP},$al);
+	$self->parse_route_lines($ah->{ROUTING},$al);
+	$self->parse_crypto($ah->{CRYPTO},$al);
+    }
+    else{
+	if($self->{func} eq \&write_term_config){
+	    pos($$al) = 0;
+	    $self->{RESULT} = $ah; # needed in parse_error()
+	}
+	$ah->{HWIF} = {};
+	$ah->{ACCESS_LIST} = {}; # old implementation: 'ACCESS'
+	$ah->{OBJECT_GROUP} = {};
+	$ah->{IP} = {};
+	$ah->{GLOBAL} = [];
+	$ah->{NAT} = [];
+	$ah->{STATIC} = [];
+	$ah->{ACCESS_GROUP} = {};
+	$ah->{ROUTING} = [];
+	$ah->{CRYPTO} = {};
+	while(
+	      $self->parse_old_interface($ah->{HWIF},$al) ||
+	      $self->parse_nameif($ah->{HWIF},$al) ||
+	      $self->parse_object_group($ah->{OBJECT_GROUP},$al) ||
+	      $self->parse_write_term_acl($ah->{ACCESS_LIST},$al) ||
+	      $self->parse_ip_address($ah->{IP},$al) ||
+	      $self->parse_global_lines($ah->{GLOBAL},$al) ||
+	      $self->parse_nat_lines($ah->{NAT},$al) ||
+	      $self->parse_static_lines($ah->{STATIC},$al) ||
+	      $self->parse_access_group($ah->{ACCESS_GROUP},$al) ||
+	      $self->parse_route_lines($ah->{ROUTING},$al) ||
+	      $self->parse_crypto($ah->{CRYPTO},$al) ||
+	      $self->parse_dummy_lines($ah,$al)
+	      )
+	{  
+	    #my $p = pos($$al);
+	    #$$al =~ /\G(\n*|.*)$ts/cgxo;
+	    #print "--> $p $1 <--\n";
+	    #print ".";
+	    #pos($$al) = $p;
+	}
+    }
+}
+
 ##############################################################
-# issue command to nob
+# issue command
 ##############################################################
 sub cmd_check_error($$$) {
-    my ($self, $out, $type) = @_;
+    my ($self, $out) = @_;
 
     # do ERROR if unexpected line appears
     if ($$out =~ /\n.*\n/m) {
@@ -109,7 +166,7 @@ sub cmd( $$ ) {
 
     # check for  errors
     # argument is ref to prematch from issue_cmd
-    return $self->cmd_check_error(\${$out}[0], $self->{TYPE});
+    return $self->cmd_check_error(\${$out}[0]);
 }
 
 sub shcmd( $$ ) {
@@ -510,7 +567,7 @@ sub process_rawdata( $$$$ ) {
             my @remove = ();
             for (my $i = 0 ; $i < scalar @$spocacl ; $i++) {
                 for my $epi (@$epilogacl) {
-                    if (acl_line_a_eq_b($epi, $spocacl->[$i])) {
+                    if ($self->acl_line_a_eq_b($epi, $spocacl->[$i])) {
                         warnpr "RAW: double ACE \'"
                           . $self->acl_line_to_string($spocacl->[$i])
                           . "\' scheduled for remove from spocacl.\n";
@@ -579,24 +636,24 @@ sub process_rawdata( $$$$ ) {
                 for (my $i = 0 ; $i < scalar @{ $pspoc->{STATIC} } ; $i++) {
                     my $spoc  = $pspoc->{STATIC}[$i];
                     my $match = 0;
-                    if (static_line_a_eq_b($spoc, $s)) {
+                    if ($self->static_line_a_eq_b($spoc, $s)) {
                         warnpr "RAW: static coverd by: \'",
-                          static_line_to_string($s),
+                          $self->static_line_to_string($s),
                           "\' - RAW static discarded!\n";
                         $covered = 1;
                     }
-                    elsif ($match = static_global_local_match_a_b($spoc, $s)) {
+                    elsif ($match = $self->static_global_local_match_a_b($spoc, $s)) {
                         unless ($match == 3) {
                             mypr "RAW: spoc static \'",
-                              static_line_to_string($spoc), " replaced by \'",
-                              static_line_to_string($s),    "\'\n";
+                              $self->static_line_to_string($spoc), " replaced by \'",
+                              $self->static_line_to_string($s),    "\'\n";
                             push @remove, $i;
                         }
                         else {
                             warnpr "RAW: weired match RAW: \'",
-                              static_line_to_string($s), "\'\n";
+                              $self->static_line_to_string($s), "\'\n";
                             warnpr "RAW: weired match SPOC: \'",
-                              static_line_to_string($spoc), "\'\n";
+                              $self->static_line_to_string($spoc), "\'\n";
                             warnpr "RAW: static discarded!\n";
                             $covered = 1;
                         }
@@ -620,9 +677,9 @@ sub process_rawdata( $$$$ ) {
                 for (my $i = 0 ; $i < scalar @{ $pspoc->{GLOBAL} } ; $i++) {
                     my $spoc  = $pspoc->{GLOBAL}[$i];
                     my $match = 0;
-                    if (pix_global_line_a_eq_b($spoc, $s)) {
+                    if ($self->pix_global_line_a_eq_b($spoc, $s)) {
                         warnpr "raw global coverd by: \'",
-                          pix_global_line_to_string($s), "\'\n";
+                          $self->pix_global_line_to_string($s), "\'\n";
                         $covered = 1;
                     }
                 }
@@ -641,9 +698,9 @@ sub process_rawdata( $$$$ ) {
                 for (my $i = 0 ; $i < scalar @{ $pspoc->{NAT} } ; $i++) {
                     my $spoc  = $pspoc->{NAT}[$i];
                     my $match = 0;
-                    if (pix_nat_line_a_eq_b($spoc, $s)) {
+                    if ($self->pix_nat_line_a_eq_b($spoc, $s)) {
                         warnpr "raw nat coverd by: \'",
-                          pix_nat_line_to_string($s), "\'\n";
+                          $self->pix_nat_line_to_string($s), "\'\n";
                         $covered = 1;
                     }
                 }
@@ -750,14 +807,7 @@ sub pix_parse ( $$$ ) {
     my $conf_as_string = join '', @{$conf};
 
     # *** parse ***
-
-    my $pix_parser = Netspoc::Approve::Dprs->new(MODE => 'pix');
-    if ($self->{VERSION} =~ /7\./) {
-        $pix_parser->pix7_write_term_config($p, \$conf_as_string);
-    }
-    else {
-        $pix_parser->pix_write_term_config($p, \$conf_as_string);
-    }
+    $self->write_term_config($p, \$conf_as_string);
 
     #
     # *** postprocess ***
@@ -776,7 +826,7 @@ sub pix_parse ( $$$ ) {
 #	    push @{$p->{ACCESS}->{$acl_name}},@$e_acl;
 #	    $acl_counter += scalar @$e_acl;
             for my $e_entry (@$e_acl) {
-                my $aclstrg = acl_line_to_string('pix', $e_entry);
+                my $aclstrg = $self->acl_line_to_string($e_entry);
                 unless (exists $temp{$aclstrg}) {
                     push @{ $p->{ACCESS}->{$acl_name} }, $e_entry;
                     $temp{$aclstrg} = 1;
@@ -927,7 +977,7 @@ sub pix_transfer_lines( $$$$$ ) {
         mypr " $counter";
         for my $s (@{$spoc_lines}) {    # from netspoc
                                         #($s) or next;
-            if (&$compare($d, $s)) {
+            if ($self->$compare($d, $s)) {
                 $d->{DELETE} = $s->{DELETE} = 1;
                 last;
             }
@@ -940,7 +990,7 @@ sub pix_transfer_lines( $$$$$ ) {
         for my $d (@{$device_lines}) {
             ($d->{DELETE}) and next;
             $counter++;
-            my $tr = join ' ', "no", &$printstring($d);
+            my $tr = join ' ', "no", $self->$printstring($d);
             $self->cmd($tr) or exit -1;
             mypr " $counter";
         }
@@ -951,7 +1001,7 @@ sub pix_transfer_lines( $$$$$ ) {
         for my $s (@{$spoc_lines}) {
             ($s->{DELETE}) and next;
             $counter++;
-            $self->cmd(&$printstring($s)) or exit -1;
+            $self->cmd($self->$printstring($s)) or exit -1;
             mypr " $counter";
         }
         $counter and $change = 1;
@@ -965,7 +1015,7 @@ sub pix_transfer_lines( $$$$$ ) {
         for my $d (@{$device_lines}) {
             ($d->{DELETE}) and next;
             $counter++;
-            mypr &$printstring($d) . "\n";
+            mypr $self->$printstring($d) . "\n";
         }
         mypr "total: " . $counter, "\n";
         ($counter) and $change = 1;
@@ -974,7 +1024,7 @@ sub pix_transfer_lines( $$$$$ ) {
         for my $s (@{$spoc_lines}) {
             ($s->{DELETE}) and next;
             $counter++;
-            mypr &$printstring($s), "\n";
+            mypr $self->$printstring($s), "\n";
         }
         mypr "total: ", $counter, "\n";
         ($counter) and $change = 1;
@@ -991,7 +1041,7 @@ sub pix_acls_textual_identical($$$) {
         for (my $i = 0 ; $i < scalar @{$spocacl} ; $i++) {
 
             #mypr " $i";
-            if (acl_line_a_eq_b($$spocacl[$i], $$confacl[$i])) {
+            if ($self->acl_line_a_eq_b($$spocacl[$i], $$confacl[$i])) {
                 next;
             }
             else {
@@ -1015,8 +1065,8 @@ sub pix_acls_semantical_indentical($$$$) {
     unless ($self->{COMPARE}) {
         mypr "  do semantic compare - at interface $if:\n";
         if (
-            acl_array_compare_a_in_b($spocacl, $confacl, 'pix', 4)    # 4 silent
-            && acl_array_compare_a_in_b($confacl, $spocacl, 'pix', 4)
+            $self->acl_array_compare_a_in_b($spocacl, $confacl, 4)    # 4 silent
+            && $self->acl_array_compare_a_in_b($confacl, $spocacl, 4)
           )
         {
             mypr "   -> interface $if: acls identical\n";
@@ -1032,11 +1082,11 @@ sub pix_acls_semantical_indentical($$$$) {
         # show compare results
         mypr "#### BEGIN NEW in OLD - interface $if\n";
         my $newinold =
-          acl_array_compare_a_in_b($spocacl, $confacl, 'pix', $self->{CMPVAL});
+          $self->acl_array_compare_a_in_b($spocacl, $confacl, $self->{CMPVAL});
         mypr "#### END   NEW in OLD - interface $if\n";
         mypr "#### BEGIN OLD in NEW - interface $if\n";
         my $oldinnew =
-          acl_array_compare_a_in_b($confacl, $spocacl, 'pix', $self->{CMPVAL});
+          $self->acl_array_compare_a_in_b($confacl, $spocacl, $self->{CMPVAL});
         mypr "#### END   OLD in NEW - interface $if\n";
         if ($newinold && $oldinnew) {
             mypr "#### ACLs equal for interface $if\n";
@@ -1063,17 +1113,13 @@ sub prepare_filemode($$$) {
         errpr "parse error\n";
         return 0;
     }
-    unless ($parsed1->{MODEL} eq "PIX") {
-        mypr "wrong MODEL $parsed1->{MODEL} in parsed pix config\n";
-        return 0;
-    }
-
     if (!$self->parse_spocfile($parsed2, $conf2)) {
         errpr "parse error\n";
         return 0;
     }
-    unless ($parsed2->{MODEL} eq "PIX") {
-        mypr "wrong MODEL $parsed2->{MODEL} in parsed pix config\n";
+    unless (not $parsed1->{MODEL} eq $parsed2->{MODEL}) {
+        mypr "MODELs must be equal in parsed spoc config:",
+	" $parsed1->{MODEL}, $parsed2->{MODEL}\n";
         return 0;
     }
 
@@ -1099,14 +1145,16 @@ sub prepare_devicemode( $$$ ) {
         errpr "parse error\n";
         return 0;
     }
-    unless ($pspoc->{MODEL} eq "PIX") {
-        mypr "wrong MODEL $pspoc->{MODEL} in parsed pix config\n";
+
+    # *** PARSE DEVICE CONFIG ***
+    if (not $self->pix_parse($conf, $device_lines)) {
+        errpr "could not parse device config\n";
         return 0;
     }
 
-    # *** PARSE DEVICE CONFIG ***
-    unless ($self->pix_parse($conf, $device_lines)) {
-        errpr "could not parse pix config\n";
+    if (not lc $pspoc->{MODEL} eq $self->{TYPE}) {
+        mypr "MODEL ($pspoc->{MODEL}) in spoc config", 
+	" doesn't match device ($self->{TYPE})\n";
         return 0;
     }
 
@@ -1178,12 +1226,12 @@ sub pixtrans () {
                     ($c->{DELETE}) and next;
                     if (route_line_destination_a_eq_b($r, $c)) {
                         my $tr = join ' ', "no",
-                          route_line_to_string('pix', $c);
+                          $self->route_line_to_string($c);
                         $self->cmd($tr) or exit -1;
                         $c->{DELETE} = 1;    # could not deleted 2 times
                     }
                 }
-                $self->cmd(route_line_to_string('pix', $r)) or exit -1;
+                $self->cmd($self->route_line_to_string($r)) or exit -1;
                 mypr " $counter";
             }
             $counter and $self->{ROUTE_CHANGE} = '*** routing changed ***';
@@ -1194,7 +1242,7 @@ sub pixtrans () {
             for my $r (@{ $conf->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
-                my $tr = join ' ', "no", route_line_to_string('pix', $r);
+                my $tr = join ' ', "no", $self->route_line_to_string($r);
                 $self->cmd($tr) or exit -1;
                 mypr " $counter";
             }
@@ -1210,7 +1258,7 @@ sub pixtrans () {
             for my $r (@{ $pspoc->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
-                mypr route_line_to_string('pix', $r), "\n";
+                mypr $self->route_line_to_string($r), "\n";
             }
             mypr "total: $counter\n";
             ($counter) and $self->{ROUTE_CHANGE} = '*** routing changed ***';
@@ -1219,7 +1267,7 @@ sub pixtrans () {
             for my $r (@{ $conf->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
-                mypr route_line_to_string('pix', $r), "\n";
+                mypr $self->route_line_to_string($r), "\n";
             }
             mypr "total: $counter\n";
             ($counter) and $self->{ROUTE_CHANGE} = '*** routing changed ***';
@@ -1414,7 +1462,6 @@ sub pixtrans () {
                 $pspoc->{ACCESS_LIST}->{$obj_id}->{TRANSFER_ID} =
                   &$generate_names_for_transfer($obj_id, $conf->{ACCESS_LIST});
             }
-            my $pix_printer = Dprs->new(MODE => 'pix', PRINT => 'yes');
 
             # transfer groups
             mypr "transfer object-groups to device\n";
@@ -1430,7 +1477,9 @@ sub pixtrans () {
 
                 # generate commands
                 my $string;
-                $pix_printer->pix_object_group($group_obj, \$string);
+		$self->{PRINT} = 'yes';
+                $self->pix_object_group($group_obj, \$string, 1);
+		$self->{PRINT} = 'no';
 
                 # build cmd array
                 my @cmd_array = split '\n', $string;
@@ -1473,11 +1522,11 @@ sub pixtrans () {
                               $pspoc->{OBJECT_GROUP}->{$gid}->{TRANSFER_ID};
                         }
                         $tr = join ' ', "access-list", $transfer_id,
-                          acl_line_to_string('pix', $new_ace);
+                          $self->acl_line_to_string($new_ace);
                     }
                     else {
                         $tr = join ' ', "access-list", $transfer_id,
-                          acl_line_to_string('pix', $ace);
+                          $self->acl_line_to_string($ace);
                     }
                     $self->cmd($tr) or exit -1;
 
@@ -1529,7 +1578,7 @@ sub pixtrans () {
     # *** static nat ***
     #
     mypr " === processing statics ===\n";
-    $self->pix_transfer_lines(\&static_line_to_string, \&static_line_a_eq_b,
+    $self->pix_transfer_lines('static_line_to_string', 'static_line_a_eq_b',
         $pspoc->{STATIC}, $conf->{STATIC})
       and $self->{STAT_CHANGE} = '*** statics changed ***';
 
@@ -1537,7 +1586,7 @@ sub pixtrans () {
     # *** global pools ***
     #
     mypr " === processing global pools ===\n";
-    $self->pix_transfer_lines(\&pix_global_line_to_string, \&pix_global_line_a_eq_b,
+    $self->pix_transfer_lines('pix_global_line_to_string', 'pix_global_line_a_eq_b',
         $pspoc->{GLOBAL}, $conf->{GLOBAL})
       and $self->{GLOB_CHANGE} = '*** globals changed ***';
 
@@ -1545,7 +1594,7 @@ sub pixtrans () {
     # *** (dynamic) nat ***
     #
     mypr " === processing nat ===\n";
-    $self->pix_transfer_lines(\&pix_nat_line_to_string, \&pix_nat_line_a_eq_b,
+    $self->pix_transfer_lines('pix_nat_line_to_string', 'pix_nat_line_a_eq_b',
         $pspoc->{NAT}, $conf->{NAT})
       and $self->{NAT_CHANGE} = '*** nat changed ***';
 
@@ -1596,7 +1645,7 @@ sub con_setup( $$ ) {
 
     # Set global variable.
     $con =
-          drc2_helper->new_console($self, "telnet", $logfile, $startup_message);
+          Netspoc::Approve::Helper->new_console($self, "telnet", $logfile, $startup_message);
 }
 
 sub con_shutdown( $$ ) {
