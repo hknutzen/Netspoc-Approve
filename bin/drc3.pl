@@ -167,12 +167,13 @@ $netobj and not @_ or &usage;
 
 my $device_info =
   Netspoc::Approve::Device->get_obj_info($netobj, $opts{D}, $global_config);
-my $type  = $device_info->{TYPE};
+my $name  = $device_info->{NAME};
+my $type  = Netspoc::Approve::Device->get_spoc_type($name, $global_config);
 my $class = $type2class{$type}
   or die "Cant't handle type '$type' of $netobj\n";
 
 my $job = $class->new(
-    NAME          => $device_info->{NAME},
+    NAME          => $name,
     IP            => $device_info->{IP},
     OPTS          => \%opts,
     GLOBAL_CONFIG => $global_config,
