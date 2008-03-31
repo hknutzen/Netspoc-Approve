@@ -36,7 +36,7 @@ my $con;
 sub write_term_config($$$){
     my ($self, $ah, $al) = @_;
     $self->{func} = \&write_term_config;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$$al = "";
 	$self->parse_old_interface($ah->{HWIF},$al);
 	$self->parse_nameif($ah->{HWIF},$al);
@@ -435,7 +435,7 @@ sub parse_spocfile ( $$$ ) {
         }
         if ($line =~ /$spotags{MODEL}/o) {
             $p->{MODEL} = $1;
-	    pix_parse($p, $sfile);
+	    $self->pix_parse($p, $sfile);
             last;
         }
         errpr "unexpected line: $line\n";
@@ -1111,23 +1111,23 @@ sub prepare_filemode($$$) {
     my $epi2 = $self->load_epilog($self->get_epilog_name($path2));
     if (!$self->parse_spocfile($parsed1, $conf1)) {
         errpr "parse error\n";
-        return 0;
+        return;
     }
     if (!$self->parse_spocfile($parsed2, $conf2)) {
         errpr "parse error\n";
-        return 0;
+        return;
     }
-    unless (not $parsed1->{MODEL} eq $parsed2->{MODEL}) {
+    if (not $parsed1->{MODEL} eq $parsed2->{MODEL}) {
         mypr "MODELs must be equal in parsed spoc config:",
 	" $parsed1->{MODEL}, $parsed2->{MODEL}\n";
-        return 0;
+        return;
     }
 
     #
     # *** merge EPILOG into SPOCCONFIG
     #
-    $self->process_rawdata($parsed1, $epi1)  or return 0;
-    $self->process_rawdata($parsed2, $epi2) or return 0;
+    $self->process_rawdata($parsed1, $epi1)  or return;
+    $self->process_rawdata($parsed2, $epi2) or return;
 
     return($parsed1, $parsed2);
 }
@@ -1143,19 +1143,19 @@ sub prepare_devicemode( $$$ ) {
     # *** PARSE SPOC CONFIG ***
     if (!$self->parse_spocfile($pspoc, $spoc_lines)) {
         errpr "parse error\n";
-        return 0;
+        return;
     }
 
     # *** PARSE DEVICE CONFIG ***
     if (not $self->pix_parse($conf, $device_lines)) {
         errpr "could not parse device config\n";
-        return 0;
+        return;
     }
 
     if (not lc $pspoc->{MODEL} eq $self->{TYPE}) {
         mypr "MODEL ($pspoc->{MODEL}) in spoc config", 
 	" doesn't match device ($self->{TYPE})\n";
-        return 0;
+        return;
     }
 
     # *** check for unknown interfaces at device ***
@@ -1164,7 +1164,7 @@ sub prepare_devicemode( $$$ ) {
     #
     # *** merge EPILOG into SPOCCONFIG
     #
-    $self->process_rawdata($pspoc, $epilog_lines) or return 0;
+    $self->process_rawdata($pspoc, $epilog_lines) or return;
     return($conf, $pspoc);
 }
 
@@ -1205,7 +1205,7 @@ sub pixtrans () {
             #   }
             for my $s (@{ $pspoc->{ROUTING} }) {    # from netspoc
                                                   #($s) or next;
-                if (route_line_a_eq_b($c, $s)) {
+                if ($self->route_line_a_eq_b($c, $s)) {
                     $c->{DELETE} = $s->{DELETE} = 1;
                     last;
 
@@ -1479,7 +1479,7 @@ sub pixtrans () {
                 my $string;
 		$self->{PRINT} = 'yes';
                 $self->pix_object_group($group_obj, \$string, 1);
-		$self->{PRINT} = 'no';
+		$self->{PRINT} = undef;
 
                 # build cmd array
                 my @cmd_array = split '\n', $string;
@@ -1661,7 +1661,7 @@ sub con_shutdown( $$ ) {
 sub check_device( $ ) {
     my($self)   = @_;
     my $retries = $self->{OPTS}->{p} || 3;
-    return &checkping($self->{IP}, $retries);
+    return $self->checkping($self->{IP}, $retries);
 }
 
 sub check_crypto( $ ) {
