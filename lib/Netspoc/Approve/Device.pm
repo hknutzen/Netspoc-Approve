@@ -34,7 +34,7 @@ use Netspoc::Approve::Helper;
 ############################################################
 sub new {
     my $class = shift;
-    my $self  = { @_ };
+    my $self  = {@_};
     return bless($self, $class);
 }
 
@@ -42,13 +42,13 @@ sub new {
 #   methods
 ###########################################################################
 sub get_global_config($) {
-    my ($self)  = @_;
+    my ($self) = @_;
     my $config = {};
 
     # Set masterdirectory and read global parameters.
     my $madhome = '/home/hk/';
-    my $rcmad = $madhome . '.rcmadnes';
-    open( RCMAD, $rcmad ) or die "Can't open $rcmad: $!\n";
+    my $rcmad   = $madhome . '.rcmadnes';
+    open(RCMAD, $rcmad) or die "Can't open $rcmad: $!\n";
 
     $config->{BINHOME}        = '';
     $config->{NETSPOC}        = '';
@@ -64,7 +64,7 @@ sub get_global_config($) {
     $config->{AAA_CREDENTAIL} = '';
     $config->{SYSTEMUSER}     = '';
 
-    while ( <RCMAD> ) {
+    while (<RCMAD>) {
         /^\s*BINHOME\s*=\s*(\S+)\s*$/       and $config->{BINHOME}      = $1;
         /^\s*NETSPOC\s*=\s*(\S+)\s*$/       and $config->{NETSPOC}      = $1;
         /^\s*CHECKHOSTNAME\s*=\s*(\S+)\s*$/ and $config->{CHECKHOST}    = $1;
@@ -77,7 +77,7 @@ sub get_global_config($) {
         /^\s*DEVICEDB\s*=\s*(\S+)\s*$/      and $config->{DEVICEDBPATH} = $1;
         /^\s*AAA_CREDENTIALS\s*=\s*(\S+)\s*$/
           and $config->{AAA_CREDENTIAL} = $1;
-        /^\s*SYSTEMUSER\s*=\s*(\S+)\s*$/    and $config->{SYSTEMUSER} = $1;
+        /^\s*SYSTEMUSER\s*=\s*(\S+)\s*$/ and $config->{SYSTEMUSER} = $1;
     }
     close RCMAD or die "could not close $rcmad\n";
 
@@ -92,7 +92,7 @@ sub get_global_config($) {
 }
 
 sub build_db ($$) {
-    my ($self, $path)  = @_;
+    my ($self, $path) = @_;
 
     my %LEG_ALL_DB;
     my %LEG_IP_DB;
@@ -104,23 +104,23 @@ sub build_db ($$) {
     my %IP_HASH;
 
     # get password data from cw_pass
-    open( CSVDB, "$path/cw_pass" ) or die "could not open $path/cw_pass\n$!\n";
-    for my $line ( <CSVDB> ) {
+    open(CSVDB, "$path/cw_pass") or die "could not open $path/cw_pass\n$!\n";
+    for my $line (<CSVDB>) {
         $line =~ /^;/ and next;
         $line =~ s/[\"\r\n]//g;
-        ( $line ) or next;
+        ($line) or next;
         my %OBJ;
         (
-            $OBJ{NAME},    # Name (including domain or simply an IP)
-            $OBJ{RO},      # RO community string
-            $OBJ{RW},      # RW community string
-            $OBJ{SN},      # Serial Number
-            $OBJ{UF1},     # User Field 1 <-- Geraet hinter "ISDN" oder "Stand"
-            $OBJ{UF2},     # User Field 2 <-- Zugehoerigkeit zu einer
-	                   # Netz-Gruppe (LN,SH,KR,DZ)
-            $OBJ{CW_TYP},  # User Field 3 <-- Typ (sw,rt,pix) fuer
-                           # switch,router,pix
-            $OBJ{UF4},                # User Field 4
+            $OBJ{NAME},     # Name (including domain or simply an IP)
+            $OBJ{RO},       # RO community string
+            $OBJ{RW},       # RW community string
+            $OBJ{SN},       # Serial Number
+            $OBJ{UF1},      # User Field 1 <-- Geraet hinter "ISDN" oder "Stand"
+            $OBJ{UF2},      # User Field 2 <-- Zugehoerigkeit zu einer
+                            # Netz-Gruppe (LN,SH,KR,DZ)
+            $OBJ{CW_TYP},   # User Field 3 <-- Typ (sw,rt,pix) fuer
+                            # switch,router,pix
+            $OBJ{UF4},      # User Field 4
             $OBJ{TELNET_PASS},        # Name = Telnet password
             $OBJ{ENABLE_PASS},        # Name = Enable password
             $OBJ{ENABLE_SEC},         # = 11; Name = Enable secret
@@ -133,7 +133,7 @@ sub build_db ($$) {
             $OBJ{RCP_USER},           # = 18; Name = Rcp user
             $OBJ{RCP_PASS}            # = 19; Name = Rcp password
         ) = split /[,]/, $line;
-        unless ( exists $NAME_HASH{ $OBJ{NAME} } ) {
+        unless (exists $NAME_HASH{ $OBJ{NAME} }) {
             $NAME_HASH{ $OBJ{NAME} }->{SOURCE}->{LINE} = $line;
             $NAME_HASH{ $OBJ{NAME} }->{NAME}           = $OBJ{NAME};
             $NAME_HASH{ $OBJ{NAME} }->{PASS}           = $OBJ{TELNET_PASS};
@@ -143,8 +143,8 @@ sub build_db ($$) {
         }
         else {
             mypr "PASS_DBB: CiscoWorks pass db: discarded line \'$line\'\n";
-            mypr "PASS_DBB:  -> object name already found in " . 
-		"\'$NAME_HASH{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
+            mypr "PASS_DBB:  -> object name already found in "
+              . "\'$NAME_HASH{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
         }
     }
     close CSVDB;
@@ -154,34 +154,34 @@ sub build_db ($$) {
     #   the data in cw_ip is actually expected to be the LMHOSTS file
     #   from an microsoft Windows CiscoWorks machine
     #
-    open( CSVDB, "$path/cw_ip" ) or die "could not open $path/cw_ip\n$!\n";
-    for my $line ( <CSVDB> ) {
+    open(CSVDB, "$path/cw_ip") or die "could not open $path/cw_ip\n$!\n";
+    for my $line (<CSVDB>) {
         $line =~ /^#/ and next;
         $line =~ s/[\"\r\n]//g;
-        ( $line ) or next;
+        ($line) or next;
         my %OBJ;
-        ( $OBJ{IP}, $OBJ{NAME} ) = split " ", $line;
-        unless ( exists $CW_IP_DB{ $OBJ{NAME} } ) {
+        ($OBJ{IP}, $OBJ{NAME}) = split " ", $line;
+        unless (exists $CW_IP_DB{ $OBJ{NAME} }) {
             $CW_IP_DB{ $OBJ{NAME} }->{SOURCE}->{LINE} = $line;
             $CW_IP_DB{ $OBJ{NAME} }->{NAME}           = $OBJ{NAME};
             $CW_IP_DB{ $OBJ{NAME} }->{IP}             = $OBJ{IP};
         }
         else {
-            unless ( $line eq $CW_IP_DB{ $OBJ{NAME} }->{SOURCE}->{LINE} ) {
-                mypr "PASS_DBB: CiscoWorks ip db: discarded line " .
-		    "\'$line\'\n";
-                mypr "PASS_DBB:   -> object name already found " .
-		    "in \'$CW_IP_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
+            unless ($line eq $CW_IP_DB{ $OBJ{NAME} }->{SOURCE}->{LINE}) {
+                mypr "PASS_DBB: CiscoWorks ip db: discarded line "
+                  . "\'$line\'\n";
+                mypr "PASS_DBB:   -> object name already found "
+                  . "in \'$CW_IP_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
             }
         }
     }
     close CSVDB;
-    for my $entry ( values %NAME_HASH ) {
-        if ( exists $CW_IP_DB{ $entry->{NAME} } ) {
+    for my $entry (values %NAME_HASH) {
+        if (exists $CW_IP_DB{ $entry->{NAME} }) {
             $entry->{IP} = $CW_IP_DB{ $entry->{NAME} }->{IP};
 
             # now add this entry also to %IP_HASH
-            unless ( exists $IP_HASH{ $entry->{IP} } ) {
+            unless (exists $IP_HASH{ $entry->{IP} }) {
                 $IP_HASH{ $entry->{IP} } = $entry;
             }
             else {
@@ -189,14 +189,14 @@ sub build_db ($$) {
                   . " \'$entry->{SOURCE}->{LINE}\'\n";
             }
         }
-        elsif ( defined quad2int_2( $entry->{NAME} ) ) {
+        elsif (defined quad2int_2($entry->{NAME})) {
 
             # no ip for this object found - so this may be a switch without
             # name - and we should not bother
             $entry->{IP} = $entry->{NAME};
             $IP_HASH{ $entry->{IP} } = $entry;
         }
-        elsif ( $entry->{NAME} =~ /Cisco Systems NM data import/ ) {
+        elsif ($entry->{NAME} =~ /Cisco Systems NM data import/) {
 
             #nothing to do
         }
@@ -211,56 +211,56 @@ sub build_db ($$) {
     # so we still need the 'old' allp.csv file:
     #
     # data from lecagy db
-    open( CSVDB, "$path/allp.csv" ) or die "could not open $path/allp.csv\n$!\n";
-    for my $line ( <CSVDB> ) {
+    open(CSVDB, "$path/allp.csv") or die "could not open $path/allp.csv\n$!\n";
+    for my $line (<CSVDB>) {
         $line =~ /^#/ and next;
         $line =~ s/[\"\n]//g;
-        ( $line ) or next;
+        ($line) or next;
         my %OBJ;
         (
             $OBJ{NAME}, $OBJ{IP}, $OBJ{PASS}, $OBJ{ALIAS}, my $status,
             $OBJ{TYPE}, $OBJ{ENABLE_PASS}
-        ) = split( /,/, $line );
+        ) = split(/,/, $line);
         $OBJ{SOURCE}->{LINE} = $line;
-        ( $status =~ "aktiv" ) or mypr "PASS_DBB: status is $status\n";
+        ($status =~ "aktiv") or mypr "PASS_DBB: status is $status\n";
         $LEG_ALL_DB{ \%OBJ } = \%OBJ;
 
-        unless ( exists $LEG_NAME_DB{ $OBJ{NAME} } ) {
+        unless (exists $LEG_NAME_DB{ $OBJ{NAME} }) {
             $LEG_NAME_DB{ $OBJ{NAME} } = \%OBJ;
         }
         else {
 
             #unless($line eq $LEG_NAME_DB{$OBJ{NAME}}->{SOURCE}->{LINE}){
             mypr "PASS_DBB: legacy name db: discarded line     \'$line\'\n";
-            mypr "PASS_DBB:   -> object name already found in " .
-		"\'$LEG_NAME_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
+            mypr "PASS_DBB:   -> object name already found in "
+              . "\'$LEG_NAME_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
 
             #}
         }
-        if ( $OBJ{ALIAS} ) {    # assume no alias if literally "0"
-            unless ( exists $LEG_ALIAS_DB{ $OBJ{ALIAS} } ) {
+        if ($OBJ{ALIAS}) {    # assume no alias if literally "0"
+            unless (exists $LEG_ALIAS_DB{ $OBJ{ALIAS} }) {
                 $LEG_ALIAS_DB{ $OBJ{ALIAS} } = \%OBJ;
             }
             else {
 
                 #unless($line eq $LEG_ALIAS_DB{$OBJ{ALIAS}}->{SOURCE}->{LINE}){
-                mypr "PASS_DBB: legacy alias db: discarded line  " .
-		    "\'$line\'\n";
-                mypr "PASS_DBB:    -> object alias already found " .
-		    "in \'$LEG_ALIAS_DB{$OBJ{ALIAS}}->{SOURCE}->{LINE}\'\n";
+                mypr "PASS_DBB: legacy alias db: discarded line  "
+                  . "\'$line\'\n";
+                mypr "PASS_DBB:    -> object alias already found "
+                  . "in \'$LEG_ALIAS_DB{$OBJ{ALIAS}}->{SOURCE}->{LINE}\'\n";
 
                 #}
             }
         }
-        unless ( exists $LEG_IP_DB{ $OBJ{IP} } ) {
+        unless (exists $LEG_IP_DB{ $OBJ{IP} }) {
             $LEG_IP_DB{ $OBJ{IP} } = \%OBJ;
         }
         else {
 
             #unless($line eq $LEG_IP_DB{$OBJ{IP}}->{SOURCE}->{LINE}){
             mypr "PASS_DBB: legacy ip db:   discarded line     \'$line\'\n";
-            mypr "PASS_DBB:    -> object ip already found in  " .
-		"\'$LEG_IP_DB{$OBJ{IP}}->{SOURCE}->{LINE}\'\n";
+            mypr "PASS_DBB:    -> object ip already found in  "
+              . "\'$LEG_IP_DB{$OBJ{IP}}->{SOURCE}->{LINE}\'\n";
 
             #}
         }
@@ -276,78 +276,87 @@ sub build_db ($$) {
     # !!! treat data from CiscoWorks as more reliable as legacy data !!!
     #
     # mark "used" entries in legacy db
-    for my $entry ( values %NAME_HASH ) {
+    for my $entry (values %NAME_HASH) {
         $entry->{TYPE} or $entry->{TYPE} = "ios";
         $entry->{TYPE} eq 'L3sw'
           and $entry->{TYPE} = "ios";    # Switches are handled as routers
         my $found;
-        if ( exists $LEG_NAME_DB{ $entry->{NAME} } ) {
+        if (exists $LEG_NAME_DB{ $entry->{NAME} }) {
             $found = $LEG_NAME_DB{ $entry->{NAME} };
-	    # use password from Cisco Works in legacy DB!
+
+            # use password from Cisco Works in legacy DB!
             $found->{PASS} = $entry->{PASS};
-	    # use password from Cisco Works in legacy DB!
+
+            # use password from Cisco Works in legacy DB!
             $found->{ENABLE_PASS} = $entry->{ENABLE_PASS};
-	    # use user from Cisco Works in legacy DB!
-            $found->{LOCAL_USER}  = $entry->{LOCAL_USER};
-            $entry->{ALIAS} = $found->{ALIAS};
+
+            # use user from Cisco Works in legacy DB!
+            $found->{LOCAL_USER} = $entry->{LOCAL_USER};
+            $entry->{ALIAS}      = $found->{ALIAS};
 
             # mark as used
             $found->{USED} = 1;
         }
-        if ( exists $LEG_ALIAS_DB{ $entry->{NAME} } ) {
-            if ( $found ) {
-                if ( $found ne $LEG_ALIAS_DB{ $entry->{NAME} } ) {
-                    mypr "PASS_DBB: while enhancing %NAME_HASH: " .
-			"name match \'$found->{SOURCE}->{LINE}\'\n";
-                    mypr"PASS_DBB:          alias match \' " .
-			"$LEG_ALIAS_DB{$entry->{NAME}}->{SOURCE}->{LINE}\'\n";
+        if (exists $LEG_ALIAS_DB{ $entry->{NAME} }) {
+            if ($found) {
+                if ($found ne $LEG_ALIAS_DB{ $entry->{NAME} }) {
+                    mypr "PASS_DBB: while enhancing %NAME_HASH: "
+                      . "name match \'$found->{SOURCE}->{LINE}\'\n";
+                    mypr "PASS_DBB:          alias match \' "
+                      . "$LEG_ALIAS_DB{$entry->{NAME}}->{SOURCE}->{LINE}\'\n";
                 }
             }
             else {
                 $found = $LEG_ALIAS_DB{ $entry->{NAME} };
-		# use password from Cisco Works in legacy DB!
+
+                # use password from Cisco Works in legacy DB!
                 $found->{PASS} = $entry->{PASS};
-		# use password from Cisco Works in legacy DB!
+
+                # use password from Cisco Works in legacy DB!
                 $found->{ENABLE_PASS} = $entry->{ENABLE_PASS};
-		# use user from Cisco Works in legacy DB!
-                $found->{LOCAL_USER}  = $entry->{LOCAL_USER};
-                $entry->{ALIAS} = $entry->{NAME};
-                $entry->{NAME}  = $found->{NAME};
+
+                # use user from Cisco Works in legacy DB!
+                $found->{LOCAL_USER} = $entry->{LOCAL_USER};
+                $entry->{ALIAS}      = $entry->{NAME};
+                $entry->{NAME}       = $found->{NAME};
 
                 # mark as used
                 $found->{USED} = 1;
             }
         }
-        if ( $entry->{IP} and exists $LEG_IP_DB{ $entry->{IP} } ) {
-            if ( $found ) {
-                if ( $found ne $LEG_IP_DB{ $entry->{IP} } ) {
-                    errpr "while enhancing %NAME_HASH: name/alias " .
-			"match \'$found->{SOURCE}->{LINE}\'\n";
-                    errpr "                                    ip match " .
-			"\'$LEG_IP_DB{$entry->{IP}}->{SOURCE}->{LINE}\'\n";
+        if ($entry->{IP} and exists $LEG_IP_DB{ $entry->{IP} }) {
+            if ($found) {
+                if ($found ne $LEG_IP_DB{ $entry->{IP} }) {
+                    errpr "while enhancing %NAME_HASH: name/alias "
+                      . "match \'$found->{SOURCE}->{LINE}\'\n";
+                    errpr "                                    ip match "
+                      . "\'$LEG_IP_DB{$entry->{IP}}->{SOURCE}->{LINE}\'\n";
                 }
             }
             else {
                 $found = $LEG_IP_DB{ $entry->{IP} };
-		# use password from Cisco Works in legacy DB!
+
+                # use password from Cisco Works in legacy DB!
                 $found->{PASS} = $entry->{PASS};
-		# use password from Cisco Works in legacy DB!
+
+                # use password from Cisco Works in legacy DB!
                 $found->{ENABLE_PASS} = $entry->{ENABLE_PASS};
-		# use user from Cisco Works in legacy DB!
+
+                # use user from Cisco Works in legacy DB!
                 $found->{LOCAL_USER} = $entry->{LOCAL_USER};
-                $entry->{ALIAS} = $found->{ALIAS};
+                $entry->{ALIAS}      = $found->{ALIAS};
 
                 # mark as used
                 $found->{USED} = 1;
-                unless ( $found->{PASS} eq $entry->{PASS} ) {
-                    mypr "PASS_DBB: while enhancing %NAME_HASH: " .
-			"match \'$entry->{SOURCE}->{LINE}\'\n";
-                    mypr "PASS_DBB:           through ip address " .
-			"with \'$found->{SOURCE}->{LINE}\'\n";
+                unless ($found->{PASS} eq $entry->{PASS}) {
+                    mypr "PASS_DBB: while enhancing %NAME_HASH: "
+                      . "match \'$entry->{SOURCE}->{LINE}\'\n";
+                    mypr "PASS_DBB:           through ip address "
+                      . "with \'$found->{SOURCE}->{LINE}\'\n";
                 }
             }
         }
-        unless ( $found ) {
+        unless ($found) {
 
             # "guess"
             #$entry->{TYPE} or $entry->{TYPE}  = "ios";
@@ -355,8 +364,8 @@ sub build_db ($$) {
         }
     }
     my $used_entrys = 0;
-    for my $val ( values %LEG_ALL_DB ) {
-        if ( $val->{USED} ) {
+    for my $val (values %LEG_ALL_DB) {
+        if ($val->{USED}) {
             ++$used_entrys;
         }
     }
@@ -372,37 +381,36 @@ sub build_db ($$) {
 # take name or ip and retrieve passwd, name, ip (and type)
 sub get_obj_info($$$) {
     my ($self, $spec, $db_path, $global_config) = @_;
-    my $db = $self->build_db($db_path);
-    my $object = 
-	$db->{NAME_HASH}->{$spec} ||
-	$db->{IP_HASH}->{$spec} ||
-	$db->{LEG_NAME_DB}->{$spec} ||
-	$db->{LEG_IP_DB}->{$spec}
-    or die "object $spec not found\n";
+    my $db     = $self->build_db($db_path);
+    my $object = $db->{NAME_HASH}->{$spec}
+      || $db->{IP_HASH}->{$spec}
+      || $db->{LEG_NAME_DB}->{$spec}
+      || $db->{LEG_IP_DB}->{$spec}
+      or die "object $spec not found\n";
 
     # Get type from newest spoc file.
-    my $spocfile = 
-	"$global_config->{NETSPOC}/current/$global_config->{CODEPATH}$spec";
+    my $spocfile =
+      "$global_config->{NETSPOC}/current/$global_config->{CODEPATH}$spec";
     open(FILE, $spocfile) or die "Can't open $spocfile: $!\n";
-    while(my $line = <FILE>) {
-	if($line =~ /\[ Model = (\S+) ]/) {
-	    $object->{TYPE} = $1;
-	    last;
-	}
+    while (my $line = <FILE>) {
+        if ($line =~ /\[ Model = (\S+) ]/) {
+            $object->{TYPE} = $1;
+            last;
+        }
     }
     close FILE;
     $object->{NAME} or die "no object name found\n";
     $object->{IP}   or die "no address found\n";
     $object->{TYPE} or die "no object type found\n";
-    unless ( $object->{PASS} ) {
-        my $user = getpwuid( $> );
-        if ( $user ne $global_config->{SYSTEMUSER} ) {
-            print STDOUT "Running in non privileged mode an no " .
-		"password founf in database.\n";
+    unless ($object->{PASS}) {
+        my $user = getpwuid($>);
+        if ($user ne $global_config->{SYSTEMUSER}) {
+            print STDOUT "Running in non privileged mode an no "
+              . "password founf in database.\n";
             print STDOUT "Password for $user?";
-            system( 'stty', '-echo' );
+            system('stty', '-echo');
             my $password = <STDIN>;
-            system( 'stty', 'echo' );
+            system('stty', 'echo');
             print STDOUT "  ...thank you :)\n";
             chomp $password;
             $object->{PASS}       = $password;
@@ -411,18 +419,18 @@ sub get_obj_info($$$) {
         else {
 
             # no pasword in Database - use aaa_credentials
-            open( AAA, $global_config->{AAA_CREDENTIAL} )
-              or die "could not open " .
-	      "$self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL} $!\n";
+            open(AAA, $global_config->{AAA_CREDENTIAL})
+              or die "could not open "
+              . "$self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL} $!\n";
             my $credentials = <AAA>;
-            $credentials =~ ( /^\s*(\S+)\s*(\S+)\s*$/ )
+            $credentials =~ (/^\s*(\S+)\s*(\S+)\s*$/)
               or die "no aaa credential found\n";
             $object->{PASS} = $2;
 
             # overwrite user
             $object->{LOCAL_USER} = $1;
             mypr "User $1 from aaa credentials extracted\n";
-            close( AAA );
+            close(AAA);
         }
     }
     return ($object);
@@ -430,93 +438,96 @@ sub get_obj_info($$$) {
 
 sub get_epilog_name( $$ ) {
     my ($self, $path) = @_;
-    $path =~ s/$self->{GLOBAL_CONFIG}->{CODEPATH}/$self->{GLOBAL_CONFIG}->{EPILOGPATH}/;
+    $path =~
+      s/$self->{GLOBAL_CONFIG}->{CODEPATH}/$self->{GLOBAL_CONFIG}->{EPILOGPATH}/;
     return $path;
 }
 
-sub load_spocfile($$){
+sub load_spocfile($$) {
     my ($self, $path) = @_;
     my @result;
-    # read (spoc) config    
-    if($path eq "STDIN"){
-	(open(NET,"<&STDIN")) or die "could not dup STDIN\n$!\n";
-	@result = <NET>;
-	close (NET);
+
+    # read (spoc) config
+    if ($path eq "STDIN") {
+        (open(NET, "<&STDIN")) or die "could not dup STDIN\n$!\n";
+        @result = <NET>;
+        close(NET);
     }
-    elsif(-f $path){  
-	(open(NET,$path)) or die "could not open spocfile: $path\n$!\n";
-	@result = <NET>;
-	close (NET);
+    elsif (-f $path) {
+        (open(NET, $path)) or die "could not open spocfile: $path\n$!\n";
+        @result = <NET>;
+        close(NET);
     }
-    elsif(-f "${path}.gz"){
-	mypr "decompressing config file...";
-	@result = `gunzip -c "$path.gz"`;
-	$? and die "error running gunzip\n";
-	mypr "done.\n";
+    elsif (-f "${path}.gz") {
+        mypr "decompressing config file...";
+        @result = `gunzip -c "$path.gz"`;
+        $? and die "error running gunzip\n";
+        mypr "done.\n";
     }
-    else{
-	die "spocfile \'$path\' not found!\n";	
+    else {
+        die "spocfile \'$path\' not found!\n";
     }
-    mypr "config file ($path) for  ",$self->{NAME}," has ", scalar @result," lines\n";
+    mypr "config file ($path) for  ", $self->{NAME}, " has ", scalar @result,
+      " lines\n";
     return \@result;
 }
 
-sub load_epilog($$){
+sub load_epilog($$) {
     my ($self, $path) = @_;
     my @result;
-    if(-f $path){ 
-	open(EPI,"<$path") or die "could not open rawdata: $path\n$!\n";
-	@result = <EPI>;
-	close EPI;
-	mypr "rawdata file ($path) for ",
-	$self->{NAME}," has ", scalar @result," lines\n";
+    if (-f $path) {
+        open(EPI, "<$path") or die "could not open rawdata: $path\n$!\n";
+        @result = <EPI>;
+        close EPI;
+        mypr "rawdata file ($path) for ", $self->{NAME}, " has ",
+          scalar @result, " lines\n";
     }
-    elsif(-f "${path}.gz"){
-	mypr "decompressing raw file...";
-	@result = `gunzip -c "${path}.gz"`;
-	$? and die "error running gunzip\n";
-	mypr "done.\n";
+    elsif (-f "${path}.gz") {
+        mypr "decompressing raw file...";
+        @result = `gunzip -c "${path}.gz"`;
+        $? and die "error running gunzip\n";
+        mypr "done.\n";
     }
-    else{
-	@result = ();
-	mypr "no rawdata found...\n";
+    else {
+        @result = ();
+        mypr "no rawdata found...\n";
     }
-    return \@result
+    return \@result;
 }
 
 sub logging($) {
     my $self = shift;
-    open( $self->{STDOUT}, ">&STDOUT" )
+    open($self->{STDOUT}, ">&STDOUT")
       or die "could not save STDOUT for Password prompt $!\n";
-    return unless ( $self->{OPTS}->{LOGFILE} );    # logging not enabled!
+    return unless ($self->{OPTS}->{LOGFILE});    # logging not enabled!
     my $logfile = $self->{OPTS}->{LOGFILE};
-    if ( $logfile !~ /\A\// ) {
+    if ($logfile !~ /\A\//) {
 
         # $logfile given as relative path - enhance to absolute path
         my $wd = `pwd`;
         chomp $wd;
         $logfile = "$wd/$logfile";
     }
-    my $basename = basename( $self->{OPTS}->{LOGFILE} );
+    my $basename = basename($self->{OPTS}->{LOGFILE});
     $basename or die "no filename for logging specified\n";
-    my $dirname = dirname( $self->{OPTS}->{LOGFILE} );
+    my $dirname = dirname($self->{OPTS}->{LOGFILE});
 
     # check for/create logdir
-    unless ( -d $dirname ) {
-        ( mkdir $dirname ) or die "could not create $dirname\n$!\n";
-        ( defined chmod 0755, "$dirname" )
+    unless (-d $dirname) {
+        (mkdir $dirname) or die "could not create $dirname\n$!\n";
+        (defined chmod 0755, "$dirname")
           or die " couldn't chmod logdir $dirname\n$!\n";
     }
     my $appmode;
-    if ( $self->{OPTS}->{LOGAPPEND} ) {
+    if ($self->{OPTS}->{LOGAPPEND}) {
         $appmode = ">>";    # append
     }
     else {
         $appmode = ">";     # clobber
-        if ( $self->{OPTS}->{LOGVERSIONS} ) {
-            if ( -f "$logfile" ) {
+        if ($self->{OPTS}->{LOGVERSIONS}) {
+            if (-f "$logfile") {
                 my $date = time();
-                system( "mv $logfile $logfile.$date" ) == 0
+                system("mv $logfile $logfile.$date") == 0
                   or die "could not backup $logfile\n$!\n";
                 $self->{OPTS}->{NOLOGMESSAGE}
                   or mypr "existing logfile saved as \'$logfile.$date\'\n";
@@ -527,17 +538,17 @@ sub logging($) {
       or mypr "--- output redirected to $logfile\n";
 
     # print the above message *before* redirecting!
-    unless ( -f "$logfile" ) {
-        ( open( STDOUT, "$appmode$logfile" ) )
+    unless (-f "$logfile") {
+        (open(STDOUT, "$appmode$logfile"))
           or die "could not open $logfile\n$!\n";
         defined chmod 0644, "$logfile"
-	    or die " couldn't chmod $logfile\n$!\n";
+          or die " couldn't chmod $logfile\n$!\n";
     }
     else {
-        ( open( STDOUT, "$appmode$logfile" ) )
+        (open(STDOUT, "$appmode$logfile"))
           or die "could not open $logfile\n$!\n";
     }
-    ( open( STDERR, ">&STDOUT" ) )
+    (open(STDERR, ">&STDOUT"))
       or die "STDERR redirect: could not open $logfile\n$!\n";
 }
 {
@@ -546,47 +557,46 @@ sub logging($) {
     my $lock;
 
     sub lock( $$ ) {
-        my ( $self, $name ) = @_;
+        my ($self, $name) = @_;
 
         # set lock for exclusive approval
         my $lockfile = "$self->{GLOBAL_CONFIG}->{LOCKFILEPATH}/$name";
-        unless ( -f "$lockfile" ) {
-            open( $lock->{$name}, ">$lockfile" )
+        unless (-f "$lockfile") {
+            open($lock->{$name}, ">$lockfile")
               or die "could not aquire lock file: $lockfile\n$!\n";
             defined chmod 0666, "$lockfile"
               or die " couldn't chmod lockfile $lockfile\n$!\n";
         }
         else {
-            open( $lock->{$name}, ">$lockfile" )
+            open($lock->{$name}, ">$lockfile")
               or die "could not aquire lock file: $lockfile\n$!\n";
         }
-        unless ( flock( $lock->{$name}, LOCK_EX | LOCK_NB ) ) {
+        unless (flock($lock->{$name}, LOCK_EX | LOCK_NB)) {
             mypr "$!\n";
             return 0;
         }
     }
 
     sub unlock( $$ ) {
-        my ( $self, $name ) = @_;
-        close( $lock->{$name} ) or die "could not unlock lockfile\n$!\n";
+        my ($self, $name) = @_;
+        close($lock->{$name}) or die "could not unlock lockfile\n$!\n";
     }
 }
 
-# return 0 if no answer 
+# return 0 if no answer
 sub checkping ($$$) {
     my ($self, $addr, $retries) = @_;
 
-    for(my $i = 1; $i <= $retries; $i++){
-	
-	my $result = `ping -q -w $i -c 1 $addr`;
-	
-	$result =~ /(\d+) received/;
+    for (my $i = 1 ; $i <= $retries ; $i++) {
 
-	$1 == 1 and return $i;
-	
+        my $result = `ping -q -w $i -c 1 $addr`;
+
+        $result =~ /(\d+) received/;
+
+        $1 == 1 and return $i;
+
     }
     return "0";
 }
-
 
 1;
