@@ -26,7 +26,7 @@ use Expect;
 use File::Basename;
 
 our @ISA = qw(Exporter);
-our @EXPORT = qw( migpr mypr errpr check_erro errpr_mode errpr_info
+our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
 		  warnpr check_warn meself quad2int int2quad writestatu
 		  formatstatus getstatus getfullstatus updatestatus
 		  open_status expect_error
@@ -105,10 +105,6 @@ sub warnpr {
 
 sub check_warn() {
     return $warn;
-}
-
-sub migpr {
-    print STDOUT "MIGRATE>>> ", @_;
 }
 
 sub writestatus ( $ ) {
