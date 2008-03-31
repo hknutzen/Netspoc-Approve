@@ -2943,22 +2943,8 @@ sub login_enabel( $ ) {
 sub checkidentity($$) {
     my ($self, $name) = @_;
     if ($name ne $self->{NAME}) {
-        if ($self->{ALIAS} ne 0) {
-            if ($name eq $self->{ALIAS}) {
-                mypr "devicename matched by ALIAS \"$self->{ALIAS}\"\n";
-                return 1;
-            }
-            else {
-                errpr
-                  "wrong device name: $name expected: $self->{NAME} or ALIAS $self->{ALIAS}\n ";
-                return 0;
-            }
-        }
-        else {
-            errpr
-              "wrong device name: $name expected: $self->{NAME} (no ALIAS defined)\n ";
-            return 0;
-        }
+	errpr "wrong device name: $name expected: $self->{NAME}\n";
+	return 0;
     }
     return 1;
 }
