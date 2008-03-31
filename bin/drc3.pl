@@ -1,6 +1,6 @@
-#! /usr/bin/perl -w
-# Author: Arne Spetzler
-# Address: spoc@spetzler.de, arne.spetzler@dzsh.de
+#!/usr/bin/perl -w
+# Author: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
+# 
 # Description:
 # Do the Remote Configuration of network objects 
 
@@ -19,23 +19,25 @@ use lib $FindBin::Bin;
 use strict;
 use warnings;
 
-use drc2_job;
-use drc2_helper;
-use drc2_pix;
-use drc2_ios;
-use drc2_linux;
-use drc2_vpn;
-use drc2_fwsm;
-
-#---------------------------------------------------------
-#require Ping; import Ping;
-#require Acltools; import Acltools;
-
 use Fcntl qw/:flock/; # import LOCK_* constants
 use Fcntl;
-
 use Getopt::Long;
 
+use Netspoc::Approve::Device;
+use Netspoc::Approve::Device::Cisco::IOS;
+use Netspoc::Approve::Device::Cisco::IOS::FW;
+use Netspoc::Approve::Device::Cisco::Firewall::ASA;
+use Netspoc::Approve::Device::Cisco::Firewall::PIX;
+use Netspoc::Approve::Device::Cisco::Firewall::PIX::Fwsm;
+use Netspoc::Approve::Helper;
+
+my %type2class = (
+    IOS    => 'Netspoc::Approve::Device::Cisco::IOS',
+    IOS_FW => 'Netspoc::Approve::Device::Cisco::IOS:FW',
+    ASA    => 'Netspoc::Approve::Device::Cisco::Firewall::ASA',
+    PIX    => 'Netspoc::Approve::Device::Cisco::Firewall::PIX',
+    FWSM   => 'Netspoc::Approve::Device::Cisco::Firewall::PIX::Fwsm',
+    );
 
 sub parse_ver( $ ){
     my $package = shift;
@@ -63,22 +65,22 @@ sub parse_ver( $ ){
 
 sub usage {
     errpr_mode("COMPARE");
-    errpr "usage: 'drc2 -v' or\n";
-    errpr "usage: 'drc2 [-C <level>] -Z [<devicetype>] -P1 <conf1> -P2 <conf2> <device>'\n";
-    errpr "usage: 'drc2 [-C <level>] -FC <devicetype> -F1 <file1> -F2 <file2>'\n";
-    errpr "usage: 'drc2 <option> <object specifier>'\n\n";
+    errpr "usage: 'drc2 -v'\n";
+    errpr "usage: 'drc2 [-C <level>] -P1 <conf1> -P2 <conf2> <device>'\n";
+    errpr "usage: 'drc2 [-C <level>] -F1 <file1> -F2 <file2> <device>'\n";
+    errpr "usage: 'drc2 <option> -N <file> <device>'\n\n";
 
 mypr  <<END;
- -p [<trys>]          ping with max. #trys retrys
+ -p [<num>]           ping with max. #num retries
  --NOREACH            do not check if device is reachable
  --PING_ONLY          only check reachability and exit
  -P <policy>          policy
  -D <dir>             database directory for object lookup
  --DEBUGVPN           debug code generation for VPN              
- -t <seconds>         timeout for telnet
  -L <logdir>          path for saving telnet-logs
  -E <command>         if set, execute command on remote obj and show output
  -N <file>            if set, NetSPoC mode and file
+ -G <file>            if set, file with epiloG data
  --LOGFILE <fullpath> path for print output (default is STDOUT)
  --LOGAPPEND          if logfile already exists, append logs
  --LOGVERSIONS        do not overwrite existing logfiles
@@ -90,21 +92,15 @@ mypr  <<END;
 		      2 = show matches
 		      3 = 1 & 2
 		      4 = silent
- -A <packet>          ACL-Check if packet is permitted by device
  -R                   cRypto map checking
  -S                   update Status
- -G <file>            if set, file with epiloG data
+ -t <seconds>         timeout for telnet
  -T <telnet port>     port for telnet access. default is 23
  -F                   Force transfer of ACLs with fake ACE
  -h no                hostname checking in spocfile off
- -M <hits>            Migrate Report. Show top 'hits' ace matches
- -Z <devicetype>      Compare netspoc generated Configs (<conf1> and <conf2>) if devicetype is
-                      omitted, take from device database
- -P1                  p<policy#>
- -P2                  p<policy#>
- -FC <devicetype>     Compare netspoc generated Configs given by absolute paths <file1> <file2>
-                      <devicetype> could be ios or pix
- -F1 <file1>
+ -P1 p<policy#>       Compare netspoc generated Configs p<policy#>
+ -P2 p<policy#>
+ -F1 <file1>	      Compare netspoc generated Configs given by absolute paths
  -F2 <file2>
  -v                   show version info
 
@@ -112,6 +108,7 @@ END
  exit;
 }
 
+my $global_config = Netspoc::Approve::Device->get_global_config();
 Getopt::Long::Configure("no_ignore_case");
 
 my %opts = ();
@@ -148,51 +145,44 @@ my %opts = ();
 	    'FC=s',
             'F1=s',
             'F2=s');
-    
+
+my $nopolicy = "Policy (unknown)";
+
+# Set default values from global configuration.
+$opts{D} ||= $global_config->{DEVICEDBPATH};
+$opts{P} ||= $nopolicy;
+ 
 if($opts{v}){
-    #print "$id\n";
-    #for my $symname (keys %main::){
-#	print $main::{$symname}."\n";
-#    }
     parse_ver(\%main::);
-    #print Acltools->version()."\n";
-    #print Dprs->version()."\n";
     exit unless @ARGV;
 }
 
-my $job = drc2_job->new(\%opts);
+my $netobj = shift;
+$netobj and not @_ or &usage;
+
+my $device_info = 
+    Netspoc::Approve::Device->get_obj_info($netobj, $opts{D}, $global_config);
+my $type = $device_info->{TYPE};
+my $class = $type2class{$type} 
+or die "Cant't handle type '$type' of $netobj\n";
+
+my $job = $class->new( 
+    NAME => $netobj, 
+    IP => $device_info->{IP},
+    OPTS => \%opts,
+    GLOBAL_CONFIG => $global_config,
+);
+
 # enable logging if configured
 $job->logging();
-# save global config from global config file
-$job->get_global_config();
 
-if(exists $opts{FC}){
-    ($opts{FC}) or  &usage;
-    $job->{OPTS}->{Z} = $opts{FC}; # devicetype must be in Z!
-    errpr_mode("COMPARE");	# tell the drc2_helper that we only compare
-    # initialize base job data
-    my $netobj = "__file__";
-    $netobj or &usage;
-    ($job->{JOBNAME},$job->{JOBTYPE}) = $job->build_obj($netobj);
-    # bless to job specific module !
-    bless($job,"drc2_$job->{JOBTYPE}");
-    my $job2 = drc2_job->new(\%opts);
-    $job2->{OPTS}->{Z} = $opts{FC}; # devicetype must be in Z!
-    $job2->get_global_config();
-    ($job2->{JOBNAME},$job2->{JOBTYPE}) = $job2->build_obj($netobj);
-    # bless to job specific module !
-    bless($job2,"drc2_$job->{JOBTYPE}");
-    $job->{OPTS}->{h} = "no"; # do not check devicename
-    $job->{OPTS}->{N} = $job->{OPTS}->{F1};
-    $job->{OPTS}->{G} = '.';
-    $job->load_spocfile();
-    $job->load_epilog();
-    $job2->{OPTS}->{N} = $job->{OPTS}->{F2};
-    $job2->{OPTS}->{G} = '.';
-    $job2->load_spocfile();
-    $job2->load_epilog();
-    
-    if($job->compare_files($job2)){
+if(my $f1 = $opts{F1}) {
+    my $f2 = $opts{F2} or &usage;
+
+    # tell the drc2_helper that we only compare
+    errpr_mode("COMPARE");
+
+    if($job->compare_files($f1, $f2)){
 	# diffs
 	mypr "Diffs:\n";
 	exit 1;
@@ -202,26 +192,14 @@ if(exists $opts{FC}){
 	exit 0;
     }
 } 
-if(exists $opts{Z}){
-    errpr_mode("COMPARE"); # tell the drc2_helper that we only compare
-    # initialize base job data
-    my $netobj = shift;
-    $netobj or &usage;
-    ($opts{Z}) or $job->build_db();   # build internal db for device lookup if no devtype specified
-    ($job->{JOBNAME},$job->{JOBTYPE}) = $job->build_obj($netobj);
-    # bless to job specific module !
-    bless($job,"drc2_$job->{JOBTYPE}");
-    my $job2 = drc2_job->new(\%opts);
-    $job2->get_global_config();
-    ($opts{Z}) or $job2->build_db();   # build internal db for device lookup if no devtype specified
-    ($job2->{JOBNAME},$job2->{JOBTYPE}) = $job2->build_obj($netobj);
-    # bless to job specific module !
-    bless($job2,"drc2_$job->{JOBTYPE}");
+if(my $p1 = $opts{P1}){
+    my $p2 = $opts{P2} or &usage;
 
-    my$GC = $job->{GLOBAL_CONFIG};
+    # tell the drc2_helper that we only compare
+    errpr_mode("COMPARE");
 
-    my $p1 = readlink $GC->{NETSPOC}.$opts{P1}?readlink $GC->{NETSPOC}.$opts{P1}:$opts{P1};
-    my $p2 = readlink $GC->{NETSPOC}.$opts{P2}?readlink $GC->{NETSPOC}.$opts{P2}:$opts{P2};
+    $p1 = readlink $global_config->{NETSPOC}.$p1 || $p1;
+    $p2 = readlink $global_config->{NETSPOC}.$p2 || $p2;
     
     mypr "\n";
     mypr "********************************************************************\n";
@@ -229,40 +207,23 @@ if(exists $opts{Z}){
     mypr "********************************************************************\n";
     mypr "\n";
 
-    # check if policys ok
-    my  $p1n = $p1;
-    $p1n =~ s/p//;
-    my $p2n = $p2;
-    $p2n =~ s/p//;
-    
-    if($p1n > $p2n){
-	# p2 must be greater or equal than p1! 
-	errpr " second policy $p2 less than first $p1!\n";
-	exit -1;
-    }
-
-    $job->{OPTS}->{N} = $GC->{NETSPOC}.$p1."/".$GC->{CODEPATH}.$netobj;
-    $job->{OPTS}->{G} = $GC->{NETSPOC}.$p1."/".$GC->{EPILOGPATH}.$netobj;
-    $job->load_spocfile();
-    $job->load_epilog();
-    $job2->{OPTS}->{N} = $GC->{NETSPOC}.$p2."/".$GC->{CODEPATH}.$netobj;
-    $job2->{OPTS}->{G} = $GC->{NETSPOC}.$p2."/".$GC->{EPILOGPATH}.$netobj;
-    $job2->load_spocfile();
-    $job2->load_epilog();
-
-    if($job->lock($job->{JOBNAME})){
-	my $fc_state;
+    my $f1 = 
+	$global_config->{NETSPOC}.$p1."/".$global_config->{CODEPATH}.$netobj;
+    my $f2 = 
+	$global_config->{NETSPOC}.$p2."/".$global_config->{CODEPATH}.$netobj;
+    if($job->lock($job->{NAME})){
 	if($job->{OPTS}->{S}){
 	    open_status($job);
-	    $fc_state = getstatus('FC_STATE');
-	    if($job->compare_files($job2)){
+	    my $fc_state = getstatus('FC_STATE');
+	    if($job->compare_files($f1, $f2)){
 		# diffs
 		if($fc_state eq 'OK'){
 		    my $sec_time = time();
 		    my $time = scalar localtime($sec_time);
 		    updatestatus('FC_STATE','DIFF');
 		    updatestatus('FC_TIME',$sec_time);
-		    updatestatus('FC_CTIME',$time); # this is when we first found the diffs
+		    # this is when we first found the diffs
+		    updatestatus('FC_CTIME',$time); 
 		}
 	    }
 	    else{
@@ -276,12 +237,12 @@ if(exists $opts{Z}){
 	    }
 	}
 	else{
-	    $job->compare_files($job2); 
+	    $job->compare_files($f1, $f2); 
 	}
-	$job->unlock($job->{JOBNAME});
+	$job->unlock($job->{NAME});
     }
     else{
-	errpr "approve in process for $job->{JOBNAME}\n";
+	errpr "approve in process for $job->{NAME}\n";
 	exit -1;
     }
     mypr "\n";
@@ -291,19 +252,9 @@ if(exists $opts{Z}){
     mypr "\n";
 exit;
 }
-# build internal db for device lookup
-$job->build_db();
-# initialize base job data
-my $netobj = shift;
-$netobj or &usage;
-($job->{JOBNAME},$job->{JOBTYPE}) = $job->build_obj($netobj);
-# bless to job specific module !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-bless($job,"drc2_$job->{JOBTYPE}");
 
 # check reachability
 if (defined $job->{OPTS}->{PING_ONLY}){
-    my $nopolicy = "Policy (unknown)";
-    $job->{OPTS}->{P} = $job->{OPTS}->{P}?$job->{OPTS}->{P}: $nopolicy;
     mypr "\n";
     mypr "********************************************************************\n";
     mypr " START: $job->{OPTS}->{P} at > ",scalar localtime," < ($id)\n";
@@ -311,11 +262,11 @@ if (defined $job->{OPTS}->{PING_ONLY}){
     mypr "\n";
     my $ex;
     if ($job->check_device()){  
-	mypr"$job->{JOBNAME}: reachable\n";
+	mypr"$job->{NAME}: reachable\n";
 	$ex =  0;
     }
     else{
-	mypr "$job->{JOBNAME}: reachability test failed\n";
+	mypr "$job->{NAME}: reachability test failed\n";
 	$ex = -1;
     }
     mypr "\n";
@@ -325,9 +276,10 @@ if (defined $job->{OPTS}->{PING_ONLY}){
     mypr "\n";
     exit $ex;
 }
+
 elsif(!$job->{OPTS}->{NOREACH}){
     if(!$job->check_device()){  
-	errpr "$job->{JOBNAME}: reachability test failed\n";
+	errpr "$job->{NAME}: reachability test failed\n";
 	exit -1;
     }
 }
@@ -335,20 +287,7 @@ else{
     mypr "reachability test skipped\n";
 }
 
-# call device methods
-if (defined $job->{OPTS}->{M}){
-    # generate Report about Migrate Status
-    # WARNING: We do *not* check if approve is necessary!
-    unless($job->load_epilog()){
-	mypr "nothing to do...\n";
-	exit;
-    }
-    $job->load_spocfile();
-    $job->{MIGREP}->{HITS} = $job->{OPTS}->{M}?$job->{OPTS}->{M}:0;
-    $job->{MIGREP}->{HITS} =~ /\d+/ or &usage();
-    $job->migrate_report();
-}
-elsif($job->{OPTS}->{R}){
+if($job->{OPTS}->{R}){
     # check Crypto Config
     $job->check_crypto();   
 }
@@ -357,38 +296,27 @@ elsif($job->{OPTS}->{E}){
     errpr_mode("COMPARE"); # tell the drc2_helper not to print message approve aborted
     $job->remote_execute();
 }
-elsif($job->{OPTS}->{A}){
-# Check if packet is permitted by device
-    errpr_mode("COMPARE"); # tell the drc2_helper not to print message approve aborted
-    $job->check_acl();
-}
-elsif($job->{OPTS}->{N}){
+elsif(my $spoc_path = $job->{OPTS}->{N}){
     # compare or approve network devices
-    my $nopolicy = "Policy (unknown)";
-    $job->{OPTS}->{P} = $job->{OPTS}->{P}?$job->{OPTS}->{P}: $nopolicy;
     $job->{POLICY} = $job->{OPTS}->{P};
     mypr "\n";
     mypr "********************************************************************\n";
     mypr " START: $job->{OPTS}->{P} at > ",scalar localtime," < ($id)\n";
     mypr "********************************************************************\n";
     mypr "\n";
-    # load netspoc files
-    $job->load_spocfile();
-    $job->load_epilog();
-    if($job->lock($job->{JOBNAME})){
+    if($job->lock($job->{NAME})){
 	$job->{OPTS}->{S} and open_status($job);
 	if(defined $job->{OPTS}->{C}){
 	    #####################
 	    # compare Mode!
 	    #####################
 	    errpr_mode("COMPARE"); # tell the drc2_helper that we only compare
-	    my $compare_result = $job->compare();
+	    my $compare_result = $job->compare($spoc_path);
 	    unless($job->{OPTS}->{P} eq $nopolicy){
 		unless($job->{POLICY} =~ /^p(\d+)$/){
 		    die "wrong policy format in policy spec. expected \'p<num>\'\n";
 		}
 		my $job_policy = $1;
-#		my $compare_result = $job->compare();
 		if($job->{OPTS}->{S}){
 		    #
 		    #### COMPARE STATUS FIELDS UPDATE ####
@@ -450,13 +378,13 @@ elsif($job->{OPTS}->{N}){
 	    }
 	    if($job->{OPTS}->{S}){
 		# set approve Status to 'ERROR' - later reset to 'WARNINGS' or 'OK'
-		updatestatus('DEVICENAME',$job->{JOBNAME});
+		updatestatus('DEVICENAME',$job->{NAME});
 		updatestatus('APP_TIME',scalar localtime);
 		updatestatus('APP_STATUS','***UNFINISHED APPROVE***');
 		updatestatus('APP_USER',$user);
 		updatestatus('APP_POLICY',$job->{OPTS}->{P});
 	    }
-	    $job->approve();
+	    $job->approve($spoc_path);
 	    if($job->{OPTS}->{S}){
 		# set approve/device status to 'WARNINGS' or 'OK'
 		my $sec_time = time();
@@ -480,10 +408,10 @@ elsif($job->{OPTS}->{N}){
 		}
 	    }
 	}
-	$job->unlock($job->{JOBNAME});
+	$job->unlock($job->{NAME});
     }
     else{
-	errpr "approve in process for $job->{JOBNAME}\n";
+	errpr "approve in process for $job->{NAME}\n";
     }
     mypr "\n";
     mypr "********************************************************************\n";
