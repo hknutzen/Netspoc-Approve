@@ -20,12 +20,7 @@ sub version_drc2_pix() {
     return $id;
 }
 
-use FindBin;
-use lib $FindBin::Bin;
-use Fcntl;
-use SDBM_File;
 use IO::Socket ();
-
 use Netspoc::Approve::Helper;
 
 my $con;
