@@ -175,6 +175,8 @@ my $class = $type2class{$type}
 my $job = $class->new(
     NAME          => $name,
     IP            => $device_info->{IP},
+    PASS          => $device_info->{PASS},
+    LOCAL_USER    => $device_info->{LOCAL_USER},
     OPTS          => \%opts,
     GLOBAL_CONFIG => $global_config,
 );
