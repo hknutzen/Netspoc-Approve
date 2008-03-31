@@ -27,7 +27,7 @@ use File::Basename;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( migpr mypr errpr check_erro errpr_mode errpr_info
-		  warnpr check_warn meself quad2int_2 writestatu
+		  warnpr check_warn meself quad2int int2quad writestatu
 		  formatstatus getstatus getfullstatus updatestatus
 		  open_status expect_error
 		  );
@@ -235,13 +235,13 @@ sub open_status( $ ) {
     }
 }
 
-sub quad2int_2 ($) {
+sub quad2int ($) {
     ( $_[0] =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/ ) or return undef;
     ( $1 < 256 && $2 < 256 && $3 < 256 && $4 < 256 ) or return undef;
     return $1 << 24 | $2 << 16 | $3 << 8 | $4;
 }
 
-sub int2quad_2 ($) {
+sub int2quad ($) {
     return join( '.', unpack( 'C4', pack( "N", $_[0] ) ) );
 }
 
