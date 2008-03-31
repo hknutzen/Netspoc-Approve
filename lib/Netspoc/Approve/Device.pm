@@ -379,7 +379,7 @@ sub build_db ($$) {
 }
 
 # take name or ip and retrieve passwd, name, ip (and type)
-sub get_obj_info($$$) {
+sub get_obj_info($$$$) {
     my ($self, $spec, $db_path, $global_config) = @_;
     my $db     = $self->build_db($db_path);
     my $object = $db->{NAME_HASH}->{$spec}
@@ -387,18 +387,6 @@ sub get_obj_info($$$) {
       || $db->{LEG_NAME_DB}->{$spec}
       || $db->{LEG_IP_DB}->{$spec}
       or die "object $spec not found\n";
-
-    # Get type from newest spoc file.
-    my $spocfile =
-      "$global_config->{NETSPOC}/current/$global_config->{CODEPATH}$spec";
-    open(FILE, $spocfile) or die "Can't open $spocfile: $!\n";
-    while (my $line = <FILE>) {
-        if ($line =~ /\[ Model = (\S+) ]/) {
-            $object->{TYPE} = $1;
-            last;
-        }
-    }
-    close FILE;
     $object->{NAME} or die "no object name found\n";
     $object->{IP}   or die "no address found\n";
     $object->{TYPE} or die "no object type found\n";
@@ -434,6 +422,25 @@ sub get_obj_info($$$) {
         }
     }
     return ($object);
+}
+
+sub get_spoc_type($$$) {
+    my ($self, $spec, $global_config) = @_;
+
+    # Get type of object from newest spoc file.
+    my $spocfile =
+      "$global_config->{NETSPOC}/current/".
+      "$global_config->{CODEPATH}$object->{NAME}";
+    my $type;
+    open(FILE, $spocfile) or die "Can't open $spocfile: $!\n";
+    while (my $line = <FILE>) {
+        if ($line =~ /\[ Model = (\S+) ]/) {
+            $type = $1;
+            last;
+        }
+    }
+    close FILE;
+    return $type;
 }
 
 sub get_epilog_name( $$ ) {
