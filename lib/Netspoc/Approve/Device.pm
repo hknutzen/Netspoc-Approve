@@ -34,81 +34,65 @@ use Netspoc::Approve::Helper;
 ############################################################
 sub new {
     my $class = shift;
-    my $opts  = shift;
-    my $self  = {};
-
-    # save command line options
-    $self->{OPTS} = $opts;
-
-    # define slot for global config
-    $self->{GLOBAL_CONFIG} = {};
-
-    # define slot to save device info
-    $self->{DEVICES} = {};
-    bless( $self, $class );
-    return $self;
+    my $self  = { @_ };
+    return bless($self, $class);
 }
+
 ###########################################################################
 #   methods
 ###########################################################################
 sub get_global_config($) {
+    my ($self)  = @_;
+    my $config = {};
 
-    my $job  = shift;
-    my $self = $job->{GLOBAL_CONFIG};
+    # Set masterdirectory and read global parameters.
+    my $madhome = '/home/hk/';
+    my $rcmad = $madhome . '.rcmadnes';
+    open( RCMAD, $rcmad ) or die "Can't open $rcmad: $!\n";
 
-    # set masterdirectory and read global parms
-
-    my $madhome = '/home/diamonds/';
-    my $rcmad = join '', $madhome, '.rcmadnes';
-    open( RCMAD, $rcmad ) or die "$rcmad does not exist \n";
-
-    $self->{BINHOME}        = '';
-    $self->{NETSPOC}        = '';
-    $self->{CHECKHOST}      = '';
-    $self->{EPILOGPATH}     = '';
-    $self->{CODEPATH}       = '';
-    $self->{STATUSPATH}     = '';
-    $self->{MIGSTATPATH}    = '';
-    $self->{VPNTMPDIR}      = '';
-    $self->{CHECKBANNER}    = '';
-    $self->{DEVICEDBPATH}   = '';
-    $self->{LOCKFILEPATH}   = "$madhome/lock";
-    $self->{AAA_CREDENTAIL} = '';
-    $self->{SYSTEMUSER}     = '';
+    $config->{BINHOME}        = '';
+    $config->{NETSPOC}        = '';
+    $config->{CHECKHOST}      = '';
+    $config->{EPILOGPATH}     = '';
+    $config->{CODEPATH}       = '';
+    $config->{STATUSPATH}     = '';
+    $config->{MIGSTATPATH}    = '';
+    $config->{VPNTMPDIR}      = '';
+    $config->{CHECKBANNER}    = '';
+    $config->{DEVICEDBPATH}   = '';
+    $config->{LOCKFILEPATH}   = "$madhome/lock";
+    $config->{AAA_CREDENTAIL} = '';
+    $config->{SYSTEMUSER}     = '';
 
     while ( <RCMAD> ) {
-        ( /^\s*BINHOME\s*=\s*(\S+)\s*$/ )       and $self->{BINHOME}      = $1;
-        ( /^\s*NETSPOC\s*=\s*(\S+)\s*$/ )       and $self->{NETSPOC}      = $1;
-        ( /^\s*CHECKHOSTNAME\s*=\s*(\S+)\s*$/ ) and $self->{CHECKHOST}    = $1;
-        ( /^\s*CHECKBANNER\s*=\s*(\S+)\s*$/ )   and $self->{CHECKBANNER}  = $1;
-        ( /^\s*EPILOGPATH\s*=\s*(\S+)\s*$/ )    and $self->{EPILOGPATH}   = $1;
-        ( /^\s*CODEPATH\s*=\s*(\S+)\s*$/ )      and $self->{CODEPATH}     = $1;
-        ( /^\s*STATUSPATH\s*=\s*(\S+)\s*$/ )    and $self->{STATUSPATH}   = $1;
-        ( /^\s*MIGSTATPATH\s*=\s*(\S+)\s*$/ )   and $self->{MIGSTATPATH}  = $1;
-        ( /^\s*VPNTMPDIR\s*=\s*(\S+)\s*$/ )     and $self->{VPNTMPDIR}    = $1;
-        ( /^\s*DEVICEDB\s*=\s*(\S+)\s*$/ )      and $self->{DEVICEDBPATH} = $1;
-        ( /^\s*AAA_CREDENTIALS\s*=\s*(\S+)\s*$/ )
-          and $self->{AAA_CREDENTIAL} = $1;
-        ( /^\s*SYSTEMUSER\s*=\s*(\S+)\s*$/ ) and $self->{SYSTEMUSER} = $1;
+        /^\s*BINHOME\s*=\s*(\S+)\s*$/       and $config->{BINHOME}      = $1;
+        /^\s*NETSPOC\s*=\s*(\S+)\s*$/       and $config->{NETSPOC}      = $1;
+        /^\s*CHECKHOSTNAME\s*=\s*(\S+)\s*$/ and $config->{CHECKHOST}    = $1;
+        /^\s*CHECKBANNER\s*=\s*(\S+)\s*$/   and $config->{CHECKBANNER}  = $1;
+        /^\s*EPILOGPATH\s*=\s*(\S+)\s*$/    and $config->{EPILOGPATH}   = $1;
+        /^\s*CODEPATH\s*=\s*(\S+)\s*$/      and $config->{CODEPATH}     = $1;
+        /^\s*STATUSPATH\s*=\s*(\S+)\s*$/    and $config->{STATUSPATH}   = $1;
+        /^\s*MIGSTATPATH\s*=\s*(\S+)\s*$/   and $config->{MIGSTATPATH}  = $1;
+        /^\s*VPNTMPDIR\s*=\s*(\S+)\s*$/     and $config->{VPNTMPDIR}    = $1;
+        /^\s*DEVICEDB\s*=\s*(\S+)\s*$/      and $config->{DEVICEDBPATH} = $1;
+        /^\s*AAA_CREDENTIALS\s*=\s*(\S+)\s*$/
+          and $config->{AAA_CREDENTIAL} = $1;
+        /^\s*SYSTEMUSER\s*=\s*(\S+)\s*$/    and $config->{SYSTEMUSER} = $1;
     }
     close RCMAD or die "could not close $rcmad\n";
 
-    ( $self->{NETSPOC} )    or die "netspoc basedir missing in $rcmad\n";
-    ( $self->{EPILOGPATH} ) or die "path for epilog not found in $rcmad\n";
-    ( $self->{STATUSPATH} )
+    $config->{NETSPOC}    or die "netspoc basedir missing in $rcmad\n";
+    $config->{EPILOGPATH} or die "path for epilog not found in $rcmad\n";
+    $config->{STATUSPATH}
       or die "path for status update not found in $rcmad\n";
-    ( $self->{MIGSTATPATH} )
-      or die "path for migrate status info not found in $rcmad\n";
-    ( $self->{DEVICEDBPATH} ) or die "missing DEVICEDB setting in $rcmad\n";
-    ( $self->{VPNTMPDIR} )    or die "missing VPNTMPDIR setting in $rcmad\n";
-    ( $self->{SYSTEMUSER} )   or die "name of privileged user not set\n";
+    $config->{DEVICEDBPATH} or die "missing DEVICEDB setting in $rcmad\n";
+    $config->{VPNTMPDIR}    or die "missing VPNTMPDIR setting in $rcmad\n";
+    $config->{SYSTEMUSER}   or die "name of privileged user not set\n";
+    return $config;
 }
 
-sub build_db ($) {
-    my $self = shift;
-
-    my $db;
-    $db = $self->{OPTS}->{D} or $db = $self->{GLOBAL_CONFIG}->{DEVICEDBPATH};
+sub build_db ($$) {
+    my ($self, $path)  = @_;
 
     my %LEG_ALL_DB;
     my %LEG_IP_DB;
@@ -120,7 +104,7 @@ sub build_db ($) {
     my %IP_HASH;
 
     # get password data from cw_pass
-    open( CSVDB, "$db/cw_pass" ) or die "could not open $db/cw_pass\n$!\n";
+    open( CSVDB, "$path/cw_pass" ) or die "could not open $path/cw_pass\n$!\n";
     for my $line ( <CSVDB> ) {
         $line =~ /^;/ and next;
         $line =~ s/[\"\r\n]//g;
@@ -170,7 +154,7 @@ sub build_db ($) {
     #   the data in cw_ip is actually expected to be the LMHOSTS file
     #   from an microsoft Windows CiscoWorks machine
     #
-    open( CSVDB, "$db/cw_ip" ) or die "could not open $db/cw_ip\n$!\n";
+    open( CSVDB, "$path/cw_ip" ) or die "could not open $path/cw_ip\n$!\n";
     for my $line ( <CSVDB> ) {
         $line =~ /^#/ and next;
         $line =~ s/[\"\r\n]//g;
@@ -227,7 +211,7 @@ sub build_db ($) {
     # so we still need the 'old' allp.csv file:
     #
     # data from lecagy db
-    open( CSVDB, "$db/allp.csv" ) or die "could not open $db/allp.csv\n$!\n";
+    open( CSVDB, "$path/allp.csv" ) or die "could not open $path/allp.csv\n$!\n";
     for my $line ( <CSVDB> ) {
         $line =~ /^#/ and next;
         $line =~ s/[\"\n]//g;
@@ -375,17 +359,9 @@ sub build_db ($) {
         if ( $val->{USED} ) {
             ++$used_entrys;
         }
-
-        #else{
-        #    mypr "unused: $val->{SOURCE}->{LINE}\'\n";
-        #}
     }
 
-#mypr "legacy DB: ". (scalar (values %LEG_ALL_DB) - $used_entrys) . 
-#" out of ".scalar (values %LEG_ALL_DB)." entries not covered " .
-#"by CiscoWorks DB\n";
-
-    $self->{DEVICEDATABASE} = {
+    return {
         NAME_HASH   => \%NAME_HASH,
         IP_HASH     => \%IP_HASH,
         LEG_NAME_DB => \%LEG_NAME_DB,
@@ -394,55 +370,40 @@ sub build_db ($) {
 }
 
 # take name or ip and retrieve passwd, name, ip (and type)
-sub build_obj($$) {
-    my ( $self, $spec ) = @_;
-    my $DB;
-    my $object;
-    if ( $self->{OPTS}->{Z} ) {
+sub get_obj_info($$$) {
+    my ($self, $spec, $db_path, $global_config) = @_;
+    my $db = $self->build_db($db_path);
+    my $object = 
+	$db->{NAME_HASH}->{$spec} ||
+	$db->{IP_HASH}->{$spec} ||
+	$db->{LEG_NAME_DB}->{$spec} ||
+	$db->{LEG_IP_DB}->{$spec}
+    or die "object $spec not found\n";
 
-        # build dummy object
-        $object->{NAME} = $spec;
-        $object->{IP}   = '0.0.0.0';
-        $object->{PASS} = 'dummy';
-        $object->{TYPE} = $self->{OPTS}->{Z};
+    # Get type from newest spoc file.
+    my $spocfile = 
+	"$global_config->{NETSPOC}/current/$global_config->{CODEPATH}$spec";
+    open(FILE, $spocfile) or die "Can't open $spocfile: $!\n";
+    while(my $line = <FILE>) {
+	if($line =~ /\[ Model = (\S+) ]/) {
+	    $object->{TYPE} = $1;
+	    last;
+	}
     }
-    else {
-        $DB = $self->{DEVICEDATABASE};
-        if ( exists $DB->{NAME_HASH}->{$spec} ) {
-
-            #mypr "found object by name in CiscoWorks DB\n";
-            $object = $DB->{NAME_HASH}->{$spec};
-        }
-        elsif ( exists $DB->{IP_HASH}->{$spec} ) {
-
-            #mypr "found object by ip in CiscoWorks DB\n";
-            $object = $DB->{IP_HASH}->{$spec};
-        }
-        elsif ( exists $DB->{LEG_NAME_DB}->{$spec} ) {
-
-            #mypr "found object by name in legacy DB\n";
-            $object = $DB->{LEG_NAME_DB}->{$spec};
-        }
-        elsif ( exists $DB->{LEG_IP_DB}->{$spec} ) {
-
-            #mypr "found object by ip in legacy DB\n";
-            $object = $DB->{LEG_IP_DB}->{$spec};
-        }
-        else {
-            die "object $spec not found\n";
-        }
-    }
+    close FILE;
+    $object->{NAME} or die "no object name found\n";
+    $object->{IP}   or die "no address found\n";
+    $object->{TYPE} or die "no object type found\n";
     unless ( $object->{PASS} ) {
         my $user = getpwuid( $> );
-        if ( $user ne $self->{GLOBAL_CONFIG}->{SYSTEMUSER} ) {
-            my $fh = $self->{STDOUT};
-            print $fh "Running in non privileged mode an no " .
-		"password in database found.\n";
-            print $fh "Password for $user?";
+        if ( $user ne $global_config->{SYSTEMUSER} ) {
+            print STDOUT "Running in non privileged mode an no " .
+		"password founf in database.\n";
+            print STDOUT "Password for $user?";
             system( 'stty', '-echo' );
             my $password = <STDIN>;
             system( 'stty', 'echo' );
-            print $fh "  ...thank you :)\n";
+            print STDOUT "  ...thank you :)\n";
             chomp $password;
             $object->{PASS}       = $password;
             $object->{LOCAL_USER} = $user;
@@ -450,7 +411,7 @@ sub build_obj($$) {
         else {
 
             # no pasword in Database - use aaa_credentials
-            open( AAA, $self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL} )
+            open( AAA, $global_config->{AAA_CREDENTIAL} )
               or die "could not open " .
 	      "$self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL} $!\n";
             my $credentials = <AAA>;
@@ -464,24 +425,13 @@ sub build_obj($$) {
             close( AAA );
         }
     }
-    ( $object->{NAME} ) or die "no object name found\n";
-    ( $object->{IP} )   or die "no address found\n";
+    return ($object);
+}
 
-    ( $object->{TYPE} ) or die "no object type found\n";
-    my $name = $object->{NAME};
-    $self->{DEVICES}->{$name}->{NAME}        = $object->{NAME};
-    $self->{DEVICES}->{$name}->{ALIAS}       = $object->{ALIAS};
-    $self->{DEVICES}->{$name}->{IP}          = $object->{IP};
-    $self->{DEVICES}->{$name}->{PASS}        = $object->{PASS};
-    $self->{DEVICES}->{$name}->{ENABLE_PASS} = $object->{ENABLE_PASS};
-    $self->{DEVICES}->{$name}->{LOCAL_USER}  = $object->{LOCAL_USER};
-    $self->{DEVICES}->{$name}->{TYPE}        = $object->{TYPE};
-
-    #mypr "name: $nob->{NAME} alias: $nob->{ALIAS} ip: $nob->{IP}\n";
-    #$self->{JOBNAME} = $object->{NAME};
-    #$self->{JOBTYPE} = $object->{TYPE};
-
-    return ( $object->{NAME}, $object->{TYPE} );
+sub get_epilog_name( $$ ) {
+    my ($self, $path) = @_;
+    $path =~ s/$self->{GLOBAL_CONFIG}->{CODEPATH}/$self->{GLOBAL_CONFIG}->{EPILOGPATH}/;
+    return $path;
 }
 
 sub load_spocfile($$){
@@ -507,7 +457,7 @@ sub load_spocfile($$){
     else{
 	die "spocfile \'$path\' not found!\n";	
     }
-    mypr "config file ($path) for  ",$self->{JOBNAME}," has ", scalar @result," lines\n";
+    mypr "config file ($path) for  ",$self->{NAME}," has ", scalar @result," lines\n";
     return \@result;
 }
 
@@ -519,7 +469,7 @@ sub load_epilog($$){
 	@result = <EPI>;
 	close EPI;
 	mypr "rawdata file ($path) for ",
-	$self->{JOBNAME}," has ", scalar @result," lines\n";
+	$self->{NAME}," has ", scalar @result," lines\n";
     }
     elsif(-f "${path}.gz"){
 	mypr "decompressing raw file...";
@@ -599,10 +549,6 @@ sub logging($) {
         my ( $self, $name ) = @_;
 
         # set lock for exclusive approval
-        exists $self->{DEVICES}->{$name}
-          or die "$name: no such device\n";
-        $self->{DEVICES}->{$name}->{NAME} eq $name
-          or die "devicename mismatch\n";
         my $lockfile = "$self->{GLOBAL_CONFIG}->{LOCKFILEPATH}/$name";
         unless ( -f "$lockfile" ) {
             open( $lock->{$name}, ">$lockfile" )
@@ -622,11 +568,25 @@ sub logging($) {
 
     sub unlock( $$ ) {
         my ( $self, $name ) = @_;
-        exists $self->{DEVICES}->{$name}
-          or die "$name: no such device\n";
-        $self->{DEVICES}->{$name}->{NAME} eq $name
-          or die "devicename mismatch\n";
         close( $lock->{$name} ) or die "could not unlock lockfile\n$!\n";
     }
 }
+
+# return 0 if no answer 
+sub checkping ($$$) {
+    my ($self, $addr, $retries) = @_;
+
+    for(my $i = 1; $i <= $retries; $i++){
+	
+	my $result = `ping -q -w $i -c 1 $addr`;
+	
+	$result =~ /(\d+) received/;
+
+	$1 == 1 and return $i;
+	
+    }
+    return "0";
+}
+
+
 1;
