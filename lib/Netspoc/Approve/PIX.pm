@@ -544,12 +544,11 @@ sub process_rawdata( $$$$ ) {
         $spocacl   = $pspoc->{ACCESS}->{$sp_name};
         return 1;
     };
-#    $cnob->{MIGRATE_STATUS}->{"NO LINES"} = 0;
     if (scalar @{ $epilog }) {
         my $epilog_conf = {};
 
         # *** PARSE RAWDATA ***
-        mypr " *** rawdata parsed by NEWPARSER - no MIGRATE in effect ***\n";
+        mypr " *** PARSE RAWDATA ***\n";
         $epilog_conf->{STD} = {};
         $self->pix_parse($epilog_conf->{STD}, $epilog);
         ######################################################################
