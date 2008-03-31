@@ -6,6 +6,7 @@ use warnings;
 
 use base "Netspoc::Approve::Device::Cisco";
 
+use Netspoc::Approve::Helper;
 
 sub dev_cor ($$){
     my ($self, $addr) = @_;
@@ -166,7 +167,7 @@ sub route_line_to_string ($$) {
     (defined $$o{NEXTHOP}) and do{$r = join ' ',$r,int2quad $$o{NEXTHOP}};
     (defined $$o{METRIC}) and do{$r = join ' ',$r,$$o{METRIC}};
     (defined $$o{MISC}) and do{$r = join ' ',$r,$$o{MISC}};
-    (defined $$o{TRACK_NUMBER}) and do{$r = join ' ',$r,$$o{TRACK_NUMBER}}
+    (defined $$o{TRACK_NUMBER}) and do{$r = join ' ',$r,$$o{TRACK_NUMBER}};
     return $r;
 }
 
@@ -176,6 +177,34 @@ sub acl_line_to_string ($$){
     $self->acl_entry($a,\$s);
     return $s;
 }
+
+sub print_icmpmessage ($$$){
+    my ($self,$ah,$al) = @_;
+
+    # we prefer textual output of icmp message due to
+    # problems in the ios ace parser:
+    #
+    # in ios holds:   icmp 8 0 != icmp echo
+    # because of this echo is coded as type 8 code -1
+    #
+    if(exists $ah->{TYPE}){
+	if(exists $ah->{CODE}){
+# ToDo
+#	    if(exists $ICMP_Re_Trans{$ah->{TYPE}}->{$ah->{CODE}}){
+#		$$al =join ' ',$$al,$ICMP_Re_Trans{$ah->{TYPE}}->{$ah->{CODE}};
+#	    }
+#	    else
+	    {
+		$$al =join ' ',$$al,$ah->{TYPE};
+		$ah->{CODE} != -1 and $$al =join ' ',$$al,$ah->{CODE};
+	    }
+	}
+	else{
+	    $$al =join ' ',$$al,$ah->{TYPE};
+	}
+    }
+}
+
 # Packages must return a true value;
 1;
 
