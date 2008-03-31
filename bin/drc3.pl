@@ -172,7 +172,7 @@ my $class = $type2class{$type}
   or die "Cant't handle type '$type' of $netobj\n";
 
 my $job = $class->new(
-    NAME          => $netobj,
+    NAME          => $device_info->{NAME},
     IP            => $device_info->{IP},
     OPTS          => \%opts,
     GLOBAL_CONFIG => $global_config,
