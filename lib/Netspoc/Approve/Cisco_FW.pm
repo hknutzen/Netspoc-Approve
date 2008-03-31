@@ -25,6 +25,8 @@ use warnings;
 
 use base "Netspoc::Approve::Device::Cisco";
 
+use Netspoc::Approve::Helper;
+
 # following lists are subject of permanent adaption from pix and ios devices 
 # not all numbers have names on cisco devices
 # and they use non-iana names :(
@@ -188,37 +190,6 @@ for my $message (keys %ICMP_Trans){
     $ICMP_Re_Trans{$ICMP_Trans{$message}->{type}}->{$ICMP_Trans{$message}->{code}} = $message; 
 }
 
-
-
-############################################################
-# --- constructor ---
-############################################################
-sub new {
-    my $class = shift;
-    my $self = { @_ };
-    # check parameters
-    unless($self->{MODE} =~ /pix|ios|xml/){ # pix,ios, or whatever
-	die "unknown parser $self->{MODE}\n";
-    }
-    if(!exists $self->{PRINT}){
-	$self->{PRINT} = 'no';
-    }
-    unless($self->{PRINT} =~ /yes|no/){ 
-	die "unknown printer $self->{PRINT}\n";
-    }
-    if(!exists $self->{ERROR_PRINT_VICINITY}){
-	$self->{ERROR_PRINT_VICINITY} = 25;
-    }
-    unless($self->{ERROR_PRINT_VICINITY} =~ /\A\d+\Z/){ 
-	die "ERROR_PRINT_VICINITY $self->{ERROR_PRINT_VICINITY} is not positiv integer\n";
-    }   
-    #
-    # TODO: reverse port-translation for printing
-    #
-    bless($self,$class);
-    return $self;
-}
-
 sub dev_cor ($$){
     my ($self, $addr) = @_;
     return $addr;
@@ -230,12 +201,12 @@ sub parse_error($$$){
     my($package, $file, $ln, $sub) = caller 1;
     
   
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	die   "parse error (PRINTING) \n in \'$sub\' - $message - yet printed: \'$$line\'\n";
     }
     # if allready parsed a large chunk of data error reporting turns *very* slow!!
     if(pos($$line) < 10000){
-	if($self->{PRINT} eq 'no'){
+	if(not $self->{PRINT}){
 	    $self->{PRINT} = 'yes';
 	    $$line =~ m/(.{0,$self->{ERROR_PRINT_VICINITY}})\G(.{0,$self->{ERROR_PRINT_VICINITY}})/s;
 	    my $dummy;
@@ -289,7 +260,7 @@ sub parse_global_lines( $$$ ){
     my ($self, $ah, $al) = @_;
     my $THIS = \&parse_global_lines;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$self->{func} eq $THIS and $$al = '';
 	for my $entry (@$ah){
 	    $self->pix_global($entry,$al);
@@ -317,7 +288,7 @@ sub pix_global( $$$ ){
     my ($self,$ah,$al) = @_;
     my $THIS = \&pix_global;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$self->{func} eq $THIS and $$al = '';
 	$$al = "${$al}global ($ah->{EXT_IF_NAME}) $ah->{NAT_ID}";
     }
@@ -338,7 +309,7 @@ sub pix_global( $$$ ){
 #
 sub pix_pool( $$$ ){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	# we can not use ip_spec here because there
 	# is no space between adresses
 	if($ah->{BEGIN}->{BASE}){
@@ -379,7 +350,7 @@ sub parse_nat_lines( $$$ ){
     my ($self,$ah,$al) = @_;
     my $THIS = \&parse_nat_lines;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$self->{func} eq $THIS and $$al = '';
 	for my $entry (@$ah){
 	    $self->pix_nat($entry,$al);
@@ -408,7 +379,7 @@ sub pix_nat( $$$ ){
     my ($self,$ah,$al) = @_;
     my $THIS = \&pix_nat;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$self->{func} eq $THIS and $$al = '';
 	$$al = "${$al}nat ($ah->{IF_NAME}) $ah->{NAT_ID}";
     }
@@ -435,7 +406,7 @@ sub pix_nat( $$$ ){
 #
 sub outside_keyword($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and $ah->{OUTSIDE}){
+    if($self->{PRINT} and $ah->{OUTSIDE}){
 	$$al =join ' ',$$al,$ah->{OUTSIDE};
     }
     elsif($$al =~ /\G\s*(outside)$ts/cgxo){
@@ -455,7 +426,7 @@ sub outside_keyword($$$){
 #
 sub parse_ip_address( $$$ ){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	for my $if_name (sort keys %$ah){
 	    my $entry = $ah->{ADDRESS}->{$if_name};
 	    $$al = "${$al}ip address $if_name ".
@@ -503,7 +474,7 @@ sub parse_ip_address( $$$ ){
 #
 sub parse_old_interface( $$$ ){
     my ($self, $ah, $al) = @_;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	for my $hw_id (sort keys %$ah){
 	    my $entry = $ah->{$hw_id};
 	    $$al = "${$al}interface $hw_id";
@@ -550,7 +521,7 @@ sub parse_old_interface( $$$ ){
 #
 sub parse_interface( $$$ ){
     my ($self, $ah, $al) = @_;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	for my $hw_id (sort keys %$ah){
 	    my $entry = $ah->{$hw_id};
 	    $$al = "${$al}interface $hw_id\n";
@@ -612,7 +583,7 @@ sub parse_interface( $$$ ){
 }
 sub shutdown( $$$ ){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if($ah->{SHUTDOWN}){
 	    $$al = "${$al} shutdown\n";
 	}
@@ -630,7 +601,7 @@ sub shutdown( $$$ ){
 }
 sub hw_speed( $$$ ){
 my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if($ah->{HW_SPEED} ne 'auto'){
 	    $$al = "${$al} speed $ah->{HW_SPEED}\n";
 	}
@@ -653,7 +624,7 @@ my ($self,$ah,$al) = @_;
 }
 sub duplex( $$$ ){
 my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if($ah->{DUPLEX} ne 'auto'){
 	    $$al = "${$al} duplex $ah->{DUPLEX}\n";
 	}
@@ -676,7 +647,7 @@ my ($self,$ah,$al) = @_;
 }
 sub if_name( $$$ ){
 my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if(defined $ah->{IF_NAME}){
 	    $$al = "${$al} nameif $ah->{IF_NAME}\n";
 	}
@@ -704,7 +675,7 @@ my ($self,$ah,$al) = @_;
 }
 sub security( $$$ ){
 my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if(defined $ah->{SECURITY}){
 	    $$al = "${$al} security-level $ah->{SECURITY}\n";
 	}
@@ -732,7 +703,7 @@ my ($self,$ah,$al) = @_;
 }
 sub ip_address( $$$ ){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	if(defined $ah->{ADDRESS}){ 
 	    my $entry = $ah->{ADDRESS};
 	    $$al = "${$al}ip address ".
@@ -775,7 +746,7 @@ sub ip_address( $$$ ){
 #
 sub parse_nameif( $$$ ){
   my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	for my $hw_id (sort keys %$ah){
 	    my $entry = $ah->{$hw_id};
 	    $$al = "${$al}nameif $hw_id $entry->{IF_NAME} $entry->{SECURITY}\n";
@@ -811,7 +782,7 @@ sub parse_nameif( $$$ ){
 #
 sub parse_access_group( $$$ ){
   my ($self, $ah, $al) = @_;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	for my $acl_name (sort keys %$ah){
 	    my $entry = $ah->{$acl_name};
 	    $$al = "${$al}access-group $acl_name in interface $entry->{IF_NAME}\n";
@@ -854,7 +825,7 @@ sub parse_route_lines( $$$ ){
    my ($self,$ah,$al) = @_;
    my $THIS = \&parse_route_lines;
    $self->{func} or $self->{func} = $THIS;
-   if($self->{PRINT} eq 'yes'){
+   if($self->{PRINT}){
        $self->{func} eq $THIS and $$al = '';
        for my $entry (@{$ah}){
 	   $self->pix_route($entry,$al);
@@ -889,7 +860,7 @@ sub pix_route( $$$){
     my ($self,$ah,$al) = @_;
     my $THIS = \&pix_route;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	$self->{func} eq $THIS and $$al = '';
 	$$al = "${$al}route $ah->{IF} ".int2quad($ah->{BASE}). 
 	    " ".int2quad($ah->{MASK}).
@@ -971,7 +942,7 @@ sub pix_crypto_map( $$$ ){
     my ($self,$ah,$al) = @_;
     my $THIS = \&pix_crypto_map;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	parse_error$self,$al,"printing not implemented for crypto maps yet";
     }
     if($$al =~ /\G\s*map\s+($tc+)$ts/cgxo){
@@ -1062,7 +1033,7 @@ sub parse_object_group($$$){
     my ($self,$ah,$al) = @_;
     my $THIS = \&parse_object_group;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$self->{func} eq $THIS and $$al = '';
 	for my $og_name (sort keys %$ah){
 	    my $entry = $ah->{$og_name};
@@ -1120,7 +1091,7 @@ sub parse_object_group($$$){
 	    } 
 	    $foundone = 1;
 	}
-	if($self->{PRINT} eq 'yes'){
+	if($self->{PRINT}){
 	    $$al =~ s/^ +//;  
 	}
 	return $foundone;
@@ -1132,7 +1103,7 @@ sub parse_object_group($$$){
 #
 sub og_description($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and $ah->{DESCRIPTION}){ 
+    if($self->{PRINT} and $ah->{DESCRIPTION}){ 
 	$$al = "${$al} description $ah->{DESCRIPTION}\n";
     }
     elsif($$al =~ /\G\s*description$ts/cgxo){
@@ -1155,7 +1126,7 @@ sub og_description($$$){
 #
 sub og_network_object($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	for my $entry (@{$ah->{NETWORK_OBJECT}}){
 	    $$al =join ' ',
 	    $$al,'network-object',
@@ -1186,7 +1157,7 @@ sub og_network_object($$$){
 #
 sub og_group_object($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	for my $entry (@{$ah->{GROUP_OBJECT}}){ 
 	    $$al = join ' ',$$al,'group-object',$entry->{NAME};
 	    $$al = "$$al\n";
@@ -1214,7 +1185,7 @@ sub parse_static_lines($$$){
     my ($self,$ah,$al) = @_;
     my $THIS = \&parse_static_lines;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$self->{func} eq $THIS and $$al = '';
 	for my $entry (@{$ah}){
 	    $self->static_line($entry,$al);
@@ -1260,7 +1231,7 @@ sub static_line($$$){
     my ($self,$ah,$al) = @_;
     my $THIS = \&static_line;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$self->{func} eq $THIS and $$al = '';
     }
     else{
@@ -1276,7 +1247,7 @@ sub static_line($$$){
 	 # $self->norandomseq($ah,$al) && => flaw in documentation? order of items switched...  
 	 $self->max_conns($ah,$al)) &&
 	 $self->norandomseq($ah,$al);      
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$$al =~ s/^ +//;  
     }
     return $result;
@@ -1289,7 +1260,7 @@ sub static_line($$$){
 #
 sub local_global($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){ 
+    if($self->{PRINT}){ 
 	$$al ="${$al}static ($ah->{LOCAL_IF},$ah->{GLOBAL_IF})";
     }
     elsif($$al =~ /\G\s*static$ts/cgxo){
@@ -1314,7 +1285,7 @@ sub local_global($$$){
 #
 sub translation($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$ah->{TRANS}->{TYPE} or return 0;
     }
     else{
@@ -1343,7 +1314,7 @@ sub translation($$$){
 #
 sub static_nat($$$){
     my ($self,$ah,$al) = @_;
-    unless($self->{PRINT} eq 'yes'){
+    unless($self->{PRINT}){
 	$ah->{GLOBAL} = {};
 	$ah->{LOCAL} = {};
     }
@@ -1366,7 +1337,7 @@ sub static_nat($$$){
 #
 sub static_pat($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$$al =join ' ',$$al,$ah->{TYPE};
     }
     else{
@@ -1399,7 +1370,7 @@ sub static_pat($$$){
 #
 sub interface_keyword($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and $ah->{INTERFACE}){
+    if($self->{PRINT} and $ah->{INTERFACE}){
 	$$al =join ' ',$$al,$ah->{INTERFACE};
     }
     elsif($$al =~ /\G\s*(interface)$ts/cgxo){
@@ -1416,7 +1387,7 @@ sub interface_keyword($$$){
 #
 sub ip_spec($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and exists $ah->{BASE}){
+    if($self->{PRINT} and exists $ah->{BASE}){
 	$$al =join ' ',$$al,int2quad($ah->{BASE});
     }
     elsif($$al =~ /\G\s*([.\d]+)$ts/cgxo){
@@ -1433,7 +1404,7 @@ sub ip_spec($$$){
 #
 sub netmask($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and $ah->{NETMASK}){
+    if($self->{PRINT} and $ah->{NETMASK}){
 	$$al =join ' ',$$al,'netmask',int2quad($ah->{NETMASK});
     }
     elsif($$al =~ /\G\s*netmask\s+([.\d]+)$ts/cgxo){
@@ -1450,7 +1421,7 @@ sub netmask($$$){
 #
 sub port_spec($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$$al =join ' ',$$al,$ah->{PORT};
     }
     elsif($$al =~ /\G\s*($tc+)$ts/cgxo){
@@ -1474,7 +1445,7 @@ sub port_spec($$$){
 #
 sub access_list_spec($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$$al =join ' ',$$al,'access-list',$ah->{ACCESS_LIST}->{NAME};
     }
     elsif($$al =~ /\G\s*access-list\s+($tc+)$ts/cgxo){
@@ -1491,7 +1462,7 @@ sub access_list_spec($$$){
 #
 sub dns($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and $ah->{DNS}) {
+    if($self->{PRINT} and $ah->{DNS}) {
 	$$al =join ' ',$$al,$ah->{DNS};
     }
     elsif($$al =~ /\G\s*(dns)$ts/cgxo){
@@ -1505,7 +1476,7 @@ sub dns($$$){
 #
 sub norandomseq($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and $ah->{NORANDOMSEQ}){ 
+    if($self->{PRINT} and $ah->{NORANDOMSEQ}){ 
 	$$al =join ' ',$$al,$ah->{NORANDOMSEQ};
     }
     elsif($$al =~ /\G\s*(norandomseq)$ts/cgxo){
@@ -1520,7 +1491,7 @@ sub norandomseq($$$){
 #
 sub max_conns($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and exists $ah->{MAX_CONS}){
+    if($self->{PRINT} and exists $ah->{MAX_CONS}){
 	$$al =join ' ',$$al,$ah->{MAX_CONS};
     }
     elsif($$al =~ /\G\s*(\d+)$ts/cgxo){
@@ -1539,7 +1510,7 @@ sub max_conns($$$){
 #
 sub emb_limit($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and exists $ah->{EMB_LIMIT}){
+    if($self->{PRINT} and exists $ah->{EMB_LIMIT}){
 	$$al =join ' ',$$al,$ah->{EMB_LIMIT};
     }
     elsif($$al =~ /\G\s*(\d+)$ts/cgxo){
@@ -1602,12 +1573,12 @@ sub pix_show_access_list_line($$$){
 #   ... with extension for pix os 7.x (keyword 'extended')
 #
 #
-sub pix_write_term_acl($$$){
+sub parse_write_term_acl($$$){
     my ($self,$ah,$al) = @_;
-    my $THIS = \&pix_write_term_acl;
+    my $THIS = \&parse_write_term_acl;
     $self->{func} or $self->{func} = $THIS;
     my $foundone = 0;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$self->{func} eq $THIS and $$al = '';
 	for my $acl_name (sort keys %$ah){
 	    for my $entry (@{$ah->{$acl_name}->{RAW_ARRAY}}){
@@ -1658,7 +1629,7 @@ sub pix_write_term_acl($$$){
 	    }
 	}
     }
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$$al =~ s/^ +//;  
     }
     return $foundone;
@@ -1673,7 +1644,7 @@ sub pix_acl_entry($$$){
     my ($self,$ah,$al) = @_;
     my $THIS = \&pix_acl_entry;
     $self->{func} or $self->{func} = $THIS;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$self->{func} eq $THIS and $$al = '';
     }
     else{
@@ -1750,7 +1721,7 @@ sub pix_acl_entry($$$){
     else{
 	$result = $self->remark($ah,$al) || $self->compiled_keyword($ah,$al);
     }
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$$al =~ s/^ +//;  
     }
     elsif($self->{func} eq $THIS and $$al =~ /\G\s*\S/){
@@ -1764,7 +1735,7 @@ sub pix_acl_entry($$$){
 #
 sub compiled_keyword($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and $ah->{COMPILED}){
+    if($self->{PRINT} and $ah->{COMPILED}){
 	$$al =join ' ',$$al,$ah->{COMPILED};
     }
     elsif($$al =~ /\G\s*(compiled)$ts/cgxo){
@@ -1781,7 +1752,7 @@ sub compiled_keyword($$$){
 #
 sub pixacl_og_spec( $$$$ ){
     my ($self,$ah,$al,$type) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if($ah->{OBJECT_GROUP}){
 	    $$al =join ' ',$$al,'object-group',$ah->{OBJECT_GROUP}; 
 	    return 1;
@@ -1817,7 +1788,7 @@ sub pixacl_og_spec( $$$$ ){
 #
 sub pixacl_ip_prot_spec( $$$ ){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if(defined $ah->{TYPE}){
 	    my $prot = $ah->{TYPE};
 	    (exists $Re_IP_Trans{$prot}) and $prot =  $Re_IP_Trans{$prot};
@@ -1852,7 +1823,7 @@ sub pixacl_ip_prot_spec( $$$ ){
 #
 sub pixacl_adr_srv_spec( $$$ ){
     my ($self,$ah,$al) = @_;
-    unless($self->{PRINT} eq 'yes'){
+    unless($self->{PRINT}){
 	$ah->{SRV} = {};
     }
     $self->{PORTMODE} = \%PORT_Trans_TCP_UDP;
@@ -1874,7 +1845,7 @@ sub pixacl_adr_srv_spec( $$$ ){
 #
 sub pixacl_log_packet( $$$ ){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if($ah->{LOG}){
 	    $$al =join ' ',$$al,'log';
 	    if($ah->{LOG}->{MODE}){
@@ -1921,7 +1892,7 @@ sub pixacl_log_packet( $$$ ){
 sub acl_entry($$$){
     my ($self,$ah,$al) = @_;
     $self->{func} = \&acl_entry;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$$al = "";
     }
     else{
@@ -1938,7 +1909,7 @@ sub acl_entry($$$){
 	 # timerange
 	 # fragments
 	 ) || $self->remark($ah,$al);
-    if(exists $self->{PRINT} and $self->{PRINT} eq 'yes'){
+    if(exists $self->{PRINT} and $self->{PRINT}){
 	$$al =~ s/^ +//;  
     }
     elsif($result){
@@ -1953,7 +1924,7 @@ sub acl_entry($$$){
 #                       ->{REMARK}
 sub remark($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and exists $ah->{REMARK}){
+    if($self->{PRINT} and exists $ah->{REMARK}){
 	$$al =join ' ',$$al,'remark',$ah->{REMARK};
 	return 1;
     }
@@ -1969,7 +1940,7 @@ sub remark($$$){
 #                        ->{DYNAMIC}->{NAME} (name of dynamic access-list)
 sub dynamic($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and exists $ah->{DYNAMIC}){
+    if($self->{PRINT} and exists $ah->{DYNAMIC}){
 	$$al =join ' ',$$al,'dynamic',$ah->{DYNAMIC}->{NAME};
     }
     elsif($$al =~ /\G\s*[Dd]ynamic\s+(\w+)$ts/cgxo){
@@ -1986,7 +1957,7 @@ sub dynamic($$$){
 #                       ->{TIMEOUT} (timeout in minutes)
 sub timeout($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and exists $ah->{TIMEOUT}){
+    if($self->{PRINT} and exists $ah->{TIMEOUT}){
 	$$al =join ' ',$$al,'timeout',$ah->{TIMEOUT};
     }
     elsif($$al =~ /\G\s*timeout\s+(\d+)$ts/cgxo){
@@ -1998,7 +1969,7 @@ sub timeout($$$){
 #                       ->{MODE} 
 sub action($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if($ah->{MODE}){
 	    $$al =join ' ',$$al,$ah->{MODE};
 	    return 1;
@@ -2020,7 +1991,7 @@ sub action($$$){
 #                       ->{PROTO} 
 sub prot_spec($$$){
     my ($self,$ah,$al) = @_;
-    unless($self->{PRINT} eq 'yes'){
+    unless($self->{PRINT}){
 	$ah->{PROTO} = {};
     }
     unless( $self->p_tcp($ah->{PROTO},$al) || 
@@ -2045,7 +2016,7 @@ sub prot_spec($$$){
 #                       ->{LOG}
 sub log_packet($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if($ah->{LOG}){
 	    $$al =join ' ',$$al,$ah->{LOG};
 	}
@@ -2063,7 +2034,7 @@ sub log_packet($$$){
 #                       ->{TYPE} 
 sub p_ip($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if($ah->{'TYPE'} eq 'ip'){
 	    $$al =join ' ',$$al,'ip';
 	}
@@ -2089,7 +2060,7 @@ sub p_ip($$$){
 #                       ->{TYPE}
 sub p_tcp($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	if($ah->{TYPE} eq 'tcp' or $ah->{TYPE} eq 6){
 	    $$al =join ' ',$$al,$ah->{TYPE};
 	}
@@ -2121,7 +2092,7 @@ sub p_tcp($$$){
 sub established($$$){
 
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and exists $ah->{ESTA}){
+    if($self->{PRINT} and exists $ah->{ESTA}){
 	$$al =join ' ',$$al,$ah->{ESTA};
     }
     elsif($$al =~ /\G\s*established$ts/cgxo){
@@ -2133,7 +2104,7 @@ sub established($$$){
 #                       ->{TYPE}
 sub p_udp($$$){
     my ($self,$ah,$al) = @_;
-     if($self->{PRINT} eq 'yes'){
+     if($self->{PRINT}){
 	if($ah->{TYPE} eq 'udp' or $ah->{TYPE} eq 17){
 	    $$al =join ' ',$$al,$ah->{TYPE};
 	}
@@ -2163,7 +2134,7 @@ sub p_udp($$$){
 #                     
 sub p_icmp($$$){
     my ($self,$ah,$al) = @_;
-     if($self->{PRINT} eq 'yes'){
+     if($self->{PRINT}){
 	if($ah->{TYPE} eq 'icmp' or $ah->{TYPE} eq 1){
 	    $$al =join ' ',$$al,$ah->{TYPE};
 	}
@@ -2191,7 +2162,7 @@ sub p_icmp($$$){
 #                       ->{TYPE}
 sub p_other($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	my $prot = $ah->{TYPE};
 	(exists $Re_IP_Trans{$prot}) and $prot =  $Re_IP_Trans{$prot};
 	$$al =join ' ',$$al,$prot;
@@ -2217,38 +2188,20 @@ sub p_other($$$){
     $self->adr($ah->{DST},$al);
     return 1;
 }
+
+sub print_icmpmessage ($$$){
+    my ($self,$ah,$al) = @_;
+    (exists $ah->{TYPE}) and $$al =join ' ',$$al,$ah->{TYPE};
+	    # no code for pixfirewall
+}
+
 ###	icmpmessage:	<message-name> | (/d+/ [/d+])
 #
 #                      ->{TYPE} / ->{CODE} (if defined)
 sub icmpmessage($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
-	if($self->{MODE} eq 'pix'){
-	    (exists $ah->{TYPE}) and $$al =join ' ',$$al,$ah->{TYPE};
-	    # no code for pixfirewall
-	}
-	else{
-	    # we prefer textual output of icmp message due to
-	    # problems in the ios ace parser:
-	    #
-	    # in ios holds:   icmp 8 0 != icmp echo
-	    # because of this echo is coded as type 8 code -1
-	    #
-	    if(exists $ah->{TYPE}){
-		if(exists $ah->{CODE}){
-		    if(exists $ICMP_Re_Trans{$ah->{TYPE}}->{$ah->{CODE}}){
-			$$al =join ' ',$$al,$ICMP_Re_Trans{$ah->{TYPE}}->{$ah->{CODE}};
-		    }
-		    else{
-			$$al =join ' ',$$al,$ah->{TYPE};
-			$ah->{CODE} != -1 and $$al =join ' ',$$al,$ah->{CODE};
-		    }
-		}
-		else{
-		    $$al =join ' ',$$al,$ah->{TYPE};
-		}
-	    }
-	}
+    if($self->{PRINT}){
+	$self->print_icmpmessage($ah, $al);
     }
     else{
 	my $parse_start = pos($$al);
@@ -2286,7 +2239,7 @@ sub icmpmessage($$$){
 #                       ->{SRV}->{SPEC}
 sub spec($$$){
     my ($self,$ah,$al) = @_;
-    unless($self->{PRINT} eq 'yes'){
+    unless($self->{PRINT}){
 	$ah->{SRV} = {};
     }
     $self->single_spec($ah->{SRV},$al) or
@@ -2297,7 +2250,7 @@ sub spec($$$){
 #                       ->{SPEC} ->{PORT_L} / {PORT_H}
 sub single_spec($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and $ah->{SPEC}){
+    if($self->{PRINT} and $ah->{SPEC}){
 	my $port;
 	if($ah->{SPEC} =~ /lt|eq|neq/){
 	    $port = $ah->{PORT_H}
@@ -2364,7 +2317,7 @@ sub single_spec($$$){
 #                       ->{SPEC} ->{PORT_L} / {PORT_H}
 sub range_spec($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes' and $ah->{SPEC} and $ah->{SPEC} eq 'range'){
+    if($self->{PRINT} and $ah->{SPEC} and $ah->{SPEC} eq 'range'){
 	my $port_l = $ah->{PORT_L};
 	my $port_h = $ah->{PORT_H};
 	(exists $self->{PORTMODE}{$port_l}) and $port_l=$self->{PORTMODE}{$port_l}; 
@@ -2398,7 +2351,7 @@ sub range_spec($$$){
 #                       if 'any': ->{BASE} = 0 / ->{MASK} = 0 
 sub adr($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	# addresses are *allways* 'base' and 'mask'!
 	(defined $ah->{BASE} and defined $ah->{MASK}) and
 	$$al =join ' ',
@@ -2421,7 +2374,7 @@ sub adr($$$){
 #
 sub adr_opt($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	# addresses are *allways* 'base' and 'mask'!
 	if(defined $ah->{BASE} and defined $ah->{MASK}) 
 	{
@@ -2481,7 +2434,7 @@ sub net($$$){
 #
 sub net_p($$$){
     my ($self,$ah,$al) = @_;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	# addresses are *allways* 'base' and 'mask'!
 	if(defined $ah->{BASE} and defined $ah->{MASK}) 
 	{
@@ -2515,7 +2468,7 @@ sub static_line_to_string($$){
     $self->{func} = '';
     $self->{PRINT} = 'yes';
     $self->static_line($s,\$r,1);
-    $self->{PRINT} = 'no';
+    $self->{PRINT} = undef;
     return $r;
 }
 sub pix_global_line_to_string($$){
@@ -2524,7 +2477,7 @@ sub pix_global_line_to_string($$){
     $self->{func} = '';
     $self->{PRINT} = 'yes';
     $self->pix_global($s,\$r);
-    $self->{PRINT} = 'no';
+    $self->{PRINT} = undef;
     return $r;
 }
 sub pix_nat_line_to_string($$){
@@ -2533,7 +2486,7 @@ sub pix_nat_line_to_string($$){
     $self->{func} = '';
     $self->{PRINT} = 'yes';
     $self->pix_nat($s,\$r);
-    $self->{PRINT} = 'no';
+    $self->{PRINT} = undef;
     return $r;
 }
 sub route_line_to_string ($$){
@@ -2542,7 +2495,7 @@ sub route_line_to_string ($$){
     $self->{func} = '';
     $self->{PRINT} = 'yes';
     $self->pix_route($o,\$r);
-    $self->{PRINT} = 'no';
+    $self->{PRINT} = undef;
     return $r;
 }
 sub acl_line_to_string ($$){
@@ -2551,7 +2504,7 @@ sub acl_line_to_string ($$){
     $self->{func} = '';
     $self->{PRINT} = 'yes';
     $self->pix_acl_entry($a,\$s);
-    $self->{PRINT} = 'no';
+    $self->{PRINT} = undef;
     return $s;
 }
 
