@@ -126,20 +126,20 @@ sub services_a_in_b ($$){
     return 0;
 }
 
-sub acl_line_a_in_b ($$){
-    #
-    # check if SRC SRV DST SRV  from a 
-    # is subset of or intersection with 
-    #          SRC SRV DST SRV from b
-    #
-    # do not check permit/deny !
-    #
-    #
-    # return value: 0: no
-    #               1: yes
-    #               2: intersection
-    #
-    my ($a,$b) = @_;
+#
+# check if SRC SRV DST SRV  from a 
+# is subset of or intersection with 
+#          SRC SRV DST SRV from b
+#
+# do not check permit/deny !
+#
+#
+# return value: 0: no
+#               1: yes
+#               2: intersection
+#
+sub acl_line_a_in_b ($$$){
+    my ($self,$a,$b) = @_;
     exists $a->{REMARK} and return 1;
     exists $b->{REMARK} and return 0;
     my $src; 
@@ -154,9 +154,9 @@ sub acl_line_a_in_b ($$){
     ($src == $dst and $dst == $srv and $srv == 1) and return 1;
     return 2;
 }
-sub acl_line_a_eq_b ($$){
+sub acl_line_a_eq_b ($$$){
     # fast :)
-    my ($a,$b) = @_;
+    my ($self,$a,$b) = @_;
     if(exists $a->{REMARK}){
 	exists $b->{REMARK} or return 0;
 	if($a->{REMARK} eq $b->{REMARK}){
