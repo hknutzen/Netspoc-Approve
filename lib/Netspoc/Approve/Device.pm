@@ -425,12 +425,12 @@ sub get_obj_info($$$$) {
 }
 
 sub get_spoc_type($$$) {
-    my ($self, $spec, $global_config) = @_;
+    my ($self, $name, $global_config) = @_;
 
     # Get type of object from newest spoc file.
     my $spocfile =
       "$global_config->{NETSPOC}/current/".
-      "$global_config->{CODEPATH}$object->{NAME}";
+      "$global_config->{CODEPATH}$name";
     my $type;
     open(FILE, $spocfile) or die "Can't open $spocfile: $!\n";
     while (my $line = <FILE>) {
