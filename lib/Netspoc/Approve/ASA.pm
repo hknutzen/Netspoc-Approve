@@ -13,7 +13,7 @@ use base "Netspoc::Approve::Device::Cisco::Firewall";
 sub write_term_config($$$$){
     my ($self, $ah, $al) = @_;
     $self->{func} = \&write_term_config;
-    if($self->{PRINT} eq 'yes'){
+    if($self->{PRINT}){
 	$$al = "";
 	$self->parse_interface($ah->{HWIF},$al);
 	$self->parse_object_group($ah->{OBJECT_GROUP},$al); 
