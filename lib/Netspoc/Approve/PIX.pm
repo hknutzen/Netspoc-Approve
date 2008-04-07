@@ -27,7 +27,6 @@ use Netspoc::Approve::Helper;
 #
 sub write_term_config($$$){
     my ($self, $ah, $al) = @_;
-    $self->{func} = \&write_term_config;
     if($self->{PRINT}){
 	$$al = "";
 	$self->parse_old_interface($ah->{HWIF},$al);
@@ -43,10 +42,6 @@ sub write_term_config($$$){
 	$self->parse_crypto($ah->{CRYPTO},$al);
     }
     else{
-	if($self->{func} eq \&write_term_config){
-	    pos($$al) = 0;
-	    $self->{RESULT} = $ah; # needed in parse_error()
-	}
 	$ah->{HWIF} = {};
 	$ah->{ACCESS_LIST} = {}; # old implementation: 'ACCESS'
 	$ah->{OBJECT_GROUP} = {};
