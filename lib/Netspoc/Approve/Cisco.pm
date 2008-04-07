@@ -457,8 +457,8 @@ sub show( $$$ ) {
 
 ### main func ###
 
-sub acl_array_compare_a_in_b ( $$$$$ ) {
-    my ($self, $ac, $bc, $type, $opt) = @_;
+sub acl_array_compare_a_in_b ( $$$$ ) {
+    my ($self, $ac, $bc, $opt) = @_;
 
     # setting options
 
