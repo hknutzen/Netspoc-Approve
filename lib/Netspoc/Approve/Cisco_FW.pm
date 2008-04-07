@@ -213,24 +213,11 @@ sub parse_error($$$) {
           "parse error (PRINTING) \n in \'$sub\' - $message - yet printed: \'$$line\'\n";
     }
 
-    # if allready parsed a large chunk of data 
-    # error reporting turns *very* slow!!
-    if (pos($$line) < 10000) {
-        if (not $self->{PRINT}) {
-            $self->{PRINT} = 'yes';
-            $$line =~
-              m/(.{0,$self->{ERROR_PRINT_VICINITY}})\G(.{0,$self->{ERROR_PRINT_VICINITY}})/s;
-            my $dummy;
-            $self->{IN_RECURSION} = 0;
-            $self->{func}($self, $self->{RESULT}, \$dummy);
-            die
-              "parse error (PARSING)  \n in \'$sub\' - $message - \n\'$1<< HERE >>$2\'\n yet parsed:\n $dummy\n";
-        }
-    }
-    else {
-        $$line =~ m/(.{0,100})\G(.{0,100})/s;
-        die
-          "parse error (PARSING)  \n in \'$sub\' - $message - \n\'$1<< HERE >>$2\'\n";
+    if (not $self->{PRINT}) {
+	$$line =~
+	    m/(.{0,25})\G(.{0,25})/s;
+	die
+	    "parse error (PARSING)  \n in \'$sub\' - $message - \n\'$1<< HERE >>$2\'\n";
     }
 }
 ############################################################
@@ -272,10 +259,7 @@ sub parse_dummy_lines ( $$$ ) {
 #
 sub parse_global_lines( $$$ ) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&parse_global_lines;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
         for my $entry (@$ah) {
             $self->pix_global($entry, $al);
             $$al = "${$al}\n";
@@ -301,10 +285,7 @@ sub parse_global_lines( $$$ ) {
 #
 sub pix_global( $$$ ) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&pix_global;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
         $$al = "${$al}global ($ah->{EXT_IF_NAME}) $ah->{NAT_ID}";
     }
     elsif ($$al =~ /\G\s*\(($tc+)\)\s+(\d+)$ts/cgxo) {
@@ -364,10 +345,7 @@ sub pix_pool( $$$ ) {
 #
 sub parse_nat_lines( $$$ ) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&parse_nat_lines;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
         for my $entry (@$ah) {
             $self->pix_nat($entry, $al);
             $$al = "${$al}\n";
@@ -394,10 +372,7 @@ sub parse_nat_lines( $$$ ) {
 #
 sub pix_nat( $$$ ) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&pix_nat;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
         $$al = "${$al}nat ($ah->{IF_NAME}) $ah->{NAT_ID}";
     }
     elsif ($$al =~ /\G\s*\(($tc+)\)\s+(\d+)$ts/cgxo) {
@@ -867,20 +842,13 @@ sub parse_access_group( $$$ ) {
 #
 sub parse_route_lines( $$$ ) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&parse_route_lines;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
         for my $entry (@{$ah}) {
             $self->pix_route($entry, $al);
             $$al = "$$al\n";
         }
     }
     else {
-        if ($self->{func} eq $THIS) {
-            pos($$al) = 0;
-            $self->{RESULT} = $ah;    # needed in parse_error()
-        }
         my $foundone = 0;
         while ($$al =~ /\G\s*route$ts/cgxo) {
             $foundone = 1;
@@ -903,10 +871,7 @@ sub parse_route_lines( $$$ ) {
 #
 sub pix_route( $$$) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&pix_route;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
         $$al =
             "${$al}route $ah->{IF} "
           . int2quad($ah->{BASE}) . " "
@@ -953,8 +918,6 @@ sub pix_route( $$$) {
 
 sub parse_crypto( $$$ ) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&parse_crypto;
-    $self->{func} or $self->{func} = $THIS;
     my $foundone = 0;
     while ($$al =~ /\G\s*crypto$ts/cgxo) {
         (        $self->pix_crypto_map($ah, $al)
@@ -987,8 +950,6 @@ sub parse_crypto( $$$ ) {
 
 sub pix_crypto_map( $$$ ) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&pix_crypto_map;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
         parse_error $self, $al, "printing not implemented for crypto maps yet";
     }
@@ -1086,10 +1047,7 @@ sub pix_crypto_sa( $$$ ) {
 #
 sub parse_object_group($$$) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&parse_object_group;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
         for my $og_name (sort keys %$ah) {
             my $entry = $ah->{$og_name};
             $$al = "${$al}object-group $entry->{TYPE} $og_name\n";
@@ -1109,10 +1067,6 @@ sub parse_object_group($$$) {
         }
     }
     else {
-        if ($self->{func} eq $THIS) {
-            pos($$al) = 0;
-            $self->{RESULT} = $ah;    # needed in parse_error()
-        }
         my $foundone = 0;
         while ($$al =~
             /\G\s*object-group\s+(icmp-type|network|protocol|service)\s+(\S+)$ts/cgxo
@@ -1240,21 +1194,13 @@ sub og_group_object($$$) {
 #
 sub parse_static_lines($$$) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&parse_static_lines;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
         for my $entry (@{$ah}) {
             $self->static_line($entry, $al);
             $$al = "$$al\n";
         }
     }
     else {
-        if ($self->{func} eq $THIS) {
-            pos($$al) = 0;
-            $self->{RESULT} = $ah;    # needed in parse_error()
-        }
-
         my $foundone = 0;
         my $done;
         until ($done) {
@@ -1288,17 +1234,6 @@ sub parse_static_lines($$$) {
 #                                               => another flaw: order of last two item weired
 sub static_line($$$) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&static_line;
-    $self->{func} or $self->{func} = $THIS;
-    if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
-    }
-    else {
-        if ($self->{func} eq $THIS) {
-            pos($$al) = 0;
-            $self->{RESULT} = $ah;    # needed in parse_error()
-        }
-    }
     my $result = (
              $self->local_global($ah, $al)
           && $self->translation($ah, $al)
@@ -1634,11 +1569,8 @@ sub pix_show_access_list_line($$$) {
 #
 sub parse_write_term_acl($$$) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&parse_write_term_acl;
-    $self->{func} or $self->{func} = $THIS;
     my $foundone = 0;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
         for my $acl_name (sort keys %$ah) {
             for my $entry (@{ $ah->{$acl_name}->{RAW_ARRAY} }) {
                 $$al = "${$al}access-list $acl_name";
@@ -1648,10 +1580,6 @@ sub parse_write_term_acl($$$) {
         }
     }
     else {
-        if ($self->{func} eq $THIS) {
-            pos($$al) = 0;
-            $self->{RESULT} = $ah;    # needed in parse_error()
-        }
         while ($$al =~ /\G\s*access-list$ts/cgxo) {
             if ($$al =~ /\G\s*(\S+)(\s+extended)?$ts/cgxo) {
                 my $entryhash = {};
@@ -1712,19 +1640,12 @@ sub parse_write_term_acl($$$) {
 #
 sub pix_acl_entry($$$) {
     my ($self, $ah, $al) = @_;
-    my $THIS = \&pix_acl_entry;
-    $self->{func} or $self->{func} = $THIS;
     if ($self->{PRINT}) {
-        $self->{func} eq $THIS and $$al = '';
     }
     else {
         $ah->{PROTO}->{SRC}  = {};
         $ah->{PROTO}->{DST}  = {};
         $ah->{PROTO}->{SPEC} = {};
-        if ($self->{func} eq $THIS) {
-            pos($$al) = 0;
-            $self->{RESULT} = $ah;    # needed in parse_error()
-        }
     }
     my $result;
     if (
@@ -1782,22 +1703,8 @@ sub pix_acl_entry($$$) {
         }
         elsif ($ah->{PROTO}->{OBJECT_GROUP}) {
 
-            # this only works in general parse mode
-            # because in that case $self->{RESULT} holds whole parsed config
-            $self->{func} eq \&pix_write_term_config
-              or $self->parse_error($al,
-                "not in general parse mode but ip protocol specified as group");
-
-            # check type of group
-            unless ($ah->{OBJECT_GROUP}->{ $ah->{PROTO}->{OBJECT_GROUP} }
-                and
-                $ah->{OBJECT_GROUP}->{ $ah->{PROTO}->{OBJECT_GROUP} }->{TYPE} eq
-                "protocol")
-            {
-                $self->parse_error($al, "protocol type group expected");
-            }
-
-            # the only thing we know about this line is: ICMP should *not* be used
+            # the only thing we know about this line is: 
+	    # ICMP should *not* be used
             $result = $self->pixacl_adr_srv_spec($ah->{PROTO}->{SRC}, $al)
               && $self->pixacl_adr_srv_spec($ah->{PROTO}->{DST}, $al)
               && $self->pixacl_log_packet($ah, $al);
@@ -1808,9 +1715,6 @@ sub pix_acl_entry($$$) {
     }
     if ($self->{PRINT}) {
         $$al =~ s/^ +//;
-    }
-    elsif ($self->{func} eq $THIS and $$al =~ /\G\s*\S/) {
-        $self->parse_error($al, "trailing garbage");
     }
     return $result;
 }
@@ -1844,26 +1748,15 @@ sub pixacl_og_spec( $$$$ ) {
         }
         return 0;
     }
-    my $retry = pos($$al);
     if ($$al =~ /\G\s*object-group$ts/cgxo) {
         my $id;
         if ($$al =~ /\G\s*(\S+)$ts/cgxo) {
             $id = $1;
+	    $ah->{OBJECT_GROUP} = $id;
+	    return 1;
         }
         else {
             $self->parse_error($al, "object-group id expected");
-        }
-
-        # check context
-        if (!exists $self->{RESULT}->{OBJECT_GROUP}->{$id}) {
-            $self->parse_error($al, "object-group \'$id\' does not exist");
-        }
-        if ($self->{RESULT}->{OBJECT_GROUP}->{$id}->{TYPE} eq $type) {
-            $ah->{OBJECT_GROUP} = $id;
-            return 1;
-        }
-        else {
-            pos($$al) = $retry;
         }
     }
     return 0;
@@ -1978,14 +1871,6 @@ sub pixacl_log_packet( $$$ ) {
 #
 sub acl_entry($$$) {
     my ($self, $ah, $al) = @_;
-    $self->{func} = \&acl_entry;
-    if ($self->{PRINT}) {
-        $$al = "";
-    }
-    else {
-        pos($$al) = 0;
-        $self->{RESULT} = $ah;    # needed in parse_error()
-    }
     my $result = (
              $self->dynamic($ah, $al)
           && $self->action($ah, $al)
@@ -1999,13 +1884,8 @@ sub acl_entry($$$) {
           # timerange
           # fragments
     ) || $self->remark($ah, $al);
-    if (exists $self->{PRINT} and $self->{PRINT}) {
+    if ($self->{PRINT}) {
         $$al =~ s/^ +//;
-    }
-    elsif ($result) {
-        if ($$al =~ /\G\s*\S/) {
-            $self->parse_error($al, "trailing garbage");
-        }
     }
     return $result;
 }
@@ -2577,8 +2457,7 @@ sub net_p($$$) {
 #######################################################
 sub static_line_to_string($$) {
     my ($self, $s) = @_;
-    my $r;
-    $self->{func}  = '';
+    my $r = '';
     $self->{PRINT} = 'yes';
     $self->static_line($s, \$r, 1);
     $self->{PRINT} = undef;
@@ -2587,8 +2466,7 @@ sub static_line_to_string($$) {
 
 sub pix_global_line_to_string($$) {
     my ($self, $s) = @_;
-    my $r;
-    $self->{func}  = '';
+    my $r = '';
     $self->{PRINT} = 'yes';
     $self->pix_global($s, \$r);
     $self->{PRINT} = undef;
@@ -2597,8 +2475,7 @@ sub pix_global_line_to_string($$) {
 
 sub pix_nat_line_to_string($$) {
     my ($self, $s) = @_;
-    my $r;
-    $self->{func}  = '';
+    my $r = '';
     $self->{PRINT} = 'yes';
     $self->pix_nat($s, \$r);
     $self->{PRINT} = undef;
@@ -2607,8 +2484,7 @@ sub pix_nat_line_to_string($$) {
 
 sub route_line_to_string ($$) {
     my ($self, $o) = @_;
-    my $r;
-    $self->{func}  = '';
+    my $r = '';
     $self->{PRINT} = 'yes';
     $self->pix_route($o, \$r);
     $self->{PRINT} = undef;
@@ -2617,8 +2493,7 @@ sub route_line_to_string ($$) {
 
 sub acl_line_to_string ($$) {
     my ($self, $a) = @_;
-    my $s;
-    $self->{func}  = '';
+    my $s = '';
     $self->{PRINT} = 'yes';
     $self->pix_acl_entry($a, \$s);
     $self->{PRINT} = undef;
@@ -3020,9 +2895,13 @@ sub prepare($) {
     $tmp[0] =~ /Version +(\d+\.\d+)/i
       or die "fatal error: could not identify PIX Version from $tmp[0]\n";
     $self->{VERSION} = $1;
-    $tmp[0] =~ /Hardware:\s+(\S+),/i
-      or die "fatal error: could not identify PIX Version from $tmp[0]\n";
-    $self->{HARDWARE} = $1;
+    if($tmp[0] =~ /Hardware:\s+(\S+),/i) {
+	$self->{HARDWARE} = $1;
+    }
+    else {
+	warnpr "could not identify PIX Hardware from $tmp[0]\n";
+	$self->{HARDWARE} = 'unknown';
+    }
     @tmp = $self->shcmd('sh term');
     if ($tmp[0] !~ /511/) {
 
@@ -3052,7 +2931,7 @@ sub prepare($) {
         }
     }
     mypr "-----------------------------------------------------------\n";
-    mypr " DINFO: $self->{HARDWARE} $self->{TYPE} $self->{VERSION}\n";
+    mypr " DINFO: $self->{HARDWARE} $self->{VERSION}\n";
     mypr "-----------------------------------------------------------\n";
 }
 #######################################################
@@ -3811,12 +3690,6 @@ sub prepare_devicemode( $$$ ) {
         return;
     }
 
-    if (not lc $pspoc->{MODEL} eq $self->{TYPE}) {
-        mypr "MODEL ($pspoc->{MODEL}) in spoc config",
-          " doesn't match device ($self->{TYPE})\n";
-        return;
-    }
-
     # *** check for unknown interfaces at device ***
     $self->checkinterfaces($conf, $pspoc);
 
@@ -3883,7 +3756,7 @@ sub pixtrans () {
                 # pix did not allow 2 entries for same destination
                 for my $c (@{ $conf->{ROUTING} }) {
                     ($c->{DELETE}) and next;
-                    if (route_line_destination_a_eq_b($r, $c)) {
+                    if ($self->route_line_destination_a_eq_b($r, $c)) {
                         my $tr = join ' ', "no",
                           $self->route_line_to_string($c);
                         $self->cmd($tr) or exit -1;
@@ -4144,9 +4017,9 @@ sub pixtrans () {
                 );
 
                 # generate commands
-                my $string;
+                my $string = '';
                 $self->{PRINT} = 'yes';
-                $self->pix_object_group($group_obj, \$string, 1);
+                $self->parse_object_group($group_obj, \$string, 1);
                 $self->{PRINT} = undef;
 
                 # build cmd array
