@@ -544,7 +544,9 @@ sub parse_interface( $$$ ) {
             || $self->duplex($ah->{$hw_id}, $al)
             || $self->if_name($ah->{$hw_id}, $al)
             || $self->security($ah->{$hw_id}, $al)
-            || $self->ip_address($ah->{$hw_id}, $al))
+            || $self->ip_address($ah->{$hw_id}, $al)
+	    || $self->skip_management($ah->{$hw_id}, $al)
+	    || $self->skip_description($ah->{$hw_id}, $al))
         {
             $$al =~ /\G$eol/cgxo
               or $self->parse_error($al, "end of string or newline expected");
@@ -602,7 +604,7 @@ sub shutdown( $$$ ) {
 sub hw_speed( $$$ ) {
     my ($self, $ah, $al) = @_;
     if ($self->{PRINT}) {
-        if ($ah->{HW_SPEED} ne 'auto') {
+        if ($ah->{HW_SPEED} and $ah->{HW_SPEED} ne 'auto') {
             $$al = "${$al} speed $ah->{HW_SPEED}\n";
         }
 
@@ -628,7 +630,7 @@ sub hw_speed( $$$ ) {
 sub duplex( $$$ ) {
     my ($self, $ah, $al) = @_;
     if ($self->{PRINT}) {
-        if ($ah->{DUPLEX} ne 'auto') {
+        if ($ah->{DUPLEX} and $ah->{DUPLEX} ne 'auto') {
             $$al = "${$al} duplex $ah->{DUPLEX}\n";
         }
 
@@ -713,6 +715,7 @@ sub security( $$$ ) {
     return 1;
 }
 
+# ip address 10.1.13.191 255.255.255.0 [standby 10.1.13.192]
 sub ip_address( $$$ ) {
     my ($self, $ah, $al) = @_;
     if ($self->{PRINT}) {
@@ -744,6 +747,12 @@ sub ip_address( $$$ ) {
             else {
                 $self->parse_error($al, "mask missing");
             }
+	    if ($$al =~ /\G\s*standby\s+([.\d]+)$ts/cgxo) {
+                if(defined( $ah->{ADDRESS}->{STANDBY} = quad2int($1))) {
+		    my $err_msg = "unable to determine standby IP-address";
+		    $self->parse_error($al, $err_msg);
+		}
+            }
 
 #	$$al =~ /\G$eol/cgxo or $self->parse_error($al,"end of string or newline expected");
         }
@@ -753,6 +762,23 @@ sub ip_address( $$$ ) {
     }
     return 1;
 }
+
+sub skip_management( $$$ ) {
+    my ($self, $ah, $al) = @_;
+
+    if ($$al =~ /\G\s*management\-only\s*([\w\s]+)$ts/cgxo) {
+	mypr "Skipping entry 'management-only'\n";
+    }
+}
+
+sub skip_description( $$$ ) {
+    my ($self, $ah, $al) = @_;
+
+    if ($$al =~ /\G\s*description\s+([\w\s]+)$ts/cgxo) {
+	mypr "Skipping description: $1\n";
+    }
+}
+
 #############################################
 #
 # nameif {<hardware_id>|<vlan_id>} <if_name> <security_level>
