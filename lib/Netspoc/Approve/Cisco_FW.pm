@@ -2669,7 +2669,7 @@ sub pix_global_line_a_eq_b( $$$ ) {
 ##############################################################
 # issue command
 ##############################################################
-sub cmd_check_error($$$) {
+sub cmd_check_error($$) {
     my ($self, $out) = @_;
 
     # do ERROR if unexpected line appears
