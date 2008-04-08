@@ -3103,8 +3103,8 @@ sub process_rawdata( $$$ ) {
         # there is a corresponding acl in the spocfile
         $sp_name = $pspoc->{IF}->{$intf}->{ACCESS};
         unless (exists $epi->{ACCESS}->{$ep_name}) {
-            errpr
-              "rawdata: no matching raw acl found for name $ep_name in interface definition\n";
+            errpr "rawdata: no matching raw acl found for name $ep_name" 
+		. " in interface definition\n";
             exit -1;
         }
         $epilogacl = $epi->{ACCESS}->{$ep_name};
@@ -3116,18 +3116,11 @@ sub process_rawdata( $$$ ) {
 
         # *** PARSE RAWDATA ***
         mypr " *** PARSE RAWDATA ***\n";
-        $epilog_conf->{STD} = {};
-        $self->pix_parse($epilog_conf->{STD}, $epilog);
-        ######################################################################
-        # *** STANDARD ***
-        ######################################################################
-        mypr "--- STANDARD raw processing\n";
-        my $std = $epilog_conf->{STD};
-        ### ACL PROCESSING STD ###
-#        my $active_std_interfaces = '';
-        for my $intf (keys %{ $std->{IF} }) {
+        $self->pix_parse($epilog_conf, $epilog);
+        mypr "--- raw processing\n";
+        for my $intf (keys %{ $epilog_conf->{IF} }) {
             mypr " interface: $intf\n";
-            &$check($intf, $std) or next;
+            &$check($intf, $epilog_conf) or next;
 
             # _prepend_
             my @remove = ();
@@ -3162,7 +3155,7 @@ sub process_rawdata( $$$ ) {
             my $newroutes = ();
           SPOC: for (my $i = 0 ; $i < scalar @{ $pspoc->{ROUTING} } ; $i++) {
                 my $se = $pspoc->{ROUTING}->[$i];
-                for my $re (@{ $std->{ROUTING} }) {
+                for my $re (@{ $epilog_conf->{ROUTING} }) {
                     if ($self->route_line_a_eq_b($se, $re)) {
                         warnpr "RAW: double RE \'"
                           . $self->route_line_to_string($re)
@@ -3186,19 +3179,19 @@ sub process_rawdata( $$$ ) {
             }
             $pspoc->{ROUTING} = $newroutes;
         }
-        for my $re (@{ $std->{ROUTING} }) {
+        for my $re (@{ $epilog_conf->{ROUTING} }) {
             push @{ $pspoc->{ROUTING} }, $re;
         }
-        mypr " attached routing entries: " . scalar @{ $std->{ROUTING} } . "\n";
+        mypr " attached routing entries: " . scalar @{ $epilog_conf->{ROUTING} } . "\n";
 
 # Attribute STD_ROUTING isn't used anywere.
-#        $cnob->{STD_ROUTING} = $std->{ROUTING};
+#        $cnob->{STD_ROUTING} = $epilog_conf->{ROUTING};
 
         ### STATIC PROCESSING ###
         my @std_static = ();
-        if ($std->{STATIC}) {
+        if ($epilog_conf->{STATIC}) {
             my @remove = ();
-            for my $s (@{ $std->{STATIC} }) {
+            for my $s (@{ $epilog_conf->{STATIC} }) {
                 my $covered = 0;
                 for (my $i = 0 ; $i < scalar @{ $pspoc->{STATIC} } ; $i++) {
                     my $spoc  = $pspoc->{STATIC}[$i];
@@ -3239,8 +3232,8 @@ sub process_rawdata( $$$ ) {
         }
         ### GLOBAL PROCESSING ###
         my @std_global = ();
-        if ($std->{GLOBAL}) {
-            for my $s (@{ $std->{GLOBAL} }) {
+        if ($epilog_conf->{GLOBAL}) {
+            for my $s (@{ $epilog_conf->{GLOBAL} }) {
                 my $covered = 0;
                 for (my $i = 0 ; $i < scalar @{ $pspoc->{GLOBAL} } ; $i++) {
                     my $spoc  = $pspoc->{GLOBAL}[$i];
@@ -3258,8 +3251,8 @@ sub process_rawdata( $$$ ) {
         }
         ### NAT PROCESSING ###
         my @std_nat = ();
-        if ($std->{NAT}) {
-            for my $s (@{ $std->{NAT} }) {
+        if ($epilog_conf->{NAT}) {
+            for my $s (@{ $epilog_conf->{NAT} }) {
                 my $covered = 0;
                 for (my $i = 0 ; $i < scalar @{ $pspoc->{NAT} } ; $i++) {
                     my $spoc  = $pspoc->{NAT}[$i];
