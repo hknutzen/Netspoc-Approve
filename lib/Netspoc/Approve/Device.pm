@@ -564,6 +564,44 @@ sub prepare_devicemode( $$$ ) {
     return ($conf, $pspoc);
 }
 
+##################################################################
+#    adaption layer
+##################################################################
+
+sub adaption($) {
+    my ($self) = @_;
+
+    $self->{telnet_timeout} = $self->{OPTS}->{t} || 300;
+    $self->{telnet_port}    = $self->{OPTS}->{T} || 23;
+    $self->{telnet_logs}    = $self->{OPTS}->{L} || undef;
+
+    $self->{CHECKHOST}   = $self->{GLOBAL_CONFIG}->{CHECKHOST};
+    $self->{CHECKBANNER} = $self->{GLOBAL_CONFIG}->{CHECKBANNER};
+
+    $self->{CHECK_DEVICE_IN_SPOCFILE} = $self->{OPTS}->{h} || "yes";
+    $self->{FORCE_TRANSFER}           = $self->{OPTS}->{F};
+    $self->{PRINT_STATUS}             = $self->{OPTS}->{S} ? "yes" : "no";
+}
+
+sub con_setup( $$ ) {
+    my ($self, $startup_message) = @_;
+    my $logfile =
+      $self->{telnet_logs}
+      ? "$self->{telnet_logs}$self->{NAME}.tel"
+      : '';
+
+    $self->{CONSOLE} =
+	Netspoc::Approve::Helper->new_console($self, "telnet", $logfile,
+					      $startup_message);
+}
+
+sub con_shutdown( $$ ) {
+    my ($self, $shutdown_message) = @_;
+    my $con = $self->{CONSOLE};
+    $con->con_issue_cmd("exit\n", eof, 5);
+    $con->shutdown_console("$shutdown_message");
+}
+
 sub logging($) {
     my $self = shift;
     open($self->{STDOUT}, ">&STDOUT")
