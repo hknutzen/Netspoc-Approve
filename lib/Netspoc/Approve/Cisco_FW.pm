@@ -3163,7 +3163,7 @@ sub process_rawdata( $$$ ) {
           SPOC: for (my $i = 0 ; $i < scalar @{ $pspoc->{ROUTING} } ; $i++) {
                 my $se = $pspoc->{ROUTING}->[$i];
                 for my $re (@{ $std->{ROUTING} }) {
-                    if (route_line_a_eq_b($se, $re)) {
+                    if ($self->route_line_a_eq_b($se, $re)) {
                         warnpr "RAW: double RE \'"
                           . $self->route_line_to_string($re)
                           . "\' scheduled for remove from spocconf.\n";
