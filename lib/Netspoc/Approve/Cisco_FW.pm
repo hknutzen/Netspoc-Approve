@@ -3657,7 +3657,7 @@ sub pix_acls_semantical_indentical($$$$) {
     }
 }
 
-sub pixtrans () {
+sub transfer () {
     my ($self, $conf, $pspoc) = @_;
 
     # *** BEGIN TRANSFER ***
@@ -4180,7 +4180,7 @@ sub approve( $$ ) {
     my ($device_conf, $spoc_conf) =
       $self->prepare_devicemode($device_lines, $spoc_path)
       or errpr "devicemode prepare failed\n";
-    if ($self->pixtrans($device_conf, $spoc_conf)) {
+    if ($self->transfer($device_conf, $spoc_conf)) {
         mypr "approve done\n";
     }
     else {
@@ -4220,7 +4220,7 @@ sub compare( $$ ) {
     my ($device_conf, $spoc_conf) =
       $self->prepare_devicemode($device_lines, $spoc_path)
       or errpr "devicemode prepare failed\n";
-    if ($self->pixtrans($device_conf, $spoc_conf)) {
+    if ($self->transfer($device_conf, $spoc_conf)) {
         mypr "compare done\n";
     }
     else {
@@ -4253,7 +4253,7 @@ sub compare_files( $$$) {
     my ($conf1, $conf2) = $self->prepare_filemode($path1, $path2)
       or errpr "filemode prepare failed\n";
 
-    if ($self->pixtrans($conf1, $conf2)) {
+    if ($self->transfer($conf1, $conf2)) {
         mypr "compare done\n";
     }
     else {
