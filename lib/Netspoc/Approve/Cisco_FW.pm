@@ -4140,6 +4140,10 @@ sub check_crypto( $ ) {
 sub remote_execute( $ ) {
     my ($self) = @_;
     $self->adaption();
+
+    # to prevent configured by console messages
+    # in compare mode prepare() does not change router config
+    $self->{COMPARE} = 1;
     $self->con_setup(
         "START: execute user command at > " . scalar localtime() . " < ($id)");
     $self->prepare();
