@@ -502,6 +502,68 @@ sub load_epilog($$) {
     return \@result;
 }
 
+sub prepare_filemode($$$) {
+    my ($self, $path1, $path2) = @_;
+    my $parsed1 = {};
+    my $parsed2 = {};
+
+    my $conf1 = $self->load_spocfile($path1);
+    my $epi1  = $self->load_epilog($self->get_epilog_name($path1));
+    my $conf2 = $self->load_spocfile($path2);
+    my $epi2  = $self->load_epilog($self->get_epilog_name($path2));
+    if (!$self->parse_spocfile($parsed1, $conf1)) {
+        errpr "parse error\n";
+        return;
+    }
+    if (!$self->parse_spocfile($parsed2, $conf2)) {
+        errpr "parse error\n";
+        return;
+    }
+    if (not $parsed1->{MODEL} eq $parsed2->{MODEL}) {
+        mypr "MODELs must be equal in parsed spoc config:",
+          " $parsed1->{MODEL}, $parsed2->{MODEL}\n";
+        return;
+    }
+
+    #
+    # *** merge EPILOG into SPOCCONFIG
+    #
+    $self->process_rawdata($parsed1, $epi1) or return;
+    $self->process_rawdata($parsed2, $epi2) or return;
+
+    return ($parsed1, $parsed2);
+}
+
+sub prepare_devicemode( $$$ ) {
+    my ($self, $device_lines, $path) = @_;
+    my $pspoc = {};
+    my $conf  = {};
+
+    my $spoc_lines   = $self->load_spocfile($path);
+    my $epilog_lines = $self->load_epilog($self->get_epilog_name($path));
+
+    # *** PARSE SPOC CONFIG ***
+    if (!$self->parse_spocfile($pspoc, $spoc_lines)) {
+        errpr "parse error\n";
+        return;
+    }
+
+    # *** PARSE DEVICE CONFIG ***
+    if (not $self->pix_parse($conf, $device_lines)) {
+        errpr "could not parse device config\n";
+        return;
+    }
+
+    # *** check for unknown interfaces at device ***
+    $self->checkinterfaces($conf, $pspoc);
+
+    #
+    # *** merge EPILOG into SPOCCONFIG
+    #
+    $self->process_rawdata($pspoc, $epilog_lines) or return;
+    return ($conf, $pspoc);
+}
+
 sub logging($) {
     my $self = shift;
     open($self->{STDOUT}, ">&STDOUT")
