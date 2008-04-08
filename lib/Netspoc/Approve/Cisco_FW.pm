@@ -3723,7 +3723,7 @@ sub pixtrans () {
                 $self->cmd($self->route_line_to_string($r)) or exit -1;
                 mypr " $counter";
             }
-            $counter and $self->{ROUTE_CHANGE} = '*** routing changed ***';
+            $counter and $self->{CHANGE}->{ROUTE} = 1;
             mypr " $counter";
             mypr "\n";
             mypr "deleting non matching routing entries from device:\n";
@@ -3735,7 +3735,7 @@ sub pixtrans () {
                 $self->cmd($tr) or exit -1;
                 mypr " $counter";
             }
-            $counter and $self->{ROUTE_CHANGE} = '*** routing changed ***';
+            $counter and $self->{CHANGE}->{ROUTE} = 1;
             mypr " $counter";
             mypr "\n";
         }
@@ -3750,7 +3750,7 @@ sub pixtrans () {
                 mypr $self->route_line_to_string($r), "\n";
             }
             mypr "total: $counter\n";
-            ($counter) and $self->{ROUTE_CHANGE} = '*** routing changed ***';
+            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
             mypr "non matching routing entries on device:\n";
             $counter = 0;
             for my $r (@{ $conf->{ROUTING} }) {
@@ -3759,7 +3759,7 @@ sub pixtrans () {
                 mypr $self->route_line_to_string($r), "\n";
             }
             mypr "total: $counter\n";
-            ($counter) and $self->{ROUTE_CHANGE} = '*** routing changed ***';
+            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
         }
         mypr "==== done ====\n";
     }
@@ -3882,12 +3882,12 @@ sub pixtrans () {
                         )
                       )
                     {
-                        $self->{ACL_CHANGE} = '*** acls    changed ***';
+                        $self->{CHANGE}->{ACL} = 1;
                     }
                 }
                 else {
 
-                    $self->{ACL_CHANGE} = '*** new acls!       ***';
+                    $self->{CHANGE}->{ACL} = 1;
                     mypr "#### OOPS:  $spocacl_name at interface $intf:\n";
                     mypr "#### OOPS:  no corresponding acl on device\n";
                 }
@@ -3909,7 +3909,7 @@ sub pixtrans () {
                     warnpr "interface $intf no acl on device - new acl has ",
                       scalar @{ $pspoc->{ACCESS}->{$spocacl_name} },
                       " entries\n";
-                    $self->{ACL_CHANGE} = 1;
+                    $self->{CHANGE}->{ACL} = 1;
                     &$pix_mark_for_transfer($spocacl_name);
                 }
                 elsif (
@@ -3922,12 +3922,12 @@ sub pixtrans () {
 
                     # either there is no acl on $intf or the acl differs
                     # mark groups and interfaces recursive for transfer of spocacls
-                    $self->{ACL_CHANGE} = 1;
+                    $self->{CHANGE}->{ACL} = 1;
                     &$pix_mark_for_transfer($spocacl_name);
                 }
                 elsif ($self->{FORCE_TRANSFER}) {
                     warnpr "Interface $intf: transfer of ACL forced!\n";
-                    $self->{ACL_CHANGE} = 1;
+                    $self->{CHANGE}->{ACL} = 1;
                     &$pix_mark_for_transfer($spocacl_name);
                 }
                 mypr "-------------------------------------------------\n";
@@ -4082,7 +4082,7 @@ sub pixtrans () {
     $self->pix_transfer_lines(
         'static_line_to_string', 'static_line_a_eq_b',
         $pspoc->{STATIC},        $conf->{STATIC}
-    ) and $self->{STAT_CHANGE} = '*** statics changed ***';
+    ) and $self->{CHANGE}->{STATIC} = 1;
 
     #
     # *** global pools ***
@@ -4090,7 +4090,7 @@ sub pixtrans () {
     mypr " === processing global pools ===\n";
     $self->pix_transfer_lines('pix_global_line_to_string',
         'pix_global_line_a_eq_b', $pspoc->{GLOBAL}, $conf->{GLOBAL})
-      and $self->{GLOB_CHANGE} = '*** globals changed ***';
+      and $self->{CHANGE}->{GLOBAL} = 1;
 
     #
     # *** (dynamic) nat ***
@@ -4098,14 +4098,10 @@ sub pixtrans () {
     mypr " === processing nat ===\n";
     $self->pix_transfer_lines('pix_nat_line_to_string', 'pix_nat_line_a_eq_b',
         $pspoc->{NAT}, $conf->{NAT})
-      and $self->{NAT_CHANGE} = '*** nat changed ***';
+      and $self->{CHANGE}->{NAT} = 1;
 
     unless ($self->{COMPARE}) {
-        if (   $self->{ROUTE_CHANGE}
-            or $self->{ACL_CHANGE}
-            or $self->{STAT_CHANGE}
-            or $self->{GLOB_CHANGE}
-            or $self->{NAT_CHANGE})
+        if ($self->{CHANGE})
         {
             mypr "saving config to flash\n";
             $self->cmd('write memory') or exit -1;
@@ -4163,8 +4159,6 @@ sub approve( $$ ) {
     # remember approve mode
     $self->{APPROVE}       = 1;
     $self->{COMPARE}       = undef;
-    $self->{ROUTE_CHANGE}  = $self->{ACL_CHANGE} = $self->{STAT_CHANGE} =
-      $self->{GLOB_CHANGE} = $self->{NAT_CHANGE} = 0;
 
     # set up console
     $self->con_setup("START: $self->{OPTS}->{P} (telnet) at > "
@@ -4200,18 +4194,14 @@ sub approve( $$ ) {
 sub compare( $$ ) {
     my ($self, $spoc_path) = @_;
     $self->adaption();
+    my $policy = $self->{OPTS}->{P};
 
     # save compare mode
     $self->{COMPARE}      = 1;
     $self->{CMPVAL}       = $self->{OPTS}->{C};
-    $self->{ROUTE_CHANGE} = 'routing unchanged';
-    $self->{ACL_CHANGE}   = 'acls unchanged';
-    $self->{STAT_CHANGE}  = 'statics unchanged';
-    $self->{GLOB_CHANGE}  = 'globals unchanged';
-    $self->{NAT_CHANGE}   = 'nat unchanged';
 
     # set up console
-    $self->con_setup("START: $self->{OPTS}->{P} (telnet) at > "
+    $self->con_setup("START: $policy (telnet) at > "
           . scalar localtime()
           . " < ($id)");
 
@@ -4237,34 +4227,20 @@ sub compare( $$ ) {
         errpr "compare failed\n";
     }
 
-    $self->con_shutdown("STOP: $self->{OPTS}->{P} (telnet) at > "
+    $self->con_shutdown("STOP: $policy (telnet) at > "
           . scalar localtime()
           . " < ($id)");
-    mypr "comp: $self->{OPTS}->{P} ", scalar localtime, " ($id)\n";
-    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{ROUTE_CHANGE}\n";
-    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{ACL_CHANGE}\n";
-    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{STAT_CHANGE}\n";
-    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{GLOB_CHANGE}\n";
-    mypr "comp: $self->{OPTS}->{P} $self->{NAME} $self->{NAT_CHANGE}\n";
-
-    if (   $self->{ROUTE_CHANGE} ne 'routing unchanged'
-        or $self->{ACL_CHANGE}  ne 'acls unchanged'
-        or $self->{STAT_CHANGE} ne 'statics unchanged'
-        or $self->{GLOB_CHANGE} ne 'globals unchanged'
-        or $self->{NAT_CHANGE}  ne 'nat unchanged')
-    {
-        return 1;
+    mypr "comp: $policy ", scalar localtime, " ($id)\n";
+    for my $key (keys %{$self->{CHANGE}}) {
+	mypr "comp: $policy $self->{NAME} *** $key changed ***\n";
     }
-    else {
 
-        # no changes to report
-        return 0;
-    }
+    return $self->{CHANGE};
 }
 
 sub compare_files( $$$) {
     my ($self, $path1, $path2) = @_;
-    &adaption($self);
+    $self->adaption();
 
     # save compare mode
     $self->{COMPARE} = 1;
@@ -4272,11 +4248,6 @@ sub compare_files( $$$) {
     # default compare is silent(4) mode
     $self->{CMPVAL} = $self->{OPTS}->{C} || 4;
 
-    $self->{ROUTE_CHANGE} = 'routing unchanged';
-    $self->{ACL_CHANGE}   = 'acls unchanged';
-    $self->{STAT_CHANGE}  = 'statics unchanged';
-    $self->{GLOB_CHANGE}  = 'globals unchanged';
-    $self->{NAT_CHANGE}   = 'nat unchanged';
     $self->{VERSION}      = "unknown";
 
     my ($conf1, $conf2) = $self->prepare_filemode($path1, $path2)
@@ -4289,25 +4260,11 @@ sub compare_files( $$$) {
         errpr "compare failed\n";
     }
     mypr "comp: ", scalar localtime, " ($id)\n";
-    mypr "comp: $self->{NAME} $self->{ROUTE_CHANGE}\n";
-    mypr "comp: $self->{NAME} $self->{ACL_CHANGE}\n";
-    mypr "comp: $self->{NAME} $self->{STAT_CHANGE}\n";
-    mypr "comp: $self->{NAME} $self->{GLOB_CHANGE}\n";
-    mypr "comp: $self->{NAME} $self->{NAT_CHANGE}\n";
-
-    if (   $self->{ROUTE_CHANGE} ne 'routing unchanged'
-        or $self->{ACL_CHANGE}  ne 'acls unchanged'
-        or $self->{STAT_CHANGE} ne 'statics unchanged'
-        or $self->{GLOB_CHANGE} ne 'globals unchanged'
-        or $self->{NAT_CHANGE}  ne 'nat unchanged')
-    {
-        return 1;
+    for my $key (keys %{$self->{CHANGE}}) {
+	mypr "comp: $self->{NAME} *** $key changed ***\n";
     }
-    else {
 
-        # no changes to report
-        return 0;
-    }
+    return $self->{CHANGE};
 }
 
 # Packages must return a true value;
