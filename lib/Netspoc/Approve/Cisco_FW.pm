@@ -3068,7 +3068,7 @@ sub get_config_from_device( $ ) {
 ##############################################################
 # rawdata processing
 ##############################################################
-sub process_rawdata( $$$$ ) {
+sub process_rawdata( $$$ ) {
     my ($self, $pspoc, $epilog) = @_;
     my $epilogacl;
     my $spocacl;
