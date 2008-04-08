@@ -32,8 +32,6 @@ sub version_drc2_Firewall() {
     return $id;
 }
 
-my $con;
-
 # Following lists are subject of permanent adaption from pix and ios devices.
 # Not all numbers have names on cisco devices
 # and they use non-iana names :(
@@ -2729,6 +2727,7 @@ sub issue_cmd( $$$ ) {
     my ($self, $cmd, $prompt) = @_;
     my @output;
 
+    my $con = $self->{CONSOLE};
     $con->{PROMPT} = $prompt;
     $con->con_cmd("$cmd\n") or $con->con_error();
     @output = ($con->{RESULT}->{BEFORE}, $con->{RESULT}->{MATCH});
@@ -2758,6 +2757,7 @@ sub login_enabel( $ ) {
     my $ip = $self->{IP};
     my $user;
     my $pass;
+    my $con = $self->{CONSOLE};
 
     if ($self->{PASS} =~ /:/ or $self->{LOCAL_USER}) {
         if ($self->{LOCAL_USER}) {
@@ -4146,13 +4146,14 @@ sub con_setup( $$ ) {
       ? "$self->{telnet_logs}$self->{NAME}.tel"
       : '';
 
-    # Set global variable.
-    $con = Netspoc::Approve::Helper->new_console($self, "telnet", $logfile,
-        $startup_message);
+    $self->{CONSOLE} =
+	Netspoc::Approve::Helper->new_console($self, "telnet", $logfile,
+					      $startup_message);
 }
 
 sub con_shutdown( $$ ) {
     my ($self, $shutdown_message) = @_;
+    my $con = $self->{CONSOLE};
     $con->con_issue_cmd("exit\n", eof, 5);
     $con->shutdown_console("$shutdown_message");
 }
