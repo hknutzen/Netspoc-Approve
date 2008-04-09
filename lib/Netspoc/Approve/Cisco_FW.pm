@@ -2748,6 +2748,13 @@ sub checkbanner($) {
     }
 }
 
+sub check_firewall( $$ ) {
+    my ($self, $conf) = @_; 
+
+    # NoOp
+    # ToDo: check for active fixup
+}
+
 #######################################################
 # telnet login, check name and set convenient options
 #######################################################
