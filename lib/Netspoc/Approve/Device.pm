@@ -602,6 +602,152 @@ sub con_shutdown( $$ ) {
     $con->shutdown_console("$shutdown_message");
 }
 
+sub check_device( $ ) {
+    my ($self) = @_;
+    my $retries = $self->{OPTS}->{p} || 3;
+    return $self->checkping($self->{IP}, $retries);
+}
+
+sub remote_execute( $ ) {
+    my ($self) = @_;
+    $self->adaption();
+
+    # to prevent configured by console messages
+    # in compare mode prepare() does not change router config
+    $self->{COMPARE} = 1;
+    $self->con_setup(
+        "START: execute user command at > " . scalar localtime() . " < ($id)");
+    $self->prepare();
+    $self->{OPTS}->{E} =~ s/\\n/\n/g;
+    for my $line (split /[;]/, $self->{OPTS}->{E}) {
+        my @output = $self->shcmd($line) or exit -1;
+        mypr @output, "\n";
+    }
+    mypr "\n";
+    $self->con_shutdown("STOP");
+}
+
+sub check_crypto( $ ) {
+    my ($self) = @_;
+    mypr "'Check Crypto Config' not supported for device";
+}
+
+sub approve( $$ ) {
+    my ($self, $spoc_path) = @_;
+    $self->adaption();
+    my $policy = $self->{OPTS}->{P};
+
+    # remember approve mode
+    $self->{APPROVE}       = 1;
+    $self->{COMPARE}       = undef;
+
+    # set up console
+    $self->con_setup("START: $policy (telnet) at > "
+          . scalar localtime()
+          . " < ($id)");
+
+    # prepare device for configuration
+    $self->prepare();
+
+    # check if Netspoc message in device banner
+    $self->checkbanner();
+
+    # fetch device configuration
+    my $device_lines = $self->get_config_from_device();
+
+    #
+    # now do the main thing
+    #
+    my ($device_conf, $spoc_conf) =
+      $self->prepare_devicemode($device_lines, $spoc_path)
+      or errpr "devicemode prepare failed\n";
+    if ($self->transfer($device_conf, $spoc_conf)) {
+        mypr "approve done\n";
+    }
+    else {
+        errpr "approve failed\n";
+    }
+    $self->con_shutdown("STOP: $policy (telnet) at > "
+          . scalar localtime()
+          . " < ($id)");
+}
+
+sub compare( $$ ) {
+    my ($self, $spoc_path) = @_;
+    $self->adaption();
+    my $policy = $self->{OPTS}->{P};
+
+    # save compare mode
+    $self->{COMPARE}      = 1;
+    $self->{CMPVAL}       = $self->{OPTS}->{C};
+
+    # set up console
+    $self->con_setup("START: $policy (telnet) at > "
+          . scalar localtime()
+          . " < ($id)");
+
+    # prepare device for configuration
+    $self->prepare();
+
+    # check if Netspoc message in device banner
+    $self->checkbanner();
+
+    # fetch device configuration
+    my $device_lines = $self->get_config_from_device();
+
+    #
+    # now do the main thing
+    #
+    my ($device_conf, $spoc_conf) =
+      $self->prepare_devicemode($device_lines, $spoc_path)
+      or errpr "devicemode prepare failed\n";
+    if ($self->transfer($device_conf, $spoc_conf)) {
+        mypr "compare done\n";
+    }
+    else {
+        errpr "compare failed\n";
+    }
+
+    $self->con_shutdown("STOP: $policy (telnet) at > "
+          . scalar localtime()
+          . " < ($id)");
+    mypr "comp: $policy ", scalar localtime, " ($id)\n";
+    for my $key (keys %{$self->{CHANGE}}) {
+	mypr "comp: $policy $self->{NAME} *** $key changed ***\n";
+    }
+
+    return $self->{CHANGE};
+}
+
+sub compare_files( $$$) {
+    my ($self, $path1, $path2) = @_;
+    $self->adaption();
+
+    # save compare mode
+    $self->{COMPARE} = 1;
+
+    # default compare is silent(4) mode
+    $self->{CMPVAL} = $self->{OPTS}->{C} || 4;
+
+    $self->{VERSION}      = "unknown";
+
+    my ($conf1, $conf2) = $self->prepare_filemode($path1, $path2)
+      or errpr "filemode prepare failed\n";
+
+    if ($self->transfer($conf1, $conf2)) {
+        mypr "compare done\n";
+    }
+    else {
+        errpr "compare failed\n";
+    }
+    mypr "comp: ", scalar localtime, " ($id)\n";
+    for my $key (keys %{$self->{CHANGE}}) {
+	mypr "comp: $self->{NAME} *** $key changed ***\n";
+    }
+
+    return $self->{CHANGE};
+}
+
 sub logging($) {
     my $self = shift;
     open($self->{STDOUT}, ">&STDOUT")
@@ -658,6 +804,7 @@ sub logging($) {
     (open(STDERR, ">&STDOUT"))
       or die "STDERR redirect: could not open $logfile\n$!\n";
 }
+
 {
 
     # a closure, beause we need the lock
