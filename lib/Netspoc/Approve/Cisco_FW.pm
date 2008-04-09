@@ -2723,7 +2723,7 @@ sub cmd_check_error($$) {
     return 1;
 }
 
-sub login_enabel( $ ) {
+sub login_enable( $ ) {
     my ($self) = @_;
     my $ip = $self->{IP};
     my $user;
@@ -2801,11 +2801,14 @@ sub login_enabel( $ ) {
         $con->con_cmd("$pass\n") or $con->con_error();
         $con->con_dump();
     }
-    my $psave = $self->{PROMPT};
-    $self->{PROMPT} = qr/Password:/;
-    $self->cmd('enable') or return 0;
-    $self->{PROMPT} = $psave;
-    $self->cmd($self->{PASS}) or return 0;
+    my $psave = $$self{PROMPT};
+    $$self{PROMPT}=qr/Password:|#/;
+    cmd('enable') or return 0;
+    unless($con->{RESULT}->{MATCH} eq "#"){
+	# enable password required
+	$$self{PROMPT} = $psave;
+	cmd($self->{ENABLE_PASS} || $pass) or return 0;
+    }
     return 1;
 }
 
@@ -2857,7 +2860,7 @@ sub prepare($) {
     $self->{PROMPT}    = qr/\n.*[\%\>\$\#]\s?$/;
     $self->{ENAPROMPT} = qr/\n.*#\s?$/;
     $self->{ENA_MODE}  = 0;
-    $self->login_enabel() or exit -1;
+    $self->login_enable() or exit -1;
     mypr "logged in\n";
     $self->{ENA_MODE} = 1;
     my @output = $self->shcmd('') or exit -1;
