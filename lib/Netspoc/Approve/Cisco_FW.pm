@@ -2723,35 +2723,6 @@ sub cmd_check_error($$) {
     return 1;
 }
 
-sub issue_cmd( $$$ ) {
-    my ($self, $cmd, $prompt) = @_;
-    my @output;
-
-    my $con = $self->{CONSOLE};
-    $con->{PROMPT} = $prompt;
-    $con->con_cmd("$cmd\n") or $con->con_error();
-    @output = ($con->{RESULT}->{BEFORE}, $con->{RESULT}->{MATCH});
-    return (\@output);
-
-}
-
-sub cmd( $$ ) {
-    my ($self, $cmd) = @_;
-    my $prompt = $self->{ENA_MODE} ? $self->{ENAPROMPT} : $self->{PROMPT};
-    my $out = $self->issue_cmd($cmd, $prompt) or return 0;
-
-    # check for  errors
-    # argument is ref to prematch from issue_cmd
-    return $self->cmd_check_error(\${$out}[0]);
-}
-
-sub shcmd( $$ ) {
-    my ($self, $cmd) = @_;
-    my $prompt = $self->{ENA_MODE} ? $self->{ENAPROMPT} : $self->{PROMPT};
-    my $out = $self->issue_cmd($cmd, $prompt) or die "...giving up\n";
-    return @$out;
-}
-
 sub login_enabel( $ ) {
     my ($self) = @_;
     my $ip = $self->{IP};
