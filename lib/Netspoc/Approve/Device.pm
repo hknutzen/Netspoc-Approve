@@ -574,6 +574,20 @@ sub checkidentity( $$ ) {
     return 1;
 }
 
+sub checkbanner($) {
+    my ($self) = @_;
+    if ( $self->{CHECKBANNER}
+     and $self->{PRE_LOGIN_LINES} !~ /$self->{CHECKBANNER}/)
+    {
+        if ($self->{APPROVE}) {
+            errpr "Missing banner at NetSPoC managed device.\n";
+        }
+        else {
+            warnpr "Missing banner at NetSPoC managed device.\n";
+        }
+    }
+}
+
 ##################################################################
 #    adaption layer
 ##################################################################
