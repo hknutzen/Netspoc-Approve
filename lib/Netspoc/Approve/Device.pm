@@ -565,6 +565,15 @@ sub prepare_devicemode( $$$ ) {
     return ($conf, $pspoc);
 }
 
+sub checkidentity( $$ ) {
+    my ($self, $name) = @_;
+    if ($name ne $self->{NAME}) {
+	errpr "wrong device name: $name expected: $self->{NAME}\n";
+	return 0;
+    }
+    return 1;
+}
+
 ##################################################################
 #    adaption layer
 ##################################################################

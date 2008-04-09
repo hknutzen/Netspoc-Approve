@@ -2726,15 +2726,6 @@ sub cmd_check_error($$) {
 #
 #    *** some checking ***
 #
-sub checkidentity($$) {
-    my ($self, $name) = @_;
-    if ($name ne $self->{NAME}) {
-	errpr "wrong device name: $name expected: $self->{NAME}\n";
-	return 0;
-    }
-    return 1;
-}
-
 sub checkinterfaces($$$) {
     my ($self, $devconf, $spocconf) = @_;
     mypr " === check for unknown or missconfigured interfaces at device ===\n";
