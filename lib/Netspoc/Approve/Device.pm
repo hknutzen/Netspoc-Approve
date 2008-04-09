@@ -627,11 +627,6 @@ sub remote_execute( $ ) {
     $self->con_shutdown("STOP");
 }
 
-sub check_crypto( $ ) {
-    my ($self) = @_;
-    mypr "'Check Crypto Config' not supported for device";
-}
-
 sub approve( $$ ) {
     my ($self, $spoc_path) = @_;
     $self->adaption();
