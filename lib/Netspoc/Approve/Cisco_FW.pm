@@ -2741,19 +2741,13 @@ sub checkinterfaces($$$) {
 sub checkbanner($) {
     my ($self) = @_;
     if ($self->{VERSION} < 6.3) {
-        mypr "banner checking disabled for $self->{TYPE} $self->{VERSION}\n";
+        mypr "banner checking disabled for $self->{VERSION}\n";
     }
-    elsif ( $self->{CHECKBANNER}
-        and $self->{PRE_LOGIN_LINES} !~ /$self->{CHECKBANNER}/)
-    {
-        if ($self->{APPROVE}) {
-            errpr "Missing banner at NetSPoC managed device.\n";
-        }
-        else {
-            warnpr "Missing banner at NetSPoC managed device.\n";
-        }
+    else {
+	$self->SUPER::checkbanner()
     }
 }
+
 #######################################################
 # telnet login, check name and set convenient options
 #######################################################
