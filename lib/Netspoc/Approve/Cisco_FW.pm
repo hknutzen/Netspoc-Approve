@@ -4155,13 +4155,14 @@ sub remote_execute( $ ) {
 sub approve( $$ ) {
     my ($self, $spoc_path) = @_;
     $self->adaption();
+    my $policy = $self->{OPTS}->{P};
 
     # remember approve mode
     $self->{APPROVE}       = 1;
     $self->{COMPARE}       = undef;
 
     # set up console
-    $self->con_setup("START: $self->{OPTS}->{P} (telnet) at > "
+    $self->con_setup("START: $policy (telnet) at > "
           . scalar localtime()
           . " < ($id)");
 
@@ -4186,7 +4187,7 @@ sub approve( $$ ) {
     else {
         errpr "approve failed\n";
     }
-    $self->con_shutdown("STOP: $self->{OPTS}->{P} (telnet) at > "
+    $self->con_shutdown("STOP: $policy (telnet) at > "
           . scalar localtime()
           . " < ($id)");
 }
