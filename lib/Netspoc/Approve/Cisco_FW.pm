@@ -3002,7 +3002,7 @@ sub parse_spocfile ( $$$ ) {
         }
         if ($line =~ /$spotags{MODEL}/o) {
             $p->{MODEL} = $1;
-            $self->pix_parse($p, $sfile);
+            $self->parse_device($p, $sfile);
             last;
         }
         errpr "unexpected line: $line\n";
@@ -3047,7 +3047,7 @@ sub get_parsed_config_from_device( $$ ) {
     mypr "got config from device\n";
 
     # *** PARSE CONFIG ***
-    unless ($self->pix_parse($conf_hash, \@conf)) {
+    unless ($self->parse_device($conf_hash, \@conf)) {
         errpr "could not parse pix config\n";
         return 0;
     }
@@ -3116,7 +3116,7 @@ sub process_rawdata( $$$ ) {
 
         # *** PARSE RAWDATA ***
         mypr " *** PARSE RAWDATA ***\n";
-        $self->pix_parse($epilog_conf, $epilog);
+        $self->parse_device($epilog_conf, $epilog);
         mypr "--- raw processing\n";
         for my $intf (keys %{ $epilog_conf->{IF} }) {
             mypr " interface: $intf\n";
@@ -3356,7 +3356,7 @@ sub pix_expand_acl_entry($$$$) {
     return \@expanded;
 }
 
-sub pix_parse ( $$$ ) {
+sub parse_device ( $$$ ) {
 
     my ($self, $p, $conf) = @_;
 
