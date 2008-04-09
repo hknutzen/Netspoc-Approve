@@ -2914,23 +2914,6 @@ sub parse_spocfile ( $$$ ) {
     return 1;
 }
 
-sub get_parsed_config_from_device( $$ ) {
-    my ($self, $conf_hash) = @_;
-
-    # *** FETCH CONFIG ***
-    my @out;
-    @out = $self->shcmd('wr t') or exit -1;
-    my @conf = split /(?=\n)/, $out[0];
-    mypr "got config from device\n";
-
-    # *** PARSE CONFIG ***
-    unless ($self->parse_device($conf_hash, \@conf)) {
-        errpr "could not parse pix config\n";
-        return 0;
-    }
-    return 1;
-}
-
 sub get_config_from_device( $ ) {
     my ($self) = @_;
 
