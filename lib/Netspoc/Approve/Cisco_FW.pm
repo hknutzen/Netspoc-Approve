@@ -3055,16 +3055,14 @@ sub get_parsed_config_from_device( $$ ) {
 }
 
 sub get_config_from_device( $ ) {
-    my ($self)      = @_;
-    my ($conf_hash) = @_;
+    my ($self) = @_;
 
-    # *** FETCH CONFIG ***
-    my @out;
-    @out = $self->shcmd('wr t') or exit -1;
+    my @out = $self->shcmd('wr t') or exit -1;
     my @conf = split /(?=\n)/, $out[0];
     mypr "got config from device\n";
     return (\@conf);
 }
+
 ##############################################################
 # rawdata processing
 ##############################################################
