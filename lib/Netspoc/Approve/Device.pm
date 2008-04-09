@@ -542,24 +542,25 @@ sub prepare_devicemode( $$$ ) {
     my $spoc_lines   = $self->load_spocfile($path);
     my $epilog_lines = $self->load_epilog($self->get_epilog_name($path));
 
-    # *** PARSE SPOC CONFIG ***
+    # Parse SPOC config. 
     if (!$self->parse_spocfile($pspoc, $spoc_lines)) {
         errpr "parse error\n";
         return;
     }
 
-    # *** PARSE DEVICE CONFIG ***
-    if (not $self->pix_parse($conf, $device_lines)) {
+    # Parse device config.
+    if (not $self->parse_device($conf, $device_lines)) {
         errpr "could not parse device config\n";
         return;
     }
 
-    # *** check for unknown interfaces at device ***
+    # Check for unknown interfaces at device.
     $self->checkinterfaces($conf, $pspoc);
 
-    #
-    # *** merge EPILOG into SPOCCONFIG
-    #
+    # Check if active firewall feature matches device type.
+    $self->check_firewall($conf);
+
+    # Merge EPILOG into SPOC config.
     $self->process_rawdata($pspoc, $epilog_lines) or return;
     return ($conf, $pspoc);
 }
