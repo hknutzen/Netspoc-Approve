@@ -463,12 +463,12 @@ sub ip_inspect_line_to_string($$) {
 sub route_line_to_string ($$) {
     my ($self, $o) = @_;
     my $r;
-    $r = join ' ', "ip route", int2quad $$o{BASE}, int2quad $$o{MASK};
-    (exists $$o{NIF})      and do { $r = join ' ', $r, $$o{NIF} };
-    (defined $$o{NEXTHOP}) and do { $r = join ' ', $r, int2quad $$o{NEXTHOP} };
-    (defined $$o{METRIC})  and do { $r = join ' ', $r, $$o{METRIC} };
-    (defined $$o{MISC})    and do { $r = join ' ', $r, $$o{MISC} };
-    (defined $$o{TRACK_NUMBER}) and do { $r = join ' ', $r, $$o{TRACK_NUMBER} };
+    $r = join ' ', "ip route", int2quad $o->{BASE}, int2quad $o->{MASK};
+    (exists $o->{NIF})      and do { $r = join ' ', $r, $o->{NIF} };
+    (defined $o->{NEXTHOP}) and do { $r = join ' ', $r, int2quad $o->{NEXTHOP} };
+    (defined $o->{METRIC})  and do { $r = join ' ', $r, $o->{METRIC} };
+    (defined $o->{MISC})    and do { $r = join ' ', $r, $o->{MISC} };
+    (defined $o->{TRACK_NUMBER}) and do { $r = join ' ', $r, $o->{TRACK_NUMBER} };
     return $r;
 }
 
@@ -1205,7 +1205,7 @@ sub parse_spocfile ( $$ ){
 	errpr "unexpected line (hex): $ttt\n";
 	return 0;
     }
-    if(!$$p{DEVICE}){
+    if(!$p->{DEVICE}){
 	errpr "START tag not found or no device name specified in spocfile\n"; 
 	return 0;
     }
@@ -1215,7 +1215,7 @@ sub parse_spocfile ( $$ ){
     }
     my $line = shift @$sfile;
     if($line !~ /$spotags{STOP}/o or $p->{DEVICE} ne $1){
-	mypr "no matching STOP tag found for $$p{DEVICE} \n";
+	mypr "no matching STOP tag found for $p->{DEVICE} \n";
 	mypr "instead found line: \n";
 	mypr $line;
 	errpr "giving up\n";
@@ -1855,14 +1855,14 @@ sub compare_interface_acls ( $$$$ ){
     my ($self,$pspoc,$conf,$mode) = @_;
     
     mypr "===== compare (incoming) acls =====\n";
-    for my $if (keys %{$$pspoc{IF}}){
-	$$pspoc{IF}->{$if}->{TRANSFER} = '';
-	unless(exists $$pspoc{IF}->{$if}->{ACCESS}){
+    for my $if (keys %{$pspoc->{IF}}){
+	$pspoc->{IF}->{$if}->{TRANSFER} = '';
+	unless(exists $pspoc->{IF}->{$if}->{ACCESS}){
 	    warnpr "no spoc-acl for interface $if\n";
 	    next;
 	}
 	# there *is* an access-list
-	unless(exists $$conf{IF}->{$if}){
+	unless(exists $conf->{IF}->{$if}){
 	    errpr "interface not found on device: $if\n";
 	    next;
 	}
@@ -1870,68 +1870,68 @@ sub compare_interface_acls ( $$$$ ){
 	# FORCE TRANSFER MODUS
 	##############################
 	if($mode eq 'FORCE'){
-	    $$pspoc{IF}->{$if}->{TRANSFER} = 'YES';
+	    $pspoc->{IF}->{$if}->{TRANSFER} = 'YES';
 	    warnpr "Interface $if: transfer of ACL forced!\n";
 	    next;
 	}
 	##############################
-	my $sa_name = $$pspoc{IF}->{$if}->{ACCESS};
+	my $sa_name = $pspoc->{IF}->{$if}->{ACCESS};
 	my $ca_name;
-	if(exists $$conf{IF}->{$if}->{ACCESS}){
-	    $ca_name = $$conf{IF}->{$if}->{ACCESS};
-	    if(exists $$conf{ACCESS}->{$ca_name}){
+	if(exists $conf->{IF}->{$if}->{ACCESS}){
+	    $ca_name = $conf->{IF}->{$if}->{ACCESS};
+	    if(exists $conf->{ACCESS}->{$ca_name}){
 		mypr "at interface $if - spoc: $sa_name <-> actual: $ca_name\n";
 	    }
 	    else{
-		$$pspoc{IF}->{$if}->{TRANSFER} = 'YES';
+		$pspoc->{IF}->{$if}->{TRANSFER} = 'YES';
 		warnpr "acl $ca_name does not exist on device!\n";
 		next;
 	    }
 	}
 	else{
-	    $$pspoc{IF}->{$if}->{TRANSFER} = 'YES';
+	    $pspoc->{IF}->{$if}->{TRANSFER} = 'YES';
 	    warnpr "no incoming acls found at interface $if\n";
 	    next;
 	}
-	if($self->verbose_acl_equal($$pspoc{ACCESS}->{$sa_name},
-			    $$conf{ACCESS}->{$ca_name},
+	if($self->verbose_acl_equal($pspoc->{ACCESS}->{$sa_name},
+			    $conf->{ACCESS}->{$ca_name},
 			    $sa_name,
 			    $ca_name,
 			    "interface $if",
 			    $mode)
 	   ){
-	    $$pspoc{IF}->{$if}->{TRANSFER} = "NO";
+	    $pspoc->{IF}->{$if}->{TRANSFER} = "NO";
 	}
 	else{
-	    $$pspoc{IF}->{$if}->{TRANSFER} = 'YES'; 
+	    $pspoc->{IF}->{$if}->{TRANSFER} = 'YES'; 
 	}
     }
     mypr "===== done ====\n";
 }
 sub process_routing ( $$$ ){
     my ($self,$conf,$pspoc) = @_;
-    if($$pspoc{ROUTING} and scalar@{$$pspoc{ROUTING}}){
+    if($pspoc->{ROUTING} and scalar@{$pspoc->{ROUTING}}){
 	my $counter;
-	if(!$$conf{ROUTING} or $$conf{ROUTING} and !scalar(@{$$conf{ROUTING}})){
-	    if(!$$conf{OSPF}){
+	if(!$conf->{ROUTING} or $conf->{ROUTING} and !scalar(@{$conf->{ROUTING}})){
+	    if(!$conf->{OSPF}){
 		errpr "ERROR: no routing entries found on device\n";
 		return 0;
 	    }
 	    else{
 		mypr "no routing entries found on device - but OSPF found...\n";
 		# generate emty routing config for device:
-		@{$$conf{ROUTING}} = ();
+		@{$conf->{ROUTING}} = ();
 	    }
 	}
 	mypr "==== compare routing information ====\n\n";
-	mypr " routing entries on device:    ",scalar @{$$conf{ROUTING}},"\n";
-	mypr " routing entries from netspoc: ",scalar @{$$pspoc{ROUTING}},"\n";
-	for my $c (@{$$conf{ROUTING}}){ # from device
+	mypr " routing entries on device:    ",scalar @{$conf->{ROUTING}},"\n";
+	mypr " routing entries from netspoc: ",scalar @{$pspoc->{ROUTING}},"\n";
+	for my $c (@{$conf->{ROUTING}}){ # from device
 	    $counter++;
 	    unless($self->{COMPARE}){
 		mypr " $counter";
 	    }
-	    for my $s (@{$$pspoc{ROUTING}}){ # from netspoc
+	    for my $s (@{$pspoc->{ROUTING}}){ # from netspoc
 		($s) or next;
 		if($self->route_line_a_eq_b($c,$s)){
 		    $c->{DELETE} = $s->{DELETE} = 1;
@@ -1951,7 +1951,7 @@ sub process_routing ( $$$ ){
 	    $self->cmd('configure terminal') or exit -1;
 	    mypr "transfer routing entries to device:\n";
 	    $counter = 0;
-	    for my $r (@{$$pspoc{ROUTING}}){
+	    for my $r (@{$pspoc->{ROUTING}}){
 		($r->{DELETE}) and next; 
 		$counter++;
 		$self->cmd($self->route_line_to_string($r)) or exit -1;
@@ -1962,7 +1962,7 @@ sub process_routing ( $$$ ){
 	    ($counter) and $self->{CHANGE}->{ROUTE} = 1;
 	    mypr "deleting non matching routing entries from device\n";
 	    $counter = 0;
-	    for my $r (@{$$conf{ROUTING}}){
+	    for my $r (@{$conf->{ROUTING}}){
 		($r->{DELETE}) and next; 
 		$counter++;
 		my $tr = join ' ',"no",$self->route_line_to_string($r);
@@ -1979,7 +1979,7 @@ sub process_routing ( $$$ ){
 	    # show compare results
 	    mypr "non matching routing entries on device:\n";
 	    $counter = 0;
-	    for my $r (@{$$conf{ROUTING}}){
+	    for my $r (@{$conf->{ROUTING}}){
 		($r->{DELETE}) and next; 
 		$counter++;
 		mypr $self->route_line_to_string($r),"\n";
@@ -1988,7 +1988,7 @@ sub process_routing ( $$$ ){
 	    ($counter) and $self->{CHANGE}->{ROUTE} = 1;
 	    mypr "additional routing entries from spoc:\n";
 	    $counter = 0;
-	    for my $r (@{$$pspoc{ROUTING}}){
+	    for my $r (@{$pspoc->{ROUTING}}){
 		($r->{DELETE}) and next; 
 		$counter++;
 		mypr $self->route_line_to_string($r),"\n";
@@ -2063,9 +2063,9 @@ sub process_interface_acls ( $$$ ){
     # because the spoc-name may change unexpected drc.pl scans for "-DRC-x" to
     # identify spoc-related acls
     # 
-    for my $if (keys %{$$pspoc{IF}}){
-	(exists($$pspoc{IF}->{$if}->{ACCESS}) and $$pspoc{IF}->{$if}->{TRANSFER} eq "YES") or next;
-	my $confacl=(exists $$conf{IF}->{$if}->{ACCESS})?$$conf{IF}->{$if}->{ACCESS}:'';
+    for my $if (keys %{$pspoc->{IF}}){
+	(exists($pspoc->{IF}->{$if}->{ACCESS}) and $pspoc->{IF}->{$if}->{TRANSFER} eq "YES") or next;
+	my $confacl=(exists $conf->{IF}->{$if}->{ACCESS})?$conf->{IF}->{$if}->{ACCESS}:'';
 	# check acl-names
 	my $aclindex;
 	if($confacl =~ /\S+-DRC-([01])/){
@@ -2082,7 +2082,7 @@ sub process_interface_acls ( $$$ ){
 	    $aclindex = 0;
 	}
 	# generate *new* access-list entries
-	my $spocacl = $$pspoc{IF}->{$if}->{ACCESS};
+	my $spocacl = $pspoc->{IF}->{$if}->{ACCESS};
 	my $aclname = "$spocacl-DRC-$aclindex";
 	$self->{CHANGE}->{ACL} = 1;
 	#
@@ -2104,7 +2104,7 @@ sub process_interface_acls ( $$$ ){
 	$self->cmd('end') or exit -1;
 	$self->cancel_reload();
 	# hopefully this is not critical!
-	$self->append_acl_entries($aclname,$$pspoc{ACCESS}->{$spocacl});
+	$self->append_acl_entries($aclname,$pspoc->{ACCESS}->{$spocacl});
 	#
 	# *** SCHEDULE RELOAD ***
 	#
@@ -2123,7 +2123,7 @@ sub process_interface_acls ( $$$ ){
 	# delete old ACL (if present)
 	#
 	$self->cmd('configure terminal') or exit -1;
-	if($confacl && exists $$conf{ACCESS}->{$confacl}){
+	if($confacl && exists $conf->{ACCESS}->{$confacl}){
 	    mypr "no ip access-list extended $confacl\n";
 	    $self->cmd("no ip access-list extended $confacl") or exit -1;
 	}
@@ -2139,21 +2139,21 @@ sub generic_interface_acl_processing ( $$$ ){
     my ($self, $conf,$pspoc) = @_;
 
     # check if anything to do
-    unless(exists $$pspoc{IF}){
+    unless(exists $pspoc->{IF}){
 	warnpr "no interfaces specified - leaving access-lists untouched\n"; 
 	return 1;
     }
     # check for outgoing ACLS
-    for my $if (keys %{$$conf{IF}}){
-	if(exists $$conf{IF}->{$if}->{ACCESS_OUT} and $$conf{IF}->{$if}->{SHUTDOWN} == 0){
-	    warnpr "interface $if: outgoing acl $$conf{IF}->{$if}->{ACCESS_OUT} detected\n";
+    for my $if (keys %{$conf->{IF}}){
+	if(exists $conf->{IF}->{$if}->{ACCESS_OUT} and $conf->{IF}->{$if}->{SHUTDOWN} == 0){
+	    warnpr "interface $if: outgoing acl $conf->{IF}->{$if}->{ACCESS_OUT} detected\n";
 	}
     }
     # check which spocacls really have to be transfered
     if($self->{COMPARE}){
 	$self->compare_interface_acls($pspoc,$conf,$self->{CMPVAL}) or return 0;
-	for my $if (keys %{$$pspoc{IF}}){
-	    if($$pspoc{IF}->{$if}->{TRANSFER} eq 'YES'){
+	for my $if (keys %{$pspoc->{IF}}){
+	    if($pspoc->{IF}->{$if}->{TRANSFER} eq 'YES'){
 		$self->{CHANGE}->{ACL}   = 1;
 		last;
 	    }
@@ -2486,7 +2486,7 @@ sub crypto_processing( $$$ ){
 	    $self->schedule_reload(3);
 	    for my $acl (keys %surplus_acls){
 		$self->cmd('configure terminal') or exit -1;
-		if($acl and exists $$conf{ACCESS}->{$acl}){
+		if($acl and exists $conf->{ACCESS}->{$acl}){
 		    mypr "no ip access-list extended $acl\n";
 		    $self->cmd("no ip access-list extended $acl") or exit -1;
 		}
