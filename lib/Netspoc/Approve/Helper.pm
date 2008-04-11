@@ -28,8 +28,187 @@ our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
   warnpr check_warn meself quad2int int2quad writestatu
   formatstatus getstatus getfullstatus updatestatus
-  open_status expect_error
+  open_status expect_error 
+  $eol $ts $tc
+  %ICMP_Trans %IP_Trans %PORT_Trans_TCP %PORT_Trans_UDP
+  %Re_IP_Trans %PORT_Re_Trans_TCP %PORT_Re_Trans_UDP %ICMP_Re_Trans
+  
 );
+
+############################################################
+# --- parsing ---
+############################################################
+
+# eol
+our $eol = qr/\s*(\n|\r|\Z)/;
+
+# token (cluster) separator  {};, are currently *not* in use
+#                            - is needed for pix global command
+our $ts = qr/(?=[\s{};,-]|\Z|\n)/;
+
+# token (word) charakter class
+our $tc = qr/[\w\:-]/;
+
+# Following lists are subject of permanent adaption from pix and ios devices.
+# Not all numbers have names on cisco devices
+# and they use non-iana names :(
+
+our %ICMP_Trans = (
+    'echo-reply'                  => { type => 0,  code => -1 },
+    'unreachable'                 => { type => 3,  code => -1 },
+    'net-unreachable'             => { type => 3,  code => 0 },
+    'host-unreachable'            => { type => 3,  code => 1 },
+    'protocol-unreachable'        => { type => 3,  code => 2 },
+    'port-unreachable'            => { type => 3,  code => 3 },
+    'packet-too-big'              => { type => 3,  code => 4 },
+    'source-route-failed'         => { type => 3,  code => 5 },
+    'network-unknown'             => { type => 3,  code => 6 },
+    'host-unknown'                => { type => 3,  code => 7 },
+    'host-isolated'               => { type => 3,  code => 8 },
+    'dod-net-prohibited'          => { type => 3,  code => 9 },
+    'dod-host-prohibited'         => { type => 3,  code => 10 },
+    'net-tos-unreachable'         => { type => 3,  code => 11 },
+    'host-tos-unreachable'        => { type => 3,  code => 12 },
+    'administratively-prohibited' => { type => 3,  code => 13 },
+    'host-precedence-unreachable' => { type => 3,  code => 14 },
+    'precedence-unreachable'      => { type => 3,  code => 15 },
+    'source-quench'               => { type => 4,  code => -1 },
+    'redirect'                    => { type => 5,  code => -1 },
+    'net-redirect'                => { type => 5,  code => 0 },
+    'host-redirect'               => { type => 5,  code => 1 },
+    'net-tos-redirect'            => { type => 5,  code => 2 },
+    'host-tos-redirect'           => { type => 5,  code => 3 },
+    'alternate-address'           => { type => 6,  code => -1 },
+    'echo'                        => { type => 8,  code => -1 },
+    'router-advertisement'        => { type => 9,  code => -1 },
+    'router-solicitation'         => { type => 10, code => -1 },
+    'time-exceeded'               => { type => 11, code => -1 },
+    'ttl-exceeded'                => { type => 11, code => 0 },
+    'reassembly-timeout'          => { type => 11, code => 1 },
+    'parameter-problem'           => { type => 12, code => -1 },
+    'general-parameter-problem'   => { type => 12, code => 0 },
+    'option-missing'              => { type => 12, code => 1 },
+    'no-room-for-option'          => { type => 12, code => 2 },
+    'timestamp-request'           => { type => 13, code => -1 },
+    'timestamp-reply'             => { type => 14, code => -1 },
+    'information-request'         => { type => 15, code => -1 },
+    'information-reply'           => { type => 16, code => -1 },
+    'mask-request'                => { type => 17, code => -1 },
+    'mask-reply'                  => { type => 18, code => -1 },
+    'traceroute'                  => { type => 30, code => -1 },
+    'conversion-error'            => { type => 31, code => -1 },
+    'mobile-redirect'             => { type => 32, code => -1 }
+);
+
+our %IP_Trans = (
+    'eigrp'  => 88,
+    'gre'    => 47,
+    'icmp'   => 1,
+    'igmp'   => 2,
+    'igrp'   => 9,
+    'ipinip' => 4,
+    'nos'    => 94,    # strange name
+    'ospf'   => 89,
+    'pim'    => 103,
+    'tcp'    => 6,
+    'udp'    => 17,
+    'ah'     => 51,
+    'ahp'    => 51,
+    'esp'    => 50
+);
+
+our %PORT_Trans_TCP = (
+    'bgp'               => 179,
+    'chargen'           => 19,
+    'citrix-ica'        => 1494,
+    'cmd'               => 514,
+    'daytime'           => 13,
+    'discard'           => 9,
+    'domain'            => 53,
+    'echo'              => 7,
+    'exec'              => 512,
+    'finger'            => 79,
+    'ftp'               => 21,
+    'ftp-data'          => 20,
+    'gopher'            => 70,
+    'hostname'          => 101,
+    'https'             => 443,
+    'irc'               => 194,
+    'ident'             => 113,
+    'klogin'            => 543,
+    'kshell'            => 544,
+    'ldap'              => 389,
+    'ldaps'             => 636,
+    'lpd'               => 515,
+    'login'             => 513,
+    'lotusnotes'        => 1352,
+    'netbios-ssn'       => 139,
+    'nntp'              => 119,
+    'pcanywhere-data'   => 5631,
+    'pcanywhere-status' => 5632,
+    'pim-auto-rp'       => 496,
+    'pop2'              => 109,
+    'pop3'              => 110,
+    'smtp'              => 25,
+    'sqlnet'            => 1521,
+    'ssh'               => 22,
+    'sunrpc'            => 111,
+    'tacacs'            => 49,
+    'tacacs-ds'         => 65,
+    'talk'              => 517,
+    'telnet'            => 23,
+    'time'              => 37,
+    'uucp'              => 540,
+    'whois'             => 63,
+    'www'               => 80
+);
+
+our %PORT_Trans_UDP = (
+    'biff'          => 512,
+    'bootpc'        => 68,
+    'bootps'        => 67,
+    'discard'       => 9,
+    'dns'           => 53,
+    'domain'        => 53,
+    'dnsix'         => 90,
+    'echo'          => 7,
+    'isakmp'        => 500,
+    'mobile-ip'     => 434,    # maybe this is 435 ?
+    'nameserver'    => 42,
+    'netbios-dgm'   => 138,
+    'netbios-ns'    => 137,
+    'netbios-ss'    => 139,
+    'non500-isakmp' => 4500,
+    'ntp'           => 123,
+    'pim-auto-rp'   => 496,
+    'radius'        => 1645,
+    'radius-acct'   => 1646,
+    'rip'           => 520,
+    'ripng'         => 521,
+    'snmp'          => 161,
+    'snmptrap'      => 162,
+    'sunrpc'        => 111,
+    'syslog'        => 514,
+    'tacacs'        => 49,
+    'tacacs-ds'     => 65,
+    'talk'          => 517,
+    'tftp'          => 69,
+    'time'          => 37,
+    'who'           => 513,
+    'www'           => 80,
+    'xdmcp'         => 177
+);
+
+our %Re_IP_Trans       = reverse %IP_Trans;
+our %PORT_Re_Trans_TCP = reverse %PORT_Trans_TCP;
+our %PORT_Re_Trans_UDP = reverse %PORT_Trans_UDP;
+
+our %ICMP_Re_Trans = ();
+
+for my $message (keys %ICMP_Trans) {
+    $ICMP_Re_Trans{ $ICMP_Trans{$message}->{type} }
+      ->{ $ICMP_Trans{$message}->{code} } = $message;
+}
 
 my %statfields = (
     DEVICENAME  => 0,
