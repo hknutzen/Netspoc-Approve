@@ -1,10 +1,25 @@
 
 package Netspoc::Approve::Device::Cisco;
 
+# Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
+#
+# Description:
+# Remote configure cisco devices
+# 
+
+'$Id$' =~ / (.+),v (.+?) /;  
+
+my $id = "$1 $2";
+
+sub version_drc2_cisco(){
+    return $id;
+}
+
 use strict;
 use warnings;
-
 use base "Netspoc::Approve::Device";
+use IO::Socket ();
+use Netspoc::Approve::Helper;
 
 ############################################################
 # --- helper ---
@@ -689,6 +704,288 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
     return 0;
 }
 
+sub parse_error($$$) {
+    my ($self, $line, $message) = @_;
+
+    my ($package, $file, $ln, $sub) = caller 1;
+
+    if ($self->{PRINT}) {
+        die
+          "parse error (PRINTING) \n in \'$sub\' - $message - yet printed: \'$$line\'\n";
+    }
+
+    if (not $self->{PRINT}) {
+	$$line =~
+	    m/(.{0,25})\G(.{0,25})/s;
+	die
+	    "parse error (PARSING)  \n in \'$sub\' - $message - \n\'$1<< HERE >>$2\'\n";
+    }
+}
+
+###     remark:          'remark' <up to 100 chars of remark>
+#
+#                       ->{REMARK}
+sub remark($$$) {
+    my ($self, $ah, $al) = @_;
+    if ($self->{PRINT} and exists $ah->{REMARK}) {
+        $$al = join ' ', $$al, 'remark', $ah->{REMARK};
+        return 1;
+    }
+    elsif ($$al =~ /\G\s*remark\s(.*)(?=\Z|\n)/cgxo)
+    {    #read remark till end of string|line
+        $ah->{REMARK} = $1;
+        return 1;
+    }
+    return 0;
+}
+
+###   	action:		'permit' | 'deny'
+#
+#                       ->{MODE}
+sub action($$$) {
+    my ($self, $ah, $al) = @_;
+    if ($self->{PRINT}) {
+        if ($ah->{MODE}) {
+            $$al = join ' ', $$al, $ah->{MODE};
+            return 1;
+        }
+        else {
+            return 0;
+        }
+    }
+    elsif ($$al =~ /\G\s*(permit|deny)$ts/cgxo) {
+        $ah->{MODE} = $1;
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+###	adr:		'any' | host | net
+#
+#                       if 'any': ->{BASE} = 0 / ->{MASK} = 0
+sub adr($$$) {
+    my ($self, $ah, $al) = @_;
+    if ($self->{PRINT}) {
+
+        # addresses are *allways* 'base' and 'mask'!
+        (defined $ah->{BASE} and defined $ah->{MASK})
+          and $$al = join ' ', $$al, int2quad($ah->{BASE}),
+          int2quad($self->dev_cor($ah->{MASK}));
+        return 1;
+    }
+    if ($$al =~ /\G\s*any$ts/cgxo) {
+        $ah->{BASE} = 0;
+        $ah->{MASK} = 0;
+        return 1;
+    }
+    unless ($self->host($ah, $al)
+        || $self->net($ah, $al))
+    {
+        $self->parse_error($al, "no address found");
+    }
+    return 1;
+}
+###	host:		'host' quad
+#
+#                       ->{BASE} / ->{MASK} = 0xffffffff;
+sub host($$$) {
+    my ($self, $ah, $al) = @_;
+    if ($$al =~ /\G\s*host\s+([.\d]+)$ts/cgxo) {
+        defined($ah->{BASE} = quad2int($1))
+          or $self->parse_error($al, "no ipv4 address");
+        $ah->{MASK} = 0xffffffff;
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+###	net:		quad quad
+#
+#                       ->{BASE} / ->{MASK}
+#
+# mask checking is only:
+#		                    1011/1101 forbidden
+#		                    1011/1011 allowed    !!!
+# because this is not routing
+#
+sub net($$$) {
+    my ($self, $ah, $al) = @_;
+    if ($$al =~ /\G\s*([.\d]+)\s+([.\d]+)$ts/cgxo) {
+        defined($ah->{BASE} = quad2int($1))
+          or $self->parse_error($al, "no ipv4 address");
+        defined($ah->{MASK} = quad2int($2))
+          or $self->parse_error($al, "no ipv4 address");
+        $ah->{MASK} = $self->dev_cor($ah->{MASK});
+        $ah->{MASK} & $ah->{BASE} ^ $ah->{BASE}
+          and $self->parse_error($al, "illegal mask");
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+###	icmpmessage:	<message-name> | (/d+/ [/d+])
+#
+#                      ->{TYPE} / ->{CODE} (if defined)
+sub icmpmessage($$$) {
+    my ($self, $ah, $al) = @_;
+    if ($self->{PRINT}) {
+        $self->print_icmpmessage($ah, $al);
+    }
+    else {
+        my $parse_start = pos($$al);
+        if ($$al =~ /\G\s*($tc+)$ts/cgxo) {
+            my $match = $1;
+            if (exists $ICMP_Trans{$match}) {
+                $ah->{TYPE} = $ICMP_Trans{$match}->{type};
+                $ah->{CODE} = $ICMP_Trans{$match}->{code};
+            }
+            elsif ($match =~ /\d+/) {
+                $ah->{TYPE} = $match;
+                if ($$al =~ /\G\s*(\d+)$ts/cgxo) {
+                    $ah->{CODE} = $1;
+                }
+                else {
+                    $ah->{CODE} = -1;
+                }
+            }
+            else {
+
+                # maybe it is something else?
+                pos($$al) = $parse_start;
+            }
+        }
+    }
+    return 1;
+}
+### (-)	p_igmp:		( 'igmp' | '2' ) adr adr [igmptype | igmpmessage]
+
+### (-)	igmptype:	/\d+/
+
+### (-) igmpmessage:    /\w+/
+
+###     spec:           single_spec | range_spec
+#
+#                       ->{SRV}->{SPEC}
+sub spec($$$) {
+    my ($self, $ah, $al) = @_;
+    unless ($self->{PRINT}) {
+        $ah->{SRV} = {};
+    }
+    $self->single_spec($ah->{SRV}, $al)
+      or $self->range_spec($ah->{SRV}, $al);
+}
+###	single_spec:	( 'lt' | 'gt' | 'eq' | 'neq' ) port
+#
+#                       ->{SPEC} ->{PORT_L} / {PORT_H}
+sub single_spec($$$) {
+    my ($self, $ah, $al) = @_;
+    if ($self->{PRINT} and $ah->{SPEC}) {
+        my $port;
+        if ($ah->{SPEC} =~ /lt|eq|neq/) {
+            $port = $ah->{PORT_H};
+        }
+        elsif ($ah->{SPEC} =~ /gt/) {
+            $port = $ah->{PORT_L};
+        }
+        else {
+            return 0;
+        }
+        $$al = join ' ', $$al, $ah->{SPEC};
+        (exists $self->{PORTMODE}{$port}) and $port = $self->{PORTMODE}{$port};
+        $$al = join ' ', $$al, $port;
+        return 1;
+    }
+    if ($$al =~ /\G\s*(eq|gt|lt|neq)\s+($tc+)$ts/cgxo) {
+        my $spec = $1;
+        my $port = $2;
+        if (exists $self->{PORTMODE}{$port}) {
+            $port = $self->{PORTMODE}{$port};
+        }
+        unless ($port =~ /\d+/ && $port <= 0xffff) {
+            $self->parse_error($al, "unknown port specifier $port");
+        }
+
+        # set port ranges depending on SPEC
+        if ($spec eq 'eq') {
+            $ah->{PORT_L} = $port;
+            $ah->{PORT_H} = $port;
+        }
+        elsif ($spec eq 'gt') {
+            if ($port < 0xffff) {
+                $ah->{PORT_L} = $port + 1;
+                $ah->{PORT_H} = 0xffff;
+                $spec         = 'range';
+            }
+            else {
+                $self->parse_error($al, "invalid port-number $port for 'gt'");
+            }
+        }
+        elsif ($spec eq 'lt') {
+            if (0 < $port) {
+                $ah->{PORT_L} = 0;
+                $ah->{PORT_H} = $port - 1;
+                $spec         = 'range';
+            }
+            else {
+                $self->parse_error($al, "invalid port-number $port for 'lt'");
+            }
+        }
+        elsif ($spec eq 'neq') {
+            $self->parse_error($al, "port specifier 'neq' not implemented yet");
+            $ah->{PORT_L} = $port;
+            $ah->{PORT_H} = $port;
+        }
+        $ah->{SPEC} = $spec;
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+###     range_spec:     'range' port port
+#
+#                       ->{SPEC} ->{PORT_L} / {PORT_H}
+sub range_spec($$$) {
+    my ($self, $ah, $al) = @_;
+    if ($self->{PRINT} and $ah->{SPEC} and $ah->{SPEC} eq 'range') {
+        my $port_l = $ah->{PORT_L};
+        my $port_h = $ah->{PORT_H};
+        (exists $self->{PORTMODE}{$port_l})
+          and $port_l = $self->{PORTMODE}{$port_l};
+        (exists $self->{PORTMODE}{$port_h})
+          and $port_h = $self->{PORTMODE}{$port_h};
+        $$al = join ' ', $$al, 'range', $port_l, $port_h;
+        return 1;
+    }
+    if ($$al =~ /\G\s*range\s+($tc+)\s+($tc+)$ts/cgxo) {
+        my $port_l = $1;
+        my $port_h = $2;
+        if (exists $self->{PORTMODE}{$port_l}) {
+            $port_l = $self->{PORTMODE}{$port_l};
+        }
+        if (exists $self->{PORTMODE}{$port_h}) {
+            $port_h = $self->{PORTMODE}{$port_h};
+        }
+        unless ($port_l =~ /\d+/
+            && $port_l <= 0xffff
+            && $port_h =~ /\d+/
+            && $port_h <= 0xffff
+            && $port_l <= $port_h)
+        {
+            $self->parse_error($al,
+                "unknown or invalid port specifiers $port_l $port_h");
+        }
+        $ah->{PORT_L} = $port_l;
+        $ah->{PORT_H} = $port_h;
+        $ah->{SPEC}   = 'range';
+        return 1;
+    }
+    return 0;
+}
+
 sub login_enable( $ ) {
     my ($self) = @_;
     my $ip = $self->{IP};
@@ -768,12 +1065,13 @@ sub login_enable( $ ) {
         $con->con_dump();
     }
     my $psave = $$self{PROMPT};
-    $$self{PROMPT}=qr/Password:|#/;
-    cmd('enable') or return 0;
+    $self->{PROMPT} = qr/Password:|#/;
+    $self->cmd('enable') or return 0;
     unless($con->{RESULT}->{MATCH} eq "#"){
-	# enable password required
-	$$self{PROMPT} = $psave;
-	cmd($self->{ENABLE_PASS} || $pass) or return 0;
+
+	# Enable password required.
+	$self->{PROMPT} = $psave;
+	$self->cmd($self->{ENABLE_PASS} || $pass) or return 0;
     }
     return 1;
 }
