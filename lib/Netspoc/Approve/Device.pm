@@ -511,17 +511,12 @@ sub prepare_filemode($$$) {
     my $epi1  = $self->load_epilog($self->get_epilog_name($path1));
     my $conf2 = $self->load_spocfile($path2);
     my $epi2  = $self->load_epilog($self->get_epilog_name($path2));
-    if (!$self->parse_spocfile($parsed1, $conf1)) {
+    if (!$self->parse_device($parsed1, $conf1)) {
         errpr "parse error\n";
         return;
     }
-    if (!$self->parse_spocfile($parsed2, $conf2)) {
+    if (!$self->parse_device($parsed2, $conf2)) {
         errpr "parse error\n";
-        return;
-    }
-    if (not $parsed1->{MODEL} eq $parsed2->{MODEL}) {
-        mypr "MODELs must be equal in parsed spoc config:",
-          " $parsed1->{MODEL}, $parsed2->{MODEL}\n";
         return;
     }
 
