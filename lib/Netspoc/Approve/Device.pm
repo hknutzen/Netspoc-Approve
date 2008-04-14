@@ -530,7 +530,8 @@ sub prepare_filemode($$$) {
 }
 
 sub prepare_devicemode( $$$ ) {
-    my ($self, $device_lines, $path) = @_;
+    my ($self, $path) = @_;
+    my $device_lines = $self->get_config_from_device()
     my $pspoc = {};
     my $conf  = {};
 
@@ -685,9 +686,8 @@ sub approve( $$ ) {
     $self->{COMPARE}       = undef;
 
     # set up console
-    $self->con_setup("START: $policy (telnet) at > "
-          . scalar localtime()
-          . " < ($id)");
+    my $time = localtime();
+    $self->con_setup("START: $policy at > $time < ($id)");
 
     # prepare device for configuration
     $self->prepare();
@@ -695,12 +695,7 @@ sub approve( $$ ) {
     # check if Netspoc message in device banner
     $self->checkbanner();
 
-    # fetch device configuration
-    my $device_lines = $self->get_config_from_device();
-
-    #
     # now do the main thing
-    #
     my ($device_conf, $spoc_conf) =
       $self->prepare_devicemode($device_lines, $spoc_path)
       or errpr "devicemode prepare failed\n";
@@ -710,9 +705,8 @@ sub approve( $$ ) {
     else {
         errpr "approve failed\n";
     }
-    $self->con_shutdown("STOP: $policy (telnet) at > "
-          . scalar localtime()
-          . " < ($id)");
+    $time = localtime();
+    $self->con_shutdown("STOP: $policy at > $time < ($id)");
 }
 
 sub compare( $$ ) {
@@ -725,9 +719,8 @@ sub compare( $$ ) {
     $self->{CMPVAL}       = $self->{OPTS}->{C};
 
     # set up console
-    $self->con_setup("START: $policy (telnet) at > "
-          . scalar localtime()
-          . " < ($id)");
+    my $time = localtime();
+    $self->con_setup("START: $policy at > $time < ($id)");
 
     # prepare device for configuration
     $self->prepare();
@@ -735,12 +728,7 @@ sub compare( $$ ) {
     # check if Netspoc message in device banner
     $self->checkbanner();
 
-    # fetch device configuration
-    my $device_lines = $self->get_config_from_device();
-
-    #
     # now do the main thing
-    #
     my ($device_conf, $spoc_conf) =
       $self->prepare_devicemode($device_lines, $spoc_path)
       or errpr "devicemode prepare failed\n";
@@ -751,9 +739,8 @@ sub compare( $$ ) {
         errpr "compare failed\n";
     }
 
-    $self->con_shutdown("STOP: $policy (telnet) at > "
-          . scalar localtime()
-          . " < ($id)");
+    $time = localtime();
+    $self->con_shutdown("STOP: $policy at > $time < ($id)");
     mypr "comp: $policy ", scalar localtime, " ($id)\n";
     for my $key (keys %{$self->{CHANGE}}) {
 	mypr "comp: $policy $self->{NAME} *** $key changed ***\n";
