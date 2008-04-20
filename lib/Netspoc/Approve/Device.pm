@@ -529,9 +529,9 @@ sub prepare_filemode($$$) {
     return ($parsed1, $parsed2);
 }
 
-sub prepare_devicemode( $$$ ) {
+sub prepare_devicemode( $$ ) {
     my ($self, $path) = @_;
-    my $device_lines = $self->get_config_from_device()
+    my $device_lines = $self->get_config_from_device();
     my $pspoc = {};
     my $conf  = {};
 
@@ -697,7 +697,7 @@ sub approve( $$ ) {
 
     # now do the main thing
     my ($device_conf, $spoc_conf) =
-      $self->prepare_devicemode($device_lines, $spoc_path)
+      $self->prepare_devicemode($spoc_path)
       or errpr "devicemode prepare failed\n";
     if ($self->transfer($device_conf, $spoc_conf)) {
         mypr "approve done\n";
@@ -730,7 +730,7 @@ sub compare( $$ ) {
 
     # now do the main thing
     my ($device_conf, $spoc_conf) =
-      $self->prepare_devicemode($device_lines, $spoc_path)
+      $self->prepare_devicemode($spoc_path)
       or errpr "devicemode prepare failed\n";
     if ($self->transfer($device_conf, $spoc_conf)) {
         mypr "compare done\n";
