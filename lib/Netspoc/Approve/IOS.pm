@@ -38,162 +38,10 @@ sub dev_cor ($$) {
 #
 ##########################################
 
-# ip mask
-# host ip
-# any
-# ->{SPEC} ->{PORT_L} / {PORT_H}
-sub parse_address {
-    my($self, $desc) = @_;
-    my($ip, $mask);
-    my $token = get_token($desc);
-    if($token eq 'any') {
-	$ip = $mask = 0;
-    }
-    elsif($token eq 'host') {
-	$ip = get_ip($desc);
-	$mask = 0xffffffff;
-    }
-    else {
-	$ip = quad2int($token);
-	$mask = get_ip($desc);
-    }
-    return( { BASE => $ip, MASK => $self->dev_cor($mask } );
-}
-
-sub parse_port {
-    my($self, $proto, $desc) = @_;
-    my $port = get_token($desc);
-    if($proto eq 'tcp') {
-	$port = $PORT_Trans_TCP{$port} || $port;
-    }
-    else {
-	$port = $PORT_Trans_UDP{$port} || $port;
-    }
-    $port =~ /^\d+$/ or err_at_line('Syntax');
-    return $port;
-}	
-    
-# ( 'lt' | 'gt' | 'eq' | 'neq' ) port
-# 'range' port port
-sub parse_port_spec {
-    my($self, $proto, $desc) = @_;
-    my($low, $high);
-    my $spec = check_regex('eq|gt|lt|neq|range', $desc) or
-	return {};    
-    my $port = $self->parse_port($proto, $desc);
-    if($spec eq 'eq') {
-	$low = $high = $port;
-	$spec = 'range';
-    }
-    elsif($spec eq 'gt') {
-	$low = $port + 1;
-	$high = 0xffff;
-	$spec = 'range';
-    }
-    elsif($spec eq 'lt') {
-	$low = 0;
-	$high = $port - 1;
-	$spec = 'range';
-    }
-    elsif($spec eq 'neq') {
-	die "port specifier 'neq' not implemented yet\n";
-    }
-    elsif($spec eq 'range') {
-	$low = $port;
-	$high = $self->parse_port($proto, $desc);
-    }
-    else {
-	internal_err();
-    }
-    return( { SPEC => $spec, PORT_L => $low, PORT_H => $high } );
-}
-
-sub print_address_and_spec {
-    my($self, $i) = @_;
-    my $r;
-    my($ip, $mask, $spec, $low, $high) = 
-	@{$i}{qw(BASE MASK SPEC PORT_L PORT_H)};
-    if($ip == 0 && $mask == 0) {
-	$r = 'any';
-	
-    }
-    elsif($mask == 0xffffffff) {
-	$r = 'host ' . int2quad($ip);
-    }
-    else {
-	$r = int2quad($ip) . ' ' . int2quad($mask);
-    }
-    if($spec) {
-	my $s;
-	if($low == $high) {
-	    $s = 'eq $low';
-	}
-	elsif($high == 0xffff) {
-	    $s = 'gt' . $low - 1;
-	}
-	elsif($low == 0) {
-	    $s = 'lt' . $high + 1;
-	}
-	else {
-	    $s = "port $low $high";
-	}
-	$r = ' ' . $s;
-    }
-    return $r;
-}
-
-my $icmp_regex = join('|', '\d+', keys %ICMP_Trans);
-
-# <message-name> | (/d+/ [/d+])
-# ->{TYPE} / ->{CODE} (if defined)
-sub parse_icmp_spec {
-    my($self, $desc) = @_;
-    my($type, $code);
-    my $token = check_regex($icmp_regex, $desc) or
-	return {};
-    if(my $spec = $ICMP_Trans{$token}){
-	($type, $code)  = @{$spec}{'type', 'code'};
-    }
-    else {
-	$type = $token;
-	$code = check_regex('\d+', $desc) || -1;
-    }
-    return( { TYPE => $type, CODE => $code } );
-}
-
-# we prefer textual output of icmp message due to
-# problems in the ios ace parser:
-#
-# in ios holds:   icmp 8 0 != icmp echo
-# because of this echo is coded as type 8 code -1
-#
-sub print_icmp_spec {
-    my ($self, $ah) = @_;
-    my $r = '';
-    if (exists $ah->{TYPE}) {
-        if (exists $ah->{CODE}) {
-
-# ToDo
-#	    if(exists $ICMP_Re_Trans{$ah->{TYPE}}->{$ah->{CODE}}){
-#		$$al =join ' ',$$al,$ICMP_Re_Trans{$ah->{TYPE}}->{$ah->{CODE}};
-#	    }
-#	    else
-            {
-                $r = $ah->{TYPE};
-                $ah->{CODE} != -1 and $r .= " $ah->{CODE}";
-            }
-        }
-        else {
-            $r = $ah->{TYPE};
-        }
-    }
-    return $r;
-}
-
 #
 # ip inspect name inspection-name ...
 #
-# only subset implemented !!!!!
+# only subset implemented
 #
 sub parse_ip_inspect {
     my ($self, $arg) = @_;
@@ -215,16 +63,6 @@ sub parse_ip_inspect {
     }
     return $result;
 }
-	
-sub print_ip_inspect {
-    my ($self, $i) = @_;
-    my $r = join ' ', "ip inspect name", $i->{NAME}, $i->{SPEC};
-    if ($i->{SPEC} eq 'rpc') {
-        $r = join ' ', $r, $i->{PROG}, $i->{NUM};
-    }
-    return $r;
-}
-	
 
 # ip route destination-prefix destination-prefix-mask
 #          [interface-type card/subcard/port] forward-addr
@@ -254,31 +92,20 @@ sub parse_ip_route {
     return $result;
 }
 
-sub print_ip_route {
-    my ($self, $o) = @_;
-    my $r = join "ip route", int2quad $o->{BASE}, int2quad $o->{MASK};
-    $o->{NIF}      and $r = join ' ', $r, $o->{NIF};
-    $o->{NEXTHOP}  and $r = join ' ', $r, int2quad $o->{NEXTHOP};
-    $o->{METRIC}   and $r = join ' ', $r, $o->{METRIC};
-    $o->{MISC}     and $r = join ' ', $r, $o->{MISC};
-    $o->{MISC_ARG} and $r = join ' ', $r, $o->{MISC_ARG};
-    return $r;
-}
-   
 ##################################################################
 #
 #  acl syntax derived from cisco ios12.2 documentation
 #  pix is using subset of this with inverted masks
 #
-# acl-entry: 	
 # [dynamic] action prot_spec [precedence] [tos] [log] [timerange][fragments]
-#
 #     or   remark
 #
 sub parse_acl_entry {
     my ($self, $arg) = @_;
     my $result;
     
+    # Attach original command line.
+    $result->{orig} = $arg->{orig};
     if(check_regex('remark', $arg)) {
 	$result->{REMARK} = get_token($arg);
     }
@@ -326,35 +153,20 @@ sub parse_acl_entry {
 	    $result->{LOG} = $log;
 	}
     }
+    
     return $result;
 }
 
-sub print_acl_entry {
-    my($self, $i) = @_;
-    my $r;
-    if(my $remark = $i->{REMARK}) {
-	$r = "remark $remark";
-    }
-    else {
-	if(my $hash = $i->{DYNAMIC}) {
-	    $r = "dynamic $hash->{NAME}";
-	    if(my $timeout = $hash->{TIMEOUT}) {
-		$r .= " timeout $timeout";
-	    }
-	}
-	$r .= " $i->{MODE}";
-	my $proto = $i->{TYPE};
-	$proto = $Re_IP_Trans{$proto} || $proto;
-	$r .= " $proto";
-	$r .= ' ' . $self->print_address_and_spec($i->{SRC});
-	$r .= ' ' . $self->print_address_and_spec($i->{DST});
-	$r .= ' established' if $i->{ESTA};
-	if(my $spec = $i->{SPEC}) {
-	    $r .= ' ' . $self->print_icmp_spec($spec);
-	}
-	$r .= ' ' . $i->{LOG} if $i->{LOG};
-    }
-    return $r;
+
+#
+# we must only parse the non-dynamic part of the acl.
+#
+sub parse_ip_access_list {
+    my ($self, $arg) = @_;
+    get_regex('extended', $arg);
+    my $name = get_token($arg);
+    my $sub_cmds = $arg->{sub};
+    return [ map { $self->parse_acl_entry($_) } @$sub_cmds ], $name;
 }
 
 # remark ...
@@ -364,14 +176,14 @@ sub parse_simple_acl_entry {
     my $result;
 
     if(check_regex('remark', $arg)) {
-	$result->{REMARK} = get_rest($arg);
+	$result->{REMARK} = get_token($arg);
     }
     else {
 	$result->{MODE} = get_regex('permit|deny', $arg);
 	my($base, $mask);
 	if(defined($base = check_ip($arg))) {
 	    if(defined($mask = check_ip($arg))) {
-		$kask = $self->dev_cor($mask);
+		$mask = $self->dev_cor($mask);
 	    }
 	    else {
 		$mask = 0xffffffff;
@@ -404,7 +216,94 @@ sub parse_access_list {
     }
     return $result, $name, 'push';
 }
- 
+
+sub parse_interface_section {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $name = get_token($arg);
+    my $config = $arg->{sub};
+    for my $cmd (keys %$config) {
+	for my $arg (@{ $config->{$cmd} }) {
+	    if($cmd eq 'ip access-group') {
+		my $name = get_token($arg);
+		my $direction = get_regex('in|out', $arg);
+		if($direction eq 'in') {
+		    $result->{ACCESS} = $name;
+		}
+		else {
+		    $result->{ACCESS_OUT} = $name;
+		}
+	    }
+	    elsif($cmd eq 'ip inspect') {
+		$result->{INSPECT} = get_token($arg);
+	    }
+	    elsif($cmd eq 'shutdown') {
+		$result->{SHUTDOWN} = 1;
+	    }
+	    elsif($cmd eq 'crypto map') {
+		$result->{CRYPTO_MAP} = get_token($arg);
+	    }
+	    elsif($cmd eq 'crypto ipsec') {
+		get_regex('client', $arg);
+		get_regex('ezvpn', $arg);
+		$result->{EZVPN}->{NAME} = get_token($arg);
+		$result->{EZVPN}->{LOCATION} = 
+		    check_token($arg) || 'outside';
+	    }
+	    elsif($cmd eq 'switchport mode') {
+		$result->{SWITCHPORT}->{MODE} = get_token($arg);
+	    }
+	    elsif($cmd eq 'switchport access') {
+		check_regex('vlan', $arg) or next;
+		push(@{ $result->{SWITCHPORT}->{ACCESS_VLAN} }, 
+		      get_token($arg));
+	    }
+	    elsif($cmd eq 'switchport nonegotiate') {
+		$result->{SWITCHPORT}->{NONEGOTIATE} = 1;
+	    }
+	    elsif($cmd eq 'ip address') {
+		if(check_regex('negotiated', $arg)) {
+		    $result->{ADDRESS}->{DYNAMIC} = 'negotiated';
+		}
+		else {
+		    $result->{ADDRESS}->{BASE} = get_ip($arg);
+
+# ToDo: handle secondary IP address
+		}
+	    }
+	    elsif($cmd eq 'ip unnumbered') {
+		$result->{ADDRESS}->{DYNAMIC} = 'unnumbered';
+	    }
+	    else {
+
+		# Ignore other commands.
+		while(check_token($arg)) {};
+	    }
+	    get_eol($arg);
+	}
+    }
+    return($result, $name);
+}
+
+sub parse_router_ospf {
+    my ($self, $arg) = @_;
+    return 1;
+}
+
+
+sub get_parse_info {
+    my ($self) = @_;
+    { 'ip route' => ['parse_ip_route', 'ROUTING'],
+      'ip access-list' => ['parse_ip_access_list', 'ACCESS'],
+      'access-list' => ['parse_access_list', 'ACCESS'],
+      'interface' => ['parse_interface_section', 'IF'],
+      'ip inspect' => ['parse_ip_inspect_line', 'INSPECT'],
+      'router ospf' => ['parse_router_ospf', 'OSPF'],
+      'crypto' => ['parse_crypto', 'CRYPTO'],
+    };
+}
+
 sub parse_crypto_isakmp_policy( $$$ ) {
     my ($self, $p, $sfile) = @_;
     while (defined(my $line = shift @$sfile)) {
@@ -578,7 +477,7 @@ sub parse_crypto ( $$$ ) {
 }
 
 # checking, binding  and info printing of parsed crypto config
-sub crypto_checking( $$ ) {
+sub postprocess_config( $$ ) {
     my ($self, $p) = @_;
     mypr meself(1) . "*** begin ***\n";
     my $crypto_map_found   = 0;
@@ -753,162 +652,6 @@ sub crypto_checking( $$ ) {
     }
     mypr meself(1) . "*** end ***\n";
     return 1;
-}
-
-sub parse_ip_access_list {
-    my ($self, $arg) = @_;
-    my @result;
-
-    #
-    # we must only parse the non-dynamic part of the acl.
-    #
-    my $d_counter = 0;
-    my %seen_acl;
-
-    get_regex('extended', $arg);
-    my $name = get_token($arg);
-    my $sub_cmds = $arg->{sub};
-    for my $aref (@$sub_cmds) {
-	my $r = $self->parse_acl_entry($aref);
-	my $aclstrg = $self->print_acl_entry($r);
-	if(not $seen_acl{$aclstrg}) {
-	    $seen_acl{$aclstrg} = 1;
-	    push @result, $r;
-	}
-	else {
-	    $d_counter++;
-	}
-    }
-    $d_counter and mypr "double acl entries skipped: $d_counter\n";
-    return \@result, $name;
-}
-
-sub parse_interface_section {
-    my ($self, $arg) = @_;
-    my $result;
-
-    my $name = get_token($arg);
-    my $config = $arg->{sub};
-    for my $cmd (keys %$config) {
-	for my $arg (@{ $config->{$cmd} }) {
-	    if($cmd eq 'ip access-group') {
-		my $name = get_token($arg);
-		my $direction = get_regex('in|out', $arg);
-		if($direction eq 'in') {
-		    $result->{ACCESS} = $name;
-		}
-		else {
-		    $result->{ACCESS_OUT} = $name;
-		}
-	    }
-	    elsif($cmd eq 'ip inspect') {
-		$result->{INSPECT} = get_token($arg);
-	    }
-	    elsif($cmd eq 'shutdown') {
-		$result->{SHUTDOWN} = 1;
-	    }
-	    elsif($cmd eq 'crypto map') {
-		$result->{CRYPTO_MAP} = get_token($arg);
-	    }
-	    elsif($cmd eq 'crypto ipsec') {
-		get_regex('client', $arg);
-		get_regex('ezvpn', $arg);
-		$result->{EZVPN}->{NAME} = get_token($arg);
-		$result->{EZVPN}->{LOCATION} = 
-		    check_token($arg) || 'outside';
-	    }
-	    elsif($cmd eq 'switchport mode') {
-		$result->{SWITCHPORT}->{MODE} = get_token($arg);
-	    }
-	    elsif($cmd eq 'switchport access') {
-		check_regex('vlan', $arg) or next;
-		push(@{ $result->{SWITCHPORT}->{ACCESS_VLAN} }, 
-		      get_token($arg));
-	    }
-	    elsif($cmd eq 'switchport nonegotiate') {
-		$result->{SWITCHPORT}->{NONEGOTIATE} = 1;
-	    }
-	    elsif($cmd eq 'ip address') {
-		if(check_regex('negotiated', $arg)) {
-		    $result->{ADDRESS}->{DYNAMIC} = 'negotiated';
-		}
-		else {
-		    $result->{ADDRESS}->{BASE} = get_ip($arg);
-
-# ToDo: handle secondary IP address
-		}
-	    }
-	    elsif($cmd eq 'ip unnumbered') {
-		$result->{ADDRESS}->{DYNAMIC} = 'unnumbered';
-	    }
-	    else {
-
-		# Ignore other commands.
-		while(check_token($arg)) {};
-	    }
-	    get_eol($arg);
-	}
-    }
-    return($result, $name);
-}
-
-sub parse_router_ospf {
-    my ($self, $arg) = @_;
-    return 1;
-}
-
-my %parse_info = 
-( 'ip route' => ['parse_ip_route', 'ROUTING'],
-  'ip access-list' => ['parse_ip_access_list', 'ACCESS'],
-  'access-list' => ['parse_access_list', 'ACCESS'],
-  'interface' => ['parse_interface_section', 'IF'],
-  'ip inspect' => ['parse_ip_inspect_line', 'INSPECT'],
-  'router ospf' => ['parse_router_ospf', 'OSPF'],
-  'crypto' => ['parse_crypto', 'CRYPTO'],
-);
-
-sub parse_device ( $$$ ) {
-    my ($self, $lines) = @_;
-    my $result;
-
-    mypr "parse device config\n";
-    my $config = $self->prepare_conf_lines($lines, '???');
-    
-    for my $cmd (keys %$config) {
-
-	# Parse known commands, ignore unknown commands.
-	my $parse_info = $parse_info{$cmd} or next;
-	my($method, $key) = @$parse_info;
-	for my $arg (@{ $config->{$cmd} }) {
-	    my($value, $name, $push) = $self->$method($arg);
-	    get_eol($arg);
-	    next if not $value;
-
-	    # Attach unparsed command line 
-	    # and sub command lines to parsed command.
-	    $value->{orig} = $arg->{orig};
-	    $value->{sub} = $arg->{sub};
-	    if($name) {
-		if($push) {
-		    push @{ $result->{$key}->{$name} }, $value;
-		}
-		else {
-		    $result->{$key}->{$name} = $value;
-		}
-	    }
-	    else {
-		push @{ $result->{$key} }, $value;
-	    }
-        }
-    }
-    mypr "... done parsing config\n";
-
-    # Plausibility checks and binding for crypto conf.
-    unless ($self->crypto_checking($result)) {
-        errpr "fatal error in config\n";
-        exit -1;
-    }
-    return $result;
 }
 
 sub get_config_from_device( $ ) {
@@ -2045,7 +1788,7 @@ sub crypto_struct_equal( $$$$$ ) {
             for my $entry (keys %$a) {
                 if ($entry eq "ACCESS_GROUP_IN") {
 
-                    # special handling forthis entry because it
+                    # special handling for this entry because it
                     # is subject of change by netspoc
                     if (exists $b->{$entry}) {
                         my $verbose = $self->{COMPARE} ? $self->{CMPVAL} : 4;
