@@ -1,18 +1,7 @@
 
 package Netspoc::Approve::Device::Cisco::Firewall;
 
-#       - ios acl parser
-#
-#       - pix config       parser
-#
-#       - semi xml parser
-#
-#       ---------------------------------------------------------------
-#
-#       (the corresponding data-struktures are shown below the productions together
-#        with their possible values)
-#
-#       (-) means: not (fully) implemented yet
+# Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
 # module to remote configure cisco firewalls (PIX, ASA, Fwsm)
@@ -27,742 +16,230 @@ use warnings;
 use base "Netspoc::Approve::Device::Cisco";
 use IO::Socket ();
 use Netspoc::Approve::Helper;
+use Netspoc::Approve::Device::Cisco::Parse;
 
 sub version_drc2_Firewall() {
     return $id;
 }
-
-my %PORT_Trans_TCP_UDP = (%PORT_Trans_TCP, %PORT_Trans_UDP);
-my %PORT_Re_Trans_TCP_UDP = reverse %PORT_Trans_TCP_UDP;
 
 sub dev_cor ($$) {
     my ($self, $addr) = @_;
     return $addr;
 }
 
-############################################################
-############################################################
+sub parse_address {
+    my ($self, $arg) = @_;
 
-sub parse_dummy_lines ( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($$al =~ /\G(.*\n)/cgxo) {
-
-        #print "DUMMY $1";
-        return 1;
+    if(check_regex('object-group', $arg)) {
+	my $result;
+	$result->{OBJECT_GROUP} = get_token($arg);
+	return $result;
     }
     else {
-        return 0;
+	return $self->SUPER::parse_address($arg);
     }
 }
+
 #############################################
 #
-#  [no] global [(<ext_if_name>)] <nat_id>
-#              {<global_ip>[-<global_ip>] [netmask <global_mask>]} | interface
+#  global [(<ext_if_name>)] <nat_id>
+#         {<global_ip>[-<global_ip>] [netmask <global_mask>]} | interface
 #
-#  global pix_global()
-#
-#  only generate arry
-#
-sub parse_global_lines( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $entry (@$ah) {
-            $self->pix_global($entry, $al);
-            $$al = "${$al}\n";
-        }
+sub parse_global {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $token = get_token($arg);
+    $token =~ /\((.*)\)/ or err_at_line($arg, "Parenthesis expected");
+    $result->{EXT_IF_NAME} = $1;
+    $result->{NAT_ID} = get_token($arg);
+    if(check_regex('interface', $arg)) {
+	$result->{INTERFACE} = 1;
     }
     else {
-        my $foundone = 0;
-        while ($$al =~ /\G\s*global$ts/cgxo) {
-            my $entryhash = {};
-            push @{$ah}, $entryhash;
-            $self->pix_global($entryhash, $al);
-            $$al =~ /\G$eol/cgxo
-              or $self->parse_error($al, "end of string or newline expected");
-            $foundone = 1;
-        }
-        return $foundone;
+	my $range = get_token($arg);
+	my ($begin, $end) = split(/-/, $token);
+	$result->{BEGIN} = quad2int($begin) or err_at_line($arg, 'IP expected');
+	if($end) {
+	    $result->{END} = quad2int($end) or err_at_line($arg, 'IP range expected');
+	}
     }
+    return $result;
 }
 
-### pix_global: (<ext_if_name>) <nat_id> pix_pool()|interface_keyword()
-#
-# ->{EXT_IF_NAME} ->{NAT_ID}
-#
-sub pix_global( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $$al = "${$al}global ($ah->{EXT_IF_NAME}) $ah->{NAT_ID}";
-    }
-    elsif ($$al =~ /\G\s*\(($tc+)\)\s+(\d+)$ts/cgxo) {
-        $ah->{EXT_IF_NAME} = $1;
-        $ah->{NAT_ID}      = $2;
-    }
-    else {
-        $self->parse_error($al, "interface name and nat ID expected");
-    }
-    $self->pix_pool($ah, $al)
-      || $self->interface_keyword($ah, $al)
-      || $self->parse_error($al, "address specs expected");
-}
-### pix_pool: <global_ip>[-<global_ip>] [netmask <global_mask>]
-#
-# ->{BEGIN} ->{END}
-#
-sub pix_pool( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-
-        # we can not use ip_spec here because there
-        # is no space between adresses
-        if ($ah->{BEGIN}->{BASE}) {
-            $$al = "$$al " . int2quad($ah->{BEGIN}->{BASE});
-            if ($ah->{END}->{BASE}) {
-                $$al = "$$al-" . int2quad($ah->{END}->{BASE});
-            }
-            $self->netmask($ah, $al);
-            return 1;
-        }
-        else {
-            return 0;
-        }
-    }
-    else {
-        $ah->{BEGIN} = {};
-        $ah->{END}   = {};
-        $self->ip_spec($ah->{BEGIN}, $al) or return 0;
-        if ($$al =~ /\G-/cgxo) {
-            $self->ip_spec($ah->{END}, $al)
-              or $self->parse_error($al, "address range end expected");
-        }
-        $self->netmask($ah, $al);
-        return 1;
-    }
-}
 #############################################
 #
-# [no] nat [(<real_ifc>)] <nat-id>
+# nat [(<real_ifc>)] <nat-id>
 #                {<real_ip> [<mask>]} | {access-list <acl_name>}
 #                [dns] [norandomseq] [outside] [<max_conn> [<emb_limit>]]
 #
-#  nat pix_nat()
-#
-#  only generate array
-#
-sub parse_nat_lines( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $entry (@$ah) {
-            $self->pix_nat($entry, $al);
-            $$al = "${$al}\n";
-        }
-    }
-    else {
-        my $foundone = 0;
-        while ($$al =~ /\G\s*nat$ts/cgxo) {
-            my $entryhash = {};
-            push @{$ah}, $entryhash;
-            pix_nat($self, $entryhash, $al);
-            $$al =~ /\G$eol/cgxo
-              or $self->parse_error($al, "end of string or newline expected");
-            $foundone = 1;
-        }
-        return $foundone;
-    }
-}
-### pix_nat:  [(<real_ifc>)] <nat-id> { net() | access_list_spec() }
-#
-#pix_nat_traffic() pix_nat_options()
-#
-#  ->{NAT_ID} ->{IF_NAME}
-#
-sub pix_nat( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $$al = "${$al}nat ($ah->{IF_NAME}) $ah->{NAT_ID}";
-    }
-    elsif ($$al =~ /\G\s*\(($tc+)\)\s+(\d+)$ts/cgxo) {
-        $ah->{IF_NAME} = $1;
-        $ah->{NAT_ID}  = $2;
-    }
-    else {
-        $self->parse_error($al, "interface name and nat ID expected");
-    }
+sub parse_nat {
+    my ($self, $arg) = @_;
+    my $result;
 
-    ($self->net_p($ah, $al) || $self->access_list_spec($ah, $al))
-      or $self->parse_error($al, "incomplete nat line");
-
-    # $self->dns($ah,$al) &&         => flaw in documentation? disable till clear!
-    # $self->norandomseq($ah,$al) && => flaw in documentation? order of items switched...
-    $self->outside_keyword($ah, $al);
-    $self->max_conns($ah, $al);
-    $self->norandomseq($ah, $al);
-    return 1;
-}
-###      outside_keyword:     'outside'
-#
-#        ->{OUTSIDE}
-#
-sub outside_keyword($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and $ah->{OUTSIDE}) {
-        $$al = join ' ', $$al, $ah->{OUTSIDE};
+    my $token = get_token($arg);
+    $token =~ /\((.*)\)/ or err_at_line($arg, "Parenthesis expected");
+    $result->{IF_NAME} = $1;
+    $result->{NAT_ID} = get_token($arg);
+    if(check_regex('access-list', $arg)) {
+	$result->{ACCESS_LIST} = get_token($arg);
     }
-    elsif ($$al =~ /\G\s*(outside)$ts/cgxo) {
-        $ah->{OUTSIDE} = $1;
+    else{
+	$result->{BASE} = get_ip($arg);
+	$result->{MASK} = get_ip($arg);
     }
-    else {
-        return 0;
+    $result->{DNS} = check_regex('dns', $arg);
+    $result->{OUTSIDE} = check_regex('outside', $arg);
+    if($result->{MAX_CONS} = check_int($arg)) {
+	$result->{EMB_LIMIT} = check_int($arg);
     }
-    return 1;
-}
-#############################################
-#
-# ip address <if_name> <ip-address> <netmask>
-#
-# ->{ADDRESS}->{<if_name>}->{BASE}
-# ->{ADDRESS}->{<if_name>}->{MASK}
-#
-sub parse_ip_address( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $if_name (sort keys %$ah) {
-            my $entry = $ah->{ADDRESS}->{$if_name};
-            $$al =
-                "${$al}ip address $if_name "
-              . int2quad($entry->{BASE}) . " "
-              . int2quad($entry->{MASK}) . "\n";
-        }
-    }
-    elsif ($$al =~ /\G\s*ip\s+address$ts/cgxo) {
-        my $name;
-        if ($$al =~ /\G\s*(\S+)$ts/cgxo) {
-            $name = $1;
-        }
-        else {
-            $self->parse_error($al, "interface name missing");
-        }
-        if ($$al =~ /\G\s*([.\d]+)$ts/cgxo) {
-            defined($ah->{ADDRESS}->{$name}->{BASE} = quad2int($1))
-              or $self->parse_error($al, "base no ipv4 address");
-        }
-        else {
-            $self->parse_error($al, "base missing");
-        }
-        if ($$al =~ /\G\s*([.\d]+)$ts/cgxo) {
-            defined($ah->{ADDRESS}->{$name}->{MASK} = quad2int($1))
-              or $self->parse_error($al, "mask no ipv4 address");
-        }
-        else {
-            $self->parse_error($al, "mask missing");
-        }
-        $$al =~ /\G$eol/cgxo
-          or $self->parse_error($al, "end of string or newline expected");
-    }
-    else {
-        return 0;
-    }
-    return 1;
+    $result->{NORANDOMSEQ} = check_regex('norandomseq', $arg);
+    return $result;
 }
 
 #############################################
 #
-# up to pix os 6.3
+# static syntax from pix OS 6.3 documentation:
 #
-# interface <hardware_id> [<hardware_speed> [shutdown]]
+# static [(local_ifc,global_ifc)] {global_ip | interface} {local_ip [netmask mask] | access-list acl_name} [dns] [norandomseq] [max_conns [emb_limit]]
+# static [(local_ifc,global_ifc)] {tcp | udp} {global_ip | interface} global_port {local_ip local_port [netmask mask] | access-list acl_name} [dns] [norandomseq] [max_conns [emb_limit]]
 #
-# ->{<hardware_id>}->{SHUTDOWN}
-# ->{<hardware_id>}->{HW_SPEED}
+###     static_line:  local_global  translation [dns] [norandomseq] [max_conns]
 #
-sub parse_old_interface( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $hw_id (sort keys %$ah) {
-            my $entry = $ah->{$hw_id};
-            $$al = "${$al}interface $hw_id";
-            $entry->{HW_SPEED} and $$al = "$$al $entry->{HW_SPEED}";
-            $entry->{SHUTDOWN} and $$al = "$$al shutdown";
-            $$al = "${$al}\n";
-        }
-    }
-    elsif ($$al =~ /\G\s*interface$ts/cgxo) {
-        my $hw_id;
-        if ($$al =~ /\G\s*(\S+)$ts/cgxo) {
-            $hw_id = $1;
-        }
-        else {
-            $self->parse_error($al, "hardware_id missing");
-        }
-        if ($$al =~ /\G\s*($tc+)$ts/cgxo) {
-            $ah->{$hw_id}->{HW_SPEED} = $1;
-        }
-        if ($$al =~ /\G\s*shutdown$ts/cgxo) {
-            $ah->{$hw_id}->{SHUTDOWN} = 1;
-        }
-        else {
-            $ah->{$hw_id}->{SHUTDOWN} = 0;
-        }
-        $$al =~ /\G$eol/cgxo
-          or $self->parse_error($al, "end of string or newline expected");
+# [dns] disabled due to documentation flaw!!!
+# -> instead parse dns in trans_nat and trans_pat
+#
+# => another flaw: order of last two item weired
+sub parse_static {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $local_global = get_token($arg);
+    $local_global =~ /\((\S+),(\S+)\)/ or err_at_line($arg, 'Syntax');
+    $result->{LOCAL_IF}  = $1;
+    $result->{GLOBAL_IF} = $2;
+    my $global = $result->{GLOBAL} = {};
+    my $local  = $result->{LOCAL}  = {};
+    my $type = $result->{TYPE} = check_regex('tcp|udp', $arg) || 'ip';
+    if(my $ip = get_ip($arg)) {
+	$global->{BASE} = $ip;
     }
     else {
-        return 0;
+	get_regex('interface', $arg);
+	$global->{INTERFACE} = 1;
     }
-    return 1;
+    $type ne 'ip' and $global->{PORT} = $self->parse_port($type, $arg);
+    if(my $ip = get_ip($arg)) {
+	$local->{BASE} = $ip;
+	$type ne 'ip' and  $local->{PORT} = $self->parse_port($type, $arg);
+	$local->{DNS} = check_regex('dns', $arg);
+	if(check_regex('netmask', $arg)) {
+	    $local->{NETMASK} = get_ip($arg);
+	}
+    }
+    else {
+	check_regex('access-list', $arg);
+	$local->{ACCESS_LIST} = get_token($arg);
+	$local->{DNS} = check_regex('dns', $arg);
+    }
+    if(defined($result->{MAX_CONS} = check_int($arg))) {
+	$result->{EMB_LIMIT} = check_int($arg);
+    }
+    $result->{NORANDOMSEQ} = check_regex('norandomseq', $arg);
+    return $result;
 }
 
 #
 #  pix os 7.x and FWSM
 #
-# interface <hardware_id> [<hardware_speed> [shutdown]]
+# interface <hardware_id>
 #
-# ->{<hardware_id>}->{<pix7_shutdown>SHUTDOWN}
-# ->{<hardware_id>}->{HW_SPEED}
-# ->{<hardware_id>}->{IF_NAME}
-# ->{<hardware_id>}->{SECURITY}
-#
-sub parse_interface( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $hw_id (sort keys %$ah) {
-            my $entry = $ah->{$hw_id};
-            $$al = "${$al}interface $hw_id\n";
-            $self->shutdown($entry, $al);
-            $self->hw_speed($entry, $al);
-            $self->duplex($entry, $al);
-            $self->if_name($entry, $al);
-            $self->security($entry, $al);
-            $self->ip_address($entry, $al);
-            $$al = "${$al}!\n";
-        }
-    }
-    elsif ($$al =~ /\G\s*interface$ts/cgxo) {
-        my $hw_id;
-        if ($$al =~ /\G\s*(\S+)$ts/cgxo) {
-            $hw_id = $1;
-        }
-        else {
-            $self->parse_error($al, "hardware_id missing");
-        }
-        $ah->{$hw_id} = {};
-        while ($self->shutdown($ah->{$hw_id}, $al)
-            || $self->hw_speed($ah->{$hw_id}, $al)
-            || $self->duplex($ah->{$hw_id}, $al)
-            || $self->if_name($ah->{$hw_id}, $al)
-            || $self->security($ah->{$hw_id}, $al)
-            || $self->ip_address($ah->{$hw_id}, $al)
-	    || $self->skip_management($ah->{$hw_id}, $al)
-	    || $self->skip_description($ah->{$hw_id}, $al))
-        {
-            $$al =~ /\G$eol/cgxo
-              or $self->parse_error($al, "end of string or newline expected");
+sub parse_interface_section {
+    my ($self, $arg) = @_;
+    my $result;
 
-            #my $p = pos($$al);
-            #$$al =~ /\G(\n*|.*)$ts/cgxo;
-            #print "--> $p $1 <--\n";
-            #print ".";
-            #pos($$al) = $p;
-        }
-
-        # "!" at end of interface section
-        ($$al =~ /\G\s*!$ts/cgxo)
-          or $self->parse_error($al, "unknown entry in interface section");
-
-        #
-        # postprocess defaults
-        #
-        if (!exists $ah->{$hw_id}->{SHUTDOWN}) {
-            $ah->{$hw_id}->{SHUTDOWN} = 0;
-        }
-        if (!exists $ah->{$hw_id}->{HW_SPEED}) {
-            $ah->{$hw_id}->{HW_SPEED} = 'auto';
-        }
-        if (!exists $ah->{$hw_id}->{DUPLEX}) {
-            $ah->{$hw_id}->{DUPLEX} = 'auto';
-        }
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
-
-sub shutdown( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        if ($ah->{SHUTDOWN}) {
-            $$al = "${$al} shutdown\n";
-        }
-
-        # no shutdown is default, so do not print anything
-    }
-    else {
-        if ($$al =~ /\G\s*shutdown$ts/cgxo) {
-            $ah->{SHUTDOWN} = 1;
-        }
-        else {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-sub hw_speed( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        if ($ah->{HW_SPEED} and $ah->{HW_SPEED} ne 'auto') {
-            $$al = "${$al} speed $ah->{HW_SPEED}\n";
-        }
-
-        # speed auto is default, so do not print anything
-    }
-    else {
-        if ($$al =~ /\G\s*speed$ts/cgxo) {
-            if ($$al =~ /\G\s*(\d+)$ts/cgxo) {
-                $ah->{HW_SPEED} = $1;
-            }
-            else {
-                $self->parse_error($al,
-                    "missing speed value in interface speed section");
-            }
-        }
-        else {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-sub duplex( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        if ($ah->{DUPLEX} and $ah->{DUPLEX} ne 'auto') {
-            $$al = "${$al} duplex $ah->{DUPLEX}\n";
-        }
-
-        # duplex auto is default, so do not print anything
-    }
-    else {
-        if ($$al =~ /\G\s*duplex$ts/cgxo) {
-            if ($$al =~ /\G\s*($tc+)$ts/cgxo) {
-                $ah->{DUPLEX} = $1;
-            }
-            else {
-                $self->parse_error($al,
-                    "missing duplex value in interface duplex section");
-            }
-        }
-        else {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-sub if_name( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        if (defined $ah->{IF_NAME}) {
-            $$al = "${$al} nameif $ah->{IF_NAME}\n";
-        }
-        else {
-            $$al = "${$al} no nameif\n";
-        }
-    }
-    else {
-        if ($$al =~ /\G\s*(no)?(\s*)?nameif$ts/cgxo) {
-            if (defined $1) {
-
-                # nothing to do
-            }
-            elsif ($$al =~ /\G\s*(\S+)$ts/cgxo) {
-                $ah->{IF_NAME} = $1;
-            }
-            else {
-                $self->parse_error($al,
-                    "missing interface name in nameif section");
-            }
-        }
-        else {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-sub security( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        if (defined $ah->{SECURITY}) {
-            $$al = "${$al} security-level $ah->{SECURITY}\n";
-        }
-        else {
-            $$al = "${$al} no security-level\n";
-        }
-    }
-    else {
-        if ($$al =~ /\G\s*(no)?(\s*)?security-level$ts/cgxo) {
-            if (defined $1) {
-
-                # nothing to do
-            }
-            elsif ($$al =~ /\G\s*(\d+)$ts/cgxo) {
-                $ah->{SECURITY} = $1;
-            }
-            else {
-                $self->parse_error($al,
-                    "malformed security-level in interface section");
-            }
-        }
-        else {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-# ip address 10.1.13.191 255.255.255.0 [standby 10.1.13.192]
-sub ip_address( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        if (defined $ah->{ADDRESS}) {
-            my $entry = $ah->{ADDRESS};
-            $$al =
-                "${$al}ip address "
-              . int2quad($entry->{BASE}) . " "
-              . int2quad($entry->{MASK}) . "\n";
-        }
-    }
-    elsif ($$al =~ /\G\s*(no)?(\s*)?ip\s+address$ts/cgxo) {
-        if (defined $1) {
-
-            # nothing to do
-        }
-        else {
-            if ($$al =~ /\G\s*([.\d]+)$ts/cgxo) {
-                defined($ah->{ADDRESS}->{BASE} = quad2int($1))
-                  or $self->parse_error($al, "base no ipv4 address");
-            }
-            else {
-                $self->parse_error($al, "base missing");
-            }
-            if ($$al =~ /\G\s*([.\d]+)$ts/cgxo) {
-                defined($ah->{ADDRESS}->{MASK} = quad2int($1))
-                  or $self->parse_error($al, "mask no ipv4 address");
-            }
-            else {
-                $self->parse_error($al, "mask missing");
-            }
-	    if ($$al =~ /\G\s*standby\s+([.\d]+)$ts/cgxo) {
-                if(defined( $ah->{ADDRESS}->{STANDBY} = quad2int($1))) {
-		    my $err_msg = "unable to determine standby IP-address";
-		    $self->parse_error($al, $err_msg);
+    my $id = get_token($arg);
+    my $config = $arg->{sub};
+    for my $cmd (keys %$config) {
+	for my $arg (@{ $config->{$cmd} }) {
+	    if($cmd eq 'shutdown') {
+		$result->{SHUTDOWN} = 1;
+	    }
+	    elsif($cmd eq 'speed') {
+		$result->{HW_SPEED} = get_int($arg);
+	    }
+	    elsif($cmd eq 'duplex') {
+		$result->{DUPLEX} = get_token($arg);
+	    }
+	    elsif($cmd eq 'nameif') {
+		$result->{IF_NAME} = get_token($arg);
+	    }
+	    elsif($cmd =~ /^(:?no (:?nameif|security-level|ip address))$/) {
+	    
+		# ignore; don't set attribute
+	    }
+	    elsif($cmd eq 'security-level') {
+		$result->{SECURITY} = get_int($arg);
+	    }
+	    elsif($cmd eq 'ip address') {
+		$result->{BASE} = get_ip($arg);
+		$result->{MASK} = get_ip($arg);
+		if(check_regex('standby', $arg)) {
+		    $result->{STANDBY} = get_ip($arg);
 		}
-            }
+	    }
+	    elsif($cmd eq 'management-only') {
+		$result->{MANAGEMENT_ONLY} = 1;
+	    }
+	    else {
 
-#	$$al =~ /\G$eol/cgxo or $self->parse_error($al,"end of string or newline expected");
-        }
+		# Ignore other commands.
+		while(check_token($arg)) {};
+	    }
+	    $self->get_eol($arg);
+	}
     }
-    else {
-        return 0;
-    }
-    return 1;
+
+    # postprocess defaults
+    $result->{HW_SPEED} ||= 'auto';
+    $result->{DUPLEX}   ||= 'auto';
+
+    return($result, $id);
 }
 
-sub skip_management( $$$ ) {
-    my ($self, $ah, $al) = @_;
-
-    if ($$al =~ /\G\s*management\-only\s*([\w\s]+)$ts/cgxo) {
-	mypr "Skipping entry 'management-only'\n";
-    }
-}
-
-sub skip_description( $$$ ) {
-    my ($self, $ah, $al) = @_;
-
-    if ($$al =~ /\G\s*description\s+([\w\s]+)$ts/cgxo) {
-	mypr "Skipping description: $1\n";
-    }
-}
-
-#############################################
-#
-# nameif {<hardware_id>|<vlan_id>} <if_name> <security_level>
-#
-# ->{<hardware_id>}->{IF_NAME}
-# ->{<hardware_id>}->{SECURITY}
-#
-sub parse_nameif( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $hw_id (sort keys %$ah) {
-            my $entry = $ah->{$hw_id};
-            $$al = "${$al}nameif $hw_id $entry->{IF_NAME} $entry->{SECURITY}\n";
-        }
-    }
-    elsif ($$al =~ /\G\s*nameif$ts/cgxo) {
-        my $hw_id;
-        if ($$al =~ /\G\s*(\S+)$ts/cgxo) {
-            $hw_id = $1;
-        }
-        else {
-            $self->parse_error($al, "hardware_id missing");
-        }
-        if ($$al =~ /\G\s*($tc+)\s+($tc+)$ts/cgxo) {
-            $ah->{$hw_id}->{IF_NAME}  = $1;
-            $ah->{$hw_id}->{SECURITY} = $2;
-        }
-        else {
-            $self->parse_error($al, "interface name or security level missing");
-        }
-        $$al =~ /\G$eol/cgxo
-          or $self->parse_error($al, "end of string or newline expected");
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
 #############################################
 #
 # access-group <access_list_name> in interface <if_name>
 #
-# ->{<access_list_name>}->{IF_NAME}
-#
-sub parse_access_group( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $acl_name (sort keys %$ah) {
-            my $entry = $ah->{$acl_name};
-            $$al =
-              "${$al}access-group $acl_name in interface $entry->{IF_NAME}\n";
-        }
-    }
-    elsif ($$al =~ /\G\s*access-group$ts/cgxo) {
-        my $acl_name;
-        if ($$al =~ /\G\s*($tc+)$ts/cgxo) {
-            $acl_name = $1;
-        }
-        else {
-            $self->parse_error($al, "acl name missing");
-        }
-        if ($$al =~ /\G\s*in(\s+interface)?\s+($tc+)$ts/cgxo) {
-            $ah->{$acl_name}->{IF_NAME} = $2;
-        }
-        else {
-            $self->parse_error($al, "interface name missing");
-        }
-        $$al =~ /\G$eol/cgxo
-          or $self->parse_error($al, "end of string or newline expected");
-    }
-    else {
-        return 0;
-    }
-    return 1;
+sub parse_access_group {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $name = get_token($arg);
+    get_regex('in', $arg);
+    check_regex('interface', $arg);
+    $result->{IF_NAME} = get_token($arg);
+    return($result, $name);
 }
+
 #############################################
 #
-# generate array with pix routing entrys
-#
 # route  syntax from pix OS 6.3 documentation:
 #
-# [no] route if_name ip_address netmask gateway_ip [metric]
+# route if_name ip_address netmask gateway_ip [metric]
 #
-# route pix_route
-#
-# ->[]
-#
-sub parse_route_lines( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $entry (@{$ah}) {
-            $self->pix_route($entry, $al);
-            $$al = "$$al\n";
-        }
-    }
-    else {
-        my $foundone = 0;
-        while ($$al =~ /\G\s*route$ts/cgxo) {
-            $foundone = 1;
-            my $entryhash = {};
-            push @{$ah}, $entryhash;
-            $self->pix_route($entryhash, $al);
-            $$al =~ /\G$eol/cgxo
-              or $self->parse_error($al, "end of string or newline expected");
-        }
-        return $foundone;
-    }
-}
-##############################################################
-#
-# route  syntax from pix OS 6.3 documentation:
-#
-#  ip_address netmask gateway_ip [metric]
-#
-# ->{IF} ->{BASE} ->{MASK} ->{NEXTHOP} [->{METRIC}]
-#
-sub pix_route( $$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $$al =
-            "${$al}route $ah->{IF} "
-          . int2quad($ah->{BASE}) . " "
-          . int2quad($ah->{MASK}) . " "
-          . int2quad($ah->{NEXTHOP});
-        exists $ah->{METRIC} and $$al = "${$al} $ah->{METRIC}";
-    }
-    else {
-        if ($$al =~ /\G\s*($tc+)$ts/cgxo) {
-            $ah->{IF} = $1;
-        }
-        else {
-            $self->parse_error($al, "interface name expected");
-        }
-        if ($$al =~ /\G\s*([.\d]+)$ts/cgxo) {
-            defined($ah->{BASE} = quad2int($1))
-              or $self->parse_error($al, "base no ipv4 address");
-        }
-        else {
-            $self->parse_error($al, "base missing");
-        }
-        if ($$al =~ /\G\s*([.\d]+)$ts/cgxo) {
-            defined($ah->{MASK} = quad2int($1))
-              or $self->parse_error($al, "mask no ipv4 address");
-        }
-        else {
-            $self->parse_error($al, "mask missing");
-        }
-        if ($$al =~ /\G\s*([.\d]+)$ts/cgxo) {
-            defined($ah->{NEXTHOP} = quad2int($1))
-              or $self->parse_error($al, "nexthop no ipv4 address");
-        }
-        else {
-            $self->parse_error($al, "nexthop missing");
-        }
-        if ($$al =~ /\G\s*(\d+)$ts/cgxo) {
-            $ah->{METRIC} = $1;
-        }
-    }
+sub parse_route {
+    my ($self, $arg) = @_;
+    my $result;
+
+    $result->{IF}      = get_token($arg);
+    $result->{BASE}    = get_ip($arg);
+    $result->{MASK}    = get_ip($arg);
+    $result->{NEXTHOP} = get_ip($arg);
+    $result->{METRIC}  = check_int($arg);
+    return $result;
 }
 
-#
-#
-
-sub parse_crypto( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    my $foundone = 0;
-    while ($$al =~ /\G\s*crypto$ts/cgxo) {
-        (        $self->pix_crypto_map($ah, $al)
-              || $self->pix_crypto_ca($ah, $al)
-              || $self->pix_crypto_dynamic_map($ah, $al)
-              || $self->pix_crypto_ipsec($ah, $al)
-              || $self->pix_crypto_isakmp($ah, $al)
-              || $self->pix_crypto_sa($ah, $al))
-          or $self->parse_error($al, "unknown subcommand");
-        $foundone = 1;
-    }
-    return $foundone;
-}
 
 #   crypto map map-name client [token] authentication aaa-server-name
 #   crypto map map-name client configuration address initiate | respond
@@ -780,65 +257,7 @@ sub parse_crypto( $$$ ) {
 #
 # ->{MAP}->{<map-name>}->{SEQ_NUM}->{<seq-num>}->{MATCH_ADDRESS}
 
-sub pix_crypto_map( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $self->parse_error($al, "printing not implemented for crypto maps yet");
-    }
-    if ($$al =~ /\G\s*map\s+($tc+)$ts/cgxo) {
-        my $map_name = $1;
 
-        #print $map_name."\n";
-        # hack #
-        if ($$al =~ /\G\s*(\d+)\s+match\s+address\s+($tc+)$ts/cgxo) {
-            my $seq_num  = $1;
-            my $acl_name = $2;
-
-            #print "crypto map $map_name $seq_num $acl_name\n";
-            $ah->{MAP}->{$map_name}->{SEQ_NUM}->{$seq_num}->{MATCH_ADDRESS} =
-              $acl_name;
-        }
-        elsif ($$al =~ /\G(.*)$eol/cgxo) {
-        }
-
-    }
-    return 1;
-}
-
-sub pix_crypto_ca( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($$al =~ /\G\s*ca.*$eol/cgxo) {
-    }
-    return 1;
-}
-
-sub pix_crypto_dynamic_map( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($$al =~ /\G\s*dynamic-map.*$eol/cgxo) {
-    }
-    return 1;
-}
-
-sub pix_crypto_ipsec( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($$al =~ /\G\s*ipsec.*$eol/cgxo) {
-    }
-    return 1;
-}
-
-sub pix_crypto_isakmp( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($$al =~ /\G\s*isakmp.*$eol/cgxo) {
-    }
-    return 1;
-}
-
-sub pix_crypto_sa( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($$al =~ /\G\s*sa.*$eol/cgxo) {
-    }
-    return 1;
-}
 
 #############################################
 #
@@ -871,482 +290,36 @@ sub pix_crypto_sa( $$$ ) {
 # show object-group [id grp_id | grp_type]
 #
 #
-# *** only subcommands yet implemented ***
+# *** only type 'network' implemented ***
 #
-###     object_group: object-group {icmp-type|network|protocol|service} <grp_id>
-#
-#   ->{<grp-id>}
-#
-sub parse_object_group($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $og_name (sort keys %$ah) {
-            my $entry = $ah->{$og_name};
-            $$al = "${$al}object-group $entry->{TYPE} $og_name\n";
+sub parse_object_group {
+    my ($self, $arg) = @_;
+    my $result;
 
-            # no check for valid entrys here - it is done when parsing
-            $self->og_description($entry, $al);
-
-            #
-            # TO DO: implementing the following functions
-            #
-            #   og_icmp_object
-            #   og_protocol_object
-            #   og_port_object
-            #
-            $self->og_network_object($entry, $al);
-            $self->og_group_object($entry, $al);
-        }
+    my $type = $result->{TYPE} = get_token($arg);
+    $type eq 'network' or err_at_line($arg, "Not implemented: $type");
+    my $name = get_token($arg);
+    my $config = $arg->{sub};
+    for my $cmd (keys %$config) {
+	for my $arg (@{ $config->{$cmd} }) {
+	    if($cmd eq 'description') {
+		$result->{DESCRIPTION} = get_token($arg);
+	    }
+	    elsif($cmd eq 'network-object') {
+		push @{ $result->{NETWORK_OBJECT} }, $self->parse_address($arg);
+	    }
+	    elsif($cmd eq 'group-object') {
+		push @{ $result->{GROUP_OBJECT} }, get_token($arg);
+	    }
+	    else {
+		err_at_line($arg, 'Unknown subcommand');
+	    }
+	    get_eol($arg);
+	}
     }
-    else {
-        my $foundone = 0;
-        while ($$al =~
-            /\G\s*object-group\s+(icmp-type|network|protocol|service)\s+(\S+)$ts/cgxo
-          )
-        {
-            $ah->{$2} = {};
-            my $entry   = $ah->{$2};
-            my $og_type = $1;
-            if (exists $entry->{TYPE} and $entry->{TYPE} ne $og_type) {
-                $self->parse_error($al,
-                    "An object-group with the same id ($2) but different type ($entry->{TYPE}) exists"
-                );
-            }
-            $$al =~ /\G$eol/cgxo
-              or $self->parse_error($al, "end of string or newline expected");
-            $entry->{TYPE} = $og_type;
-            if ($og_type eq "icmp-type") {
-                $self->parse_error($al, "icmp-type not implemented yet");
-            }
-            elsif ($og_type eq "network") {
-                while ($self->og_description($entry, $al)
-                    || $self->og_network_object($entry, $al)
-                    || $self->og_group_object($entry, $al))
-                {
-                    $$al =~ /\G$eol/cgxo
-                      or $self->parse_error($al,
-                        "end of string or newline expected");
-                }
-            }
-            elsif ($og_type eq "protocol") {
-                $self->parse_error($al, "protocol not implemented yet");
-            }
-            elsif ($og_type eq "service") {
-                $self->parse_error($al, "service not implemented yet");
-            }
-            else {
-                $self->parse_error($al, "internal error");
-            }
-            $foundone = 1;
-        }
-        if ($self->{PRINT}) {
-            $$al =~ s/^ +//;
-        }
-        return $foundone;
-    }
-}
-###  og_description: description description_text
-#
-#    ->{DESCRIPTION}
-#
-sub og_description($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and $ah->{DESCRIPTION}) {
-        $$al = "${$al} description $ah->{DESCRIPTION}\n";
-    }
-    elsif ($$al =~ /\G\s*description$ts/cgxo) {
-
-        if ($$al =~ /\G\s*(\S+.*)$ts/cgxo) {
-            $ah->{DESCRIPTION} = $1;
-        }
-        else {
-            $self->parse_error($al, "non empty description expected");
-        }
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
-###  og_network_object: network-object address
-#
-#    ->{NETWORK_OBJECT}[]
-#
-sub og_network_object($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $entry (@{ $ah->{NETWORK_OBJECT} }) {
-            $$al = join ' ', $$al, 'network-object', int2quad($entry->{BASE}),
-              int2quad(dev_cor($self->{MODE}, $entry->{MASK}));
-            $$al = "$$al\n";
-        }
-    }
-    else {
-        my $foundone = 0;
-        while ($$al =~ /\G\s*network-object$ts/cgxo) {
-            my $entryhash = {};
-            push @{ $ah->{NETWORK_OBJECT} }, $entryhash;
-            ($self->net($entryhash, $al) || host($self, $entryhash, $al))
-              or $self->parse_error($al, "network-object missing");
-            $foundone = 1;
-        }
-        return $foundone;
-    }
-}
-### og_group_object: group-object grp_id
-#
-#
-#    ->{GROUP_OBJECT}
-#
-sub og_group_object($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $entry (@{ $ah->{GROUP_OBJECT} }) {
-            $$al = join ' ', $$al, 'group-object', $entry->{NAME};
-            $$al = "$$al\n";
-        }
-    }
-    else {
-        my $foundone = 0;
-        while ($$al =~ /\G\s*group-object$ts/cgxo) {
-            if ($$al =~ /\G\s*(\S+)$ts/cgxo) {
-                push @{ $ah->{GROUP_OBJECT} }, { NAME => $1 };
-            }
-            else {
-                $self->parse_error($al, "non empty group id expected");
-            }
-            $foundone = 1;
-        }
-        return $foundone;
-    }
-}
-#############################################
-#
-# generate array of statics
-#
-sub parse_static_lines($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        for my $entry (@{$ah}) {
-            $self->static_line($entry, $al);
-            $$al = "$$al\n";
-        }
-    }
-    else {
-        my $foundone = 0;
-        my $done;
-        until ($done) {
-            my $entryhash = {};
-            if ($self->static_line($entryhash, $al)) {
-                $foundone = 1;
-                push @{$ah}, $entryhash;
-                $$al =~ /\G$eol/cgxo
-                  or
-                  $self->parse_error($al, "end of string or newline expected");
-            }
-            else {
-                $done = 1;
-            }
-        }
-        return $foundone;
-    }
-}
-#############################################
-#
-# static syntax from pix OS 6.3 documentation:
-#
-# [no] static [(local_ifc,global_ifc)] {global_ip | interface} {local_ip [netmask mask] | access-list acl_name} [dns] [norandomseq] [max_conns [emb_limit]]
-# [no] static [(local_ifc,global_ifc)] {tcp | udp} {global_ip | interface} global_port {local_ip local_port [netmask mask] | access-list acl_name} [dns] [norandomseq] [max_conns [emb_limit]]
-#
-###     static_line:  local_global  translation [dns] [norandomseq] [max_conns]
-#
-#                                               ^^^^^ disabled due to documentation flaw!!!
-#                                                     -> instead parse dns in trans_nat and trans_pat
-#
-#                                               => another flaw: order of last two item weired
-sub static_line($$$) {
-    my ($self, $ah, $al) = @_;
-    my $result = (
-             $self->local_global($ah, $al)
-          && $self->translation($ah, $al)
-          &&
-
-          # $self->dns($ah,$al) &&         => flaw in documentation? disable till clear!
-          # $self->norandomseq($ah,$al) && => flaw in documentation? order of items switched...
-          $self->max_conns($ah, $al)
-    ) && $self->norandomseq($ah, $al);
-    if ($self->{PRINT}) {
-        $$al =~ s/^ +//;
-    }
-    return $result;
-}
-###     local_global: static (local_ifc,global_ifc)
-#
-#       ->{LOCAL_IF} ->{GLOBAL_IF}    (names of interfaces)
-#
-#       =>  the local - global interface spec is *not* optional in this parser!
-#
-sub local_global($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $$al = "${$al}static ($ah->{LOCAL_IF},$ah->{GLOBAL_IF})";
-    }
-    elsif ($$al =~ /\G\s*static$ts/cgxo) {
-        if ($$al =~ /\G\s*\(($tc+),($tc+)\)$ts/cgxo) {
-            $ah->{LOCAL_IF}  = $1;
-            $ah->{GLOBAL_IF} = $2;
-        }
-        else {
-            $self->parse_error($al, "(local_if,global_if) expected");
-        }
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
-###     translation:    static_nat
-#
-#                or:    (tcp|udp) static_pat
-#
-#         ->{TRANS}->{TYPE} (tcp|udp|ip)
-#
-sub translation($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $ah->{TRANS}->{TYPE} or return 0;
-    }
-    else {
-        if ($$al =~ /\G\s*(tcp|udp)$ts/cgxo) {
-            $ah->{TRANS}->{TYPE} = $1;
-        }
-        else {
-            $ah->{TRANS}->{TYPE} = 'ip';
-        }
-    }
-    if ($ah->{TRANS}->{TYPE} eq 'ip') {
-        $self->static_nat($ah->{TRANS}, $al)
-          or $self->parse_error($al, "nat expected");
-    }
-    else {
-        $self->static_pat($ah->{TRANS}, $al)
-          or $self->parse_error($al, "pat expected");
-    }
-    ###
-    ### TO DO: maybe we want to check the netmask in the future ...
-    ###
-    return 1;
-}
-###      static_nat:    {ip_spec | 'interface'} {ip_spec [dns] [netmask] | access_list_spec [dns]}
-#
-#                                                        ^^^^^ <- bug in docu ??? ->        ^^^^^
-#        ->{LOCAL} ->{GLOBAL}
-#
-sub static_nat($$$) {
-    my ($self, $ah, $al) = @_;
-    unless ($self->{PRINT}) {
-        $ah->{GLOBAL} = {};
-        $ah->{LOCAL}  = {};
-    }
-    return ( $self->ip_spec($ah->{GLOBAL}, $al)
-          || $self->interface_keyword($ah->{GLOBAL}, $al))
-      && ( $self->ip_spec($ah->{LOCAL}, $al)
-        && $self->dns($ah->{LOCAL}, $al)
-        && $self->netmask($ah->{LOCAL}, $al)
-        || $self->access_list_spec($ah->{LOCAL}, $al)
-        && $self->dns($ah->{LOCAL}, $al));
-}
-###   static_pat: {ip_spec | 'interface'} port_spec {ip_spec port_spec [dns] [netmask] | access_list_spec [dns]}
-#
-#                                                                      ^^^^^ <- bug in docu ??? ->        ^^^^^
-#        ->{LOCAL} ->{GLOBAL}
-#
-sub static_pat($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $$al = join ' ', $$al, $ah->{TYPE};
-    }
-    else {
-        $ah->{GLOBAL} = {};
-        $ah->{LOCAL}  = {};
-    }
-    ($ah->{TYPE} eq 'tcp') and $self->{PORTMODE} = \%PORT_Trans_TCP;
-    ($ah->{TYPE} eq 'udp') and $self->{PORTMODE} = \%PORT_Trans_UDP;
-    my $result = (
-        (
-                 $self->ip_spec($ah->{GLOBAL}, $al)
-              || $self->interface_keyword($ah->{GLOBAL}, $al)
-        )
-          && $self->port_spec($ah->{GLOBAL}, $al)
-      )
-      && ( $self->ip_spec($ah->{LOCAL}, $al)
-        && $self->port_spec($ah->{LOCAL}, $al)
-        && $self->dns($ah->{LOCAL}, $al)
-        && $self->netmask($ah->{LOCAL}, $al)
-        || $self->access_list_spec($ah->{LOCAL}, $al)
-        && $self->dns($ah->{LOCAL}, $al));
-    $self->{PORTMODE} = {};
-    return $result;
-}
-###      interface_keyword:     'interface'
-#
-#        ->{INTERFACE}
-#
-sub interface_keyword($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and $ah->{INTERFACE}) {
-        $$al = join ' ', $$al, $ah->{INTERFACE};
-    }
-    elsif ($$al =~ /\G\s*(interface)$ts/cgxo) {
-        $ah->{INTERFACE} = $1;
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
-###      ip_spec:     <ip-adress>
-#
-#        ->{BASE}
-#
-sub ip_spec($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and exists $ah->{BASE}) {
-        $$al = join ' ', $$al, int2quad($ah->{BASE});
-    }
-    elsif ($$al =~ /\G\s*([.\d]+)$ts/cgxo) {
-        defined($ah->{BASE} = quad2int($1))
-          or $self->parse_error($al, "no ipv4 address");
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
-###      netmask:   netmask <mask>
-#
-#        ->{NETMASK}
-#
-sub netmask($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and $ah->{NETMASK}) {
-        $$al = join ' ', $$al, 'netmask', int2quad($ah->{NETMASK});
-    }
-    elsif ($$al =~ /\G\s*netmask\s+([.\d]+)$ts/cgxo) {
-        defined($ah->{NETMASK} = quad2int($1))
-          or $self->parse_error($al, "no ipv4 address");
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
-###      port_spec:  <port>  (udp or tcp according to $self->{PORTMODE} or number
-#
-#        ->{PORT}
-#
-sub port_spec($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $$al = join ' ', $$al, $ah->{PORT};
-    }
-    elsif ($$al =~ /\G\s*($tc+)$ts/cgxo) {
-        my $port = $1;
-        if (exists $self->{PORTMODE}{$port}) {
-            $port = $self->{PORTMODE}{$port};
-        }
-        unless ($port =~ /\d+/ && $port <= 0xffff) {
-            $self->parse_error($al, "unknown port specifier $port");
-        }
-        $ah->{PORT} = $port;
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
-###      access_list_spec:  access-list <acl_name>
-#
-#        ->{ACCESS_LIST}->{NAME}
-#
-sub access_list_spec($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $$al = join ' ', $$al, 'access-list', $ah->{ACCESS_LIST}->{NAME};
-    }
-    elsif ($$al =~ /\G\s*access-list\s+($tc+)$ts/cgxo) {
-        $ah->{ACCESS_LIST}->{NAME} = $1;
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
-###      dns:   'dns'
-#
-#          ->{DNS}
-#
-sub dns($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and $ah->{DNS}) {
-        $$al = join ' ', $$al, $ah->{DNS};
-    }
-    elsif ($$al =~ /\G\s*(dns)$ts/cgxo) {
-        $ah->{DNS} = $1;
-    }
-    return 1;
-}
-###      norandomseq: 'norandomseq'
-#
-#        ->{NORANDOMSEQ}
-#
-sub norandomseq($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and $ah->{NORANDOMSEQ}) {
-        $$al = join ' ', $$al, $ah->{NORANDOMSEQ};
-    }
-    elsif ($$al =~ /\G\s*(norandomseq)$ts/cgxo) {
-        $ah->{NORANDOMSEQ} = $1;
-    }
-    return 1;
+    return($result, $name);
 }
 
-###     max_cons:       [max_conns [emb_limit]]
-#
-#       ->{MAX_CONS}
-#
-sub max_conns($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and exists $ah->{MAX_CONS}) {
-        $$al = join ' ', $$al, $ah->{MAX_CONS};
-    }
-    elsif ($$al =~ /\G\s*(\d+)$ts/cgxo) {
-        $ah->{MAX_CONS} = $1;
-    }
-    else {
-        $ah->{MAX_CONS} = 0;
-    }
-    $self->emb_limit($ah, $al);
-    return 1;
-}
-
-###     emb_limit:
-#
-#       ->{EMB_LIMIT}
-#
-sub emb_limit($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and exists $ah->{EMB_LIMIT}) {
-        $$al = join ' ', $$al, $ah->{EMB_LIMIT};
-    }
-    elsif ($$al =~ /\G\s*(\d+)$ts/cgxo) {
-        $ah->{EMB_LIMIT} = $1;
-    }
-    else {
-        $ah->{EMB_LIMIT} = 0;
-    }
-    return 1;
-}
 ##################################################################
 ##################################################################
 
@@ -1371,24 +344,6 @@ sub emb_limit($$$) {
 #  network_obj_grp_id [icmp_type | object-group icmp_type_obj_grp_id] [log [[disable |
 #  default] | [level] [interval secs]]
 
-##################################################################
-#
-#       acl syntax derived from cisco pix 6.3 documentation (above)
-#
-#       changed handling of ip protocol field: only 3 kinds of entrys:
-#
-#               'ip','object-group' and "ip protocol coded as integer"
-#
-### pix_show_access_list_line: { access-list id [line line-num] pix_acl_entry } *
-#
-# fill arry and ignore(!) object-group lines
-#
-sub pix_show_access_list_line($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($$al =~ /\G\s*description$ts/cgxo) {
-    }
-}
-### pix_write_term_acl: { access-list id pix_acl_entry } *
 #
 # fill arrays (do not expand object-group lines)
 #
@@ -1399,407 +354,74 @@ sub pix_show_access_list_line($$$) {
 #   ... with extension for pix os 7.x (keyword 'extended')
 #
 #
-sub parse_write_term_acl($$$) {
-    my ($self, $ah, $al) = @_;
-    my $foundone = 0;
-    if ($self->{PRINT}) {
-        for my $acl_name (sort keys %$ah) {
-            for my $entry (@{ $ah->{$acl_name}->{RAW_ARRAY} }) {
-                $$al = "${$al}access-list $acl_name";
-                $self->pix_acl_entry($entry, $al);
-                $$al = "$$al\n";
-            }
-        }
-    }
-    else {
-        while ($$al =~ /\G\s*access-list$ts/cgxo) {
-            if ($$al =~ /\G\s*(\S+)(\s+extended)?$ts/cgxo) {
-                my $entryhash = {};
-                my $id        = $1;
-                push @{ $ah->{$id}->{RAW_ARRAY} }, $entryhash;
-                if ($self->pix_acl_entry($entryhash, $al)) {
-                    $$al =~ /\G$eol/cgxo
-                      or $self->parse_error($al,
-                        "end of string or newline expected");
-                    $foundone = 1;
-                }
-                elsif ($id eq 'compiled') {
-
-                    # this is to ignore "access-list compiled" keyword !!!
-                    # remove surplus hash entry
-                    $$al =~ /\G$eol/cgxo
-                      or $self->parse_error($al,
-                        "end of string or newline expected");
-                    delete $ah->{$id};
-                }
-                elsif ($id eq 'deny-flow-max') {
-
-                    # this is to ignore "access-list deny-flow-max n" keyword !!!
-                    # remove surplus hash entry
-                    $$al =~ /\G\s+\d+$eol/cgxo
-                      or $self->parse_error($al,
-                        "end of string or newline expected");
-                    delete $ah->{$id};
-                }
-                elsif ($id eq 'alert-interval') {
-
-                    # this is to ignore "access-list alert-interval sec" keyword !!!
-                    # remove surplus hash entry
-                    $$al =~ /\G\s+\d+$eol/cgxo
-                      or $self->parse_error($al,
-                        "end of string or newline expected");
-                    delete $ah->{$id};
-                }
-                else {
-                    $self->parse_error($al, "incomplete access-list entry");
-                }
-            }
-            else {
-                $self->parse_error($al, "access-list id expected");
-            }
-        }
-    }
-    if ($self->{PRINT}) {
-        $$al =~ s/^ +//;
-    }
-    return $foundone;
-}
-###    	pix_acl_entry:  action {pixacl_og_spec | pixacl_ip_prot_spec}
-#                        pixacl_adr_srv_spec pixacl_adr_srv_spec
-#                         [pixacl_log_packet] [pixacl_interval]
-#
-#                  or   remark
-#
-sub pix_acl_entry($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-    }
-    else {
-        $ah->{PROTO}->{SRC}  = {};
-        $ah->{PROTO}->{DST}  = {};
-        $ah->{PROTO}->{SPEC} = {};
-    }
+sub parse_access_list {
+    my ($self, $arg) = @_;
     my $result;
-    if (
-        $self->action($ah, $al)
-        && (   $self->pixacl_ip_prot_spec($ah->{PROTO}, $al)
-            || $self->pixacl_og_spec($ah->{PROTO}, $al, 'protocol'))
-      )
-    {
 
-        # 2 general cases group or type
-        # 3 sub cases: icmp tcp/udp "any other protocol"
-        if (defined $ah->{PROTO}->{TYPE}) {
-
-            #
-            # icmp
-            #
-            if ($ah->{PROTO}->{TYPE} eq 1) {    # "icmp"
-                $result = (
-                    $self->adr_opt($ah->{PROTO}->{SRC}, $al)
-                      || $self->pixacl_og_spec(
-                        $ah->{PROTO}->{SRC}, $al, 'network'
-                      )
-                  )
-                  && ($self->adr_opt($ah->{PROTO}->{DST}, $al)
-                    || $self->pixacl_og_spec($ah->{PROTO}->{DST}, $al,
-                        'network'))
-                  && $self->icmpmessage($ah->{PROTO}->{SPEC}, $al)
-                  && $self->pixacl_log_packet($ah, $al);
-            }
-
-            #
-            # udp/tcp
-            #
-            elsif ($ah->{PROTO}->{TYPE} eq 17 or $ah->{PROTO}->{TYPE} eq 6) {
-                $result = $self->pixacl_adr_srv_spec($ah->{PROTO}->{SRC}, $al)
-                  && $self->pixacl_adr_srv_spec($ah->{PROTO}->{DST}, $al)
-                  && $self->pixacl_log_packet($ah, $al);
-            }
-
-            #
-            # any other protocol
-            #
-            else {
-                $result = (
-                    $self->adr_opt($ah->{PROTO}->{SRC}, $al)
-                      || $self->pixacl_og_spec(
-                        $ah->{PROTO}->{SRC}, $al, 'network'
-                      )
-                  )
-                  && ($self->adr_opt($ah->{PROTO}->{DST}, $al)
-                    || $self->pixacl_og_spec($ah->{PROTO}->{DST}, $al,
-                        'network'))
-                  && $self->pixacl_log_packet($ah, $al);
-            }
-        }
-        elsif ($ah->{PROTO}->{OBJECT_GROUP}) {
-
-            # the only thing we know about this line is: 
-	    # ICMP should *not* be used
-            $result = $self->pixacl_adr_srv_spec($ah->{PROTO}->{SRC}, $al)
-              && $self->pixacl_adr_srv_spec($ah->{PROTO}->{DST}, $al)
-              && $self->pixacl_log_packet($ah, $al);
-        }
+    my $name = get_token($arg);
+    if($name eq 'compiled') {
+	
+	# ignore access-list compiled
     }
+    elsif($name =~ /(:?deny-flow-max|alert-interval)/) {
+	get_int($arg);
+    }
+    elsif(check_regex('compiled', $arg)) {
+
+	# ignore access-list id compiled
+    }
+    elsif(my $remark = check_regex('remark', $arg)) {
+	$result->{REMARK} = get_token($arg);
+    }	
     else {
-        $result = $self->remark($ah, $al) || $self->compiled_keyword($ah, $al);
-    }
-    if ($self->{PRINT}) {
-        $$al =~ s/^ +//;
-    }
-    return $result;
-}
-###      compiled_keyword:     'compiled'
-#
-#        ->{OUTSIDE}
-#
-sub compiled_keyword($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and $ah->{COMPILED}) {
-        $$al = join ' ', $$al, $ah->{COMPILED};
-    }
-    elsif ($$al =~ /\G\s*(compiled)$ts/cgxo) {
-        $ah->{COMPILED} = $1;
-    }
-    else {
-        return 0;
-    }
-    return 1;
-}
-###     pixacl_og_spec: object-group obj_grp_id
-#
-#       ->{OBJECT_GROUP}
-#
-sub pixacl_og_spec( $$$$ ) {
-    my ($self, $ah, $al, $type) = @_;
-    if ($self->{PRINT}) {
-        if ($ah->{OBJECT_GROUP}) {
-            $$al = join ' ', $$al, 'object-group', $ah->{OBJECT_GROUP};
-            return 1;
-        }
-        return 0;
-    }
-    if ($$al =~ /\G\s*object-group$ts/cgxo) {
-        my $id;
-        if ($$al =~ /\G\s*(\S+)$ts/cgxo) {
-            $id = $1;
-	    $ah->{OBJECT_GROUP} = $id;
-	    return 1;
-        }
-        else {
-            $self->parse_error($al, "object-group id expected");
-        }
-    }
-    return 0;
-}
-###     pixacl_ip_prot_spec: ip_protocol
-#
-#       ->{TYPE}
-#
-sub pixacl_ip_prot_spec( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        if (defined $ah->{TYPE}) {
-            my $prot = $ah->{TYPE};
-            (exists $Re_IP_Trans{$prot}) and $prot = $Re_IP_Trans{$prot};
-            $$al = join ' ', $$al, $prot;
-            return 1;
-        }
-        return 0;
-    }
-    my $retry = pos($$al);
-    if ($$al =~ /\G\s*(\S+)$ts/cgxo) {
-        my $tmp = $1;
-        if (exists $IP_Trans{$tmp}) {
-            $ah->{TYPE} = $IP_Trans{$tmp};
-        }
-        elsif ($tmp eq 'ip') {
-            $ah->{TYPE} = 'ip';
-        }
-        elsif ($tmp =~ /\d+/ && 0 <= $tmp && $tmp < 256) {
-            $ah->{TYPE} = $tmp;
-        }
-        else {
-            pos($$al) = $retry;
-            return 0;
-        }
-        return 1;
-    }
-    return 0;
-}
-### pixacl_adr_srv_spec:  {adr_opt | pixacl_og_spec} [ pixacl_og_spec | spec]
-#
-#  ->{SRV}
-#
-sub pixacl_adr_srv_spec( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    unless ($self->{PRINT}) {
-        $ah->{SRV} = {};
-    }
-    $self->{PORTMODE} = \%PORT_Trans_TCP_UDP;
-    if ($self->adr_opt($ah, $al) || $self->pixacl_og_spec($ah, $al, 'network'))
-    {
-        $self->single_spec($ah->{SRV}, $al)
-          || $self->range_spec($ah->{SRV}, $al)
-          || $self->pixacl_og_spec($ah->{SRV}, $al, 'service');
-        return 1;
-    }
-    else {
-        return 0;
-    }
-}
-###  pixacl_log_packet:   log [[disable | default]| [<level>] [interval <seconds>]
-#
-#   ->{LOG}->{MODE}
-#   ->{LOG}->{LEVEL}
-#   ->{LOG}->{INTERVAL}
-#
-sub pixacl_log_packet( $$$ ) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        if ($ah->{LOG}) {
-            $$al = join ' ', $$al, 'log';
-            if ($ah->{LOG}->{MODE}) {
-                $$al = join ' ', $$al, $ah->{LOG}->{MODE};
-            }
-            else {
-                $ah->{LOG}->{LEVEL}
-                  and $$al = join ' ', $$al, $ah->{LOG}->{LEVEL};
-                $ah->{LOG}->{INTERVAL}
-                  and $$al = join ' ', $$al, 'interval', $ah->{LOG}->{INTERVAL};
-            }
-        }
-    }
-    elsif ($$al =~ /\G\s*log$ts/cgxo) {
-        $ah->{LOG}->{SET} = 1;
-        if ($$al =~ /\G\s*(disable|default)$ts/cgxo) {
-            $ah->{LOG}->{MODE} = $1;
-        }
-        else {
-            if ($$al =~ /\G\s*([0-7])$ts/cgxo) {
-                $ah->{LOG}->{LEVEL} = $1;
-            }
-            if ($$al =~ /\G\s*(interval)$ts/cgxo) {
-                if ($$al =~ /\G\s*(\d+)$ts/cgxo) {
-                    $ah->{LOG}->{INTERVAL} = $1;
-                }
-                else {
-                    $self->parse_error($al, "\'seconds\' expected");
-                }
-            }
-        }
-    }
-    return 1;
-}
+	check_regex('extended', $arg);
+	$result->{MODE} = get_regex('permit|deny', $arg);
+	my $proto = get_token($arg);
+	$proto eq 'object-group' and err_at_line($arg, 'Unsupported');
+	if($proto eq 'ip') {
+	    $result->{SRC} = $self->parse_address($arg);
+	    $result->{DST} = $self->parse_address($arg);
+	}
+	elsif($proto eq 'udp' || $proto eq 'tcp') {
 
-sub print_icmpmessage ($$$) {
-    my ($self, $ah, $al) = @_;
-    (exists $ah->{TYPE}) and $$al = join ' ', $$al, $ah->{TYPE};
-
-    # no code for pixfirewall
-}
-
-### same as adr but with return code 0 possible
-#
-sub adr_opt($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-
-        # addresses are *allways* 'base' and 'mask'!
-        if (defined $ah->{BASE} and defined $ah->{MASK}) {
-            $$al = join ' ', $$al, int2quad($ah->{BASE}),
-              int2quad(dev_cor($self->{MODE}, $ah->{MASK}));
-            return 1;
-        }
-        else {
-            return 0;
-        }
+	    # Combine keys of both results.
+	    $result->{SRC} = { %{$self->parse_address($arg)}, 
+			       %{$self->parse_port_spec($proto, $arg)} };
+	    $result->{DST} = { %{$self->parse_address($arg)}, 
+			       %{$self->parse_port_spec($proto, $arg)} };
+	}
+	elsif($proto eq 'icmp') {
+	    $result->{SRC} = $self->parse_address($arg);
+	    $result->{DST} = $self->parse_address($arg);
+	    $result->{SPEC} = $self->parse_icmp_spec($arg);
+	}
+	else {
+	    $proto = $IP_Trans{$proto} || $proto;
+	    $proto =~ /^\d+$/ 
+		or $self->err_at_line($arg, "Expected numeric proto '$proto'");
+	    $proto =~ /^(1|6|17)$/
+		and $self->err_at_line($arg, "Don't use numeric proto for", 
+				       " icmp|tcp|udp: '$proto'");
+	    $result->{SRC} = $self->parse_address($arg);
+	    $result->{DST} = $self->parse_address($arg);
+	}
+	$result->{TYPE} = $proto;
+	if(my $set = check_regex('log', $arg)) {
+	    my $log = $result->{LOG} = { SET => 1};
+	    if(my $mode = check_regex('disable|default', $arg)) {
+		$log->{MODE} = $mode;
+	    }
+	    else {
+		if (my $level = get_int($arg)) {
+		    $log->{LEVEL} = $level;
+		}
+		if (check_regex('interval', $arg)) {
+		    $log->{INTERVAL} = get_int($arg);
+		}
+	    }
+	}
     }
-    if ($$al =~ /\G\s*any$ts/cgxo) {
-        $ah->{BASE} = 0;
-        $ah->{MASK} = 0;
-        return 1;
-    }
-    return $self->net($ah, $al) || $self->host($ah, $al);
-}
-###	net_p:	same as net() but with print
-#
-sub net_p($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-
-        # addresses are *allways* 'base' and 'mask'!
-        if (defined $ah->{BASE} and defined $ah->{MASK}) {
-            $$al = join ' ', $$al, int2quad($ah->{BASE}),
-              int2quad(dev_cor($self->{MODE}, $ah->{MASK}));
-            return 1;
-        }
-        else {
-            return 0;
-        }
-    }
-    if ($$al =~ /\G\s*([.\d]+)\s+([.\d]+)$ts/cgxo) {
-        defined($ah->{BASE} = quad2int($1))
-          or $self->parse_error($al, "no ipv4 address");
-        defined($ah->{MASK} = quad2int($2))
-          or $self->parse_error($al, "no ipv4 address");
-        $ah->{MASK} = dev_cor($self->{MODE}, $ah->{MASK});
-        $ah->{MASK} & $ah->{BASE} ^ $ah->{BASE}
-          and $self->parse_error($al, "illegal mask");
-        return 1;
-    }
-    else {
-        return 0;
-    }
-}
-
-#######################################################
-# --- printing ---
-#######################################################
-sub static_line_to_string($$) {
-    my ($self, $s) = @_;
-    my $r = '';
-    $self->{PRINT} = 'yes';
-    $self->static_line($s, \$r, 1);
-    $self->{PRINT} = undef;
-    return $r;
-}
-
-sub pix_global_line_to_string($$) {
-    my ($self, $s) = @_;
-    my $r = '';
-    $self->{PRINT} = 'yes';
-    $self->pix_global($s, \$r);
-    $self->{PRINT} = undef;
-    return $r;
-}
-
-sub pix_nat_line_to_string($$) {
-    my ($self, $s) = @_;
-    my $r = '';
-    $self->{PRINT} = 'yes';
-    $self->pix_nat($s, \$r);
-    $self->{PRINT} = undef;
-    return $r;
-}
-
-sub route_line_to_string ($$) {
-    my ($self, $o) = @_;
-    my $r = '';
-    $self->{PRINT} = 'yes';
-    $self->pix_route($o, \$r);
-    $self->{PRINT} = undef;
-    return $r;
-}
-
-sub acl_line_to_string ($$) {
-    my ($self, $a) = @_;
-    my $s = '';
-    $self->{PRINT} = 'yes';
-    $self->pix_acl_entry($a, \$s);
-    $self->{PRINT} = undef;
-    return $s;
+    return $result, $name, 'push';
 }
 
 sub static_global_local_match_a_b( $$$ ) {
@@ -1823,16 +445,16 @@ sub static_global_local_match_a_b( $$$ ) {
       or return 0;
 
     # global
-    my $ga = $a->{TRANS}->{GLOBAL};
-    my $gb = $b->{TRANS}->{GLOBAL};
-    unless (exists $ga->{'INTERFACE'} xor exists $gb->{'INTERFACE'}) {
-        exists $ga->{'INTERFACE'}
+    my $ga = $a->{GLOBAL};
+    my $gb = $b->{GLOBAL};
+    unless (defined $ga->{'INTERFACE'} xor defined $gb->{'INTERFACE'}) {
+        defined $ga->{'INTERFACE'}
           and do { $ga->{'INTERFACE'} eq $gb->{'INTERFACE'} and return 3 }
     }
 
     # local
-    my $la = $a->{TRANS}->{LOCAL};
-    my $lb = $b->{TRANS}->{LOCAL};
+    my $la = $a->{LOCAL};
+    my $lb = $b->{LOCAL};
     unless ($la->{ACCESS_LIST} xor $lb->{ACCESS_LIST}) {
         $la->{ACCESS_LIST} and do {
             $la->{ACCESS_LIST}->{NAME} eq $lb->{ACCESS_LIST}->{NAME}
@@ -1841,11 +463,11 @@ sub static_global_local_match_a_b( $$$ ) {
     }
 
     # masks
-    (exists $la->{NETMASK} and exists $lb->{NETMASK})
+    (defined $la->{NETMASK} and defined $lb->{NETMASK})
       or return 3;    # pix uses some kind of mask detection
                       # so we force hand crafted masks here ;)
-    my $amask = exists $la->{NETMASK} ? $la->{NETMASK} : 0xffffffff;
-    my $bmask = exists $lb->{NETMASK} ? $lb->{NETMASK} : 0xffffffff;
+    my $amask = defined $la->{NETMASK} ? $la->{NETMASK} : 0xffffffff;
+    my $bmask = defined $lb->{NETMASK} ? $lb->{NETMASK} : 0xffffffff;
 
     #local
     $result = ip_netz_a_in_b(
@@ -1862,38 +484,38 @@ sub static_global_local_match_a_b( $$$ ) {
 
 sub static_line_a_eq_b( $$$ ) {
     my ($self, $a, $b) = @_;
-    $a->{LOCAL_IF}           eq $b->{LOCAL_IF}
-      && $a->{GLOBAL_IF}     eq $b->{GLOBAL_IF}
-      && $a->{TRANS}->{TYPE} eq $b->{TRANS}->{TYPE}
+    $a->{LOCAL_IF}       eq $b->{LOCAL_IF}
+      && $a->{GLOBAL_IF} eq $b->{GLOBAL_IF}
+      && $a->{TYPE}      eq $b->{TYPE}
       or return 0;
     my @keylist;
 
     # global spec
-    my $ga = $a->{TRANS}->{GLOBAL};
-    my $gb = $b->{TRANS}->{GLOBAL};
-    if ($a->{TRANS}->{TYPE} eq 'ip') {
+    my $ga = $a->{GLOBAL};
+    my $gb = $b->{GLOBAL};
+    if ($a->{TYPE} eq 'ip') {
         @keylist = ('BASE', 'INTERFACE');
     }
     else {
         @keylist = ('BASE', 'INTERFACE', 'PORT');
     }
     for my $key (@keylist) {
-        (exists $ga->{$key} xor exists $gb->{$key}) and return 0;
-        exists $ga->{$key} and do { $ga->{$key} eq $gb->{$key} or return 0 }
+        (defined $ga->{$key} xor defined $gb->{$key}) and return 0;
+        defined $ga->{$key} and do { $ga->{$key} eq $gb->{$key} or return 0 }
     }
 
     # local spec
-    my $la = $a->{TRANS}->{LOCAL};
-    my $lb = $b->{TRANS}->{LOCAL};
-    if ($a->{TRANS}->{TYPE} eq 'ip') {
+    my $la = $a->{LOCAL};
+    my $lb = $b->{LOCAL};
+    if ($a->{TYPE} eq 'ip') {
         @keylist = ('BASE', 'NETMASK', 'DNS');
     }
     else {
         @keylist = ('BASE', 'PORT', 'NETMASK', 'DNS');
     }
     for my $key (@keylist) {
-        (exists $la->{$key} xor exists $lb->{$key}) and return 0;
-        exists $la->{$key} and do { $la->{$key} eq $lb->{$key} or return 0 }
+        (defined $la->{$key} xor defined $lb->{$key}) and return 0;
+        defined $la->{$key} and do { $la->{$key} eq $lb->{$key} or return 0 }
     }
     ($la->{ACCESS_LIST} xor $lb->{ACCESS_LIST}) and return 0;
     $la->{ACCESS_LIST}                          and do {
@@ -1918,8 +540,8 @@ sub pix_nat_line_a_eq_b( $$$ ) {
         'NORANDOMSEQ', 'MAX_CONS', 'EMB_LIMIT'
     );
     for my $key (@keylist) {
-        (exists $a->{$key} xor exists $b->{$key}) and return 0;
-        exists $a->{$key} and do { $a->{$key} eq $b->{$key} or return 0 }
+        (defined $a->{$key} xor defined $b->{$key}) and return 0;
+        defined $a->{$key} and do { $a->{$key} eq $b->{$key} or return 0 }
     }
     return 1;
 }
@@ -1930,14 +552,14 @@ sub pix_global_line_a_eq_b( $$$ ) {
       or return 0;
     my @keylist = ('BEGIN', 'END');
     for my $key (@keylist) {
-        (exists $a->{$key}->{BASE} xor exists $b->{$key}->{BASE}) and return 0;
-        exists $a->{$key}->{BASE}
+        (defined $a->{$key}->{BASE} xor defined $b->{$key}->{BASE}) and return 0;
+        defined $a->{$key}->{BASE}
           and do { $a->{$key}->{BASE} eq $b->{$key}->{BASE} or return 0 }
     }
     @keylist = ('INTERFACE', 'NETMASK');
     for my $key (@keylist) {
-        (exists $a->{$key} xor exists $b->{$key}) and return 0;
-        exists $a->{$key} and do { $a->{$key} eq $b->{$key} or return 0 }
+        (defined $a->{$key} xor defined $b->{$key}) and return 0;
+        defined $a->{$key} and do { $a->{$key} eq $b->{$key} or return 0 }
     }
     return 1;
 }
@@ -2009,14 +631,14 @@ sub checkinterfaces($$$) {
     mypr " === check for unknown or missconfigured interfaces at device ===\n";
     for my $intf (sort keys %{ $devconf->{IF} }) {
         next if ($devconf->{IF}->{$intf}->{SHUTDOWN} == 1);
-        unless (exists $spocconf->{IF}->{$intf}) {
+        if (not $spocconf->{IF}->{$intf}) {
             warnpr "unknown interface detected: $intf\n";
         }
     }
     mypr " === done ===\n";
 }
 
-sub checkbanner($) {
+sub checkbanner {
     my ($self) = @_;
     if ($self->{VERSION} < 6.3) {
         mypr "banner checking disabled for $self->{VERSION}\n";
@@ -2139,7 +761,7 @@ sub process_rawdata( $$$ ) {
     my $sec_time = time();    # for status info timestamps
     my $check    = sub {
         my ($intf, $epi) = @_;
-        unless (exists $epi->{IF}->{$intf}->{ACCESS}) {
+        if (not $epi->{IF}->{$intf}->{ACCESS}) {
             mypr " - no acl in raw data -\n";
             return 0;
         }
@@ -2156,16 +778,16 @@ sub process_rawdata( $$$ ) {
 
         # the interface exists on the device
         my $sp_name;
-        exists $pspoc->{IF}->{$intf}
+        $pspoc->{IF}->{$intf}
           or die "rawdata: $intf not found in spocfile\n";
-        unless (exists $pspoc->{IF}->{$intf}->{ACCESS}) {
+        unless ($pspoc->{IF}->{$intf}->{ACCESS}) {
             warnpr "rawdata: no spocacl for interface: $intf\n";
             return 0;
         }
 
         # there is a corresponding acl in the spocfile
         $sp_name = $pspoc->{IF}->{$intf}->{ACCESS};
-        unless (exists $epi->{ACCESS}->{$ep_name}) {
+        unless ($epi->{ACCESS}->{$ep_name}) {
             errpr "rawdata: no matching raw acl found for name $ep_name" 
 		. " in interface definition\n";
             exit -1;
@@ -2175,11 +797,10 @@ sub process_rawdata( $$$ ) {
         return 1;
     };
     if (scalar @{$epilog}) {
-        my $epilog_conf = {};
 
         # *** PARSE RAWDATA ***
         mypr " *** PARSE RAWDATA ***\n";
-        $self->parse_device($epilog_conf, $epilog);
+        my $epilog_conf = $self->parse_device($epilog);
         mypr "--- raw processing\n";
         for my $intf (keys %{ $epilog_conf->{IF} }) {
             mypr " interface: $intf\n";
@@ -2190,9 +811,8 @@ sub process_rawdata( $$$ ) {
             for (my $i = 0 ; $i < scalar @$spocacl ; $i++) {
                 for my $epi (@$epilogacl) {
                     if ($self->acl_line_a_eq_b($epi, $spocacl->[$i])) {
-                        warnpr "RAW: double ACE \'"
-                          . $self->acl_line_to_string($spocacl->[$i])
-                          . "\' scheduled for remove from spocacl.\n";
+                        warnpr "RAW: double ACE '$spocacl->[$i]->{orig}'"
+                          . " scheduled for remove from spocacl.\n";
                         push @remove, $i;
                     }
                 }
@@ -2220,9 +840,8 @@ sub process_rawdata( $$$ ) {
                 my $se = $pspoc->{ROUTING}->[$i];
                 for my $re (@{ $epilog_conf->{ROUTING} }) {
                     if ($self->route_line_a_eq_b($se, $re)) {
-                        warnpr "RAW: double RE \'"
-                          . $self->route_line_to_string($re)
-                          . "\' scheduled for remove from spocconf.\n";
+                        warnpr "RAW: double RE '$re->{orig}'"
+                          . " scheduled for remove from spocconf.\n";
                         next SPOC;
                     }
                     elsif ( $re->{BASE} eq $se->{BASE}
@@ -2230,11 +849,9 @@ sub process_rawdata( $$$ ) {
                     {
                         warnpr
                           "RAW: inconsistent NEXT HOP in routing entries:\n";
-                        warnpr "     spoc: "
-                          . $self->route_line_to_string($se)
+                        warnpr "     spoc: $se->{orig}"
                           . " (scheduled for remove)\n";
-                        warnpr "     raw:  "
-                          . $self->route_line_to_string($re) . "\n";
+                        warnpr "     raw:  $re->{orig}\n";
                         next SPOC;
                     }
                 }
@@ -2260,9 +877,8 @@ sub process_rawdata( $$$ ) {
                     my $spoc  = $pspoc->{STATIC}[$i];
                     my $match = 0;
                     if ($self->static_line_a_eq_b($spoc, $s)) {
-                        warnpr "RAW: static coverd by: \'",
-                          $self->static_line_to_string($s),
-                          "\' - RAW static discarded!\n";
+                        warnpr "RAW: static coverd by: '$s->{orig}'" .
+			    " - RAW static discarded!\n";
                         $covered = 1;
                     }
                     elsif ($match =
@@ -2270,16 +886,16 @@ sub process_rawdata( $$$ ) {
                     {
                         unless ($match == 3) {
                             mypr "RAW: spoc static \'",
-                              $self->static_line_to_string($spoc),
+                              $spoc->{orig},
                               " replaced by \'",
-                              $self->static_line_to_string($s), "\'\n";
+                              $s->{orig}, "\'\n";
                             push @remove, $i;
                         }
                         else {
                             warnpr "RAW: weired match RAW: \'",
-                              $self->static_line_to_string($s), "\'\n";
+                              $s->{orig}, "\'\n";
                             warnpr "RAW: weired match SPOC: \'",
-                              $self->static_line_to_string($spoc), "\'\n";
+                              $spoc->{orig}, "\'\n";
                             warnpr "RAW: static discarded!\n";
                             $covered = 1;
                         }
@@ -2303,7 +919,7 @@ sub process_rawdata( $$$ ) {
                     my $match = 0;
                     if ($self->pix_global_line_a_eq_b($spoc, $s)) {
                         warnpr "raw global coverd by: \'",
-                          $self->pix_global_line_to_string($s), "\'\n";
+                          $s->{orig}, "\'\n";
                         $covered = 1;
                     }
                 }
@@ -2322,7 +938,7 @@ sub process_rawdata( $$$ ) {
                     my $match = 0;
                     if ($self->pix_nat_line_a_eq_b($spoc, $s)) {
                         warnpr "raw nat coverd by: \'",
-                          $self->pix_nat_line_to_string($s), "\'\n";
+                          $s->{orig}, "\'\n";
                         $covered = 1;
                     }
                 }
@@ -2365,7 +981,7 @@ sub copy_structure {
         return \%dst;
     }
     else {
-        errpr meself(2) . "unsupported type" . ref($src) . "\n";
+        errpr meself(1) . "unsupported type" . ref($src) . "\n";
     }
 }
 
@@ -2379,10 +995,8 @@ sub pix_expand_acl_entry($$$$) {
     my $replace;
 
     for my $adr ('SRC', 'DST') {
-        if ($ace->{PROTO}->{$adr}->{OBJECT_GROUP}) {
-            my $obj_id = $ace->{PROTO}->{$adr}->{OBJECT_GROUP};
-
-            #check
+        if ($ace->{$adr}->{OBJECT_GROUP}) {
+            my $obj_id = $ace->{$adr}->{OBJECT_GROUP};
             unless ($groups->{$obj_id}) {
                 errpr meself(1), "no group name \'$obj_id\' found\n";
             }
@@ -2394,146 +1008,100 @@ sub pix_expand_acl_entry($$$$) {
                 push @{ $replace->{$adr} }, $network;
             }
 
-            # remeber that group $obj_id is referenced by ACL $acl
-            $groups->{$obj_id}->{ACL_REFERENCES}->{$acl_name} = 1;
-            $parsed->{ACCESS_LIST}->{$acl_name}->{GROUP_REFERENCES}->{$obj_id} =
-              1;
+            # Remember that group $obj_id is referenced by ACL $acl 
+	    # and vice versa.
+            $groups->{group2acl}->{$obj_id}->{$acl_name} = 1;
+            $parsed->{acl2group}->{$acl_name}->{$obj_id} = 1;
 
         }
         else {
-            push @{ $replace->{$adr} }, $ace->{PROTO}->{$adr};
+            push @{ $replace->{$adr} }, $ace->{$adr};
         }
     }
     my @expanded;
     for my $src (@{ $replace->{SRC} }) {
         for my $dst (@{ $replace->{DST} }) {
             my $copy = copy_structure($ace);
-            $copy->{PROTO}->{SRC}->{MASK} = $src->{MASK};
-            $copy->{PROTO}->{SRC}->{BASE} = $src->{BASE};
-            $copy->{PROTO}->{DST}->{MASK} = $dst->{MASK};
-            $copy->{PROTO}->{DST}->{BASE} = $dst->{BASE};
-            $copy->{EXPANDED_FROM}        = $ace;
+            $copy->{SRC}->{MASK} = $src->{MASK};
+            $copy->{SRC}->{BASE} = $src->{BASE};
+            $copy->{DST}->{MASK} = $dst->{MASK};
+            $copy->{DST}->{BASE} = $dst->{BASE};
+            $copy->{EXPANDED_FROM} = $ace;
             push @expanded, $copy;
         }
     }
     return \@expanded;
 }
 
-sub parse_device ( $$$ ) {
+sub get_parse_info {
+    my ($self) = @_;
+    { 'global' => ['parse_global', 'GLOBAL'],
+      'nat' => ['parse_nat', 'NAT'],
+      'static' => ['parse_static', 'STATIC'],
+      'route' => ['parse_route', 'ROUTING'],
+      'access-group' => ['parse_access_group', 'ACCESS_GROUP'],
+      'object-group' => ['parse_object_group', 'OBJECT_GROUP'],
+      'access-list' => ['parse_access_list', 'ACCESS_LIST'],
+      'crypto' => ['parse_crypto', 'CRYPTO'],
+      'interface' => ['parse_interface_section', 'HWIF'],
+    };
+}
 
-    my ($self, $p, $conf) = @_;
+sub postprocess_config {
+    my ($self, $p) = @_;
 
-    # standard conf arg is an arry :(
-    my $conf_as_string = join '', @{$conf};
-
-    # *** parse ***
-    $self->write_term_config($p, \$conf_as_string);
-
-    #
-    # *** postprocess ***
-    #
     # expand aces
     my $acl_counter   = 0;
-    my $d_acl_counter = 0;
     my $c_acl_counter = 0;
-    for my $acl_name (sort keys %{ $p->{ACCESS_LIST} }) {
-        my %temp;
-        for my $entry (@{ $p->{ACCESS_LIST}->{$acl_name}->{RAW_ARRAY} }) {
-            next
-              unless $entry->{MODE};   # filter out 'remark', 'compiled', etc...
-            my $e_acl = $self->pix_expand_acl_entry($entry, $p, $acl_name);
+    for my $acl_name (keys %{ $p->{ACCESS_LIST} }) {
+        my %seen_acl;
+        for my $entry (@{ $p->{ACCESS_LIST}->{$acl_name} }) {
 
-#	    push @{$p->{ACCESS}->{$acl_name}},@$e_acl;
-#	    $acl_counter += scalar @$e_acl;
-            for my $e_entry (@$e_acl) {
-                my $aclstrg = $self->acl_line_to_string($e_entry);
-                unless (exists $temp{$aclstrg}) {
-                    push @{ $p->{ACCESS}->{$acl_name} }, $e_entry;
-                    $temp{$aclstrg} = 1;
-                    $acl_counter++;
-                }
-                else {
-                    $d_acl_counter++;
-                }
-            }
+	    # Filter out 'remark'.
+            next if not $entry->{MODE}; 
+
+            my $e_acl = $self->pix_expand_acl_entry($entry, $p, $acl_name);
+	    push @{$p->{ACCESS}->{$acl_name}},@$e_acl;
+	    $acl_counter += @$e_acl;
         }
     }
 
     # access-group
-    for my $acl_name (sort keys %{ $p->{ACCESS_GROUP} }) {
-        my $entry = $p->{ACCESS_GROUP}->{$acl_name};
-        $p->{IF}->{ $entry->{IF_NAME} }->{ACCESS} = $acl_name;
-        if (exists $p->{ACCESS_LIST}->{$acl_name}) {
-            push @{ $p->{ACCESS_LIST}->{$acl_name}->{INTERFACE_REFERENCES} },
-              $entry->{IF_NAME};
+    for my $acl_name (keys %{ $p->{ACCESS_GROUP} }) {
+        my $if_name = $p->{ACCESS_GROUP}->{$acl_name}->{IF_NAME};
+        $p->{IF}->{$if_name}->{ACCESS} = $acl_name;
+        if (my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
+	    $p->{is_filter_acl}->{$acl_name} = 1;
         }
     }
 
-    # interface and nameif
-    if ($self->{VERSION} >= 7.0) {
-
-        # bind ip address to IF_NAME
-        for my $hw_id (sort keys %{ $p->{HWIF} }) {
-            my $entry = $p->{HWIF}->{$hw_id};
-            if (defined $entry->{IF_NAME}) {
-                $p->{IF}->{ $entry->{IF_NAME} }->{SHUTDOWN} =
-                  $entry->{SHUTDOWN};
-                if (!$entry->{SHUTDOWN}) {
-                    $p->{IF}->{ $entry->{IF_NAME} }->{ADDRESS}->{BASE} =
-                      $entry->{ADDRESS}->{BASE};
-                    $p->{IF}->{ $entry->{IF_NAME} }->{ADDRESS}->{MASK} =
-                      $entry->{ADDRESS}->{MASK};
-                }
-            }
-        }
-    }
-    else {
-        for my $hw_id (sort keys %{ $p->{HWIF} }) {
-            my $entry = $p->{HWIF}->{$hw_id};
-            $p->{IF}->{ $entry->{IF_NAME} }->{SHUTDOWN} = $entry->{SHUTDOWN};
-            if (!$entry->{SHUTDOWN}) {
-                $p->{IF}->{ $entry->{IF_NAME} }->{ADDRESS}->{BASE} =
-                  $p->{IP}->{ADDRESS}->{ $entry->{IF_NAME} }->{BASE};
-                $p->{IF}->{ $entry->{IF_NAME} }->{ADDRESS}->{MASK} =
-                  $p->{IP}->{ADDRESS}->{ $entry->{IF_NAME} }->{MASK};
-            }
-        }
-    }
     for my $if (sort keys %{ $p->{IF} }) {
-        if ($p->{IF}->{$if}->{SHUTDOWN}) {
-            mypr meself(2) . "Interface $if: shutdown\n";
+	my $entry = $p->{IF}->{$if};
+        if ($entry->{SHUTDOWN}) {
+            mypr meself(1) . "Interface $if: shutdown\n";
         }
         else {
-            if (exists $p->{IF}->{$if}->{ADDRESS}) {
-                my $adr = $p->{IF}->{$if}->{ADDRESS};
-                if (defined $adr->{BASE} and defined $adr->{MASK}) {
-                    mypr meself(2)
-                      . "Interface $if: IP: "
-                      . int2quad($adr->{BASE}) . "/"
-                      . int2quad($adr->{MASK}) . "\n";
-                }
-                else {
-                    warnpr
-                      "undifined address for non-shutdown interface \'$if\'\n";
-                }
-            }
-        }
+            if (my $base = $entry->{BASE}) {
+		mypr meself(1)
+		    . "Interface $if: IP: "
+		    . int2quad($base) . "/"
+		    . int2quad($entry->{MASK}) . "\n";
+	    }
+	    else {
+		warnpr
+		    "undefined address for non-shutdown interface \'$if\'\n";
+	    }
+	}
     }
 
     # crypto maps
     for my $map_name (keys %{ $p->{CRYPTO}->{MAP} }) {
-        for my $seq_num (keys %{ $p->{CRYPTO}->{MAP}->{$map_name}->{SEQ_NUM} })
-        {
-            if ($p->{CRYPTO}->{MAP}->{$map_name}->{SEQ_NUM}->{$seq_num}
-                ->{MATCH_ADDRESS})
-            {
-                my $acl_name =
-                  $p->{CRYPTO}->{MAP}->{$map_name}->{SEQ_NUM}->{$seq_num}
-                  ->{MATCH_ADDRESS};
-                if (exists $p->{ACCESS_LIST}->{$acl_name}) {
-                    push
-                      @{ $p->{ACCESS_LIST}->{$acl_name}->{CRYPTO_REFERENCES} },
-                      { MAP => $map_name, SEQ_NUM => $seq_num };
+	my $map = $p->{CRYPTO}->{MAP}->{$map_name};
+        for my $seq_num (keys %{ $map->{SEQ_NUM} }) {
+	    my $entry = $map->{SEQ_NUM}->{$seq_num};
+            if (my $acl_name = $entry->{MATCH_ADDRESS}) {
+                if ($p->{ACCESS_LIST}->{$acl_name}) {
+		    $p->{is_crypto_acl}->{$acl_name} = 1;
                 }
                 else {
                     warnpr
@@ -2542,31 +1110,30 @@ sub parse_device ( $$$ ) {
             }
         }
     }
-    mypr meself(2)
+    mypr meself(1)
       . ": CRYPTO MAPS found: "
       . scalar(keys %{ $p->{CRYPTO}->{MAP} }) . "\n";
 
     #
-    # ****** TO DO: more consistence checking
+    # ****** TO DO: more consistency checking
     #
-    mypr meself(2)
+    mypr meself(1)
       . ": OBJECT GROUPS found: "
       . scalar(keys %{ $p->{OBJECT_GROUP} }) . "\n";
-    mypr meself(2)
+    mypr meself(1)
       . ": ACCESS LISTS found: "
       . scalar(keys %{ $p->{ACCESS} }) . "\n";
     for my $acl_name (sort keys %{ $p->{ACCESS_LIST} }) {
-        if ($p->{ACCESS_LIST}->{$acl_name}->{CRYPTO_REFERENCES}) {
+        if ($p->{is_crypto_acl}->{$acl_name}) {
             $c_acl_counter++;
         }
-        elsif ($p->{ACCESS_LIST}->{$acl_name}->{INTERFACE_REFERENCES}) {
-            mypr meself(2)
+        elsif ($p->{is_filter_acl}->{$acl_name}) {
+            mypr meself(1)
               . ": $acl_name "
               . scalar @{ $p->{ACCESS}->{$acl_name} } . "\n";
         }
         else {
-            $p->{ACCESS_LIST}->{$acl_name}->{NO_REFERENCES} = 1;
-            mypr meself(2)
+            mypr meself(1)
               . ": $acl_name "
               . scalar @{ $p->{ACCESS}->{$acl_name} }
               . " *** SPARE ***\n";
@@ -2574,22 +1141,18 @@ sub parse_device ( $$$ ) {
     }
     ($c_acl_counter)
       and mypr "--> found $c_acl_counter acls referenced by crypto maps\n";
-    mypr meself(2) . ": GLOBALS found: " . scalar @{ $p->{GLOBAL} } . "\n";
-    mypr meself(2) . ": NATS    found: " . scalar @{ $p->{NAT} } . "\n";
-    mypr meself(2) . ": STATICS found: " . scalar @{ $p->{STATIC} } . "\n";
-    mypr meself(2) . ": ROUTES  found: " . scalar @{ $p->{ROUTING} } . "\n";
-
-    # double entries in fetched pix config are impossible, so this could
-    # only happen when parsing the epilog
-    ($d_acl_counter)
-      and mypr "double acl entries skipped: $d_acl_counter\n";
-    return 1;
+    for my $what (qw(GLOBAL NAT STATIC ROUTING)) {
+	next if not $p->{$what};
+	mypr meself(1) . ": $what found: " . scalar @{ $p->{$what} } . "\n";
+    }
 }
 
 sub pix_transfer_lines( $$$$$ ) {
-    my ($self, $printstring, $compare, $spoc_lines, $device_lines) = @_;
+    my ($self, $compare, $spoc_lines, $device_lines) = @_;
     my $counter;
     my $change = 0;
+    $spoc_lines ||= [];
+    $device_lines ||= [];
     mypr "compare device entries with netspoc:\n";
     scalar @{$device_lines} or mypr "-";
     for my $d (@{$device_lines}) {    # from device
@@ -2610,7 +1173,7 @@ sub pix_transfer_lines( $$$$$ ) {
         for my $d (@{$device_lines}) {
             ($d->{DELETE}) and next;
             $counter++;
-            my $tr = join ' ', "no", $self->$printstring($d);
+            my $tr = join(' ', "no", $d->{orig});
             $self->cmd($tr) or exit -1;
             mypr " $counter";
         }
@@ -2621,7 +1184,7 @@ sub pix_transfer_lines( $$$$$ ) {
         for my $s (@{$spoc_lines}) {
             ($s->{DELETE}) and next;
             $counter++;
-            $self->cmd($self->$printstring($s)) or exit -1;
+            $self->cmd($s->{orig}) or exit -1;
             mypr " $counter";
         }
         $counter and $change = 1;
@@ -2635,7 +1198,7 @@ sub pix_transfer_lines( $$$$$ ) {
         for my $d (@{$device_lines}) {
             ($d->{DELETE}) and next;
             $counter++;
-            mypr $self->$printstring($d) . "\n";
+            mypr $d->{orig} . "\n";
         }
         mypr "total: " . $counter, "\n";
         ($counter) and $change = 1;
@@ -2644,7 +1207,7 @@ sub pix_transfer_lines( $$$$$ ) {
         for my $s (@{$spoc_lines}) {
             ($s->{DELETE}) and next;
             $counter++;
-            mypr $self->$printstring($s), "\n";
+            mypr $s->{orig}, "\n";
         }
         mypr "total: ", $counter, "\n";
         ($counter) and $change = 1;
@@ -2723,8 +1286,7 @@ sub pix_acls_semantical_indentical($$$$) {
 sub transfer () {
     my ($self, $conf, $pspoc) = @_;
 
-    # *** BEGIN TRANSFER ***
-    unless ($self->{COMPARE}) {
+    if (not $self->{COMPARE}) {
         $self->cmd('configure terminal') or exit -1;
     }
 
@@ -2735,7 +1297,7 @@ sub transfer () {
 
         #mypr "found:\n";
         my $counter;
-        if (exists $conf->{ROUTING} && !scalar(@{ $conf->{ROUTING} })) {
+        if ($conf->{ROUTING} && !scalar(@{ $conf->{ROUTING} })) {
             errpr "ERROR: no routing entries found on device\n";
             return 0;
         }
@@ -2777,13 +1339,12 @@ sub transfer () {
                 for my $c (@{ $conf->{ROUTING} }) {
                     ($c->{DELETE}) and next;
                     if ($self->route_line_destination_a_eq_b($r, $c)) {
-                        my $tr = join ' ', "no",
-                          $self->route_line_to_string($c);
+                        my $tr = join ' ', "no", $c->{orig};
                         $self->cmd($tr) or exit -1;
                         $c->{DELETE} = 1;    # could not deleted 2 times
                     }
                 }
-                $self->cmd($self->route_line_to_string($r)) or exit -1;
+                $self->cmd($r->{orig}) or exit -1;
                 mypr " $counter";
             }
             $counter and $self->{CHANGE}->{ROUTE} = 1;
@@ -2794,7 +1355,7 @@ sub transfer () {
             for my $r (@{ $conf->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
-                my $tr = join ' ', "no", $self->route_line_to_string($r);
+                my $tr = join ' ', "no", $r->{orig};
                 $self->cmd($tr) or exit -1;
                 mypr " $counter";
             }
@@ -2810,7 +1371,7 @@ sub transfer () {
             for my $r (@{ $pspoc->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
-                mypr $self->route_line_to_string($r), "\n";
+                mypr $r->{orig}, "\n";
             }
             mypr "total: $counter\n";
             ($counter) and $self->{CHANGE}->{ROUTE} = 1;
@@ -2819,7 +1380,7 @@ sub transfer () {
             for my $r (@{ $conf->{ROUTING} }) {
                 ($r->{DELETE}) and next;
                 $counter++;
-                mypr $self->route_line_to_string($r), "\n";
+                mypr $r->{orig}, "\n";
             }
             mypr "total: $counter\n";
             ($counter) and $self->{CHANGE}->{ROUTE} = 1;
@@ -2837,10 +1398,7 @@ sub transfer () {
         my ($intf)  = @_;
         my $sa_name = $pspoc->{IF}->{$intf}->{ACCESS};
         my $spocacl = $pspoc->{ACCESS}->{$sa_name};
-        my $ca_name =
-          (exists $conf->{IF}->{$intf}->{ACCESS})
-          ? $conf->{IF}->{$intf}->{ACCESS}
-          : '';
+        my $ca_name = $conf->{IF}->{$intf}->{ACCESS} || '';
         my $confacl = $ca_name ? $conf->{ACCESS}->{$ca_name} : '';
         return ($confacl, $spocacl, $ca_name, $sa_name);
     };
@@ -2853,64 +1411,59 @@ sub transfer () {
         my ($obj_id, $objects) = @_;
         my $new_id_prefix = "$obj_id-DRC-";
         my $new_id_index  = 0;
-        while (exists $objects->{"$new_id_prefix$new_id_index"}) {
+        while ($objects->{"$new_id_prefix$new_id_index"}) {
             $new_id_index++;
         }
         return "$new_id_prefix$new_id_index";
     };
+
+    my %acl_need_transfer;
+    my %group_need_transfer;
+
     my $pix_mark_for_transfer;
     $pix_mark_for_transfer = sub {
         my ($acl_name) = @_;
-        ($pspoc->{ACCESS_LIST}->{$acl_name}->{TRANSFER}) and return;
-        $pspoc->{ACCESS_LIST}->{$acl_name}->{TRANSFER} = 1;
+	return if $acl_need_transfer{$acl_name};
+	$acl_need_transfer{$acl_name} = 1;
         mypr "marked acl $acl_name for transfer\n";
-        for my $gid (
-            keys %{ $pspoc->{ACCESS_LIST}->{$acl_name}->{GROUP_REFERENCES} })
-        {
-            unless ($pspoc->{OBJECT_GROUP}->{$gid}->{TRANSFER}) {
-                $pspoc->{OBJECT_GROUP}->{$gid}->{TRANSFER} = 1;
+        for my $gid (keys %{ $pspoc->{acl2group}->{$acl_name} }) {
+            unless ($group_need_transfer{$gid}) {
+                $group_need_transfer{$gid} = 1;
                 print "marked group $gid for transfer\n";
             }
-            for my $name (
-                keys %{ $pspoc->{OBJECT_GROUP}->{$gid}->{ACL_REFERENCES} })
-            {
+            for my $name (keys %{ $pspoc->{group2acl}->{$gid} }) {
                 &$pix_mark_for_transfer($name);
             }
         }
     };
-    my $pix_mark_for_remove;
-    $pix_mark_for_remove = sub {
 
-        # non recursive!
+    my %acl_need_remove;
+    my %group_need_remove;
+
+    my $pix_mark_for_remove = sub {
         my ($acl_name) = @_;
-        ($conf->{ACCESS_LIST}->{$acl_name}->{REMOVE})
-          and errpr "unexpected REMOVE mark\n";
-        $conf->{ACCESS_LIST}->{$acl_name}->{REMOVE} = 1;
+	$acl_need_remove{$acl_name} and errpr "unexpected REMOVE mark\n";
+        $acl_need_remove{$acl_name} = 1;
         mypr "marked acl $acl_name for remove\n";
-        for my $gid (
-            keys %{ $conf->{ACCESS_LIST}->{$acl_name}->{GROUP_REFERENCES} })
-        {
-            next if ($conf->{OBJECT_GROUP}->{$gid}->{REMOVE});
-            my $remove_group = "OK";
-            for my $name (
-                keys %{ $conf->{OBJECT_GROUP}->{$gid}->{ACL_REFERENCES} })
-            {
+        for my $gid (keys %{ $conf->{acl2group}->{$acl_name} }) {
+            next if $group_need_remove{$gid};
+            my $remove_group = 1;
+            for my $name (keys %{ $conf->{group2acl}->{$gid} }) {
 
-                # only remove group from pix if all ACLs that reference
-                # this group are renewed by netspoc!
+                # Only remove group from PIX if all ACLs that reference
+                # this group are renewed by netspoc.
                 unless ($pspoc->{ACCESS_LIST}->{$name}->{TRANSFER}) {
-                    $remove_group = "NO";
+                    $remove_group = 0;
                     last;
                 }
             }
-            if ($remove_group eq "OK") {
-                $conf->{OBJECT_GROUP}->{$gid}->{REMOVE} = 1;
+            if ($remove_group) {
+                $group_need_remove{$gid} = 1;
                 mypr "marked group $gid for remove\n";
-
             }
         }
     };
-    unless (exists $pspoc->{IF}) {
+    unless ($pspoc->{IF}) {
         warnpr " no interfaces specified - leaving access-lists untouched\n";
     }
     else {
@@ -2920,13 +1473,9 @@ sub transfer () {
         mypr "+++\n";
 
         for my $intf (keys %{ $pspoc->{IF} }) {
-            unless (exists $conf->{IF}->{$intf}) {
+            unless ($conf->{IF}->{$intf}) {
                 errpr
-                  "netspoc configured interface \'$intf\' not found on device\n";
-
-                #errpr "skiping\n";
-                #next;
-                return 0;
+                  "netspoc configured interface \'$intf\' not found on device\n";               return 0;
             }
         }
 
@@ -2964,7 +1513,7 @@ sub transfer () {
                 mypr "interface $intf\n";
                 my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
                   &$get_acl_names_and_objects($intf);
-                if ($pspoc->{ACCESS_LIST}->{$spocacl_name}->{TRANSFER}) {
+                if ($acl_need_transfer{$spocacl_name}) {
                     mypr " ...already marked for transfer\n";
                     next;
                 }
@@ -2983,8 +1532,9 @@ sub transfer () {
                   )
                 {
 
-                    # either there is no acl on $intf or the acl differs
-                    # mark groups and interfaces recursive for transfer of spocacls
+                    # Either there is no acl on $intf or the acl differs.
+                    # Mark groups and interfaces recursive for transfer 
+		    # of spocacls
                     $self->{CHANGE}->{ACL} = 1;
                     &$pix_mark_for_transfer($spocacl_name);
                 }
@@ -2996,145 +1546,104 @@ sub transfer () {
                 mypr "-------------------------------------------------\n";
             }
 
-            # mark objects to remove
+            # Mark objects for removal.
             for my $intf (keys %{ $pspoc->{IF} }) {
-
-                #next if($conf->{IF}->{$intf}->{REMOVE}); # allready marked
                 my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
                   &$get_acl_names_and_objects($intf);
-                next
-                  unless ($pspoc->{ACCESS_LIST}->{$spocacl_name}->{TRANSFER});
-                next unless ($confacl);    # no ACL on device - nothing to mark
-                &$pix_mark_for_remove($confacl_name);
+                next if not $acl_need_transfer{$spocacl_name};
+                $confacl and $pix_mark_for_remove->($confacl_name);
             }
 
-            # generate names for transfer
+            # Generate names for transfer.
+	    my %new_group_id;
+	    my %new_acl_name;
             for my $obj_id (keys %{ $pspoc->{OBJECT_GROUP} }) {
-                next unless ($pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER});
-                $pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER_ID} =
-                  &$generate_names_for_transfer($obj_id, $conf->{OBJECT_GROUP});
+                next if not $group_need_transfer{$obj_id};
+                $new_group_id{$obj_id} =
+                  $generate_names_for_transfer->($obj_id, $conf->{OBJECT_GROUP});
             }
             for my $obj_id (keys %{ $pspoc->{ACCESS_LIST} }) {
-                next unless ($pspoc->{ACCESS_LIST}->{$obj_id}->{TRANSFER});
-                $pspoc->{ACCESS_LIST}->{$obj_id}->{TRANSFER_ID} =
-                  &$generate_names_for_transfer($obj_id, $conf->{ACCESS_LIST});
+                next if not $acl_need_transfer{$obj_id};
+		$new_acl_name{$obj_id} =
+                  $generate_names_for_transfer->($obj_id, $conf->{ACCESS_LIST});
             }
 
-            # transfer groups
+            # Transfer groups.
             mypr "transfer object-groups to device\n";
             for my $obj_id (keys %{ $pspoc->{OBJECT_GROUP} }) {
-                next unless ($pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER});
-                mypr
-                  "object-group $pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER_ID}\n";
-                my $copy = copy_structure($pspoc->{OBJECT_GROUP}->{$obj_id});
+		my $group = $pspoc->{OBJECT_GROUP}->{$obj_id};
+                next if not $group_need_transfer{$obj_id};
+		my $new_id = $new_group_id{$obj_id};
+                mypr "object-group $new_id\n";
+		my @cmd_array;
+		push(@cmd_array,
+		     "object-group $group->{TYPE} $new_id",
+		     map { $_->{orig} } @{ $group->{sub} },
+		     'exit');
 
-                # build transfer object group
-                my $group_obj = (
-                    {
-                        $pspoc->{OBJECT_GROUP}->{$obj_id}->{TRANSFER_ID} =>
-                          $copy
-                    }
-                );
-
-                # generate commands
-                my $string = '';
-                $self->{PRINT} = 'yes';
-                $self->parse_object_group($group_obj, \$string, 1);
-                $self->{PRINT} = undef;
-
-                # build cmd array
-                my @cmd_array = split '\n', $string;
-                push @cmd_array, 'exit';
-                my %DDH;    # detect double hash
                 for (@cmd_array) {
-                    if ($DDH{$_}) {
-                        mypr "discard double entry $_ in group $obj_id\n";
-                    }
-                    else {
-                        $DDH{$_} = 1;
-                        $self->cmd($_) or exit -1;
-                    }
+		    $self->cmd($_) or exit -1;
                 }
             }
 
-            # transfer ACLs
+            # Transfer ACLs.
             mypr "transfer access-lists to device\n";
             for my $obj_id (keys %{ $pspoc->{ACCESS_LIST} }) {
-                next unless ($pspoc->{ACCESS_LIST}->{$obj_id}->{TRANSFER});
-                my $transfer_id =
-                  $pspoc->{ACCESS_LIST}->{$obj_id}->{TRANSFER_ID};
-                mypr "access-list $transfer_id\n";
+                next if not $acl_need_transfer{$obj_id};
+                my $new_id = $new_acl_name{$obj_id};
+                mypr "access-list $new_id\n";
                 my $counter = 0;
-                my $tr;
-                for my $ace (@{ $pspoc->{ACCESS}->{$obj_id} }) {
-                    if ($ace->{EXPANDED_FROM}) {
-                        next if ($ace->{EXPANDED_FROM}->{COLLAPSED});
-                        $ace->{EXPANDED_FROM}->{COLLAPSED} =
-                          1;    # only one entry has to be transferred
-                        my $new_ace = copy_structure($ace->{EXPANDED_FROM});
-                        my $gid;
-                        if ($new_ace->{PROTO}->{SRC}->{OBJECT_GROUP}) {
-                            $gid = $new_ace->{PROTO}->{SRC}->{OBJECT_GROUP};
-                            $new_ace->{PROTO}->{SRC}->{OBJECT_GROUP} =
-                              $pspoc->{OBJECT_GROUP}->{$gid}->{TRANSFER_ID};
-                        }
-                        if ($new_ace->{PROTO}->{DST}->{OBJECT_GROUP}) {
-                            $gid = $new_ace->{PROTO}->{DST}->{OBJECT_GROUP};
-                            $new_ace->{PROTO}->{DST}->{OBJECT_GROUP} =
-                              $pspoc->{OBJECT_GROUP}->{$gid}->{TRANSFER_ID};
-                        }
-                        $tr = join ' ', "access-list", $transfer_id,
-                          $self->acl_line_to_string($new_ace);
-                    }
-                    else {
-                        $tr = join ' ', "access-list", $transfer_id,
-                          $self->acl_line_to_string($ace);
-                    }
-                    $self->cmd($tr) or exit -1;
-
-                    #mypr "$tr\n";
+                my $cmd;
+                for my $ace (@{ $pspoc->{ACCESS_LIST}->{$obj_id} }) {
+		    $cmd = $ace->{orig};
+		    for my $where (qw(src dst)) {
+			if (my $gid = $ace->{$where}->{OBJECT_GROUP}) {
+			    my $new_gid = $new_group_id{$gid};
+			    $cmd =~ s/object-group $gid/object-group $new_gid/;
+			}
+		    }
+		    $cmd =~ s/access-list $obj_id/access-list $new_id/;
+                    $self->cmd($cmd) or exit -1;
                     $counter++;
                     mypr " $counter";
                 }
                 mypr "\n";
 
-                # assign list to interface
+                # Assign list to interface.
                 my $intf = $pspoc->{ACCESS_GROUP}->{$obj_id}->{IF_NAME};
-                mypr "access-group $transfer_id in interface $intf\n";
-                $self->cmd("access-group $transfer_id in interface $intf")
+                mypr "access-group $new_id in interface $intf\n";
+                $self->cmd("access-group $new_id in interface $intf")
                   or exit -1;
             }
 
-            # remove ACLs (first, because otherwise group remove would not work)
+            # Remove ACLs.
+	    # Do it first, because otherwise group remove would not work.
             mypr "remove spare acls from device\n";
             for my $acl_name (keys %{ $conf->{ACCESS_LIST} }) {
-                if (   $conf->{ACCESS_LIST}->{$acl_name}->{REMOVE}
-                    or $conf->{ACCESS_LIST}->{$acl_name}->{NO_REFERENCES})
+                if (    $conf->{acl2remove}->{$acl_name}
+		    and not $conf->{is_filter_acl}->{$acl_name}
+		    and not $conf->{is_crypto_acl}->{$acl_name})
                 {
-                    if ($self->{VERSION} >= 7.0) {
-                        mypr " clear configure access-list $acl_name\n";
-                        $self->cmd("clear configure access-list $acl_name")
-                          or exit -1;
-                    }
-                    else {
-                        mypr " no access-list $acl_name\n";
-                        $self->cmd("no access-list $acl_name") or exit -1;
-                    }
+		    my $cmd = ($self->{VERSION} >= 7.0) 
+  			    ? "clear configure access-list $acl_name"
+			    : "no access-list $acl_name";
+		    mypr " $cmd\n";
+                        $self->cmd($cmd) or exit -1;
                 }
             }
 
-            # remove groups
+            # Remove groups.
             mypr "remove spare object-groups from device\n";
             for my $gid (keys %{ $conf->{OBJECT_GROUP} }) {
                 my $type = $conf->{OBJECT_GROUP}->{$gid}->{TYPE};
-                if (!$conf->{OBJECT_GROUP}->{$gid}->{ACL_REFERENCES}
-                    or $conf->{OBJECT_GROUP}->{$gid}->{REMOVE})
+                if (not $conf->{group2acl}->{$gid}
+                    and $conf->{group2remove}->{$gid})
                 {
-                    mypr " no object-group $type $gid\n";
-                    $self->cmd("no object-group $type $gid") or exit -1;
+		    my $cmd = "no object-group $type $gid";
+                    mypr " $cmd\n";
+                    $self->cmd($cmd) or exit -1;
                 }
             }
-
         }
     }
 
@@ -3143,15 +1652,14 @@ sub transfer () {
     #
     mypr " === processing statics ===\n";
     $self->pix_transfer_lines(
-        'static_line_to_string', 'static_line_a_eq_b',
-        $pspoc->{STATIC},        $conf->{STATIC}
+	'static_line_a_eq_b', $pspoc->{STATIC}, $conf->{STATIC}
     ) and $self->{CHANGE}->{STATIC} = 1;
 
     #
     # *** global pools ***
     #
     mypr " === processing global pools ===\n";
-    $self->pix_transfer_lines('pix_global_line_to_string',
+    $self->pix_transfer_lines(
         'pix_global_line_a_eq_b', $pspoc->{GLOBAL}, $conf->{GLOBAL})
       and $self->{CHANGE}->{GLOBAL} = 1;
 
@@ -3159,11 +1667,11 @@ sub transfer () {
     # *** (dynamic) nat ***
     #
     mypr " === processing nat ===\n";
-    $self->pix_transfer_lines('pix_nat_line_to_string', 'pix_nat_line_a_eq_b',
-        $pspoc->{NAT}, $conf->{NAT})
+    $self->pix_transfer_lines( 
+	'pix_nat_line_a_eq_b', $pspoc->{NAT}, $conf->{NAT})
       and $self->{CHANGE}->{NAT} = 1;
 
-    unless ($self->{COMPARE}) {
+    if (not $self->{COMPARE}) {
         if ($self->{CHANGE})
         {
             mypr "saving config to flash\n";

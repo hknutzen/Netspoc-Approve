@@ -4,7 +4,7 @@ package Netspoc::Approve::Device::Cisco::Firewall::PIX;
 # Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
-# module to remote configure cisco pix
+# module to remote configure cisco PIX up to version 6.3
 #
 
 '$Id$ ' =~ / (.+),v (.+?) /;
@@ -21,59 +21,78 @@ sub version_drc2_pix() {
 }
 
 use Netspoc::Approve::Helper;
+use Netspoc::Approve::Device::Cisco::Parse;
 
+sub get_parse_info {
+    my ($self) = @_;
+    my $info = $self->SUPER::get_parse_info();
+    $info->{interface} = ['parse_interface', 'HWIF'];
+    $info->{nameif} = ['parse_nameif', 'NAMEIF'];
+    $info->{'ip address'} = ['parse_ip_address', 'ADDRESS'];
+    return $info;
+}
+
+#############################################
 #
-# pix parser up to 6.3
+# up to pix os 6.3
 #
-sub write_term_config($$$){
-    my ($self, $ah, $al) = @_;
-    if($self->{PRINT}){
-	$$al = "";
-	$self->parse_old_interface($ah->{HWIF},$al);
-	$self->parse_nameif($ah->{HWIF},$al);
-	$self->parse_object_group($ah->{OBJECT_GROUP},$al); 
-	$self->parse_write_term_acl($ah->{ACCESS_LIST},$al);
-	$self->parse_ip_address($ah->{IP},$al);
-	$self->parse_global_lines($ah->{GLOBAL},$al);
-	$self->parse_nat_lines($ah->{NAT},$al);
-	$self->parse_static_lines($ah->{STATIC},$al);	
-	$self->parse_access_group($ah->{ACCESS_GROUP},$al);
-	$self->parse_route_lines($ah->{ROUTING},$al);
-	$self->parse_crypto($ah->{CRYPTO},$al);
+# interface <hardware_id> [<hardware_speed> [shutdown]]
+#
+# ->{<hardware_id>}->{SHUTDOWN}
+# ->{<hardware_id>}->{HW_SPEED}
+#
+sub parse_interface {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $id = get_token($arg);
+    $result->{HW_SPEED} = check_token($arg)
+	and $result->{SHUTDOWN} = check_regex('shutdown', $arg);
+    return($result, $id);
+}
+
+#############################################
+#
+# nameif {<hardware_id>|<vlan_id>} <if_name> <security_level>
+#
+sub parse_nameif {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $id = get_token($arg);
+    $result->{IF_NAME}  = get_token($arg);
+    $result->{SECURITY} = get_token($arg);
+    return($result, $id);
+}
+
+#############################################
+#
+# ip address <if_name> <ip-address> <netmask>
+#
+sub parse_ip_address {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $name = get_token($arg);
+    $result->{BASE} = get_ip($arg);
+    $result->{MASK} = get_ip($arg);
+    return($result, $name);
+}
+
+# Link hardware interface with logical interface.
+# Propagate ip address and shutdown status from hardware interface 
+# to logical interface.
+sub postprocess_config {
+    my ($self, $p) = @_;
+    for my $hw_id (keys %{ $p->{NAMEIF} }) {
+	my $name = $p->{NAMEIF}->{$hw_id}->{IF_NAME};
+	my $address = $p->{ADDRESS}->{$name};
+	my $interface = $p->{HWIF}->{$hw_id};
+	$p->{IF}->{$name}->{SHUTDOWN} = $interface->{SHUTDOWN};
+	$p->{IF}->{$name}->{BASE} = $address->{BASE};
+	$p->{IF}->{$name}->{MASK} = $address->{MASK};
     }
-    else{
-	$ah->{HWIF} = {};
-	$ah->{ACCESS_LIST} = {}; # old implementation: 'ACCESS'
-	$ah->{OBJECT_GROUP} = {};
-	$ah->{IP} = {};
-	$ah->{GLOBAL} = [];
-	$ah->{NAT} = [];
-	$ah->{STATIC} = [];
-	$ah->{ACCESS_GROUP} = {};
-	$ah->{ROUTING} = [];
-	$ah->{CRYPTO} = {};
-	while(
-	      $self->parse_old_interface($ah->{HWIF},$al) ||
-	      $self->parse_nameif($ah->{HWIF},$al) ||
-	      $self->parse_object_group($ah->{OBJECT_GROUP},$al) ||
-	      $self->parse_write_term_acl($ah->{ACCESS_LIST},$al) ||
-	      $self->parse_ip_address($ah->{IP},$al) ||
-	      $self->parse_global_lines($ah->{GLOBAL},$al) ||
-	      $self->parse_nat_lines($ah->{NAT},$al) ||
-	      $self->parse_static_lines($ah->{STATIC},$al) ||
-	      $self->parse_access_group($ah->{ACCESS_GROUP},$al) ||
-	      $self->parse_route_lines($ah->{ROUTING},$al) ||
-	      $self->parse_crypto($ah->{CRYPTO},$al) ||
-	      $self->parse_dummy_lines($ah,$al)
-	      )
-	{  
-	    #my $p = pos($$al);
-	    #$$al =~ /\G(\n*|.*)$ts/cgxo;
-	    #print "--> $p $1 <--\n";
-	    #print ".";
-	    #pos($$al) = $p;
-	}
-    }
+    $self->SUPER::postprocess_config($p);
 }
 
 # Packages must return a true value;
