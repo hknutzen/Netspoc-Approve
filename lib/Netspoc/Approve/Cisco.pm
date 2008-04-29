@@ -20,40 +20,179 @@ use warnings;
 use base "Netspoc::Approve::Device";
 use IO::Socket ();
 use Netspoc::Approve::Helper;
+use Netspoc::Approve::Device::Cisco::Parse;
+
+sub parse_device {
+    my($self, $lines) = @_;
+
+    mypr "parse device config\n";
+    my $config = analyze_conf_lines($lines);
+    
+    my $result;
+    my $parse_info = $self->get_parse_info();
+    for my $cmd (keys %$config) {
+
+	# Parse known commands, ignore unknown commands.
+	my $cmd_info = $parse_info->{$cmd} or next;
+	my($method, $key) = @$cmd_info;
+	for my $arg (@{ $config->{$cmd} }) {
+	    my($value, $name, $push) = $self->$method($arg);
+	    get_eol($arg);
+	    next if not $value;
+
+	    # Attach unparsed command line.
+	    # This isn't possible if the command is parsed into an
+	    # array from its subcommands.
+	    $value->{orig} = $arg->{orig} if ref($value) eq 'HASH';
+	    if($name) {
+		if($push) {
+
+		    # Named commands of same type, parsed separately.
+		    push @{ $result->{$key}->{$name} }, $value;
+		}
+		else {
+
+		    # One named command with arguments or with multiple 
+		    # subcommands; parsed together.
+		    $result->{$key}->{$name} and
+			err_at_line($arg, "Redefining '$cmd $name'");
+		    $result->{$key}->{$name} = $value;
+		}
+	    }
+	    else {
+
+		# Unnamed commands of same type, parsed separately.
+		push @{ $result->{$key} }, $value;
+	    }
+        }
+    }
+    mypr "... done parsing config\n";
+    $self->postprocess_config($result);
+    return $result;
+}
+
+# ip mask
+# host ip
+# any
+# ->{SPEC} ->{PORT_L} / {PORT_H}
+sub parse_address {
+    my($self, $desc) = @_;
+    my($ip, $mask);
+    my $token = get_token($desc);
+    if($token eq 'any') {
+	$ip = $mask = 0;
+    }
+    elsif($token eq 'host') {
+	$ip = get_ip($desc);
+	$mask = 0xffffffff;
+    }
+    else {
+	$ip = quad2int($token);
+	$mask = get_ip($desc);
+    }
+    return( { BASE => $ip, MASK => $self->dev_cor($mask) } );
+}
+
+sub parse_port {
+    my($self, $proto, $desc) = @_;
+    my $port = get_token($desc);
+    if($proto eq 'tcp') {
+	$port = $PORT_Trans_TCP{$port} || $port;
+    }
+    else {
+	$port = $PORT_Trans_UDP{$port} || $port;
+    }
+    $port =~ /^\d+$/ or err_at_line('Syntax');
+    return $port;
+}	
+    
+# ( 'lt' | 'gt' | 'eq' | 'neq' ) port
+# 'range' port port
+sub parse_port_spec {
+    my($self, $proto, $desc) = @_;
+    my($low, $high);
+    my $spec = check_regex('eq|gt|lt|neq|range', $desc) or
+	return {};    
+    my $port = $self->parse_port($proto, $desc);
+    if($spec eq 'eq') {
+	$low = $high = $port;
+	$spec = 'range';
+    }
+    elsif($spec eq 'gt') {
+	$low = $port + 1;
+	$high = 0xffff;
+	$spec = 'range';
+    }
+    elsif($spec eq 'lt') {
+	$low = 0;
+	$high = $port - 1;
+	$spec = 'range';
+    }
+    elsif($spec eq 'neq') {
+	die "port specifier 'neq' not implemented yet\n";
+    }
+    elsif($spec eq 'range') {
+	$low = $port;
+	$high = $self->parse_port($proto, $desc);
+    }
+    else {
+	internal_err();
+    }
+    return( { SPEC => $spec, PORT_L => $low, PORT_H => $high } );
+}
+
+my $icmp_regex = join('|', '\d+', keys %ICMP_Trans);
+
+# <message-name> | (/d+/ [/d+])
+# ->{TYPE} / ->{CODE} (if defined)
+sub parse_icmp_spec {
+    my($self, $desc) = @_;
+    my($type, $code);
+    my $token = check_regex($icmp_regex, $desc) or
+	return {};
+    if(my $spec = $ICMP_Trans{$token}){
+	($type, $code)  = @{$spec}{'type', 'code'};
+    }
+    else {
+	$type = $token;
+	$code = check_regex('\d+', $desc) || -1;
+    }
+    return( { TYPE => $type, CODE => $code } );
+}
 
 ############################################################
 # --- helper ---
 ############################################################
-sub num_compare { $$a[0] <=> $$b[0] }
+sub num_compare { $a->[0] <=> $b->[0] }
 
 #################################################
 # --- comparing ---
 #################################################
-sub ports_a_in_b ($$) {
 
-    #
-    # return value: 0: no
-    #               1: yes
-    #               2: intersection
-    #
+#
+# return value: 0: no
+#               1: yes
+#               2: intersection
+#
+sub ports_a_in_b ($$) {
     my ($a, $b) = @_;
-    unless ($$b{SPEC}) {
+    unless ($b->{SPEC}) {
 
         # no ports spec matches all ports
         return 1;
     }
-    unless ($$a{SPEC}) {
-        if ($$b{PORT_L} == 0 && $$b{PORT_H} == 0xffff) {
+    unless ($a->{SPEC}) {
+        if ($b->{PORT_L} == 0 && $b->{PORT_H} == 0xffff) {
             return 1;
         }
         else {
             return 2;
         }
     }
-    if ($$a{PORT_H} < $$b{PORT_L} || $$b{PORT_H} < $$a{PORT_L}) {
+    if ($a->{PORT_H} < $b->{PORT_L} || $b->{PORT_H} < $a->{PORT_L}) {
         return 0;
     }
-    if ($$b{PORT_L} <= $$a{PORT_L} && $$a{PORT_H} <= $$b{PORT_H}) {
+    if ($b->{PORT_L} <= $a->{PORT_L} && $a->{PORT_H} <= $b->{PORT_H}) {
         return 1;
     }
     else {
@@ -70,13 +209,14 @@ sub ports_a_in_b ($$) {
 #  WARNING: DO NOT CHANGE THE RETURN VALUES! 
 # THEY ARE USED IN  static_global_local_match_a_b()
 #
-sub ip_netz_a_in_b ($$) {
-    my $am = $_[0]->{MASK};
-    my $bm = $_[1]->{MASK};
+sub ip_netz_a_in_b {
+    my ($a, $b) = @_;
+    my $am = $a->{MASK};
+    my $bm = $b->{MASK};
     my $mm = $am & $bm;
-    ($mm & $_[0]->{BASE} ^ $mm & $_[1]->{BASE}) and return 0;    # no
-    (($am | $bm) ^ $am) or return 1;                             # yes
-    return 2;                                                    # intersection
+    ($mm & $a->{BASE} ^ $mm & $b->{BASE}) and return 0;    # no
+    (($am | $bm) ^ $am) or return 1;                       # yes
+    return 2;                                              # intersection
 }
 
 
@@ -85,64 +225,64 @@ sub ip_netz_a_in_b ($$) {
 #               1: yes
 #               2: intersection
 #
-sub services_a_in_b ($$) {
+sub services_a_in_b {
     my ($a, $b) = @_;
-    my $bproto = $$b{TYPE};
+    my $bproto = $b->{TYPE};
     if ($bproto eq 'ip') {
         return 1;
     }
-    if ($bproto eq $$a{TYPE}) {
-        if ($bproto eq 'icmp' or $bproto eq 1) {
-            unless (exists $$b{SPEC}->{TYPE}) {
+    if ($bproto eq $a->{TYPE}) {
+        if ($bproto eq 'icmp') {
+            unless (exists $b->{SPEC}->{TYPE}) {
                 return 1;
             }
-            unless (exists $$a{SPEC}->{TYPE}) {
+            unless (exists $a->{SPEC}->{TYPE}) {
                 return 2;
             }
 
             # ok. TYPE has to be set for both a and b
-            if ($$a{SPEC}->{TYPE} ne $$b{SPEC}->{TYPE}) {
+            if ($a->{SPEC}->{TYPE} ne $b->{SPEC}->{TYPE}) {
                 return 0;
             }
 
             # types are equal, check CODE
-            unless (exists $$b{SPEC}->{CODE}) {
+            unless (exists $b->{SPEC}->{CODE}) {
                 return 1;
             }
-            unless (exists $$a{SPEC}->{CODE}) {
+            unless (exists $a->{SPEC}->{CODE}) {
                 return 2;
             }
 
             # both SPEC are 'code'
-            if ($$a{SPEC}->{CODE} eq $$b{SPEC}->{CODE}) {
+            if ($a->{SPEC}->{CODE} eq $b->{SPEC}->{CODE}) {
                 return 1;
             }
             else {
                 return 0;
             }
         }
-        if ($bproto eq 'tcp' or $bproto eq 6) {
-            my $src = ports_a_in_b($$a{SRC}->{SRV}, $$b{SRC}->{SRV});
+        if ($bproto eq 'tcp') {
+            my $src = ports_a_in_b($a->{SRC}->{SRV}, $b->{SRC}->{SRV});
             ($src) or return 0;
-            my $dst = ports_a_in_b($$a{DST}->{SRV}, $$b{DST}->{SRV});
+            my $dst = ports_a_in_b($a->{DST}->{SRV}, $b->{DST}->{SRV});
             ($dst) or return 0;
             if ($src == 1 and $dst == 1) {
-                ($$b{DST}->{ESTA}) or return 1;
-                ($$a{DST}->{ESTA}) and return 1;
+                ($b->{ESTA}) or return 1;
+                ($a->{ESTA}) and return 1;
             }
             return 2;    # intersection
         }
-        if ($bproto eq 'udp' or $bproto eq 17) {
-            my $src = ports_a_in_b($$a{SRC}->{SRV}, $$b{SRC}->{SRV});
+        if ($bproto eq 'udp') {
+            my $src = ports_a_in_b($a->{SRC}->{SRV}, $b->{SRC}->{SRV});
             ($src) or return 0;
-            my $dst = ports_a_in_b($$a{DST}->{SRV}, $$b{DST}->{SRV});
+            my $dst = ports_a_in_b($a->{DST}->{SRV}, $b->{DST}->{SRV});
             ($dst) or return 0;
             ($src == $dst) and return $src;    # this is ok!
             return 2;                          # intersection
         }
         return 1;
     }
-    elsif ($$a{TYPE} eq 'ip') {
+    elsif ($a->{TYPE} eq 'ip') {
 
         # intersection
         return 2;
@@ -162,18 +302,18 @@ sub services_a_in_b ($$) {
 #               1: yes
 #               2: intersection
 #
-sub acl_line_a_in_b ($$$) {
+sub acl_line_a_in_b {
     my ($self, $a, $b) = @_;
     exists $a->{REMARK} and return 1;
     exists $b->{REMARK} and return 0;
     my $src;
     my $dst;
     my $srv;
-    $src = ip_netz_a_in_b($$a{PROTO}->{SRC}, $$b{PROTO}->{SRC});
+    $src = ip_netz_a_in_b($a->{SRC}, $b->{SRC});
     ($src) or return 0;
-    $dst = ip_netz_a_in_b($$a{PROTO}->{DST}, $$b{PROTO}->{DST});
+    $dst = ip_netz_a_in_b($a->{DST}, $b->{DST});
     ($dst) or return 0;
-    $srv = services_a_in_b($$a{PROTO}, $$b{PROTO});
+    $srv = services_a_in_b($a, $b);
     ($srv) or return 0;
     ($src == $dst and $dst == $srv and $srv == 1) and return 1;
     return 2;
@@ -194,12 +334,12 @@ sub acl_line_a_eq_b ($$$) {
     }
     exists $b->{REMARK} and return 0;
 
-    my $asrc = $$a{PROTO}->{SRC};
-    my $adst = $$a{PROTO}->{DST};
-    my $bsrc = $$b{PROTO}->{SRC};
-    my $bdst = $$b{PROTO}->{DST};
-    unless ($$a{MODE} eq $$b{MODE}
-        && $$a{PROTO}->{TYPE} eq $$b{PROTO}->{TYPE}
+    my $asrc = $a->{SRC};
+    my $adst = $a->{DST};
+    my $bsrc = $b->{SRC};
+    my $bdst = $b->{DST};
+    unless ($a->{MODE} eq $b->{MODE}
+        && $a->{TYPE} eq $b->{TYPE}
         && $asrc->{BASE} == $bsrc->{BASE}
         && $asrc->{MASK} == $bsrc->{MASK}
         && $adst->{BASE} == $bdst->{BASE}
@@ -209,9 +349,9 @@ sub acl_line_a_eq_b ($$$) {
     }
 
     # source and destination equal
-    if ($$a{PROTO}->{TYPE} eq 'icmp' or $$a{PROTO}->{TYPE} eq 1) {
-        my $as = $$a{PROTO}->{SPEC};
-        my $bs = $$b{PROTO}->{SPEC};
+    if ($a->{TYPE} eq 'icmp' or $a->{TYPE} eq 1) {
+        my $as = $a->{SPEC};
+        my $bs = $b->{SPEC};
         (exists $as->{TYPE} xor exists $bs->{TYPE}) and return 0;
         if (exists $as->{TYPE}) {
             ($as->{TYPE} == $bs->{TYPE}) or return 0;
@@ -223,11 +363,7 @@ sub acl_line_a_eq_b ($$$) {
 
         # icmp messages equal
     }
-    elsif ($$a{PROTO}->{TYPE} eq 'tcp'
-        or $$a{PROTO}->{TYPE} eq 'udp'
-        or $$a{PROTO}->{TYPE} eq 6
-        or $$a{PROTO}->{TYPE} eq 17)
-    {
+    elsif ($a->{TYPE} eq 'tcp' or $a->{TYPE} eq 'udp') {
         my $ass = $asrc->{SRV};
         my $ads = $adst->{SRV};
         my $bss = $bsrc->{SRV};
@@ -248,70 +384,41 @@ sub acl_line_a_eq_b ($$$) {
         }
 
         # Ports are equal
-        if ($$a{PROTO}->{TYPE} eq 'tcp' or $$a{PROTO}->{TYPE} eq 6) {
-            ($adst->{ESTA} xor $bdst->{ESTA}) and return 0;
-            if ($adst->{ESTA}) {
-                ($adst->{ESTA} eq $bdst->{ESTA}) or return 0;
+        if ($a->{TYPE} eq 'tcp') {
+            ($a->{ESTA} xor $b->{ESTA}) and return 0;
+            if ($a->{ESTA}) {
+                ($a->{ESTA} eq $b->{ESTA}) or return 0;
             }
 
             # Established entry equal
         }
     }
-    ($$a{LOG} xor $$b{LOG}) and return 0;
-    if ($$a{LOG}) {
-        ($$a{LOG} eq $$b{LOG}) or return 0;
+    ($a->{LOG} xor $b->{LOG}) and return 0;
+    if ($a->{LOG}) {
+        ($a->{LOG} eq $b->{LOG}) or return 0;
     }
     return 1;
 }
 
-sub route_line_a_eq_b( $$$ ) {
+sub route_line_a_eq_b {
     my ($self, $a, $b) = @_;
-    if (defined($a->{IF}) || defined($b->{IF})) {
-        (defined($a->{IF}) && defined($b->{IF}))
-          or die "comparing pix route with ios route\n";
-        ($a->{IF} eq $b->{IF}) or return 0;
-    }
     ($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK})
-      or return 0;
-    if (defined($a->{NEXTHOP}) || defined($b->{NEXTHOP})) {
-        (
-            (
-                     defined($a->{NEXTHOP})
-                  && defined($b->{NEXTHOP})
-                  && $a->{NEXTHOP} eq $b->{NEXTHOP}
-            )
-        ) or return 0;
-    }
-    if (defined($a->{NIF}) || defined($b->{NIF})) {
-        ((defined($a->{NIF}) && defined($b->{NIF}) && $a->{NIF} eq $b->{NIF}))
-          or return 0;
-    }
-    if (defined($a->{MISC}) || defined($b->{MISC})) {
-        (
-            (
-                     defined($a->{MISC})
-                  && defined($b->{MISC})
-                  && $a->{MISC} eq $b->{MISC}
-            )
-        ) or return 0;
-    }
-    if (defined($a->{TRACK_NUMBER}) || defined($b->{TRACK_NUMBER})) {
-        (
-            (
-                     defined($a->{TRACK_NUMBER})
-                  && defined($b->{TRACK_NUMBER})
-                  && $a->{TRACK_NUMBER} eq $b->{TRACK_NUMBER}
-            )
-        ) or return 0;
+	or return 0;
+    for my $key (qw(IF NIF NEXTHOP METRIC MISC MISC_ARG)) {
+	if (defined($a->{$key}) || defined($b->{$key})) {
+	    (defined($a->{$key}) && defined($b->{$key})
+	     && $a->{$key} eq $b->{$key})
+		or return 0;
+	}
     }
     return 1;
 }
 
-sub route_line_destination_a_eq_b( $$$ ) {
 
-    #
-    # may only be used for pix routes!!
-    #
+#
+# May only be used for pix routes.
+#
+sub route_line_destination_a_eq_b {
     my ($self, $a, $b) = @_;
     unless (defined($a->{IF}) && defined($b->{IF})) {
         die "route_line_destination_a_eq_b only defined for pix\n";
@@ -324,34 +431,23 @@ sub route_line_destination_a_eq_b( $$$ ) {
     return 1;
 }
 
-sub route_line_a_supersedes_b( $$$ ) {
+sub route_line_a_supersedes_b {
     my ($self, $a, $b) = @_;
     if ($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK}) {
-        if (defined($a->{NEXTHOP}) || defined($b->{NEXTHOP})) {
-            (
-                (
-                         defined($a->{NEXTHOP})
-                      && defined($b->{NEXTHOP})
-                      && $a->{NEXTHOP} eq $b->{NEXTHOP}
-                )
-            ) and return 0;
-        }
-        if (defined($a->{NIF}) || defined($b->{NIF})) {
-            (
-                (
-                         defined($a->{NIF})
-                      && defined($b->{NIF})
-                      && $a->{NIF} eq $b->{NIF}
-                )
-            ) and return 0;
-        }
+	for my $key (qw(NIF NEXTHOP)) {
+	    if (defined($a->{$key}) || defined($b->{$key})) {
+		(defined($a->{$key}) && defined($b->{$key})
+		 && $a->{$key} eq $b->{$key})
+		    or return 0;
+	    }
+	}
         return 1;
     }
-    return ip_netz_a_in_b($a, $b);
+    return $self->ip_netz_a_in_b($a, $b);
 }
 
 ################################################################
-# compare two arrays with acl objekts
+# compare two arrays with acl objects
 ################################################################
 
 ### helper ###
@@ -360,7 +456,7 @@ sub hash_masks( $ ) {
     my %msk;
     for my $acl (@{ $_[0] }) {
         next if exists $acl->{REMARK};
-        $msk{ $acl->{PROTO}->{SRC}->{MASK} }->{ $acl->{PROTO}->{DST}->{MASK} } =
+        $msk{ $acl->{SRC}->{MASK} }->{ $acl->{DST}->{MASK} } =
           {};
     }
     return \%msk;
@@ -372,11 +468,11 @@ sub hash_acl( $$ ) {
     for (my $i = 0 ; $i < scalar @$acl ; $i++) {
         my $ace = $acl->[$i];
         next if exists $ace->{REMARK};
-        my $prot = $ace->{PROTO}->{TYPE};
-        my $bsrc = $ace->{PROTO}->{SRC};
+        my $prot = $ace->{TYPE};
+        my $bsrc = $ace->{SRC};
         my $bsm  = $bsrc->{MASK};
         my $bsb  = $bsrc->{BASE};
-        my $bdst = $ace->{PROTO}->{DST};
+        my $bdst = $ace->{DST};
         my $bdm  = $bdst->{MASK};
         my $bdb  = $bdst->{BASE};
         for my $asm (keys %$msk) {
@@ -395,13 +491,13 @@ sub hash_acl( $$ ) {
 
 sub get_hash_matches( $$$ ) {
     my ($ace, $msk, $H) = @_;
-    my $asrc   = $ace->{PROTO}->{SRC};
+    my $asrc   = $ace->{SRC};
     my $asm    = $asrc->{MASK};
     my $asb    = $asrc->{BASE};
-    my $adst   = $ace->{PROTO}->{DST};
+    my $adst   = $ace->{DST};
     my $adm    = $adst->{MASK};
     my $adb    = $adst->{BASE};
-    my $proto  = $ace->{PROTO}->{TYPE};
+    my $proto  = $ace->{TYPE};
     my %found  = ();
     my @result = ();
     for my $bsm (keys %$msk) {
@@ -508,13 +604,13 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
         #if($lines == 100){ exit;}
         my $inner           = 0;
         my @currentdenylist = ();
-        if ($$s{MODE} eq 'deny') {
+        if ($s->{MODE} eq 'deny') {
 
             # push deny for later inspection
             push @ad, [ $lines, $s ];
 
             #for my $l (@ad){
-            #    print $$l[0],acl_line_to_string($$l[1]),"\n";
+            #    print $l->[0],acl_line_to_string($l->[1]),"\n";
             #};
             next;
         }
@@ -522,13 +618,13 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
 
             # check if current permit is subject of deny
             for my $deny (@ad) {
-                my $result = $self->acl_line_a_in_b($s, $$deny[1]);
+                my $result = $self->acl_line_a_in_b($s, $deny->[1]);
                 if ($result == 1) {
                     unless ($silent) {
                         print "**** USELESS **** ", $lines, " : ";
                         print $self->acl_line_to_string($s), "\n";
-                        print " denied by ", $$deny[0], " : ";
-                        print $self->acl_line_to_string($$deny[1]), "\n";
+                        print " denied by ", $deny->[0], " : ";
+                        print $self->acl_line_to_string($deny->[1]), "\n";
                     }
                     next OUTER;
                 }
@@ -540,8 +636,8 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                         print "**** VERBOSE (fill currentdenylist) **** ",
                           $lines, " : ";
                         print $self->acl_line_to_string($s);
-                        print " partial ", $$deny[0], " : ";
-                        print $self->acl_line_to_string($$deny[1]), "\n";
+                        print " partial ", $deny->[0], " : ";
+                        print $self->acl_line_to_string($deny->[1]), "\n";
                       }
                 }
 
@@ -560,7 +656,7 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
             exists $p->{REMARK} and next;
             ($self->acl_line_a_in_b($s, $p)) or next;
             if ($self->acl_line_a_in_b($s, $p) == 1) {
-                if ($$p{MODE} eq 'deny') {
+                if ($p->{MODE} eq 'deny') {
 
                     # this is denied, but maybe some permits before...
                     # this is ok because @perm_int is checked at last.
@@ -573,18 +669,18 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                     #check if found denys subset of @cdlist
                   CHECK: for my $deny (@deny_int) {
                         for my $cd (@currentdenylist) {
-                            if ($self->acl_line_a_in_b($$deny[1], $$cd[1]) == 1)
+                            if ($self->acl_line_a_in_b($deny->[1], $cd->[1]) == 1)
                             {
                                 ($verbose) and do {
                                     print "**** VERBOSE (right side) **** (";
                                     print $inner, "): ",
                                       $self->acl_line_to_string($p);
                                     print " partial ";
-                                    print $$deny[0], " : ",
-                                      $self->acl_line_to_string($$deny[1]);
+                                    print $deny->[0], " : ",
+                                      $self->acl_line_to_string($deny->[1]);
                                     print " has full match at left side: (";
-                                    print $$cd[0], "): ",
-                                      $self->acl_line_to_string($$cd[1]);
+                                    print $cd->[0], "): ",
+                                      $self->acl_line_to_string($cd->[1]);
                                     print "\n";
                                 };
                                 next CHECK;
@@ -596,8 +692,8 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                             print "+++ DENY MISMATCH +++ (";
                             print $inner, "): ", $self->acl_line_to_string($p);
                             print " at right side has predecessor (";
-                            print $$deny[0], "): ",
-                              $self->acl_line_to_string($$deny[1]);
+                            print $deny->[0], "): ",
+                              $self->acl_line_to_string($deny->[1]);
                             print " which has no full match at left side\n";
                             print "+++ While searching for match: (";
                             print $lines, "): ", $self->acl_line_to_string($s),
@@ -624,11 +720,11 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                     #}
                 }
                 my $lm;
-                if ($$p{LOG} xor $$s{LOG}) {
+                if ($p->{LOG} xor $s->{LOG}) {
                     $lm = $log_mismatch = 1;
                 }
-                elsif ($$p{LOG}) {
-                    if ($$p{LOG} ne $$s{LOG}) {
+                elsif ($p->{LOG}) {
+                    if ($p->{LOG} ne $s->{LOG}) {
                         $lm = $log_mismatch = 1;
                     }
                 }
@@ -645,7 +741,7 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                 next OUTER;
             }
             else {
-                if ($$p{MODE} eq 'deny') {
+                if ($p->{MODE} eq 'deny') {
 
                     # partial deny
                     #$deny_match = 'YES';
@@ -688,8 +784,8 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                     print " by ($inner): $deny_line\n";
                     my @intersec = sort num_compare (@deny_int, @perm_int);
                     for my $p (@intersec) {
-                        print " **** INTERSEC **** ", $$p[0], " : ";
-                        print $self->acl_line_to_string($$p[1]), "\n";
+                        print " **** INTERSEC **** ", $p->[0], " : ";
+                        print $self->acl_line_to_string($p->[1]), "\n";
                     }
                 }
                 else {
@@ -701,288 +797,6 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
           }
     }
     ($clean and !$log_mismatch) and return 1;    # a in b
-    return 0;
-}
-
-sub parse_error($$$) {
-    my ($self, $line, $message) = @_;
-
-    my ($package, $file, $ln, $sub) = caller 1;
-
-    if ($self->{PRINT}) {
-        die
-          "parse error (PRINTING) \n in \'$sub\' - $message - yet printed: \'$$line\'\n";
-    }
-
-    if (not $self->{PRINT}) {
-	$$line =~
-	    m/(.{0,25})\G(.{0,25})/s;
-	die
-	    "parse error (PARSING)  \n in \'$sub\' - $message - \n\'$1<< HERE >>$2\'\n";
-    }
-}
-
-###     remark:          'remark' <up to 100 chars of remark>
-#
-#                       ->{REMARK}
-sub remark($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and exists $ah->{REMARK}) {
-        $$al = join ' ', $$al, 'remark', $ah->{REMARK};
-        return 1;
-    }
-    elsif ($$al =~ /\G\s*remark\s(.*)(?=\Z|\n)/cgxo)
-    {    #read remark till end of string|line
-        $ah->{REMARK} = $1;
-        return 1;
-    }
-    return 0;
-}
-
-###   	action:		'permit' | 'deny'
-#
-#                       ->{MODE}
-sub action($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        if ($ah->{MODE}) {
-            $$al = join ' ', $$al, $ah->{MODE};
-            return 1;
-        }
-        else {
-            return 0;
-        }
-    }
-    elsif ($$al =~ /\G\s*(permit|deny)$ts/cgxo) {
-        $ah->{MODE} = $1;
-        return 1;
-    }
-    else {
-        return 0;
-    }
-}
-###	adr:		'any' | host | net
-#
-#                       if 'any': ->{BASE} = 0 / ->{MASK} = 0
-sub adr($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-
-        # addresses are *allways* 'base' and 'mask'!
-        (defined $ah->{BASE} and defined $ah->{MASK})
-          and $$al = join ' ', $$al, int2quad($ah->{BASE}),
-          int2quad($self->dev_cor($ah->{MASK}));
-        return 1;
-    }
-    if ($$al =~ /\G\s*any$ts/cgxo) {
-        $ah->{BASE} = 0;
-        $ah->{MASK} = 0;
-        return 1;
-    }
-    unless ($self->host($ah, $al)
-        || $self->net($ah, $al))
-    {
-        $self->parse_error($al, "no address found");
-    }
-    return 1;
-}
-###	host:		'host' quad
-#
-#                       ->{BASE} / ->{MASK} = 0xffffffff;
-sub host($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($$al =~ /\G\s*host\s+([.\d]+)$ts/cgxo) {
-        defined($ah->{BASE} = quad2int($1))
-          or $self->parse_error($al, "no ipv4 address");
-        $ah->{MASK} = 0xffffffff;
-        return 1;
-    }
-    else {
-        return 0;
-    }
-}
-###	net:		quad quad
-#
-#                       ->{BASE} / ->{MASK}
-#
-# mask checking is only:
-#		                    1011/1101 forbidden
-#		                    1011/1011 allowed    !!!
-# because this is not routing
-#
-sub net($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($$al =~ /\G\s*([.\d]+)\s+([.\d]+)$ts/cgxo) {
-        defined($ah->{BASE} = quad2int($1))
-          or $self->parse_error($al, "no ipv4 address");
-        defined($ah->{MASK} = quad2int($2))
-          or $self->parse_error($al, "no ipv4 address");
-        $ah->{MASK} = $self->dev_cor($ah->{MASK});
-        $ah->{MASK} & $ah->{BASE} ^ $ah->{BASE}
-          and $self->parse_error($al, "illegal mask");
-        return 1;
-    }
-    else {
-        return 0;
-    }
-}
-###	icmpmessage:	<message-name> | (/d+/ [/d+])
-#
-#                      ->{TYPE} / ->{CODE} (if defined)
-sub icmpmessage($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT}) {
-        $self->print_icmpmessage($ah, $al);
-    }
-    else {
-        my $parse_start = pos($$al);
-        if ($$al =~ /\G\s*($tc+)$ts/cgxo) {
-            my $match = $1;
-            if (exists $ICMP_Trans{$match}) {
-                $ah->{TYPE} = $ICMP_Trans{$match}->{type};
-                $ah->{CODE} = $ICMP_Trans{$match}->{code};
-            }
-            elsif ($match =~ /\d+/) {
-                $ah->{TYPE} = $match;
-                if ($$al =~ /\G\s*(\d+)$ts/cgxo) {
-                    $ah->{CODE} = $1;
-                }
-                else {
-                    $ah->{CODE} = -1;
-                }
-            }
-            else {
-
-                # maybe it is something else?
-                pos($$al) = $parse_start;
-            }
-        }
-    }
-    return 1;
-}
-### (-)	p_igmp:		( 'igmp' | '2' ) adr adr [igmptype | igmpmessage]
-
-### (-)	igmptype:	/\d+/
-
-### (-) igmpmessage:    /\w+/
-
-###     spec:           single_spec | range_spec
-#
-#                       ->{SRV}->{SPEC}
-sub spec($$$) {
-    my ($self, $ah, $al) = @_;
-    unless ($self->{PRINT}) {
-        $ah->{SRV} = {};
-    }
-    $self->single_spec($ah->{SRV}, $al)
-      or $self->range_spec($ah->{SRV}, $al);
-}
-###	single_spec:	( 'lt' | 'gt' | 'eq' | 'neq' ) port
-#
-#                       ->{SPEC} ->{PORT_L} / {PORT_H}
-sub single_spec($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and $ah->{SPEC}) {
-        my $port;
-        if ($ah->{SPEC} =~ /lt|eq|neq/) {
-            $port = $ah->{PORT_H};
-        }
-        elsif ($ah->{SPEC} =~ /gt/) {
-            $port = $ah->{PORT_L};
-        }
-        else {
-            return 0;
-        }
-        $$al = join ' ', $$al, $ah->{SPEC};
-        (exists $self->{PORTMODE}{$port}) and $port = $self->{PORTMODE}{$port};
-        $$al = join ' ', $$al, $port;
-        return 1;
-    }
-    if ($$al =~ /\G\s*(eq|gt|lt|neq)\s+($tc+)$ts/cgxo) {
-        my $spec = $1;
-        my $port = $2;
-        if (exists $self->{PORTMODE}{$port}) {
-            $port = $self->{PORTMODE}{$port};
-        }
-        unless ($port =~ /\d+/ && $port <= 0xffff) {
-            $self->parse_error($al, "unknown port specifier $port");
-        }
-
-        # set port ranges depending on SPEC
-        if ($spec eq 'eq') {
-            $ah->{PORT_L} = $port;
-            $ah->{PORT_H} = $port;
-        }
-        elsif ($spec eq 'gt') {
-            if ($port < 0xffff) {
-                $ah->{PORT_L} = $port + 1;
-                $ah->{PORT_H} = 0xffff;
-                $spec         = 'range';
-            }
-            else {
-                $self->parse_error($al, "invalid port-number $port for 'gt'");
-            }
-        }
-        elsif ($spec eq 'lt') {
-            if (0 < $port) {
-                $ah->{PORT_L} = 0;
-                $ah->{PORT_H} = $port - 1;
-                $spec         = 'range';
-            }
-            else {
-                $self->parse_error($al, "invalid port-number $port for 'lt'");
-            }
-        }
-        elsif ($spec eq 'neq') {
-            $self->parse_error($al, "port specifier 'neq' not implemented yet");
-            $ah->{PORT_L} = $port;
-            $ah->{PORT_H} = $port;
-        }
-        $ah->{SPEC} = $spec;
-        return 1;
-    }
-    else {
-        return 0;
-    }
-}
-###     range_spec:     'range' port port
-#
-#                       ->{SPEC} ->{PORT_L} / {PORT_H}
-sub range_spec($$$) {
-    my ($self, $ah, $al) = @_;
-    if ($self->{PRINT} and $ah->{SPEC} and $ah->{SPEC} eq 'range') {
-        my $port_l = $ah->{PORT_L};
-        my $port_h = $ah->{PORT_H};
-        (exists $self->{PORTMODE}{$port_l})
-          and $port_l = $self->{PORTMODE}{$port_l};
-        (exists $self->{PORTMODE}{$port_h})
-          and $port_h = $self->{PORTMODE}{$port_h};
-        $$al = join ' ', $$al, 'range', $port_l, $port_h;
-        return 1;
-    }
-    if ($$al =~ /\G\s*range\s+($tc+)\s+($tc+)$ts/cgxo) {
-        my $port_l = $1;
-        my $port_h = $2;
-        if (exists $self->{PORTMODE}{$port_l}) {
-            $port_l = $self->{PORTMODE}{$port_l};
-        }
-        if (exists $self->{PORTMODE}{$port_h}) {
-            $port_h = $self->{PORTMODE}{$port_h};
-        }
-        unless ($port_l =~ /\d+/
-            && $port_l <= 0xffff
-            && $port_h =~ /\d+/
-            && $port_h <= 0xffff
-            && $port_l <= $port_h)
-        {
-            $self->parse_error($al,
-                "unknown or invalid port specifiers $port_l $port_h");
-        }
-        $ah->{PORT_L} = $port_l;
-        $ah->{PORT_H} = $port_h;
-        $ah->{SPEC}   = 'range';
-        return 1;
-    }
     return 0;
 }
 
@@ -1064,7 +878,7 @@ sub login_enable( $ ) {
         $con->con_cmd("$pass\n") or $con->con_error();
         $con->con_dump();
     }
-    my $psave = $$self{PROMPT};
+    my $psave = $self->{PROMPT};
     $self->{PROMPT} = qr/Password:|#/;
     $self->cmd('enable') or return 0;
     unless($con->{RESULT}->{MATCH} eq "#"){
