@@ -5,13 +5,13 @@ package Netspoc::Approve::Device::Cisco;
 #
 # Description:
 # Remote configure cisco devices
-# 
+#
 
-'$Id$' =~ / (.+),v (.+?) /;  
+'$Id$' =~ / (.+),v (.+?) /;
 
 my $id = "$1 $2";
 
-sub version_drc2_cisco(){
+sub version_drc2_cisco() {
     return $id;
 }
 
@@ -23,47 +23,47 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Device::Cisco::Parse;
 
 sub parse_device {
-    my($self, $lines) = @_;
+    my ($self, $lines) = @_;
 
     mypr "parse device config\n";
     my $config = analyze_conf_lines($lines);
-    
+
     my $result;
     my $parse_info = $self->get_parse_info();
     for my $cmd (keys %$config) {
 
-	# Parse known commands, ignore unknown commands.
-	my $cmd_info = $parse_info->{$cmd} or next;
-	my($method, $key) = @$cmd_info;
-	for my $arg (@{ $config->{$cmd} }) {
-	    my($value, $name, $push) = $self->$method($arg);
-	    get_eol($arg);
-	    next if not $value;
+        # Parse known commands, ignore unknown commands.
+        my $cmd_info = $parse_info->{$cmd} or next;
+        my ($method, $key) = @$cmd_info;
+        for my $arg (@{ $config->{$cmd} }) {
+            my ($value, $name, $push) = $self->$method($arg);
+            get_eol($arg);
+            next if not $value;
 
-	    # Attach unparsed command line.
-	    # This isn't possible if the command is parsed into an
-	    # array from its subcommands.
-	    $value->{orig} = $arg->{orig} if ref($value) eq 'HASH';
-	    if($name) {
-		if($push) {
+            # Attach unparsed command line.
+            # This isn't possible if the command is parsed into an
+            # array from its subcommands.
+            $value->{orig} = $arg->{orig} if ref($value) eq 'HASH';
+            if ($name) {
+                if ($push) {
 
-		    # Named commands of same type, parsed separately.
-		    push @{ $result->{$key}->{$name} }, $value;
-		}
-		else {
+                    # Named commands of same type, parsed separately.
+                    push @{ $result->{$key}->{$name} }, $value;
+                }
+                else {
 
-		    # One named command with arguments or with multiple 
-		    # subcommands; parsed together.
-		    $result->{$key}->{$name} and
-			err_at_line($arg, "Redefining '$cmd $name'");
-		    $result->{$key}->{$name} = $value;
-		}
-	    }
-	    else {
+                    # One named command with arguments or with multiple
+                    # subcommands; parsed together.
+                    $result->{$key}->{$name}
+                      and err_at_line($arg, "Redefining '$cmd $name'");
+                    $result->{$key}->{$name} = $value;
+                }
+            }
+            else {
 
-		# Unnamed commands of same type, parsed separately.
-		push @{ $result->{$key} }, $value;
-	    }
+                # Unnamed commands of same type, parsed separately.
+                push @{ $result->{$key} }, $value;
+            }
         }
     }
     mypr "... done parsing config\n";
@@ -76,69 +76,69 @@ sub parse_device {
 # any
 # ->{SPEC} ->{PORT_L} / {PORT_H}
 sub parse_address {
-    my($self, $desc) = @_;
-    my($ip, $mask);
+    my ($self, $desc) = @_;
+    my ($ip, $mask);
     my $token = get_token($desc);
-    if($token eq 'any') {
-	$ip = $mask = 0;
+    if ($token eq 'any') {
+        $ip = $mask = 0;
     }
-    elsif($token eq 'host') {
-	$ip = get_ip($desc);
-	$mask = 0xffffffff;
+    elsif ($token eq 'host') {
+        $ip   = get_ip($desc);
+        $mask = 0xffffffff;
     }
     else {
-	$ip = quad2int($token);
-	$mask = get_ip($desc);
+        $ip   = quad2int($token);
+        $mask = get_ip($desc);
     }
-    return( { BASE => $ip, MASK => $self->dev_cor($mask) } );
+    return ({ BASE => $ip, MASK => $self->dev_cor($mask) });
 }
 
 sub parse_port {
-    my($self, $proto, $desc) = @_;
+    my ($self, $proto, $desc) = @_;
     my $port = get_token($desc);
-    if($proto eq 'tcp') {
-	$port = $PORT_Trans_TCP{$port} || $port;
+    if ($proto eq 'tcp') {
+        $port = $PORT_Trans_TCP{$port} || $port;
     }
     else {
-	$port = $PORT_Trans_UDP{$port} || $port;
+        $port = $PORT_Trans_UDP{$port} || $port;
     }
     $port =~ /^\d+$/ or err_at_line('Syntax');
     return $port;
-}	
-    
+}
+
 # ( 'lt' | 'gt' | 'eq' | 'neq' ) port
 # 'range' port port
 sub parse_port_spec {
-    my($self, $proto, $desc) = @_;
-    my($low, $high);
-    my $spec = check_regex('eq|gt|lt|neq|range', $desc) or
-	return {};    
+    my ($self, $proto, $desc) = @_;
+    my ($low, $high);
+    my $spec = check_regex('eq|gt|lt|neq|range', $desc)
+      or return {};
     my $port = $self->parse_port($proto, $desc);
-    if($spec eq 'eq') {
-	$low = $high = $port;
-	$spec = 'range';
+    if ($spec eq 'eq') {
+        $low = $high = $port;
+        $spec = 'range';
     }
-    elsif($spec eq 'gt') {
-	$low = $port + 1;
-	$high = 0xffff;
-	$spec = 'range';
+    elsif ($spec eq 'gt') {
+        $low  = $port + 1;
+        $high = 0xffff;
+        $spec = 'range';
     }
-    elsif($spec eq 'lt') {
-	$low = 0;
-	$high = $port - 1;
-	$spec = 'range';
+    elsif ($spec eq 'lt') {
+        $low  = 0;
+        $high = $port - 1;
+        $spec = 'range';
     }
-    elsif($spec eq 'neq') {
-	die "port specifier 'neq' not implemented yet\n";
+    elsif ($spec eq 'neq') {
+        die "port specifier 'neq' not implemented yet\n";
     }
-    elsif($spec eq 'range') {
-	$low = $port;
-	$high = $self->parse_port($proto, $desc);
+    elsif ($spec eq 'range') {
+        $low = $port;
+        $high = $self->parse_port($proto, $desc);
     }
     else {
-	internal_err();
+        internal_err();
     }
-    return( { SPEC => $spec, PORT_L => $low, PORT_H => $high } );
+    return ({ SPEC => $spec, PORT_L => $low, PORT_H => $high });
 }
 
 my $icmp_regex = join('|', '\d+', keys %ICMP_Trans);
@@ -146,18 +146,18 @@ my $icmp_regex = join('|', '\d+', keys %ICMP_Trans);
 # <message-name> | (/d+/ [/d+])
 # ->{TYPE} / ->{CODE} (if defined)
 sub parse_icmp_spec {
-    my($self, $desc) = @_;
-    my($type, $code);
-    my $token = check_regex($icmp_regex, $desc) or
-	return {};
-    if(my $spec = $ICMP_Trans{$token}){
-	($type, $code)  = @{$spec}{'type', 'code'};
+    my ($self, $desc) = @_;
+    my ($type, $code);
+    my $token = check_regex($icmp_regex, $desc);
+    return({}) if not defined $token;
+    if (my $spec = $ICMP_Trans{$token}) {
+        ($type, $code) = @{$spec}{ 'type', 'code' };
     }
     else {
-	$type = $token;
-	$code = check_regex('\d+', $desc) || -1;
+        $type = $token;
+        $code = check_regex('\d+', $desc) || -1;
     }
-    return( { TYPE => $type, CODE => $code } );
+    return ({ TYPE => $type, CODE => $code });
 }
 
 ############################################################
@@ -200,13 +200,12 @@ sub ports_a_in_b ($$) {
     }
 }
 
-
 #
 # a in b iff (a_mask | b_mask) = a_mask
 #            AND
 #            (a_mask & b_mask) & a_base) = (a_mask & b_mask & b_base)
 #
-#  WARNING: DO NOT CHANGE THE RETURN VALUES! 
+#  WARNING: DO NOT CHANGE THE RETURN VALUES!
 # THEY ARE USED IN  static_global_local_match_a_b()
 #
 sub ip_netz_a_in_b {
@@ -218,7 +217,6 @@ sub ip_netz_a_in_b {
     (($am | $bm) ^ $am) or return 1;                       # yes
     return 2;                                              # intersection
 }
-
 
 #
 # return value: 0: no
@@ -349,7 +347,7 @@ sub acl_line_a_eq_b ($$$) {
     }
 
     # source and destination equal
-    if ($a->{TYPE} eq 'icmp' or $a->{TYPE} eq 1) {
+    if ($a->{TYPE} eq 'icmp') {
         my $as = $a->{SPEC};
         my $bs = $b->{SPEC};
         (exists $as->{TYPE} xor exists $bs->{TYPE}) and return 0;
@@ -403,17 +401,17 @@ sub acl_line_a_eq_b ($$$) {
 sub route_line_a_eq_b {
     my ($self, $a, $b) = @_;
     ($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK})
-	or return 0;
+      or return 0;
     for my $key (qw(IF NIF NEXTHOP METRIC MISC MISC_ARG)) {
-	if (defined($a->{$key}) || defined($b->{$key})) {
-	    (defined($a->{$key}) && defined($b->{$key})
-	     && $a->{$key} eq $b->{$key})
-		or return 0;
-	}
+        if (defined($a->{$key}) || defined($b->{$key})) {
+            (        defined($a->{$key})
+                  && defined($b->{$key})
+                  && $a->{$key} eq $b->{$key})
+              or return 0;
+        }
     }
     return 1;
 }
-
 
 #
 # May only be used for pix routes.
@@ -434,132 +432,162 @@ sub route_line_destination_a_eq_b {
 sub route_line_a_supersedes_b {
     my ($self, $a, $b) = @_;
     if ($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK}) {
-	for my $key (qw(NIF NEXTHOP)) {
-	    if (defined($a->{$key}) || defined($b->{$key})) {
-		(defined($a->{$key}) && defined($b->{$key})
-		 && $a->{$key} eq $b->{$key})
-		    or return 0;
-	    }
-	}
+        for my $key (qw(NIF NEXTHOP)) {
+            if (defined($a->{$key}) || defined($b->{$key})) {
+                (        defined($a->{$key})
+                      && defined($b->{$key})
+                      && $a->{$key} eq $b->{$key})
+                  or return 0;
+            }
+        }
         return 1;
     }
     return $self->ip_netz_a_in_b($a, $b);
 }
 
 ################################################################
-# compare two arrays with acl objects
+# Compare two arrays with acl objects.
 ################################################################
 
-### helper ###
+# Find unique src and dst in all rules.
+# If parameter $do_acl_hash is set,
+#  build a mapping from triple ($prot, $src, $dst) to list of rules
+#  using $acl_hash
+# else
+#  build a mapping from $rule to triple ($prot, $src, $dst)
+#  by adding attribute {MATCHES} with [ $prot, $src, $dst ] to each rule,
+#  fill
+# Return 3 values, array references to unique proto, src and dst addresses
+# return 4. value $acl_hash if $do_acl_hash is set.
+#
+# Add attribute {line} to each rule.
+sub acl_prepare ( $;$ ) {
+    my ($rules, $do_acl_hash) = @_;
+    my $i = 0;
+    my %prot;
+    my %sb2sm2src;
+    my %db2dm2dst;
+    my @all_src;
+    my @all_dst;
+    my %acl_hash;
+    my @acl_list;
 
-sub hash_masks( $ ) {
-    my %msk;
-    for my $acl (@{ $_[0] }) {
-        next if exists $acl->{REMARK};
-        $msk{ $acl->{SRC}->{MASK} }->{ $acl->{DST}->{MASK} } =
-          {};
+    for my $r (@$rules) {
+        $r->{line} = $i++;
+        next if $r->{REMARK};
+        my $prot = $r->{TYPE};
+        my $src  = $r->{SRC};
+        my $dst  = $r->{DST};
+        my $sb   = $src->{BASE};
+        my $sm   = $src->{MASK};
+        my $db   = $dst->{BASE};
+        my $dm   = $dst->{MASK};
+        $prot{$prot} = $prot;
+
+        if (my $unique = $sb2sm2src{$sb}->{$sm}) {
+            $src = $unique;
+        }
+        else {
+            $src = $sb2sm2src{$sb}->{$sm} = [ $sb, $sm ];
+            push @all_src, $src;
+        }
+        if (my $unique = $db2dm2dst{$db}->{$dm}) {
+            $dst = $unique;
+        }
+        else {
+            $dst = $db2dm2dst{$db}->{$dm} = [ $db, $dm ];
+            push @all_dst, $dst;
+        }
+        if ($do_acl_hash) {
+            push @{ $acl_hash{$prot}->{$src}->{$dst} }, $r;
+        }
+        else {
+            $r->{MATCHES} = [ $prot, $src, $dst ];
+        }
+
     }
-    return \%msk;
+    return [ values %prot ], \@all_src, \@all_dst, \%acl_hash;
 }
 
-sub hash_acl( $$ ) {
-    my ($msk, $acl) = @_;
-    my $H = {};    # source hash
-    for (my $i = 0 ; $i < scalar @$acl ; $i++) {
-        my $ace = $acl->[$i];
-        next if exists $ace->{REMARK};
-        my $prot = $ace->{TYPE};
-        my $bsrc = $ace->{SRC};
-        my $bsm  = $bsrc->{MASK};
-        my $bsb  = $bsrc->{BASE};
-        my $bdst = $ace->{DST};
-        my $bdm  = $bdst->{MASK};
-        my $bdb  = $bdst->{BASE};
-        for my $asm (keys %$msk) {
-
-            for my $adm (keys %{ $msk->{$asm} }) {
-
-                #push @{$H->{$prot}->{$asm}->{$bsm}->{$bsm&$bsb&$asm}->{$adm}->{$bdm}->{$bdm&$bdb&$adm}},[$ace,$i];
-                push @{ $H->{$prot}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                      ->{ $bsm & $bsb & $asm }->{ $bdm & $bdb & $adm } },
-                  [ $ace, $i ];
+# Parameter: 2 lists with protocols A and B
+# Result: A hash having entries a->b->1 for protocols where intersection is not empty.
+sub prot_relation ( $$ ) {
+    my ($aprot, $bprot) = @_;
+    my %hash;
+    for my $a (@$aprot) {
+        for my $b (@$bprot) {
+            if ($a eq $b or $a eq 'ip' or $b eq 'ip') {
+                $hash{$a}->{$b} = 1;
             }
         }
     }
-    return $H;
+    return \%hash;
 }
 
-sub get_hash_matches( $$$ ) {
-    my ($ace, $msk, $H) = @_;
-    my $asrc   = $ace->{SRC};
-    my $asm    = $asrc->{MASK};
-    my $asb    = $asrc->{BASE};
-    my $adst   = $ace->{DST};
-    my $adm    = $adst->{MASK};
-    my $adb    = $adst->{BASE};
-    my $proto  = $ace->{TYPE};
-    my %found  = ();
-    my @result = ();
-    for my $bsm (keys %$msk) {
+# Parameter: 2 lists with objects A and B
+# Result: A hash having entries a->b->1 for elements where intersection is not empty.
+sub obj_relation ( $$ ) {
+    my ($aobj, $bobj) = @_;
+    my %hash;
+    for my $a (@$aobj) {
+        my ($ab, $am) = @$a;
+        for my $b (@$bobj) {
+            my ($bb, $bm) = @$b;
+            my $m = $am & $bm;
+            if (($ab & $m) == ($bb & $m)) {
+                $hash{$a}->{$b} = 1;
+            }
+        }
+    }
+    return \%hash;
+}
 
-        for my $bdm (keys %{ $msk->{$bsm} }) {
-            if ($proto eq 'ip') {
-                for my $p (keys %$H) {
-                    if (
-                        defined $H->{$p}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                        ->{ $asm & $asb & $bsm }->{ $adm & $adb & $bdm })
-                    {
-                        $found{ $H->{$p}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                              ->{ $asm & $asb & $bsm }->{ $adm & $adb & $bdm } }
-                          = $H->{$p}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                          ->{ $asm & $asb & $bsm }->{ $adm & $adb & $bdm };
+# Parameter:
+# - Description of a rule R: [ $proto, $src_obj, $dst_obj ]
+# - Relation between protocols, source-objects, destination-objects
+# - Hash of other rules
+# Result:
+# A list of rules matching R.
+sub get_hash_matches( $$$$$ ) {
+    my ($matches, $p_rel, $s_rel, $d_rel, $bhash) = @_;
+    my ($prot, $src, $dst) = @$matches;
+    my @found;
+    for my $p (keys %{ $p_rel->{$prot} }) {
+        if (my $bhash = $bhash->{$p}) {
+            for my $s (keys %{ $s_rel->{$src} }) {
+                if (my $bhash = $bhash->{$s}) {
+                    for my $d (keys %{ $d_rel->{$dst} }) {
+                        if (my $r2_aref = $bhash->{$d}) {
+                            push @found, @$r2_aref;
+                        }
                     }
                 }
             }
-            else {
-                if (
-                    defined $H->{$proto}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                    ->{ $asm & $asb & $bsm }->{ $adm & $adb & $bdm })
-                {
-                    $found{ $H->{$proto}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                          ->{ $asm & $asb & $bsm }->{ $adm & $adb & $bdm } } =
-                      $H->{$proto}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                      ->{ $asm & $asb & $bsm }->{ $adm & $adb & $bdm };
-                }
-                if (
-                    defined $H->{'ip'}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                    ->{ $asm & $asb & $bsm }->{ $adm & $adb & $bdm })
-                {
-                    $found{ $H->{'ip'}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                          ->{ $asm & $asb & $bsm }->{ $adm & $adb & $bdm } } =
-                      $H->{'ip'}->{$bsm}->{$bdm}->{$asm}->{$adm}
-                      ->{ $asm & $asb & $bsm }->{ $adm & $adb & $bdm };
-                }
-            }
         }
     }
-    map { @result = (@result, @$_) } values %found;
-    return \@result;
+    return @found;
 }
 
-sub show( $$$ ) {
-
-    #
-    # this is only for debugging
-    #
+#
+# this is only for debugging
+#
+sub show {
     my ($self, $ac, $bc) = @_;
 
-    my $amsk = hash_masks($ac);
-    my $bmsk = hash_masks($bc);
-    my $bhsh = hash_acl($amsk, $bc);
+    my ($aprot, $asrc, $adst) = acl_prepare($ac);
+    my ($bprot, $bsrc, $bdst, $bhash) = acl_prepare($bc, 1);
+    my $p_rel = prot_relation($aprot, $bprot);
+    my $s_rel = obj_relation($asrc,   $bsrc);
+    my $d_rel = obj_relation($adst,   $bdst);
 
     my $c = 0;
     for my $ace (@{$ac}) {
-        my $found = get_hash_matches($ace, $bmsk, $bhsh);
-        print $self->acl_line_to_string($ace), "\n";
-        for my $a (@$found) {
-            print "  ($c) ", $self->acl_line_to_string($a->[0]),
-              " -> $a->[1]\n";
+        my @found =
+          get_hash_matches($ace->{MATCHES}, $p_rel, $s_rel, $d_rel, $bhash);
+        print $ace->{orig}, "\n";
+        for my $a (@found) {
+            print "  ($c) ", $a->{orig},
+              " -> $a->{line}\n";
             ++$c;
         }
         print "\n";
@@ -568,7 +596,7 @@ sub show( $$$ ) {
 
 ### main func ###
 
-sub acl_array_compare_a_in_b ( $$$$ ) {
+sub acl_array_compare_a_in_b {
     my ($self, $ac, $bc, $opt) = @_;
 
     # setting options
@@ -586,9 +614,11 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
         $silent = 1;
     }
 
-    my $amsk = hash_masks($ac);
-    my $bmsk = hash_masks($bc);
-    my $bhsh = hash_acl($amsk, $bc);
+    my ($aprot, $asrc, $adst) = acl_prepare($ac);
+    my ($bprot, $bsrc, $bdst, $bhash) = acl_prepare($bc, 1);
+    my $p_rel = prot_relation($aprot, $bprot);
+    my $s_rel = obj_relation($asrc,   $bsrc);
+    my $d_rel = obj_relation($adst,   $bdst);
 
     my @ad;    # denys lines from "a"
 
@@ -608,10 +638,6 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
 
             # push deny for later inspection
             push @ad, [ $lines, $s ];
-
-            #for my $l (@ad){
-            #    print $l->[0],acl_line_to_string($l->[1]),"\n";
-            #};
             next;
         }
         else {
@@ -622,9 +648,9 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                 if ($result == 1) {
                     unless ($silent) {
                         print "**** USELESS **** ", $lines, " : ";
-                        print $self->acl_line_to_string($s), "\n";
+                        print $s->{orig}, "\n";
                         print " denied by ", $deny->[0], " : ";
-                        print $self->acl_line_to_string($deny->[1]), "\n";
+                        print $deny->[1]->{orig}, "\n";
                     }
                     next OUTER;
                 }
@@ -635,9 +661,9 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                     ($verbose) and do {
                         print "**** VERBOSE (fill currentdenylist) **** ",
                           $lines, " : ";
-                        print $self->acl_line_to_string($s);
+                        print $s->{orig};
                         print " partial ", $deny->[0], " : ";
-                        print $self->acl_line_to_string($deny->[1]), "\n";
+                        print $deny->[1]->{orig}, "\n";
                       }
                 }
 
@@ -647,12 +673,14 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
         my @perm_int   = ();
         my @deny_int   = ();
         my $deny_match = "NO";
+        my $matches    = delete $s->{MATCHES};
         my @found =
-          sort { $a->[1] <=> $b->[1] } @{ get_hash_matches($s, $bmsk, $bhsh) };
+          sort { $a->{line} <=> $b->{line} }
+          get_hash_matches($matches, $p_rel, $s_rel, $d_rel, $bhash);
         my $p;
       INNER: for my $ace (@found) {
-            $p     = $ace->[0];
-            $inner = $ace->[1] + 1;
+	    $p = $ace;
+            $inner = $p->{line} + 1;
             exists $p->{REMARK} and next;
             ($self->acl_line_a_in_b($s, $p)) or next;
             if ($self->acl_line_a_in_b($s, $p) == 1) {
@@ -669,18 +697,19 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                     #check if found denys subset of @cdlist
                   CHECK: for my $deny (@deny_int) {
                         for my $cd (@currentdenylist) {
-                            if ($self->acl_line_a_in_b($deny->[1], $cd->[1]) == 1)
+                            if ($self->acl_line_a_in_b($deny->[1], $cd->[1]) ==
+                                1)
                             {
                                 ($verbose) and do {
                                     print "**** VERBOSE (right side) **** (";
                                     print $inner, "): ",
-                                      $self->acl_line_to_string($p);
+                                      $p->{orig};
                                     print " partial ";
                                     print $deny->[0], " : ",
-                                      $self->acl_line_to_string($deny->[1]);
+                                      $deny->[1]->{orig};
                                     print " has full match at left side: (";
                                     print $cd->[0], "): ",
-                                      $self->acl_line_to_string($cd->[1]);
+                                      $cd->[1]->{orig};
                                     print "\n";
                                 };
                                 next CHECK;
@@ -690,13 +719,13 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                         # deny mismatch!
                         ($silent) or do {
                             print "+++ DENY MISMATCH +++ (";
-                            print $inner, "): ", $self->acl_line_to_string($p);
+                            print $inner, "): ", $p->{orig};
                             print " at right side has predecessor (";
                             print $deny->[0], "): ",
-                              $self->acl_line_to_string($deny->[1]);
+                              $deny->[1]->{orig};
                             print " which has no full match at left side\n";
                             print "+++ While searching for match: (";
-                            print $lines, "): ", $self->acl_line_to_string($s),
+                            print $lines, "): ", $s->{orig},
                               "\n";
                         };
                         $deny_match = 'DMIS';
@@ -714,8 +743,8 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                     }
 
                     #unless(1 || $self->acl_line_a_eq_b($s,$p)){
-                    #    print "($lines): ".$self->acl_line_to_string($s);
-                    #    print " in ($inner): ",$self->acl_line_to_string($p);
+                    #    print "($lines): ". $s->{orig};
+                    #    print " in ($inner): ", $p->{orig};
                     #    print "\n";
                     #}
                 }
@@ -730,13 +759,13 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                 }
                 if ($lm and !$silent) {
                     print "**** LOG MISMATCH **** ($lines): ",
-                      $self->acl_line_to_string($s);
-                    print " in ($inner): ", $self->acl_line_to_string($p), "\n";
+                      $s->{orig};
+                    print " in ($inner): ", $p->{orig}, "\n";
                 }
                 elsif ($showmatches) {
                     print "**** SHOW MATCHES **** ($lines): ",
-                      $self->acl_line_to_string($s);
-                    print " in ($inner): ", $self->acl_line_to_string($p), "\n";
+                      $s->{orig};
+                    print " in ($inner): ", $p->{orig}, "\n";
                 }
                 next OUTER;
             }
@@ -749,9 +778,9 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                     ($verbose) and do {
                         print "**** VERBOSE (fill deny_intersec) **** ", $lines,
                           " : ";
-                        print $self->acl_line_to_string($s);
+                        print $s->{orig};
                         print " partial ", $inner, " : ";
-                        print $self->acl_line_to_string($p), "\n";
+                        print $p->{orig}, "\n";
                       }
                 }
                 else {
@@ -759,9 +788,8 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                     # permit intersection!
                     push @perm_int, [ $inner, $p ];
                     if ($verbose) {
-                        print "($lines): ", $self->acl_line_to_string($s);
-                        print " INTERSECTION ($inner): ",
-                          $self->acl_line_to_string($p);
+                        print "($lines): ", $s->{orig};
+                        print " INTERSECTION ($inner): ", $p->{orig};
                         print "\n";
                     }
                 }
@@ -772,7 +800,7 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
             unless ($deny_match eq 'DMIS') {
                 my $deny_line;
                 if ($deny_match eq 'YES') {
-                    $deny_line = $self->acl_line_to_string($p);
+                    $deny_line = $p->{orig};
                 }
                 else {
                     $inner     = "";
@@ -780,17 +808,17 @@ sub acl_array_compare_a_in_b ( $$$$ ) {
                 }
                 if (@perm_int) {
                     print " **** DENY **** (", $lines, "): ";
-                    print $self->acl_line_to_string($s);
+                    print $s->{orig};
                     print " by ($inner): $deny_line\n";
                     my @intersec = sort num_compare (@deny_int, @perm_int);
                     for my $p (@intersec) {
                         print " **** INTERSEC **** ", $p->[0], " : ";
-                        print $self->acl_line_to_string($p->[1]), "\n";
+                        print $p->[1]->{orig}, "\n";
                     }
                 }
                 else {
                     print " **** DENY **** (", $lines, "): ";
-                    print $self->acl_line_to_string($s);
+                    print $s->{orig};
                     print " by ($inner): $deny_line\n";
                 }
             }
@@ -881,11 +909,11 @@ sub login_enable( $ ) {
     my $psave = $self->{PROMPT};
     $self->{PROMPT} = qr/Password:|#/;
     $self->cmd('enable') or return 0;
-    unless($con->{RESULT}->{MATCH} eq "#"){
+    unless ($con->{RESULT}->{MATCH} eq "#") {
 
-	# Enable password required.
-	$self->{PROMPT} = $psave;
-	$self->cmd($self->{ENABLE_PASS} || $pass) or return 0;
+        # Enable password required.
+        $self->{PROMPT} = $psave;
+        $self->cmd($self->{ENABLE_PASS} || $pass) or return 0;
     }
     return 1;
 }
