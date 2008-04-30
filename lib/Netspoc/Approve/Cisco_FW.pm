@@ -1010,7 +1010,7 @@ sub pix_expand_acl_entry($$$$) {
 
             # Remember that group $obj_id is referenced by ACL $acl 
 	    # and vice versa.
-            $groups->{group2acl}->{$obj_id}->{$acl_name} = 1;
+            $parsed->{group2acl}->{$obj_id}->{$acl_name} = 1;
             $parsed->{acl2group}->{$acl_name}->{$obj_id} = 1;
 
         }
