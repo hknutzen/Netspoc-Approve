@@ -309,7 +309,7 @@ sub parse_object_group {
 		push @{ $result->{NETWORK_OBJECT} }, $self->parse_address($arg);
 	    }
 	    elsif($cmd eq 'group-object') {
-		push @{ $result->{GROUP_OBJECT} }, get_token($arg);
+		err_at_line('Nested object group not supported');
 	    }
 	    else {
 		err_at_line($arg, 'Unknown subcommand');
@@ -958,55 +958,21 @@ sub process_rawdata( $$$ ) {
 
 #-------------- helper end
 
-sub copy_structure {
-    my $src = shift;
-
-    #print "-$src-\n";
-    if (ref $src eq 'SCALAR') {
-        my $dst = $$src;
-        return \$dst;
-    }
-    elsif (ref $src eq 'ARRAY') {
-        my @dst = @$src;
-        for my $entry (@dst) {
-            (ref $entry) and $entry = copy_structure($entry);
-        }
-        return \@dst;
-    }
-    elsif (ref $src eq 'HASH') {
-        my %dst = %$src;
-        for my $entry (keys %dst) {
-            (ref($dst{$entry})) and $dst{$entry} = copy_structure($dst{$entry});
-        }
-        return \%dst;
-    }
-    else {
-        errpr meself(1) . "unsupported type" . ref($src) . "\n";
-    }
-}
-
-#
-# supports only object-group type 'network' !!
-#
+# Supports only object-group type 'network', no nested groups.
 sub pix_expand_acl_entry($$$$) {
     my ($self, $ace, $parsed, $acl_name) = @_;
 
     my $groups = $parsed->{OBJECT_GROUP};
     my $replace;
-
+    my @expanded;
     for my $adr ('SRC', 'DST') {
-        if ($ace->{$adr}->{OBJECT_GROUP}) {
-            my $obj_id = $ace->{$adr}->{OBJECT_GROUP};
-            unless ($groups->{$obj_id}) {
-                errpr meself(1), "no group name \'$obj_id\' found\n";
-            }
-            unless ($groups->{$obj_id}->{TYPE} eq 'network') {
+        if (my $obj_id = $ace->{$adr}->{OBJECT_GROUP}) {
+            my $group = $groups->{$obj_id} or
+		errpr meself(1), "no group name '$obj_id' found\n";
+            $group->{TYPE} eq 'network' or
                 errpr meself(1),
-                  "unsupported object type \'$groups->{$obj_id}->{TYPE}\'\n";
-            }
-            for my $network (@{ $groups->{$obj_id}->{NETWORK_OBJECT} }) {
-                push @{ $replace->{$adr} }, $network;
-            }
+                  "unsupported object type '$groups->{$obj_id}->{TYPE}'\n";
+	    push(@{ $replace->{$adr} }, @{ $group->{NETWORK_OBJECT} });
 
             # Remember that group $obj_id is referenced by ACL $acl 
 	    # and vice versa.
@@ -1018,14 +984,11 @@ sub pix_expand_acl_entry($$$$) {
             push @{ $replace->{$adr} }, $ace->{$adr};
         }
     }
-    my @expanded;
     for my $src (@{ $replace->{SRC} }) {
         for my $dst (@{ $replace->{DST} }) {
-            my $copy = copy_structure($ace);
-            $copy->{SRC}->{MASK} = $src->{MASK};
-            $copy->{SRC}->{BASE} = $src->{BASE};
-            $copy->{DST}->{MASK} = $dst->{MASK};
-            $copy->{DST}->{BASE} = $dst->{BASE};
+            my $copy = { %$ace };
+            $copy->{SRC} = $src;
+            $copy->{DST} = $dst;
             $copy->{EXPANDED_FROM} = $ace;
             push @expanded, $copy;
         }
