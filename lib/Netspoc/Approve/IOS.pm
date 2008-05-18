@@ -38,6 +38,100 @@ sub dev_cor ($$) {
 #
 ##########################################
 
+# Parse info with attributes
+# - store: name of attribute where result is stored or
+#   array of names which are used to access sub-hash: {name1}->{name2}->..
+# - named: first argument is name which is used as key when storing result
+# - multi: multiple occurences of this command may occur
+# - parse: description how to parse and store arguments of command
+#   possible values:
+#   - string, used as argumnet for check_regex
+#   - function ref. which parses one or more arguments and returns a value
+#   - array ref with first element is
+#     - string 'seq': multiple parse info hashes are following, 
+#                     all are evaluated
+#     - string 'or': two or more parse info hashes are following,
+#                    they are evaluated until a defined value is returned.
+#   no parse attribute is given, if command has no (further) arguments.
+# - default: take this value if value of parse function was undef or no parse function is given.
+# - subcmd: parse info for subcommands of current command.
+my $cmd_info =
+{ interface =>
+  { store => 'IF',
+    named => 1,
+    subcmd =>
+    { 'ip address' => { 
+	store => 'ADDRESS',
+	parse => ['or', 
+		  { store => 'DYNAMIC', parse => 'negotiated', },
+		  { store => 'BASE', parse => \&check_ip, }, ], },
+      'ip unnumbered' => {
+	  store => ['ADDRESS', 'DYNAMIC'], default => 'unnumbered', },
+      'shutdown' => { 
+	  store => 'SHUTDOWN', default => 1, },
+      'ip access-group' => {
+	  store => 'ACCESS',
+	  parse => \&get_name_in_out, }
+      'ip inspect' => { 
+	  store => 'INSPECT', parse => \&get_token, },
+      'crypto ipsec client ezvpn' => { 
+	  store => ['CRYPTO', 'EZVPN'],
+	  parse => 
+	      ['seq',
+	       { store => 'NAME',
+		 parse => \&get_token, },
+	       { store => 'LOCATION',
+		 parse => \&check_token,
+		 default => 'outside', }, ], },
+      'crypto map' => { 
+	  store => ['CRYPTO', 'MAP'], parse => \&get_token, },
+      'switchport mode' => { 
+	  store => ['SWITCHPORT', 'MODE'], parse => \&get_token, }
+      'switchport access vlan' => {
+	  store => ['SWITCHPORT', 'VLAN'], multi => 1, parse => \&get_token, },
+      'switchport nonegotiate' => {
+	  store => ['SWITCHPORT', 'NONEGOTIATE'], default => 1, },
+    },
+  },
+  'ip route' =>
+  { store => 'ROUTING',
+    parse => ['seq',
+	      { store => 'BASE', parse => \&get_ip, },
+	      { store => 'MASK', parse => \&get_ip, },
+	      { store => 'NIF',  parse => '\w.*', }
+	      { store => 'NEXTHOP', parse => \&check_ip, },
+	      ['or',
+	       { store => 'METRIC', parse => '\d+', },
+	       { store => 'MISC', parse => 'permanent', },
+	       ['seq',
+		{ store => 'MISC', parse => 'track|tag', },
+		{ store => 'MISC_ARG', parse => \&get_token, },],],],
+  },
+  
+	       
+	       
+};
+
+sub get_parse_info {
+    my ($self) = @_;
+    { 'ip route' => ['parse_ip_route', 'ROUTING'],
+      'ip access-list' => ['parse_ip_access_list', 'ACCESS'],
+      'access-list' => ['parse_access_list', 'ACCESS'],
+      'interface' => ['parse_interface_section', 'IF'],
+      'ip inspect' => ['parse_ip_inspect_line', 'INSPECT'],
+      'router ospf' => ['parse_router_ospf', 'OSPF'],
+      'crypto isakmp identity' => ['parse_crypto_isakmp_identity', 
+				   'ISKMP_IDENTITY'],
+      'crypto isakmp policy' => ['parse_crypto_isakmp_policy' 'isakmp_policy'],
+      'crypto ipsec transform set' => ['parse_crypto_ipsec_transform_set', 
+				       'IPSEC_TRANSFORM'],
+      'crypto ipsec client ezvpn' => ['parse_crypto_ipsec_client_ezvpn',
+				      'IPSEC_CLIENT_EZVPN' ],
+      'crypto map' => ['parse_crypto_map', 'CRYPTO_MAP'],
+
+    };
+}
+
 #
 # ip inspect name inspection-name ...
 #
@@ -222,66 +316,64 @@ sub parse_interface_section {
     my $result;
 
     my $name = get_token($arg);
-    my $config = $arg->{sub};
-    for my $cmd (keys %$config) {
-	for my $arg (@{ $config->{$cmd} }) {
-	    if($cmd eq 'ip access-group') {
-		my $name = get_token($arg);
-		my $direction = get_regex('in|out', $arg);
-		if($direction eq 'in') {
-		    $result->{ACCESS} = $name;
-		}
-		else {
-		    $result->{ACCESS_OUT} = $name;
-		}
-	    }
-	    elsif($cmd eq 'ip inspect') {
-		$result->{INSPECT} = get_token($arg);
-	    }
-	    elsif($cmd eq 'shutdown') {
-		$result->{SHUTDOWN} = 1;
-	    }
-	    elsif($cmd eq 'crypto map') {
-		$result->{CRYPTO_MAP} = get_token($arg);
-	    }
-	    elsif($cmd eq 'crypto ipsec') {
-		get_regex('client', $arg);
-		get_regex('ezvpn', $arg);
-		$result->{EZVPN}->{NAME} = get_token($arg);
-		$result->{EZVPN}->{LOCATION} = 
-		    check_token($arg) || 'outside';
-	    }
-	    elsif($cmd eq 'switchport mode') {
-		$result->{SWITCHPORT}->{MODE} = get_token($arg);
-	    }
-	    elsif($cmd eq 'switchport access') {
-		check_regex('vlan', $arg) or next;
-		push(@{ $result->{SWITCHPORT}->{ACCESS_VLAN} }, 
-		      get_token($arg));
-	    }
-	    elsif($cmd eq 'switchport nonegotiate') {
-		$result->{SWITCHPORT}->{NONEGOTIATE} = 1;
-	    }
-	    elsif($cmd eq 'ip address') {
-		if(check_regex('negotiated', $arg)) {
-		    $result->{ADDRESS}->{DYNAMIC} = 'negotiated';
-		}
-		else {
-		    $result->{ADDRESS}->{BASE} = get_ip($arg);
-
-# ToDo: handle secondary IP address
-		}
-	    }
-	    elsif($cmd eq 'ip unnumbered') {
-		$result->{ADDRESS}->{DYNAMIC} = 'unnumbered';
+    for my $arg (@{ $arg->{sub} }) {
+	my $cmd = get_token($arg)
+	if($cmd eq 'ip access-group') {
+	    my $name = get_token($arg);
+	    my $direction = get_regex('in|out', $arg);
+	    if($direction eq 'in') {
+		$result->{ACCESS} = $name;
 	    }
 	    else {
-
-		# Ignore other commands.
-		while(check_token($arg)) {};
+		$result->{ACCESS_OUT} = $name;
 	    }
-	    get_eol($arg);
 	}
+	elsif($cmd eq 'ip inspect') {
+	    $result->{INSPECT} = get_token($arg);
+	}
+	elsif($cmd eq 'shutdown') {
+	    $result->{SHUTDOWN} = 1;
+	}
+	elsif($cmd eq 'crypto map') {
+	    $result->{CRYPTO_MAP} = get_token($arg);
+	}
+	elsif($cmd eq 'crypto ipsec') {
+	    get_regex('client', $arg);
+	    get_regex('ezvpn', $arg);
+	    $result->{EZVPN}->{NAME} = get_token($arg);
+	    $result->{EZVPN}->{LOCATION} = 
+		check_token($arg) || 'outside';
+	}
+	elsif($cmd eq 'switchport mode') {
+	    $result->{SWITCHPORT}->{MODE} = get_token($arg);
+	}
+	elsif($cmd eq 'switchport access') {
+	    check_regex('vlan', $arg) or next;
+	    push(@{ $result->{SWITCHPORT}->{ACCESS_VLAN} }, 
+		 get_token($arg));
+	}
+	elsif($cmd eq 'switchport nonegotiate') {
+	    $result->{SWITCHPORT}->{NONEGOTIATE} = 1;
+	}
+	elsif($cmd eq 'ip address') {
+	    if(check_regex('negotiated', $arg)) {
+		$result->{ADDRESS}->{DYNAMIC} = 'negotiated';
+	    }
+	    else {
+		$result->{ADDRESS}->{BASE} = get_ip($arg);
+
+# ToDo: handle secondary IP address
+	    }
+	}
+	elsif($cmd eq 'ip unnumbered') {
+	    $result->{ADDRESS}->{DYNAMIC} = 'unnumbered';
+	}
+	else {
+
+	    # Ignore other sub-commands.
+	    while(check_token($arg)) {};
+	}
+	get_eol($arg);
     }
     return($result, $name);
 }
@@ -291,189 +383,136 @@ sub parse_router_ospf {
     return 1;
 }
 
-
-sub get_parse_info {
-    my ($self) = @_;
-    { 'ip route' => ['parse_ip_route', 'ROUTING'],
-      'ip access-list' => ['parse_ip_access_list', 'ACCESS'],
-      'access-list' => ['parse_access_list', 'ACCESS'],
-      'interface' => ['parse_interface_section', 'IF'],
-      'ip inspect' => ['parse_ip_inspect_line', 'INSPECT'],
-      'router ospf' => ['parse_router_ospf', 'OSPF'],
-      'crypto' => ['parse_crypto', 'CRYPTO'],
-    };
+# crypto isakmp identity <value>
+# occurs only once, return <vaule>
+sub parse_crypto_isakmp_identity {
+    my ($self, $arg) = @_;
+    return(get_token($arg));
 }
 
-sub parse_crypto_isakmp_policy( $$$ ) {
-    my ($self, $p, $sfile) = @_;
-    while (defined(my $line = shift @$sfile)) {
-        if ($line =~ /^\s*authentication (\S+)/) {
-            $p->{AUTHENTICATION} = $1;
+# crypto isakmp policy <priority>
+#  <subcommands> 
+#  ..
+# return one hash for each priority
+sub parse_crypto_isakmp_policy {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $priority = get_token($arg);
+    for my $arg (@{ $arg->{sub} }) {
+	my $cmd = get_token($arg);
+	if($cmd eq 'authentication') {
+	    $result->{AUTHENTICATION} = get_token($arg);
         }
-        elsif ($line =~ /^\s*(encr|encryption) (\S+)/) {
-            $p->{ENCRYPTION} = $2;
+        elsif ($cmd eq 'encryption'or $cmd eq 'encr') {
+            $p->{ENCRYPTION} = get_token($arg);
         }
-        elsif ($line =~ /^\s*hash (\S+)/) {
-            $p->{HASH} = $1;
+        elsif ($cmd eq 'hash') {
+            $p->{HASH} = get_token($arg);
         }
-        elsif ($line =~ /^\s*group (\d+)/) {
-            $p->{GROUP} = $1;
+        elsif ($cmd eq 'group') {
+            $p->{GROUP} = get_token($arg);
         }
-        elsif ($line =~ /^\s*lifetime (\d+)/) {
-            $p->{LIFETIME} = $1;
+        elsif ($cmd eq 'lifetime') {
+            $p->{LIFETIME} = get_token($arg);
+        }
+	else {
+
+	    # Ignore other sub-commands.
+	    while(check_token($arg)) {};
+	}
+	get_eol($arg);
+    }
+    return($result, $priority);
+}
+
+sub parse_crypto_ipsec_transform_set {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $name = get_token($arg);
+    $result->{T1} = get_token($arg);
+    $result->{T2} = get_token($arg);
+    $result->{T3} = check_token($arg);
+    return($result, $name);
+}
+
+sub parse_crypto_ipsec_client_ezvpn {
+    my ($self, $arg) = @_;
+    my $result;
+
+    my $name = get_token($arg);
+    for my $arg (@{ $arg->{sub} }) {
+	my $cmd = get_token($arg);
+        if ($cmd eq 'acl') {
+            $result->{MATCH_ACL} = get_token($arg);
+        }
+        elsif ($cmd eq 'peer') {
+            $result->{PEER} = get_ip($arg);;
+        }
+        elsif ($cmd eq'connect') {
+            $result->{CONNECT} = get_token($arg);
+        }
+        elsif ($cmd eq 'mode') {
+            $result->{MODE} = get_token($arg);
+        }
+        elsif ($cmd eq 'virtual-interface') {
+            $result->{V_INTERFACE} = 'Virtual-Template' . get_int($arg);
         }
         else {
-            unshift @$sfile, $line;
-            last;
+            mypr " Ignoring ezvpn parameter: $cmd\n";
+	    while(check_token($arg)) {};
         }
     }
+    return($result, $name);
 }
 
-sub parse_crypto_ipsec_client_ezvpn ( $$$ ) {
-    my ($self, $p, $sfile) = @_;
-    while (defined(my $line = shift @$sfile)) {
-        if ($line =~ /^\s*acl (\S+)/) {
-            $p->{MATCH_ACL}->{NAME} = $1;
-        }
+# crypto map <name> <seq> ipsec-isakmp
+#  <sub commands>
+#
+# Result: Add multiple values to named crypto map.
+sub parse_crypto_map {
+    my ($self, $arg) = @_;
+    my $result;
 
-        #elsif($line  =~ /^\s*set ip access-group (\S+) (in|out)/){
-        #    if($2 eq 'in'){
-        #	$p->{ACCESS_GROUP_IN}->{NAME} = $1;
-        #    }
-        #    else{
-        #	$p->{ACCESS_GROUP_OUT}->{NAME} = $1;
-        #    }
-        #}
-        elsif ($line =~ /^\s*peer (\S+)/) {
-            my $ip = quad2int($1);
-            $ip or die "Could not parse peer address: $line\n";
-            $p->{PEER}->{$1} = $ip;
-        }
-        elsif ($line =~ /^\s*connect (\S+)/o) {
-            $p->{CONNECT} = $1;
-        }
-        elsif ($line =~ /^\s*mode (\S+)/) {
-            $p->{MODE} = $1;
-        }
-        elsif ($line =~ /^\s*virtual-interface (\d)/) {
-            $p->{V_INTERFACE} = "Virtual-Template$1";
-        }
-        elsif ($line =~ /^\s*(username|xauth)(.*)/) {
-            mypr " Ignoring ezvpn parameter: $1$2\n";
-        }
-        else {
-            unshift @$sfile, $line;
-            last;
-        }
-    }
-}
-
-sub parse_crypto_map_ipsec_isakmp( $$ ) {
-    my ($self, $p, $sfile) = @_;
-    while (defined(my $line = shift @$sfile)) {
-        if ($line =~ /^\s*match address (\S+)/) {
-            $p->{MATCH_ADDRESS}->{NAME} = $1;
-        }
-        elsif ($line =~ /^\s*set ip access-group (\S+) (in|out)/) {
-            if ($2 eq 'in') {
-                $p->{ACCESS_GROUP_IN}->{NAME} = $1;
+    $result->{name} = get_token($arg);
+    $result->{SEQU} = get_int($arg);
+    $result->{TYPE} = get_regex('ipsec-isakmp', $arg);
+    for my $arg (@{ $arg->{sub} }) {
+	my $cmd = get_token($arg);
+	if($cmd eq 'match address') {
+	    $result->{MATCH_ADDRESS} = get_token($arg);
+	}
+	elsif($cmd eq 'set ip access-group') {
+	    my $name = get_token($arg);
+	    if(get_regex('in|out'; $arg) eq 'in') {
+		$result->{ACCESS_GROUP_IN} = $name;
+	    }
+	    else {
+                $result->{ACCESS_GROUP_OUT} = $name;
             }
-            else {
-                $p->{ACCESS_GROUP_OUT}->{NAME} = $1;
-            }
         }
-        elsif ($line =~ /^\s*set peer (\S+)/) {
-            my $ip = quad2int($1);
-            $ip or die "Could not parse peer address: $line\n";
-            $p->{PEER}->{$1} = $ip;
+        elsif ($cmd eq 'set peer') {
+            my $ip = get_ip($arg);
+            push @{$result->{PEER}}, $ip;
         }
-        elsif ($line =~
-            /^\s*set security-association lifetime (seconds|kilobytes) (\d+)/o)
-        {
-            $p->{SECURITY_ASSOCIATION_LIFETIME}->{UNIT} = $1;
-            $p->{SECURITY_ASSOCIATION_LIFETIME}->{VAL}  = $2;
+        elsif ($cmd eq 'set security-association lifetime') {
+	    my $unit = get_regex('seconds|kilobytes');
+	    my $value = get_int($arg);
+            $result->{SECURITY_ASSOCIATION_LIFETIME}->{$unit} = $value;
         }
-        elsif ($line =~ /^\s*set transform-set (\S+)/) {
-            $p->{TRANSFORM_SET}->{NAME} = $1;
+        elsif ($cmd eq 'set transform-set') {
+            $result->{TRANSFORM_SET} = get_token($arg);
         }
-        elsif ($line =~ /^\s*set pfs (\S+)/) {
-            $p->{PFS} = $1;
+        elsif ($cmd eq 'set pfs') {
+            $result->{PFS} = get_token($arg);
         }
         else {
-            unshift @$sfile, $line;
-            last;
+            mypr " Ignoring crypto map parameter: $cmd\n";
+	    while(check_token($arg)) {};
         }
     }
-}
-
-sub parse_crypto ( $$$ ) {
-    my ($self, $p, $sfile) = @_;
-    my $length = scalar @$sfile;
-    while (defined(my $line = shift @$sfile)) {
-
-        #if($line =~ /^\s*crypto isakmp identity (\S+)/o){
-        #    my $identity = $1;
-        #    if($identity =~ /\Aaddress|hostname\Z/o){
-        #	$p->{CRYPTO}->{ISAKMP}->{IDENTITY} = $identity;
-        #    }
-        #    else{
-        #	mypr "unknown crypto isakmp identity: \'$identity\'\n";
-        #	return 0;
-        #    }
-        #}
-        #els
-        if ($line =~ /^\s*crypto isakmp policy (\S+)/o) {
-            my $priority = $1;
-            $p->{CRYPTO}->{ISAKMP}->{POLICY}->{$priority} = {};
-            my $policy = $p->{CRYPTO}->{ISAKMP}->{POLICY}->{$priority};
-            $policy->{PRIORITY} = $priority;
-            $self->parse_crypto_isakmp_policy($policy, $sfile);
-        }
-        elsif ($line =~
-            /^\s*crypto ipsec transform-set (\S+) (\S+) (\S+)( (\S+))?/o)
-        {
-            $p->{CRYPTO}->{IPSEC}->{TRANSFORM_SET}->{$1} = {};
-            my $tr = $p->{CRYPTO}->{IPSEC}->{TRANSFORM_SET}->{$1};
-            $tr->{NAME} = $1;
-            $tr->{T1}   = $2;
-            $tr->{T2}   = $3;
-            $5 and $tr->{T3} = $5;
-        }
-        elsif ($line =~ /^\s*crypto ipsec client ezvpn (\S+)/o) {
-            $p->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}->{$1} = {};
-            my $ez = $p->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}->{$1};
-            $ez->{NAME} = $1;
-            $ez->{ATTR} = {};
-            $self->parse_crypto_ipsec_client_ezvpn($ez->{ATTR}, $sfile);
-        }
-
-        #elsif($line =~ /^\s*crypto ipsec security-association lifetime (seconds|kilobytes) (\d+)/o){
-        #   $p->{CRYPTO}->{IPSEC}->{SECURITY_ASSOCIATION_LIFETIME}->{$1} = $2;
-        #}
-        elsif ($line =~ /^\s*crypto map (\S+) (\d+) (ipsec-isakmp)/o) {
-            my ($name, $sequ, $type) = ($1, $2, $3);
-            exists $p->{CRYPTO}->{MAP}->{$name}->{INSTANCES}->{$sequ}
-              or $p->{CRYPTO}->{MAP}->{$name}->{INSTANCES}->{$sequ} = {};
-            my $map = $p->{CRYPTO}->{MAP}->{$name}->{INSTANCES}->{$sequ};
-            $map->{NAME} = $name;
-            $map->{SEQU} = $sequ;
-            $map->{TYPE} = $type;
-            $map->{ATTR} = {};
-            $self->parse_crypto_map_ipsec_isakmp($map->{ATTR}, $sfile);
-        }
-        else {
-            unshift @$sfile, $line;
-            last;
-        }
-    }
-    if (scalar @$sfile < $length) {
-        return 1;
-    }
-    else {
-
-        # nothing found
-        return 0;
-    }
+    return($result, $name, 'push');
 }
 
 # checking, binding  and info printing of parsed crypto config
@@ -482,36 +521,35 @@ sub postprocess_config( $$ ) {
     mypr meself(1) . "*** begin ***\n";
     my $crypto_map_found   = 0;
     my $ezvpn_client_found = 0;
-    for my $intf (keys %{ $p->{IF} }) {
-        if (exists $p->{IF}->{$intf}->{CRYPTO_MAP}) {
+    my %map2intf;
+    for my $intf (values %{ $p->{IF} }) {
+        if (my $imap = $intf->{CRYPTO_MAP}) {
             $crypto_map_found = 1;
-            my $imap = $p->{IF}->{$intf}->{CRYPTO_MAP};
-            if (exists $p->{CRYPTO}->{MAP}->{$imap}) {
+            if (my $map = $p->{CRYPTO_MAP}->{$imap}) {
 
-                # bind interface to crypto map
-                push @{ $p->{CRYPTO}->{MAP}->{$imap}->{BOUND_TO_IF} }, $intf;
-                mypr " crypto map \'$imap\' bound to interface \'$intf\'\n";
+                # Bind interface to crypto map.
+                push @{ $map->{BOUND_TO_IF} }, $intf->{name};
+                mypr " crypto map '$imap' bound to interface '$intf->{name}'\n";
             }
             else {
-                errpr
-                  "No definition for crypto map $imap at interface $intf  found\n";
+                errpr "No definition found for crypto map '$imap' at"
+		    . " interface '$intf->{name}'\n";
                 return 0;
             }
         }
-        elsif (exists $p->{IF}->{$intf}->{EZVPN}) {
+        elsif ($intf->{EZVPN}) {
             $ezvpn_client_found = 1;
-            my $ezvpn = $p->{IF}->{$intf}->{EZVPN}->{NAME};
-            if (exists $p->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}->{$ezvpn}) {
+            my $ezvpn = $intf->{EZVPN}->{NAME};
+            if (my $def = $p->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}->{$ezvpn}) {
 
                 # bind interface to ezvpn
-                push @{ $p->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}->{$ezvpn}
-                      ->{BOUND_TO_IF} }, $intf;
-                mypr
-                  " crypto ipsec client \'$ezvpn\' bound to interface \'$intf\'\n";
+                push @{ $def->{BOUND_TO_IF} }, $intf->{name};
+                mypr " crypto ipsec client '$ezvpn' bound to"
+		    . " interface '$intf->{name}'\n";
             }
             else {
-                errpr
-                  "No definition for ezvpn client $ezvpn at interface $intf  found\n";
+                errpr "No definition for ezvpn client '$ezvpn' at"
+		    . " interface '$intf->{name}' found\n";
                 return 0;
             }
         }
@@ -663,147 +701,18 @@ sub get_config_from_device( $ ) {
     return (\@conf);
 }
 
-############################################################
-#
-# END parsing
-#
-############################################################
+##############################################################
+# rawdata processing
+##############################################################
+sub merge_rawdata {
+    my ($self, $spoc_conf, $raw_conf) = @_;
 
-###########################################
-#
-# BEGIN RAW processing
-#
-###########################################
-sub process_rawdata( $$$ ) {
-    my ($self, $pspoc, $epilog) = @_;
-    my $epilogacl;
-    my $spocacl;
-    ### helper ###
-    my $sec_time = time();    # for status info timestamps
-    my $check    = sub {
-        my ($intf, $epi) = @_;
-        unless (exists $epi->{IF}->{$intf}->{ACCESS}) {
-            mypr " - no acl in raw data -\n";
-            return 0;
-        }
+    $self->SUPER::merge_rawdata($spoc_conf, $raw_conf);
 
-        # there is an epilog acl for this interface
-        my $ep_name = $epi->{IF}->{$intf}->{ACCESS};
-
-## It is sufficient to check for spoc-interface below.
-#
-#	unless(exists $conf->{IF}->{$intf}){
-#	    errpr "rawdata: interface not found on device: $intf\n";
-#	    exit -1;
-#	}
-
-        # the interface exists on the device
-        my $sp_name;
-        exists $pspoc->{IF}->{$intf}
-          or die "rawdata: $intf not found in spocfile\n";
-        unless (exists $pspoc->{IF}->{$intf}->{ACCESS}) {
-            warnpr "rawdata: no spocacl for interface: $intf\n";
-            return 0;
-        }
-
-        # there is a corresponding acl in the spocfile
-        $sp_name = $pspoc->{IF}->{$intf}->{ACCESS};
-        unless (exists $epi->{ACCESS}->{$ep_name}) {
-            errpr
-              "rawdata: no matching raw acl found for name $ep_name in interface definition\n";
-            exit -1;
-        }
-        $epilogacl = $epi->{ACCESS}->{$ep_name};
-        $spocacl   = $pspoc->{ACCESS}->{$sp_name};
-        return 1;
-    };
-    if (scalar @{$epilog}) {
-
-        # *** PARSE RAWDATA ***
-        my $epilog_conf = $self->parse_device($epilog);
-        mypr "--- raw processing\n";
-        for my $intf (keys %{ $epilog_conf->{IF} }) {
-            mypr " interface: $intf\n";
-            &$check($intf, $epilog_conf) or next;
-
-            # _prepend_
-            my @remove = ();
-            for (my $i = 0 ; $i < scalar @$spocacl ; $i++) {
-                for my $epi (@$epilogacl) {
-                    if ($self->acl_line_a_eq_b($epi, $spocacl->[$i])) {
-                        warnpr "RAW: double ACE \'"
-                          . $self->acl_line_to_string($spocacl->[$i])
-                          . "\' scheduled for remove from spocacl.\n";
-                        push @remove, $i;
-                    }
-                }
-            }
-            for my $r (reverse sort @remove) {
-                splice @$spocacl, $r, 1;
-            }
-            for (my $i = scalar @{$epilogacl} - 1 ; $i >= 0 ; $i--) {
-                unshift @{$spocacl}, $$epilogacl[$i];
-            }
-            mypr "   entries prepended: " . scalar @{$epilogacl} . "\n";
-
-# Attribute STD_ACCESS isn't used anywere.
-#	    $cnob->{IF}->{$intf}->{STD_ACCESS} = $epilogacl;
-#	    $cnob->{MIGRATE_STATUS}->{"STD ACL TRANS:: $intf"} =
-#		scalar @{$cnob->{IF}->{$intf}->{STD_ACCESS}};
-#	     $active_std_interfaces = $active_std_interfaces." $intf";
-        }
-
-#	$cnob->{MIGRATE_STATUS}->{"STD INTERFACES"} = $active_std_interfaces;
-        ### ROUTE PROCESSING STD ###
-        if (defined $pspoc->{ROUTING}) {
-            my $newroutes = ();
-          SPOC: for (my $i = 0 ; $i < scalar @{ $pspoc->{ROUTING} } ; $i++) {
-                my $se = $pspoc->{ROUTING}->[$i];
-                for my $re (@{ $epilog_conf->{ROUTING} }) {
-                    if ($self->route_line_a_eq_b($se, $re)) {
-                        warnpr "RAW: double RE \'"
-                          . $self->route_line_to_string($re)
-                          . "\' scheduled for remove from spocconf.\n";
-                        next SPOC;
-                    }
-                    elsif ( $re->{BASE} eq $se->{BASE}
-                        and $re->{MASK} eq $se->{MASK})
-                    {
-                        warnpr
-                          "RAW: inconsistent NEXT HOP in routing entries:\n";
-                        warnpr "     spoc: "
-                          . $self->route_line_to_string($se)
-                          . " (scheduled for remove)\n";
-                        warnpr "     raw:  "
-                          . $self->route_line_to_string($re) . "\n";
-                        next SPOC;
-                    }
-                }
-                push @{$newroutes}, $se;
-            }
-            $pspoc->{ROUTING} = $newroutes;
-        }
-        for my $re (@{ $epilog_conf->{ROUTING} }) {
-            push @{ $pspoc->{ROUTING} }, $re;
-        }
-        mypr " attached routing entries: "
-          . scalar @{ $epilog_conf->{ROUTING} } . "\n";
-
-# Attribute STD_ROUTING isn't used anywere.
-#	$cnob->{STD_ROUTING} = $epilog_conf->{ROUTING};
-
-    }
-    else {
-        mypr "--- raw processing: nothing to do\n";
-    }
-    mypr "--- raw processing: done\n";
-    return 1;
+    # Access-list processing.
+    $self->merge_acls($spoc_conf, $raw_conf);
 }
-###########################################
-#
-# END RAW processing
-#
-###########################################
+
 
 ##############################################################
 # issue command
@@ -847,28 +756,26 @@ sub checkinterfaces($$) {
     mypr " === check for unknown or missconfigured interfaces at device ===\n";
     my $ports_in_vlan_1 = 0;
     my $check_vlan1     = 1;
-    for my $intf (sort keys %{ $devconf->{IF} }) {
-        next if ($devconf->{IF}->{$intf}->{SHUTDOWN} == 1);
-        next if ($intf eq 'Null0');
+    for my $intf (values %{ $devconf->{IF} }) {
+	my $name = $intf->{name};
+        next if ($intf->{SHUTDOWN});
+        next if ($intf->{name} eq 'Null0');
         next
-          if (  exists $devconf->{IF}->{$intf}->{SWITCHPORT}
-            and exists $devconf->{IF}->{$intf}->{SWITCHPORT}->{MODE}
-            and $devconf->{IF}->{$intf}->{SWITCHPORT}->{MODE} eq "trunk");
-        if (exists $spocconf->{IF}->{$intf}) {
-            if (exists $devconf->{IF}->{$intf}->{ADDRESS}) {
-                if (exists $devconf->{IF}->{$intf}->{ADDRESS}->{BASE}) {
-                    mypr "$intf ip: "
-                      . int2quad($devconf->{IF}->{$intf}->{ADDRESS}->{BASE})
-                      . "\n";
+          if (  $intf->{SWITCHPORT}
+            and $intf->{SWITCHPORT}->{MODE}
+            and $intf->{SWITCHPORT}->{MODE} eq "trunk");
+        if (my $spoc_intf = $spocconf->{IF}->{$name}) {
+            if (my $addr = $spoc_intf->{ADDRESS}) {
+                if (my $base = $addr->{BASE}) {
+                    mypr "$name ip: " . int2quad($base) . "\n";
                 }
-                elsif (exists $devconf->{IF}->{$intf}->{ADDRESS}->{DYNAMIC}) {
-                    mypr
-                      "$intf ip: $devconf->{IF}->{$intf}->{ADDRESS}->{DYNAMIC}\n";
+                elsif (my $dynamic = $addr->{DYNAMIC}) {
+                    mypr "$name ip: $dynamic\n";
                 }
             }
             else {
                 warnpr
-                  "$intf: no address found at netspoc configured interface\n";
+                  "$name: no address found at netspoc configured interface\n";
             }
             next;
         }
@@ -876,64 +783,58 @@ sub checkinterfaces($$) {
         #
         # interface name *not* known by netspoc!
         #
-        if (exists $devconf->{IF}->{$intf}->{ADDRESS}) {
-            if (exists $devconf->{IF}->{$intf}->{ADDRESS}->{BASE}) {
-                warnpr "unknown interface $intf with ip: "
-                  . int2quad($devconf->{IF}->{$intf}->{ADDRESS}->{BASE})
-                  . " detected!\n";
+        if (my $addr = $intf->{ADDRESS}) {
+            if (my $base = $addr->{BASE}) {
+                warnpr "unknown interface $name with ip: "
+                  . int2quad($base) . " detected!\n";
             }
-            elsif (exists $devconf->{IF}->{$intf}->{ADDRESS}->{DYNAMIC}) {
-                warnpr
-                  "unknown interface $intf with ip: $devconf->{IF}->{$intf}->{ADDRESS}->{DYNAMIC}\n";
+            elsif (my $dynamic = $addr->{DYNAMIC}) {
+                warnpr "unknown interface $name with ip: $dynamic\n";
             }
             next;
         }
 
         # check known harmless interfaces
-        if (   $intf =~ /\ABRI\d+/
-            or $intf =~ /\ALoopback\d+/
-            or $intf =~ /\AVlan\d+/
-            or $intf =~ /\AATM\d+/)
-        {
-            mypr "$intf without ip detected - OK\n";
+        if ($name =~ /^(BRI|Loopback|Vlan|ATM)\d+$/) {
+            mypr "$name without ip detected - OK\n";
             next;
         }
 
         # the interface has to be bound to a vlan!
-        if (!exists $devconf->{IF}->{$intf}->{SWITCHPORT}) {
+        if (not $intf->{SWITCHPORT}) {
 
-            #Ethernet without vlan def located in vlan1 as default!
-            push @{ $devconf->{IF}->{$intf}->{SWITCHPORT}->{ACCESS_VLAN} }, 1;
-            mypr "$intf assigned to vlan1 for further checking\n";
+            # Ethernet without vlan def located in vlan1 as default!
+            push @{ $intf->{SWITCHPORT}->{ACCESS_VLAN} }, 1;
+            mypr "$name assigned to vlan1 for further checks\n";
         }
-        my $switchportconf = $devconf->{IF}->{$intf}->{SWITCHPORT};
+        my $switchportconf = $intf->{SWITCHPORT};
+	my $mode = $switchportconf->{MODE};
+	my $access_vlan = $switchportconf->{ACCESS_VLAN};
 
-        # Some ios routers have switchport modules with slightly differnet config:
+        # Some IOS routers have switchport modules with slightly different config:
         #
         # no 'nonegotiate' command
         # no 'switchport mode' entry in access mode  for WIC Switch-Modules
         #
-        if ($self->{HARDWARE} =~ /831|836|1721|1712|1812|2801|2811/) {
+        if ($self->{HARDWARE} =~ /^(831|836|1721|1712|1812|2801|2811)$/) {
 
-            # vlan1 checking only necessary for *real* switches due to produktion
-            # vonventions in dataport silan
+            # vlan1 checking only necessary for *real* switches due to
+            # conventions in dataport silan
             $check_vlan1 = 0;
         }
         else {
-            if (!exists $switchportconf->{MODE}) {
-                errpr "missing switchport mode config at interface $intf\n";
+            if (not $mode) {
+                errpr "missing switchport mode config at interface $name\n";
             }
-            elsif ( $switchportconf->{MODE} ne "access"
-                and $switchportconf->{MODE} ne "trunk")
-            {
-                errpr "$intf wrong switchport mode: $switchportconf->{MODE}\n";
-                errpr " only \'access\' and \'trunk\' allowed\n";
+            elsif ( $mode ne "access" and $mode ne "trunk") {
+                errpr "$name wrong switchport mode: $mode\n";
+                errpr " only 'access' and 'trunk' allowed\n";
             }
             else {
-                mypr "$intf switchport mode: $switchportconf->{MODE}\n";
+                mypr "$name switchport mode: $mode\n";
             }
             if (!$switchportconf->{NONEGOTIATE}) {
-                errpr "missing \'switchport nonegotiate\' at interface $intf\n";
+                errpr "missing 'switchport nonegotiate' at interface $name\n";
             }
         }
 
@@ -941,20 +842,17 @@ sub checkinterfaces($$) {
         #
         # TODO: check trunks
         #
-        if (   $switchportconf->{MODE} and $switchportconf->{MODE} eq "access"
-            or $switchportconf->{ACCESS_VLAN})
-        {
-            if (!exists $switchportconf->{ACCESS_VLAN}) {
+        if ($mode and $mode eq "access" or $access_vlan) {
+            if (not $access_vlan) {
                 $ports_in_vlan_1++;
             }
-            elsif (scalar @{ $switchportconf->{ACCESS_VLAN} } > 1) {
-                errpr "$intf: member of more than 1 vlan ("
-                  . scalar @{ $switchportconf->{ACCESS_VLAN} }
-                  . ") - forbidden!\n";
+            elsif (@$access_vlan  > 1) {
+                errpr "$name: member of more than one vlan ("
+                  . scalar @$access_vlan. ") - forbidden!\n";
             }
-            for my $vlan (@{ $switchportconf->{ACCESS_VLAN} }) {
+            for my $vlan (@$access_vlan) {
                 if ($vlan eq 99) {
-                    errpr "active interface $intf at vlan 99 - forbidden!\n";
+                    errpr "active interface $name at vlan 99 - forbidden!\n";
                 }
                 if ($vlan eq 1) {
                     $ports_in_vlan_1++;
@@ -963,8 +861,8 @@ sub checkinterfaces($$) {
         }
     }
     if ($ports_in_vlan_1 > 1 and $check_vlan1) {
-        for my $intf (sort keys %{ $devconf->{IF} }) {
-            if ($intf =~ /vlan1\Z/i) {
+        for my $name (keys %{ $devconf->{IF} }) {
+            if ($name =~ /vlan1\Z/i) {
                 errpr
                   "Admin Vlan(1) has $ports_in_vlan_1 switchports - only 1 allowed\n";
             }
@@ -975,8 +873,8 @@ sub checkinterfaces($$) {
 
 sub check_firewall ( $$ ) {
     my ($self, $conf) = @_;
-    for my $interface (keys %{ $conf->{IF} }) {
-        if (exists $conf->{IF}->{$interface}->{INSPECT}) {
+    for my $interface (values %{ $conf->{IF} }) {
+        if (exists $interface->{INSPECT}) {
             errpr "CBAC detected at $interface for non-Firewall-Router\n";
         }
     }
@@ -1046,14 +944,14 @@ sub write_mem( $$$ ) {
     my ($self, $retries, $seconds) = @_;
     mypr "writing config to nvram\n";
     my @output;
-    my $written = "NO";
+    my $written = 0;
     my $tries   = 0;
-    while ($written ne "YES") {
+    while (not $written) {
         @output = $self->shcmd('write memory') or exit -1;
         $tries++;
         if ($output[0] =~ /Building configuration/) {
             mypr "seems ok\n";
-            $written = "YES";
+            $written = 1;
         }
         elsif ($output[0] =~ /startup-config file open failed/i) {
             if ($tries > $retries) {
@@ -1092,7 +990,7 @@ sub compare_ram_with_nvram( $ ) {
     mypr "... done\n";
 
     # *** COMPARE ***
-    my $compare_run   = "NO";
+    my $compare_run   = 0;
     my $startup_index = 0;
     my @startup_certs = ();
     my @running_certs = ();
@@ -1104,9 +1002,9 @@ sub compare_ram_with_nvram( $ ) {
     }
     for my $line (@conf) {
         if ($line =~ /version/i) {
-            $compare_run = "YES";
+            $compare_run = 1;
         }
-        next if ($compare_run ne "YES");
+        next if (not $compare_run);
 
         # ignore patterns in running config
         if (
@@ -1256,249 +1154,62 @@ sub cancel_reload ( $ ) {
         }
     }
 }
-##################################
-###   ios master helpers
-##################################
-sub verbose_acl_equal( $$$$$$$ ) {
 
-    # calling rule: a should be spoc (new) acl
-    #               b should be conf (old) acl
-    my ($self, $a_acl, $b_acl, $a_name, $b_name, $context, $verbose) = @_;
-    my $diff = 0;
-    mypr "compare ACLs $a_name $b_name for $context\n";
-    ### textual compare
-    if (scalar @{$a_acl} == scalar @{$b_acl}) {
-        mypr "length equal: ", scalar @{$a_acl}, "\n";
-        mypr "compare line by line: ";
-        for (my $i = 0 ; $i < scalar @{$a_acl} ; $i++) {
-
-            #mypr " ",$i+1;
-            if ($self->acl_line_a_eq_b($$a_acl[$i], $$b_acl[$i])) {
-                next;
-            }
-            else {
-
-                # acls differ
-                mypr " diff at ", $i + 1;
-                $diff = 1;
-                last;
-            }
-        }
-        mypr "\n";
-    }
-    else {
-        $diff = 1;
-        mypr "lenght differ: C "
-          . scalar @{$b_acl} . " S "
-          . scalar @{$a_acl} . "\n";
-    }
-    ### textual compare finished
-    if (!$diff) {
-        mypr "acl's textual identical!\n";
-    }
-    else {
-        my $newinold;
-        my $oldinnew;
-        mypr "acl's differ textualy!\n";
-        mypr "begin semantic compare:\n";
-        if ($verbose eq 4) {
-            $newinold =
-              $self->acl_array_compare_a_in_b($a_acl, $b_acl, $verbose);
-            $oldinnew =
-              $self->acl_array_compare_a_in_b($b_acl, $a_acl, $verbose);
-        }
-        else {
-            mypr "#### BEGIN NEW in OLD - $context\n";
-            mypr "#### $a_name in $b_name\n";
-            $newinold =
-              $self->acl_array_compare_a_in_b($a_acl, $b_acl, $verbose);
-            mypr "#### END   NEW in OLD - $context\n";
-            mypr "#### BEGIN OLD in NEW - $context\n";
-            mypr "#### $b_name in $a_name\n";
-            $oldinnew =
-              $self->acl_array_compare_a_in_b($b_acl, $a_acl, $verbose);
-            mypr "#### END   OLD in NEW - $context\n";
-        }
-        if ($newinold and $oldinnew) {
-            $diff = 0;
-            mypr "#### ACLs equal #### \n";
-        }
-        else {
-            mypr "acl's differ semanticaly!\n";
-        }
-    }
-
-    # return 1 iff equal:
-    return !$diff;
-}
-
-sub compare_interface_acls ( $$$$ ) {
-
-    #
-    # check for existence of (spoc)interface on device
-    # and check for textual identical acls
-    #
-    my ($self, $pspoc, $conf, $mode) = @_;
+#
+# check for existence of (spoc)interface on device
+# and check for textual identical acls
+#
+sub compare_interface_acls {
+    my ($self, $spoc_conf, $conf) = @_;
 
     mypr "===== compare (incoming) acls =====\n";
-    for my $if (keys %{ $pspoc->{IF} }) {
-        $pspoc->{IF}->{$if}->{TRANSFER} = '';
-        unless (exists $pspoc->{IF}->{$if}->{ACCESS}) {
-            warnpr "no spoc-acl for interface $if\n";
+    for my $intf (values %{ $spoc_conf->{IF} }) {
+	my $name = $intf->{name};
+        unless ($intf->{ACCESS}) {
+            warnpr "no spoc-acl for interface $name\n";
             next;
         }
 
         # there *is* an access-list
-        unless (exists $conf->{IF}->{$if}) {
-            errpr "interface not found on device: $if\n";
+        my $conf_intf = $conf->{IF}->{$name};
+	if(not $conf_intf) {
+            errpr "interface not found on device: $name\n";
             next;
         }
-        ##############################
-        # FORCE TRANSFER MODUS
-        ##############################
-        if ($mode eq 'FORCE') {
-            $pspoc->{IF}->{$if}->{TRANSFER} = 'YES';
-            warnpr "Interface $if: transfer of ACL forced!\n";
+        if ($self->{FORCE_TRANSFER}) {
+            $intf->{TRANSFER} = 1;
+            warnpr "Interface $name: transfer of ACL forced!\n";
             next;
         }
-        ##############################
-        my $sa_name = $pspoc->{IF}->{$if}->{ACCESS};
+        my $sa_name = $intf->{ACCESS};
         my $ca_name;
-        if (exists $conf->{IF}->{$if}->{ACCESS}) {
-            $ca_name = $conf->{IF}->{$if}->{ACCESS};
-            if (exists $conf->{ACCESS}->{$ca_name}) {
-                mypr "at interface $if - spoc: $sa_name <-> actual: $ca_name\n";
+        if (my $ca_name = $conf_intf->{ACCESS}) {
+            if ($conf->{ACCESS}->{$ca_name}) {
+                mypr "at interface $name - spoc: $sa_name <-> actual: $ca_name\n";
             }
             else {
-                $pspoc->{IF}->{$if}->{TRANSFER} = 'YES';
+                $intf->{TRANSFER} = 1;
                 warnpr "acl $ca_name does not exist on device!\n";
                 next;
             }
         }
         else {
-            $pspoc->{IF}->{$if}->{TRANSFER} = 'YES';
-            warnpr "no incoming acls found at interface $if\n";
+            $intf->{TRANSFER} = 1;
+            warnpr "no incoming acl found at interface $name\n";
             next;
         }
-        if (
-            $self->verbose_acl_equal(
-                $pspoc->{ACCESS}->{$sa_name},
+        if (not 
+            $self->acl_equal(
+                $spoc_conf->{ACCESS}->{$sa_name},
                 $conf->{ACCESS}->{$ca_name},
-                $sa_name, $ca_name, "interface $if", $mode
+                $sa_name, $ca_name, "interface $name"
             )
           )
         {
-            $pspoc->{IF}->{$if}->{TRANSFER} = "NO";
-        }
-        else {
-            $pspoc->{IF}->{$if}->{TRANSFER} = 'YES';
+            $intf->{TRANSFER} = 1;
         }
     }
     mypr "===== done ====\n";
-}
-
-sub process_routing ( $$$ ) {
-    my ($self, $conf, $pspoc) = @_;
-    if ($pspoc->{ROUTING} and scalar @{ $pspoc->{ROUTING} }) {
-        my $counter;
-        if (!$conf->{ROUTING}
-            or $conf->{ROUTING} and !scalar(@{ $conf->{ROUTING} }))
-        {
-            if (!$conf->{OSPF}) {
-                errpr "ERROR: no routing entries found on device\n";
-                return 0;
-            }
-            else {
-                mypr "no routing entries found on device - but OSPF found...\n";
-
-                # generate emty routing config for device:
-                @{ $conf->{ROUTING} } = ();
-            }
-        }
-        mypr "==== compare routing information ====\n\n";
-        mypr " routing entries on device:    ", scalar @{ $conf->{ROUTING} },
-          "\n";
-        mypr " routing entries from netspoc: ", scalar @{ $pspoc->{ROUTING} },
-          "\n";
-        for my $c (@{ $conf->{ROUTING} }) {    # from device
-            $counter++;
-            unless ($self->{COMPARE}) {
-                mypr " $counter";
-            }
-            for my $s (@{ $pspoc->{ROUTING} }) {    # from netspoc
-                ($s) or next;
-                if ($self->route_line_a_eq_b($c, $s)) {
-                    $c->{DELETE} = $s->{DELETE} = 1;
-                    last;
-                }
-            }
-        }
-        mypr "\n";
-        unless ($self->{COMPARE}) {
-
-            #
-            # *** SCHEDULE RELOAD ***
-            #
-            # TODO: check if 10 minutes are OK
-            #
-            $self->schedule_reload(10);
-
-            # transfer to device
-            $self->cmd('configure terminal') or exit -1;
-            mypr "transfer routing entries to device:\n";
-            $counter = 0;
-            for my $r (@{ $pspoc->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                $self->cmd($self->route_line_to_string($r)) or exit -1;
-                mypr " $counter";
-            }
-            mypr " $counter";
-            mypr "\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-            mypr "deleting non matching routing entries from device\n";
-            $counter = 0;
-            for my $r (@{ $conf->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                my $tr = join ' ', "no", $self->route_line_to_string($r);
-                $self->cmd($tr) or exit -1;
-                mypr " $counter";
-            }
-            mypr " $counter";
-            mypr "\n";
-            $self->cmd('end') or exit -1;
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-            $self->cancel_reload();
-        }
-        else {
-
-            # show compare results
-            mypr "non matching routing entries on device:\n";
-            $counter = 0;
-            for my $r (@{ $conf->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                mypr $self->route_line_to_string($r), "\n";
-            }
-            mypr "total: ", $counter, "\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-            mypr "additional routing entries from spoc:\n";
-            $counter = 0;
-            for my $r (@{ $pspoc->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                mypr $self->route_line_to_string($r), "\n";
-            }
-            mypr "total: ", $counter, "\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-        }
-        mypr "==== done ====\n";
-    }
-    else {
-        mypr "no routing entries specified - leaving routes untouched\n";
-    }
-    return 1;
 }
 
 sub append_acl_entries( $$$ ) {
@@ -1554,7 +1265,7 @@ sub remove_acl_entries( $$$ ) {
 # *** access-lists processing ***
 #
 sub process_interface_acls ( $$$ ) {
-    my ($self, $conf, $pspoc) = @_;
+    my ($self, $conf, $spoc_conf) = @_;
     mypr "======================================================\n";
     mypr "establish new acls for device\n";
     mypr "======================================================\n";
@@ -1568,14 +1279,10 @@ sub process_interface_acls ( $$$ ) {
     # because the spoc-name may change unexpected drc.pl scans for "-DRC-x" to
     # identify spoc-related acls
     #
-    for my $if (keys %{ $pspoc->{IF} }) {
-        (exists($pspoc->{IF}->{$if}->{ACCESS})
-              and $pspoc->{IF}->{$if}->{TRANSFER} eq "YES")
-          or next;
-        my $confacl =
-          (exists $conf->{IF}->{$if}->{ACCESS})
-          ? $conf->{IF}->{$if}->{ACCESS}
-          : '';
+    for my $intf (values %{ $spoc_conf->{IF} }) {
+	my $name = $intf->{name};
+        $intf->{ACCESS} and $intf->{TRANSFER} or next;
+        my $confacl =  $conf->{IF}->{$name}->{ACCESS} || '';
 
         # check acl-names
         my $aclindex;
@@ -1586,16 +1293,16 @@ sub process_interface_acls ( $$$ ) {
         }
         else {
             if ($confacl) {
-                warnpr "unexpected acl-name $confacl at interface $if\n";
+                warnpr "unexpected acl-name $confacl at interface $name\n";
             }
             else {
-                warnpr "no acl found at interface $if\n";
+                warnpr "no acl found at interface $name\n";
             }
             $aclindex = 0;
         }
 
         # generate *new* access-list entries
-        my $spocacl = $pspoc->{IF}->{$if}->{ACCESS};
+        my $spocacl = $intf->{ACCESS};
         my $aclname = "$spocacl-DRC-$aclindex";
         $self->{CHANGE}->{ACL} = 1;
 
@@ -1622,7 +1329,7 @@ sub process_interface_acls ( $$$ ) {
         $self->cancel_reload();
 
         # hopefully this is not critical!
-        $self->append_acl_entries($aclname, $pspoc->{ACCESS}->{$spocacl});
+        $self->append_acl_entries($aclname, $spoc_conf->{ACCESS}->{$spocacl});
 
         #
         # *** SCHEDULE RELOAD ***
@@ -1634,8 +1341,8 @@ sub process_interface_acls ( $$$ ) {
         #
         mypr "assign new acl:\n";
         $self->cmd('configure terminal') or exit -1;
-        mypr " interface $if\n";
-        $self->cmd("interface $if") or exit -1;
+        mypr " interface $name\n";
+        $self->cmd("interface $name") or exit -1;
         mypr " ip access-group $aclname in\n";
         $self->cmd("ip access-group $aclname in") or exit -1;
         $self->cmd('end')                         or exit -1;
@@ -1658,30 +1365,29 @@ sub process_interface_acls ( $$$ ) {
 }
 
 sub generic_interface_acl_processing ( $$$ ) {
-    my ($self, $conf, $pspoc) = @_;
+    my ($self, $conf, $spoc_conf) = @_;
 
     # check if anything to do
-    unless (exists $pspoc->{IF}) {
+    unless ($spoc_conf->{IF}) {
         warnpr "no interfaces specified - leaving access-lists untouched\n";
         return 1;
     }
 
     # check for outgoing ACLS
-    for my $if (keys %{ $conf->{IF} }) {
-        if (exists $conf->{IF}->{$if}->{ACCESS_OUT}
-            and $conf->{IF}->{$if}->{SHUTDOWN} == 0)
+    for my $intf (values %{ $conf->{IF} }) {
+        if (my $acl = $intf->{ACCESS_OUT} and not $intf->{SHUTDOWN})
         {
             warnpr
-              "interface $if: outgoing acl $conf->{IF}->{$if}->{ACCESS_OUT} detected\n";
+              "interface $intf->{name}: outgoing acl $acl detected\n";
         }
     }
 
+    $self->compare_interface_acls($spoc_conf, $conf) or return 0;
+
     # check which spocacls really have to be transfered
     if ($self->{COMPARE}) {
-        $self->compare_interface_acls($pspoc, $conf, $self->{CMPVAL})
-          or return 0;
-        for my $if (keys %{ $pspoc->{IF} }) {
-            if ($pspoc->{IF}->{$if}->{TRANSFER} eq 'YES') {
+        for my $if (keys %{ $spoc_conf->{IF} }) {
+            if ($spoc_conf->{IF}->{$if}->{TRANSFER}) {
                 $self->{CHANGE}->{ACL} = 1;
                 last;
             }
@@ -1689,17 +1395,10 @@ sub generic_interface_acl_processing ( $$$ ) {
         return 1;
     }
     else {
-        if ($self->{FORCE_TRANSFER}) {
-            $self->{CHANGE}->{ACL} = 1;
-            $self->compare_interface_acls($pspoc, $conf, 'FORCE') or return 0;
-        }
-        else {
-            $self->compare_interface_acls($pspoc, $conf, 4) or return 0;
-        }
-    }
 
-    # transfer
-    $self->process_interface_acls($conf, $pspoc) or return 0;
+	# transfer
+	$self->process_interface_acls($conf, $spoc_conf) or return 0;
+    }
 }
 
 ###############################
@@ -1791,12 +1490,11 @@ sub crypto_struct_equal( $$$$$ ) {
                     # special handling for this entry because it
                     # is subject of change by netspoc
                     if (exists $b->{$entry}) {
-                        my $verbose = $self->{COMPARE} ? $self->{CMPVAL} : 4;
                         unless (
-                            $self->verbose_acl_equal(
+                            $self->acl_equal(
                                 $a->{$entry}->{ACL},  $b->{$entry}->{ACL},
                                 $a->{$entry}->{NAME}, $b->{$entry}->{NAME},
-                                $entry,               $verbose
+                                $entry
                             )
                           )
                         {
@@ -1807,7 +1505,7 @@ sub crypto_struct_equal( $$$$$ ) {
                             $changes->{$entry}->{$context}->{CONF} =
                               $b->{$entry}->{NAME};
 
-                            # differences in the contens of these ACLs handled elsewhere!!!
+                            # differences in the contents of these ACLs handled elsewhere!!!
                             # $equal = 0;
                         }
                     }
@@ -1822,12 +1520,11 @@ sub crypto_struct_equal( $$$$$ ) {
                     if ($entry eq "MATCH_ADDRESS" or $entry eq "MATCH_ACL") {
 
                         #parser already checked that match address present!
-                        my $verbose = $self->{COMPARE} ? $self->{CMPVAL} : 4;
                         unless (
-                            $self->verbose_acl_equal(
+                            $self->acl_equal(
                                 $a->{$entry}->{ACL},  $b->{$entry}->{ACL},
                                 $a->{$entry}->{NAME}, $b->{$entry}->{NAME},
-                                $entry,               $verbose
+                                $entry
                             )
                           )
                         {
@@ -2145,12 +1842,12 @@ sub crypto_processing( $$$ ) {
 ###############################
 
 sub transfer() {
-    my ($self, $conf, $pspoc) = @_;
+    my ($self, $conf, $spoc_conf) = @_;
 
     # *** BEGIN TRANSFER ***
-    $self->generic_interface_acl_processing($conf, $pspoc) or return 0;
-    $self->crypto_processing($conf, $pspoc) or return 0;
-    $self->process_routing($conf, $pspoc) or return 0;
+    $self->generic_interface_acl_processing($conf, $spoc_conf) or return 0;
+    $self->crypto_processing($conf, $spoc_conf) or return 0;
+    $self->process_routing($conf, $spoc_conf) or return 0;
 
     #
     # *** CLEANUP
