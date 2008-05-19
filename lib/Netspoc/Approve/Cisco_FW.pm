@@ -159,45 +159,43 @@ sub parse_interface_section {
     my $result;
 
     my $id = get_token($arg);
-    my $config = $arg->{sub};
-    for my $cmd (keys %$config) {
-	for my $arg (@{ $config->{$cmd} }) {
-	    if($cmd eq 'shutdown') {
-		$result->{SHUTDOWN} = 1;
-	    }
-	    elsif($cmd eq 'speed') {
-		$result->{HW_SPEED} = get_int($arg);
-	    }
-	    elsif($cmd eq 'duplex') {
-		$result->{DUPLEX} = get_token($arg);
-	    }
-	    elsif($cmd eq 'nameif') {
-		$result->{IF_NAME} = get_token($arg);
-	    }
-	    elsif($cmd =~ /^(:?no (:?nameif|security-level|ip address))$/) {
-	    
-		# ignore; don't set attribute
-	    }
-	    elsif($cmd eq 'security-level') {
-		$result->{SECURITY} = get_int($arg);
-	    }
-	    elsif($cmd eq 'ip address') {
-		$result->{BASE} = get_ip($arg);
-		$result->{MASK} = get_ip($arg);
-		if(check_regex('standby', $arg)) {
-		    $result->{STANDBY} = get_ip($arg);
-		}
-	    }
-	    elsif($cmd eq 'management-only') {
-		$result->{MANAGEMENT_ONLY} = 1;
-	    }
-	    else {
-
-		# Ignore other commands.
-		while(check_token($arg)) {};
-	    }
-	    $self->get_eol($arg);
+    for my $arg (@{ $arg->{sub} }) {
+	my $cmd = get_token($arg);
+	if($cmd eq 'shutdown') {
+	    $result->{SHUTDOWN} = 1;
 	}
+	elsif($cmd eq 'speed') {
+	    $result->{HW_SPEED} = get_int($arg);
+	}
+	elsif($cmd eq 'duplex') {
+	    $result->{DUPLEX} = get_token($arg);
+	}
+	elsif($cmd eq 'nameif') {
+	    $result->{IF_NAME} = get_token($arg);
+	}
+	elsif($cmd =~ /^(:?no (:?nameif|security-level|ip address))$/) {
+
+	    # ignore; don't set attribute
+	}
+	elsif($cmd eq 'security-level') {
+	    $result->{SECURITY} = get_int($arg);
+	}
+	elsif($cmd eq 'ip address') {
+	    $result->{BASE} = get_ip($arg);
+	    $result->{MASK} = get_ip($arg);
+	    if(check_regex('standby', $arg)) {
+		$result->{STANDBY} = get_ip($arg);
+	    }
+	}
+	elsif($cmd eq 'management-only') {
+	    $result->{MANAGEMENT_ONLY} = 1;
+	}
+	else {
+
+	    # Ignore other commands.
+	    while(check_token($arg)) {};
+	}
+	$self->get_eol($arg);
     }
 
     # postprocess defaults
@@ -299,23 +297,22 @@ sub parse_object_group {
     my $type = $result->{TYPE} = get_token($arg);
     $type eq 'network' or err_at_line($arg, "Not implemented: $type");
     my $name = get_token($arg);
-    my $config = $arg->{sub};
-    for my $cmd (keys %$config) {
-	for my $arg (@{ $config->{$cmd} }) {
-	    if($cmd eq 'description') {
-		$result->{DESCRIPTION} = get_token($arg);
-	    }
-	    elsif($cmd eq 'network-object') {
-		push @{ $result->{NETWORK_OBJECT} }, $self->parse_address($arg);
-	    }
-	    elsif($cmd eq 'group-object') {
-		err_at_line('Nested object group not supported');
-	    }
-	    else {
-		err_at_line($arg, 'Unknown subcommand');
-	    }
-	    get_eol($arg);
+    for my $arg (@{ $arg->{sub} }) {
+	my $cmd = get_token($arg);
+	if($cmd eq 'description') {
+	    $result->{DESCRIPTION} = get_token($arg);
 	}
+	elsif($cmd eq 'network-object') {
+	    push @{ $result->{NETWORK_OBJECT} }, $self->parse_address($arg);
+	}
+	elsif($cmd eq 'group-object') {
+	    err_at_line('Nested object group not supported');
+	}
+	else {
+	    err_at_line($arg, 'Unknown subcommand');
+	}
+	get_eol($arg);
+
     }
     return($result, $name);
 }
@@ -531,7 +528,7 @@ sub static_line_a_eq_b( $$$ ) {
     return 1;
 }
 
-sub pix_nat_line_a_eq_b( $$$ ) {
+sub nat_line_a_eq_b( $$$ ) {
     my ($self, $a, $b) = @_;
     $a->{NAT_ID} eq $b->{NAT_ID} && $a->{IF_NAME} eq $b->{IF_NAME}
       or return 0;
@@ -546,7 +543,7 @@ sub pix_nat_line_a_eq_b( $$$ ) {
     return 1;
 }
 
-sub pix_global_line_a_eq_b( $$$ ) {
+sub global_line_a_eq_b( $$$ ) {
     my ($self, $a, $b) = @_;
     $a->{NAT_ID} eq $b->{NAT_ID} && $a->{EXT_IF_NAME} eq $b->{EXT_IF_NAME}
       or return 0;
@@ -703,7 +700,7 @@ sub prepare($) {
     }
     else {
 	warnpr "could not identify PIX Hardware from $tmp[0]\n";
-	$self->{HARDWARE} = 'unknown';
+	$self->{HARDWARE} = 0;	# We compare version _numbers_ later.
     }
     @tmp = $self->shcmd('sh term');
     if ($tmp[0] !~ /511/) {
@@ -737,9 +734,6 @@ sub prepare($) {
     mypr " DINFO: $self->{HARDWARE} $self->{VERSION}\n";
     mypr "-----------------------------------------------------------\n";
 }
-#######################################################
-#   parsing - helper
-#######################################################
 
 sub get_config_from_device( $ ) {
     my ($self) = @_;
@@ -753,213 +747,82 @@ sub get_config_from_device( $ ) {
 ##############################################################
 # rawdata processing
 ##############################################################
-sub process_rawdata( $$$ ) {
-    my ($self, $pspoc, $epilog) = @_;
-    my $epilogacl;
-    my $spocacl;
-    ### helper ###
-    my $sec_time = time();    # for status info timestamps
-    my $check    = sub {
-        my ($intf, $epi) = @_;
-        if (not $epi->{IF}->{$intf}->{ACCESS}) {
-            mypr " - no acl in raw data -\n";
-            return 0;
-        }
+sub merge_rawdata {
+    my ($self, $spoc_conf, $raw_conf) = @_;
 
-        # there is an epilog acl for this interface
-        my $ep_name = $epi->{IF}->{$intf}->{ACCESS};
+    # Routing
+    $self->SUPER::merge_rawdata($spoc_conf, $raw_conf);
 
-## It is sufficient to check for spoc-interface below.
-#
-#        unless (exists $conf->{IF}->{$intf}) {
-#            errpr "rawdata: interface not found on device: $intf\n";
-#            exit -1;
-#        }
+    # access-list 
+    keys %{$raw_conf->{OBJECT_GROUP}} and 
+	die "Raw config must not use object-groups";
+    $self->merge_acls($spoc_conf, $raw_conf, 'ACCESS_LIST');
 
-        # the interface exists on the device
-        my $sp_name;
-        $pspoc->{IF}->{$intf}
-          or die "rawdata: $intf not found in spocfile\n";
-        unless ($pspoc->{IF}->{$intf}->{ACCESS}) {
-            warnpr "rawdata: no spocacl for interface: $intf\n";
-            return 0;
-        }
-
-        # there is a corresponding acl in the spocfile
-        $sp_name = $pspoc->{IF}->{$intf}->{ACCESS};
-        unless ($epi->{ACCESS}->{$ep_name}) {
-            errpr "rawdata: no matching raw acl found for name $ep_name" 
-		. " in interface definition\n";
-            exit -1;
-        }
-        $epilogacl = $epi->{ACCESS}->{$ep_name};
-        $spocacl   = $pspoc->{ACCESS}->{$sp_name};
-        return 1;
-    };
-    if (scalar @{$epilog}) {
-
-        # *** PARSE RAWDATA ***
-        mypr " *** PARSE RAWDATA ***\n";
-        my $epilog_conf = $self->parse_device($epilog);
-        mypr "--- raw processing\n";
-        for my $intf (keys %{ $epilog_conf->{IF} }) {
-            mypr " interface: $intf\n";
-            &$check($intf, $epilog_conf) or next;
-
-            # _prepend_
-            my @remove = ();
-            for (my $i = 0 ; $i < scalar @$spocacl ; $i++) {
-                for my $epi (@$epilogacl) {
-                    if ($self->acl_line_a_eq_b($epi, $spocacl->[$i])) {
-                        warnpr "RAW: double ACE '$spocacl->[$i]->{orig}'"
-                          . " scheduled for remove from spocacl.\n";
-                        push @remove, $i;
-                    }
-                }
-            }
-            for my $r (reverse sort @remove) {
-                splice @$spocacl, $r, 1;
-            }
-            for (my $i = scalar @{$epilogacl} - 1 ; $i >= 0 ; $i--) {
-                unshift @{$spocacl}, $$epilogacl[$i];
-            }
-            mypr "   entries prepended: " . scalar @{$epilogacl} . "\n";
-
-# Attribute STD_ACCESS isn't used anywere.
-#            $cnob->{IF}->{$intf}->{STD_ACCESS} = $epilogacl;
-#            $cnob->{MIGRATE_STATUS}->{"STD ACL TRANS:: $intf"} =
-#              scalar @{ $cnob->{IF}->{$intf}->{STD_ACCESS} };
-#            $active_std_interfaces = $active_std_interfaces . " $intf";
-        }
-
-#        $cnob->{MIGRATE_STATUS}->{"STD INTERFACES"} = $active_std_interfaces;
-        ### ROUTE PROCESSING STD ###
-        if (defined $pspoc->{ROUTING}) {
-            my $newroutes = ();
-          SPOC: for (my $i = 0 ; $i < scalar @{ $pspoc->{ROUTING} } ; $i++) {
-                my $se = $pspoc->{ROUTING}->[$i];
-                for my $re (@{ $epilog_conf->{ROUTING} }) {
-                    if ($self->route_line_a_eq_b($se, $re)) {
-                        warnpr "RAW: double RE '$re->{orig}'"
-                          . " scheduled for remove from spocconf.\n";
-                        next SPOC;
-                    }
-                    elsif ( $re->{BASE} eq $se->{BASE}
-                        and $re->{MASK} eq $se->{MASK})
-                    {
-                        warnpr
-                          "RAW: inconsistent NEXT HOP in routing entries:\n";
-                        warnpr "     spoc: $se->{orig}"
-                          . " (scheduled for remove)\n";
-                        warnpr "     raw:  $re->{orig}\n";
-                        next SPOC;
-                    }
-                }
-                push @{$newroutes}, $se;
-            }
-            $pspoc->{ROUTING} = $newroutes;
-        }
-        for my $re (@{ $epilog_conf->{ROUTING} }) {
-            push @{ $pspoc->{ROUTING} }, $re;
-        }
-        mypr " attached routing entries: " . scalar @{ $epilog_conf->{ROUTING} } . "\n";
-
-# Attribute STD_ROUTING isn't used anywere.
-#        $cnob->{STD_ROUTING} = $epilog_conf->{ROUTING};
-
-        ### STATIC PROCESSING ###
-        my @std_static = ();
-        if ($epilog_conf->{STATIC}) {
-            my @remove = ();
-            for my $s (@{ $epilog_conf->{STATIC} }) {
-                my $covered = 0;
-                for (my $i = 0 ; $i < scalar @{ $pspoc->{STATIC} } ; $i++) {
-                    my $spoc  = $pspoc->{STATIC}[$i];
-                    my $match = 0;
-                    if ($self->static_line_a_eq_b($spoc, $s)) {
-                        warnpr "RAW: static coverd by: '$s->{orig}'" .
-			    " - RAW static discarded!\n";
-                        $covered = 1;
-                    }
-                    elsif ($match =
-                        $self->static_global_local_match_a_b($spoc, $s))
-                    {
-                        unless ($match == 3) {
-                            mypr "RAW: spoc static \'",
-                              $spoc->{orig},
-                              " replaced by \'",
-                              $s->{orig}, "\'\n";
-                            push @remove, $i;
-                        }
-                        else {
-                            warnpr "RAW: weired match RAW: \'",
-                              $s->{orig}, "\'\n";
-                            warnpr "RAW: weired match SPOC: \'",
-                              $spoc->{orig}, "\'\n";
-                            warnpr "RAW: static discarded!\n";
-                            $covered = 1;
-                        }
-                    }
-                }
-                $covered or push @std_static, $s;
-            }
-            for my $r (reverse sort @remove) {
-                splice @{ $pspoc->{STATIC} }, $r, 1;
-            }
-            @{ $pspoc->{STATIC} } = (@{ $pspoc->{STATIC} }, @std_static),
-              mypr " attached static entries: " . scalar @std_static . "\n";
-        }
-        ### GLOBAL PROCESSING ###
-        my @std_global = ();
-        if ($epilog_conf->{GLOBAL}) {
-            for my $s (@{ $epilog_conf->{GLOBAL} }) {
-                my $covered = 0;
-                for (my $i = 0 ; $i < scalar @{ $pspoc->{GLOBAL} } ; $i++) {
-                    my $spoc  = $pspoc->{GLOBAL}[$i];
-                    my $match = 0;
-                    if ($self->pix_global_line_a_eq_b($spoc, $s)) {
-                        warnpr "raw global coverd by: \'",
-                          $s->{orig}, "\'\n";
-                        $covered = 1;
-                    }
-                }
-                $covered or push @std_global, $s;
-            }
-            @{ $pspoc->{GLOBAL} } = (@{ $pspoc->{GLOBAL} }, @std_global),
-              mypr " attached global entries: " . scalar @std_global . "\n";
-        }
-        ### NAT PROCESSING ###
-        my @std_nat = ();
-        if ($epilog_conf->{NAT}) {
-            for my $s (@{ $epilog_conf->{NAT} }) {
-                my $covered = 0;
-                for (my $i = 0 ; $i < scalar @{ $pspoc->{NAT} } ; $i++) {
-                    my $spoc  = $pspoc->{NAT}[$i];
-                    my $match = 0;
-                    if ($self->pix_nat_line_a_eq_b($spoc, $s)) {
-                        warnpr "raw nat coverd by: \'",
-                          $s->{orig}, "\'\n";
-                        $covered = 1;
-                    }
-                }
-                $covered or push @std_nat, $s;
-            }
-            @{ $pspoc->{NAT} } = (@{ $pspoc->{NAT} }, @std_nat),
-              mypr " attached nat entries: " . scalar @std_nat . "\n";
-        }
-
+    #static 
+    my @std_static = ();
+    if ($raw_conf->{STATIC}) {
+	my @remove = ();
+	for my $s (@{ $raw_conf->{STATIC} }) {
+	    my $covered = 0;
+	    for (my $i = 0 ; $i < scalar @{ $spoc_conf->{STATIC} } ; $i++) {
+		my $spoc  = $spoc_conf->{STATIC}[$i];
+		my $match = 0;
+		if ($self->static_line_a_eq_b($spoc, $s)) {
+		    warnpr "RAW: ignoring useless: '$s->{orig}'\n";
+		    $covered = 1;
+		}
+		elsif ($match =
+		       $self->static_global_local_match_a_b($spoc, $s))
+		{
+		    unless ($match == 3) {
+			mypr "RAW: spoc static \'",
+			$spoc->{orig},
+			" replaced by \'",
+			$s->{orig}, "\'\n";
+			push @remove, $i;
+		    }
+		    else {
+			warnpr "RAW: weired match RAW: \'",
+			$s->{orig}, "\'\n";
+			warnpr "RAW: weired match SPOC: \'",
+			$spoc->{orig}, "\'\n";
+			warnpr "RAW: static discarded!\n";
+			$covered = 1;
+		    }
+		}
+	    }
+	    $covered or push @std_static, $s;
+	}
+	for my $r (reverse sort @remove) {
+	    splice @{ $spoc_conf->{STATIC} }, $r, 1;
+	}
+	@{ $spoc_conf->{STATIC} } = (@{ $spoc_conf->{STATIC} }, @std_static),
+	mypr " attached static entries: " . scalar @std_static . "\n";
     }
-    else {
-        mypr "--- raw processing: nothing to do\n";
+
+    # global + nat 
+    for my $x (qw(GLOBAL NAT)) {
+	my $raw_x = $raw_conf->{$x} or next;
+	my $cmp_method = $x eq 'NAT' ? 'nat_line_eq_a_b' : 'global_line_a_eq_b';
+	my @add = ();
+	for my $raw (@$raw_x) {
+	    my $covered = 0;
+	    for my $spoc (@{ $spoc_conf->{$x} }) {
+		if ($self->$cmp_method($spoc, $raw)) {
+		    warnpr "RAW: ignoring useless: '$raw->{orig}'\n";
+		    $covered = 1;
+		}
+	    }
+	    $covered or push @add, $raw;
+	}
+	push(@{ $spoc_conf->{$x} }, @add);
+	mypr " attached $x entries: " . scalar @add . "\n";
     }
-    mypr "--- raw processing: done\n";
-    return 1;
 }
 
-#-------------- helper end
 
 # Supports only object-group type 'network', no nested groups.
-sub pix_expand_acl_entry($$$$) {
+sub expand_acl_entry($$$$) {
     my ($self, $ace, $parsed, $acl_name) = @_;
 
     my $groups = $parsed->{OBJECT_GROUP};
@@ -971,14 +834,13 @@ sub pix_expand_acl_entry($$$$) {
 		errpr meself(1), "no group name '$obj_id' found\n";
             $group->{TYPE} eq 'network' or
                 errpr meself(1),
-                  "unsupported object type '$groups->{$obj_id}->{TYPE}'\n";
+                  "unsupported object type '$group->{TYPE}'\n";
 	    push(@{ $replace->{$adr} }, @{ $group->{NETWORK_OBJECT} });
 
             # Remember that group $obj_id is referenced by ACL $acl 
 	    # and vice versa.
             $parsed->{group2acl}->{$obj_id}->{$acl_name} = 1;
             $parsed->{acl2group}->{$acl_name}->{$obj_id} = 1;
-
         }
         else {
             push @{ $replace->{$adr} }, $ace->{$adr};
@@ -989,7 +851,6 @@ sub pix_expand_acl_entry($$$$) {
             my $copy = { %$ace };
             $copy->{SRC} = $src;
             $copy->{DST} = $dst;
-            $copy->{EXPANDED_FROM} = $ace;
             push @expanded, $copy;
         }
     }
@@ -1013,9 +874,7 @@ sub get_parse_info {
 sub postprocess_config {
     my ($self, $p) = @_;
 
-    # expand aces
-    my $acl_counter   = 0;
-    my $c_acl_counter = 0;
+    # Expand object-groups in access-lists.
     for my $acl_name (keys %{ $p->{ACCESS_LIST} }) {
         my %seen_acl;
         for my $entry (@{ $p->{ACCESS_LIST}->{$acl_name} }) {
@@ -1023,9 +882,8 @@ sub postprocess_config {
 	    # Filter out 'remark'.
             next if not $entry->{MODE}; 
 
-            my $e_acl = $self->pix_expand_acl_entry($entry, $p, $acl_name);
+            my $e_acl = $self->expand_acl_entry($entry, $p, $acl_name);
 	    push @{$p->{ACCESS}->{$acl_name}},@$e_acl;
-	    $acl_counter += @$e_acl;
         }
     }
 
@@ -1085,7 +943,8 @@ sub postprocess_config {
       . scalar(keys %{ $p->{OBJECT_GROUP} }) . "\n";
     mypr meself(1)
       . ": ACCESS LISTS found: "
-      . scalar(keys %{ $p->{ACCESS} }) . "\n";
+      . scalar(keys %{ $p->{ACCESS_LIST} }) . "\n";
+    my $c_acl_counter = 0;
     for my $acl_name (sort keys %{ $p->{ACCESS_LIST} }) {
         if ($p->{is_crypto_acl}->{$acl_name}) {
             $c_acl_counter++;
@@ -1093,12 +952,12 @@ sub postprocess_config {
         elsif ($p->{is_filter_acl}->{$acl_name}) {
             mypr meself(1)
               . ": $acl_name "
-              . scalar @{ $p->{ACCESS}->{$acl_name} } . "\n";
+              . scalar @{ $p->{ACCESS_LIST}->{$acl_name} } . "\n";
         }
         else {
             mypr meself(1)
               . ": $acl_name "
-              . scalar @{ $p->{ACCESS}->{$acl_name} }
+              . scalar @{ $p->{ACCESS_LIST}->{$acl_name} }
               . " *** SPARE ***\n";
         }
     }
@@ -1110,7 +969,7 @@ sub postprocess_config {
     }
 }
 
-sub pix_transfer_lines( $$$$$ ) {
+sub transfer_lines( $$$$$ ) {
     my ($self, $compare, $spoc_lines, $device_lines) = @_;
     my $counter;
     my $change = 0;
@@ -1178,180 +1037,72 @@ sub pix_transfer_lines( $$$$$ ) {
     return $change;
 }
 
-sub pix_acls_textual_identical($$$) {
-    my ($self, $confacl, $spocacl) = @_;
+sub acls_identical {
+    my ($self, $confacl, $spocacl, $intf) = @_;
     mypr "check for textual identity\n";
-    if (scalar @{$spocacl} == scalar @{$confacl}) {
-        mypr " acls have equal lenght: ", scalar @{$spocacl}, "\n";
-        mypr " compare line by line: ";
-        for (my $i = 0 ; $i < scalar @{$spocacl} ; $i++) {
-
-            #mypr " $i";
-            if ($self->acl_line_a_eq_b($$spocacl[$i], $$confacl[$i])) {
-                next;
-            }
-            else {
-                mypr "equal lenght acls (", scalar @{$spocacl}, ") differ at ",
-                  ++$i, "!\n";
-                return 0;
-            }
-        }
-        mypr "no diffs\n";
-        return 1;
-    }
-    else {
+    if (@$spocacl != @$confacl) {
         mypr "lenght of acls differ: at device ", scalar @{$confacl},
           " from netspoc ", scalar @{$spocacl}, "\n";
         return 0;
     }
-}
+    mypr " acls have equal lenght: ", scalar @$spocacl, "\n";
+    mypr " compare line by line: ";
+    for (my $i = 0 ; $i < scalar @{$spocacl} ; $i++) {
+	if ($self->acl_line_a_eq_b($$spocacl[$i], $$confacl[$i])) {
+	    next;
+	}
+	else {
+	    mypr "equal lenght acls (", scalar @{$spocacl}, ") differ at ",
+	    ++$i, "!\n";
+	    return 0;
+	}
+    }
+    mypr "no diffs\n";
 
-sub pix_acls_semantical_indentical($$$$) {
-    my ($self, $confacl, $spocacl, $if) = @_;
-    unless ($self->{COMPARE}) {
-        mypr "  do semantic compare - at interface $if:\n";
-        if (
-            $self->acl_array_compare_a_in_b($spocacl, $confacl, 4)    # 4 silent
-            && $self->acl_array_compare_a_in_b($confacl, $spocacl, 4)
-          )
-        {
-            mypr "   -> interface $if: acls identical\n";
+    if ($self->{COMPARE}) {
+
+        # show compare results
+        mypr "#### BEGIN NEW in OLD - interface $intf\n";
+        my $newinold =
+          $self->acl_array_compare_a_in_b($spocacl, $confacl);
+        mypr "#### END   NEW in OLD - interface $intf\n";
+        mypr "#### BEGIN OLD in NEW - interface $intf\n";
+        my $oldinnew =
+          $self->acl_array_compare_a_in_b($confacl, $spocacl);
+        mypr "#### END   OLD in NEW - interface $intf\n";
+        if ($newinold && $oldinnew) {
+            mypr "#### ACLs equal for interface $intf\n";
             return 1;
         }
         else {
-            mypr "   -> interface $if: acls differ\n";
+            mypr "#### ACLs differ - at interface $intf ####\n";
             return 0;
         }
     }
     else {
-
-        # show compare results
-        mypr "#### BEGIN NEW in OLD - interface $if\n";
-        my $newinold =
-          $self->acl_array_compare_a_in_b($spocacl, $confacl, $self->{CMPVAL});
-        mypr "#### END   NEW in OLD - interface $if\n";
-        mypr "#### BEGIN OLD in NEW - interface $if\n";
-        my $oldinnew =
-          $self->acl_array_compare_a_in_b($confacl, $spocacl, $self->{CMPVAL});
-        mypr "#### END   OLD in NEW - interface $if\n";
-        if ($newinold && $oldinnew) {
-            mypr "#### ACLs equal for interface $if\n";
+        mypr "  do semantic compare - at interface $intf:\n";
+        if (
+            $self->acl_array_compare_a_in_b($spocacl, $confacl)  
+            && $self->acl_array_compare_a_in_b($confacl, $spocacl)
+          )
+        {
+            mypr "   -> interface $intf: acls identical\n";
             return 1;
         }
         else {
-            mypr "#### ACLs differ - at interface $if ####\n";
+            mypr "   -> interface $intf: acls differ\n";
             return 0;
         }
-        mypr "#### --------------------------------\n";
     }
 }
 
 sub transfer () {
-    my ($self, $conf, $pspoc) = @_;
+    my ($self, $conf, $spoc_conf) = @_;
+
+    $self->process_routing($conf, $spoc_conf) or return 0;
 
     if (not $self->{COMPARE}) {
         $self->cmd('configure terminal') or exit -1;
-    }
-
-    #
-    # *** routing ***
-    #
-    if ($pspoc->{ROUTING} and scalar @{ $pspoc->{ROUTING} }) {
-
-        #mypr "found:\n";
-        my $counter;
-        if ($conf->{ROUTING} && !scalar(@{ $conf->{ROUTING} })) {
-            errpr "ERROR: no routing entries found on device\n";
-            return 0;
-        }
-
-        # sort netspoc-generated routing entries (long masks first)
-        my @route_sort =
-          sort { $b->{MASK} <=> $a->{MASK} } @{ $pspoc->{ROUTING} };
-        $pspoc->{ROUTING} = \@route_sort;
-        mypr "==== compare routing information ====\n\n";
-        mypr " routing entries on device:    ", scalar @{ $conf->{ROUTING} },
-          "\n";
-        mypr " routing entries from netspoc: ", scalar @{ $pspoc->{ROUTING} },
-          "\n";
-        for my $c (@{ $conf->{ROUTING} }) {    # from device
-            $counter++;
-
-            #unless($self->{COMPARE}){
-            #	mypr " $counter";
-            #   }
-            for my $s (@{ $pspoc->{ROUTING} }) {    # from netspoc
-                                                    #($s) or next;
-                if ($self->route_line_a_eq_b($c, $s)) {
-                    $c->{DELETE} = $s->{DELETE} = 1;
-                    last;
-
-                    # double entries in spocfile are *not* deleted :(
-                }
-            }
-        }
-        mypr "\n";
-        unless ($self->{COMPARE}) {
-            mypr "transfer routing entries to device:\n";
-            $counter = 0;
-            for my $r (@{ $pspoc->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-
-                # pix did not allow 2 entries for same destination
-                for my $c (@{ $conf->{ROUTING} }) {
-                    ($c->{DELETE}) and next;
-                    if ($self->route_line_destination_a_eq_b($r, $c)) {
-                        my $tr = join ' ', "no", $c->{orig};
-                        $self->cmd($tr) or exit -1;
-                        $c->{DELETE} = 1;    # could not deleted 2 times
-                    }
-                }
-                $self->cmd($r->{orig}) or exit -1;
-                mypr " $counter";
-            }
-            $counter and $self->{CHANGE}->{ROUTE} = 1;
-            mypr " $counter";
-            mypr "\n";
-            mypr "deleting non matching routing entries from device:\n";
-            $counter = 0;
-            for my $r (@{ $conf->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                my $tr = join ' ', "no", $r->{orig};
-                $self->cmd($tr) or exit -1;
-                mypr " $counter";
-            }
-            $counter and $self->{CHANGE}->{ROUTE} = 1;
-            mypr " $counter";
-            mypr "\n";
-        }
-        else {
-
-            # show compare results
-            mypr "additional routing entries from spoc:\n";
-            $counter = 0;
-            for my $r (@{ $pspoc->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                mypr $r->{orig}, "\n";
-            }
-            mypr "total: $counter\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-            mypr "non matching routing entries on device:\n";
-            $counter = 0;
-            for my $r (@{ $conf->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                mypr $r->{orig}, "\n";
-            }
-            mypr "total: $counter\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-        }
-        mypr "==== done ====\n";
-    }
-    else {
-        mypr "no routing entries specified - leaving routes untouched\n";
     }
 
     #
@@ -1359,8 +1110,8 @@ sub transfer () {
     #
     my $get_acl_names_and_objects = sub {
         my ($intf)  = @_;
-        my $sa_name = $pspoc->{IF}->{$intf}->{ACCESS};
-        my $spocacl = $pspoc->{ACCESS}->{$sa_name};
+        my $sa_name = $spoc_conf->{IF}->{$intf}->{ACCESS};
+        my $spocacl = $spoc_conf->{ACCESS}->{$sa_name};
         my $ca_name = $conf->{IF}->{$intf}->{ACCESS} || '';
         my $confacl = $ca_name ? $conf->{ACCESS}->{$ca_name} : '';
         return ($confacl, $spocacl, $ca_name, $sa_name);
@@ -1383,19 +1134,19 @@ sub transfer () {
     my %acl_need_transfer;
     my %group_need_transfer;
 
-    my $pix_mark_for_transfer;
-    $pix_mark_for_transfer = sub {
+    my $mark_for_transfer;
+    $mark_for_transfer = sub {
         my ($acl_name) = @_;
 	return if $acl_need_transfer{$acl_name};
 	$acl_need_transfer{$acl_name} = 1;
         mypr "marked acl $acl_name for transfer\n";
-        for my $gid (keys %{ $pspoc->{acl2group}->{$acl_name} }) {
+        for my $gid (keys %{ $spoc_conf->{acl2group}->{$acl_name} }) {
             unless ($group_need_transfer{$gid}) {
                 $group_need_transfer{$gid} = 1;
                 print "marked group $gid for transfer\n";
             }
-            for my $name (keys %{ $pspoc->{group2acl}->{$gid} }) {
-                &$pix_mark_for_transfer($name);
+            for my $name (keys %{ $spoc_conf->{group2acl}->{$gid} }) {
+                &$mark_for_transfer($name);
             }
         }
     };
@@ -1403,7 +1154,7 @@ sub transfer () {
     my %acl_need_remove;
     my %group_need_remove;
 
-    my $pix_mark_for_remove = sub {
+    my $mark_for_remove = sub {
         my ($acl_name) = @_;
 	$acl_need_remove{$acl_name} and errpr "unexpected REMOVE mark\n";
         $acl_need_remove{$acl_name} = 1;
@@ -1415,7 +1166,7 @@ sub transfer () {
 
                 # Only remove group from PIX if all ACLs that reference
                 # this group are renewed by netspoc.
-                unless ($pspoc->{ACCESS_LIST}->{$name}->{TRANSFER}) {
+                unless ($spoc_conf->{ACCESS_LIST}->{$name}->{TRANSFER}) {
                     $remove_group = 0;
                     last;
                 }
@@ -1426,39 +1177,33 @@ sub transfer () {
             }
         }
     };
-    unless ($pspoc->{IF}) {
+    unless ($spoc_conf->{IF}) {
         warnpr " no interfaces specified - leaving access-lists untouched\n";
     }
     else {
         mypr "processing access-lists\n";
 
-        mypr keys %{ $pspoc->{IF} };
+        mypr keys %{ $spoc_conf->{IF} };
         mypr "+++\n";
 
-        for my $intf (keys %{ $pspoc->{IF} }) {
-            unless ($conf->{IF}->{$intf}) {
-                errpr
-                  "netspoc configured interface \'$intf\' not found on device\n";               return 0;
-            }
-        }
+        for my $intf (keys %{ $spoc_conf->{IF} }) {
+            $conf->{IF}->{$intf} or
+                die 
+		"netspoc configured interface '$intf' not found on device\n";
+	}
 
         # detect diffs
         if ($self->{COMPARE}) {
-            for my $intf (keys %{ $pspoc->{IF} }) {
+            for my $intf (keys %{ $spoc_conf->{IF} }) {
                 mypr "interface $intf\n";
                 my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
                   &$get_acl_names_and_objects($intf);
 
                 if ($confacl_name && $confacl) {
-                    unless (
-                        $self->pix_acls_textual_identical($confacl, $spocacl)
-                        or $self->pix_acls_semantical_indentical(
-                            $confacl, $spocacl, $intf
-                        )
-                      )
-                    {
-                        $self->{CHANGE}->{ACL} = 1;
-                    }
+                    $self->acl_equal($confacl, $spocacl, 
+				     $confacl_name, $spocacl_name, 
+				     "interface $intf")
+                        or $self->{CHANGE}->{ACL} = 1;
                 }
                 else {
 
@@ -1472,7 +1217,7 @@ sub transfer () {
         else {
 
             # mark objects to transfer
-            for my $intf (keys %{ $pspoc->{IF} }) {
+            for my $intf (keys %{ $spoc_conf->{IF} }) {
                 mypr "interface $intf\n";
                 my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
                   &$get_acl_names_and_objects($intf);
@@ -1482,50 +1227,47 @@ sub transfer () {
                 }
                 if (!$confacl) {
                     warnpr "interface $intf no acl on device - new acl has ",
-                      scalar @{ $pspoc->{ACCESS}->{$spocacl_name} },
+                      scalar @{ $spoc_conf->{ACCESS}->{$spocacl_name} },
                       " entries\n";
                     $self->{CHANGE}->{ACL} = 1;
-                    &$pix_mark_for_transfer($spocacl_name);
+                    &$mark_for_transfer($spocacl_name);
                 }
-                elsif (
-                    !$self->pix_acls_textual_identical($confacl, $spocacl)
-                    && !$self->pix_acls_semantical_indentical(
-                        $confacl, $spocacl, $intf
-                    )
-                  )
+                elsif (not $self->acl_equal($confacl, $spocacl, 
+					    $confacl_name, $spocacl_name, 
+					    "interface $intf"))
                 {
 
                     # Either there is no acl on $intf or the acl differs.
                     # Mark groups and interfaces recursive for transfer 
 		    # of spocacls
                     $self->{CHANGE}->{ACL} = 1;
-                    &$pix_mark_for_transfer($spocacl_name);
+                    &$mark_for_transfer($spocacl_name);
                 }
                 elsif ($self->{FORCE_TRANSFER}) {
                     warnpr "Interface $intf: transfer of ACL forced!\n";
                     $self->{CHANGE}->{ACL} = 1;
-                    &$pix_mark_for_transfer($spocacl_name);
+                    &$mark_for_transfer($spocacl_name);
                 }
                 mypr "-------------------------------------------------\n";
             }
 
             # Mark objects for removal.
-            for my $intf (keys %{ $pspoc->{IF} }) {
+            for my $intf (keys %{ $spoc_conf->{IF} }) {
                 my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
                   &$get_acl_names_and_objects($intf);
                 next if not $acl_need_transfer{$spocacl_name};
-                $confacl and $pix_mark_for_remove->($confacl_name);
+                $confacl and $mark_for_remove->($confacl_name);
             }
 
             # Generate names for transfer.
 	    my %new_group_id;
 	    my %new_acl_name;
-            for my $obj_id (keys %{ $pspoc->{OBJECT_GROUP} }) {
+            for my $obj_id (keys %{ $spoc_conf->{OBJECT_GROUP} }) {
                 next if not $group_need_transfer{$obj_id};
                 $new_group_id{$obj_id} =
                   $generate_names_for_transfer->($obj_id, $conf->{OBJECT_GROUP});
             }
-            for my $obj_id (keys %{ $pspoc->{ACCESS_LIST} }) {
+            for my $obj_id (keys %{ $spoc_conf->{ACCESS_LIST} }) {
                 next if not $acl_need_transfer{$obj_id};
 		$new_acl_name{$obj_id} =
                   $generate_names_for_transfer->($obj_id, $conf->{ACCESS_LIST});
@@ -1533,8 +1275,8 @@ sub transfer () {
 
             # Transfer groups.
             mypr "transfer object-groups to device\n";
-            for my $obj_id (keys %{ $pspoc->{OBJECT_GROUP} }) {
-		my $group = $pspoc->{OBJECT_GROUP}->{$obj_id};
+            for my $obj_id (keys %{ $spoc_conf->{OBJECT_GROUP} }) {
+		my $group = $spoc_conf->{OBJECT_GROUP}->{$obj_id};
                 next if not $group_need_transfer{$obj_id};
 		my $new_id = $new_group_id{$obj_id};
                 mypr "object-group $new_id\n";
@@ -1551,13 +1293,12 @@ sub transfer () {
 
             # Transfer ACLs.
             mypr "transfer access-lists to device\n";
-            for my $obj_id (keys %{ $pspoc->{ACCESS_LIST} }) {
+            for my $obj_id (keys %{ $spoc_conf->{ACCESS_LIST} }) {
                 next if not $acl_need_transfer{$obj_id};
                 my $new_id = $new_acl_name{$obj_id};
                 mypr "access-list $new_id\n";
-                my $counter = 0;
                 my $cmd;
-                for my $ace (@{ $pspoc->{ACCESS_LIST}->{$obj_id} }) {
+                for my $ace (@{ $spoc_conf->{ACCESS_LIST}->{$obj_id} }) {
 		    $cmd = $ace->{orig};
 		    for my $where (qw(src dst)) {
 			if (my $gid = $ace->{$where}->{OBJECT_GROUP}) {
@@ -1567,13 +1308,11 @@ sub transfer () {
 		    }
 		    $cmd =~ s/access-list $obj_id/access-list $new_id/;
                     $self->cmd($cmd) or exit -1;
-                    $counter++;
-                    mypr " $counter";
                 }
                 mypr "\n";
 
                 # Assign list to interface.
-                my $intf = $pspoc->{ACCESS_GROUP}->{$obj_id}->{IF_NAME};
+                my $intf = $spoc_conf->{ACCESS_GROUP}->{$obj_id}->{IF_NAME};
                 mypr "access-group $new_id in interface $intf\n";
                 $self->cmd("access-group $new_id in interface $intf")
                   or exit -1;
@@ -1610,29 +1349,15 @@ sub transfer () {
         }
     }
 
-    #
-    # *** static nat ***
-    #
-    mypr " === processing statics ===\n";
-    $self->pix_transfer_lines(
-	'static_line_a_eq_b', $pspoc->{STATIC}, $conf->{STATIC}
-    ) and $self->{CHANGE}->{STATIC} = 1;
-
-    #
-    # *** global pools ***
-    #
-    mypr " === processing global pools ===\n";
-    $self->pix_transfer_lines(
-        'pix_global_line_a_eq_b', $pspoc->{GLOBAL}, $conf->{GLOBAL})
-      and $self->{CHANGE}->{GLOBAL} = 1;
-
-    #
-    # *** (dynamic) nat ***
-    #
-    mypr " === processing nat ===\n";
-    $self->pix_transfer_lines( 
-	'pix_nat_line_a_eq_b', $pspoc->{NAT}, $conf->{NAT})
-      and $self->{CHANGE}->{NAT} = 1;
+    # STATIC, GLOBAL, NAT
+    my %control = (STATIC => static_line_a_eq_b,
+		   GLOBAL => global_line_a_eq_b,
+		   NAT => nat_line_a_eq_b);
+    while(my($type, $method) = each %control) {
+	mypr " === processing $type ===\n";
+	$self->transfer_lines($method, $spoc_conf->{$type}, $conf->{$type}) and 
+	    $self->{CHANGE}->{$type} = 1;
+    }
 
     if (not $self->{COMPARE}) {
         if ($self->{CHANGE})
