@@ -1,62 +1,83 @@
 
-package Netspoc::Approve::Device::Cisco::Firewall::ASA;
+package Netspoc::Approve::ASA;
 
-use strict;
-use warnings;
-
-
-use base "Netspoc::Approve::Device::Cisco::Firewall";
-
+# Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
-# Parser ASA / PIX version 7.x, 8.x
+# Description:
+# Remote configure Cisco ASA and PIX version 7.x.
 #
-sub write_term_config($$$$){
-    my ($self, $ah, $al) = @_;
-    if($self->{PRINT}){
-	$$al = "";
-	$self->parse_interface($ah->{HWIF},$al);
-	$self->parse_object_group($ah->{OBJECT_GROUP},$al); 
-	$self->parse_write_term_acl($ah->{ACCESS_LIST},$al);
-	$self->parse_global_lines($ah->{GLOBAL},$al);
-	$self->parse_nat_lines($ah->{NAT},$al);
-	$self->parse_static_lines($ah->{STATIC},$al);	
-	$self->parse_access_group($ah->{ACCESS_GROUP},$al);
-	$self->parse_route_lines($ah->{ROUTING},$al);
-	$self->parse_crypto($ah->{CRYPTO},$al);
-    }
-    else{
-	$ah->{HWIF} = {};
-	$ah->{ACCESS_LIST} = {}; # old implementation: 'ACCESS'
-	$ah->{OBJECT_GROUP} = {};
-	$ah->{GLOBAL} = [];
-	$ah->{NAT} = [];
-	$ah->{STATIC} = [];
-	$ah->{ACCESS_GROUP} = {};
-	$ah->{ROUTING} = [];
-	$ah->{CRYPTO} = {};
-	while(
-	      $self->parse_interface($ah->{HWIF},$al) ||
-	      $self->parse_object_group($ah->{OBJECT_GROUP},$al) ||
-	      $self->parse_write_term_acl($ah->{ACCESS_LIST},$al) ||
-	      $self->parse_global_lines($ah->{GLOBAL},$al) ||
-	      $self->parse_nat_lines($ah->{NAT},$al) ||
-	      $self->parse_static_lines($ah->{STATIC},$al) ||
-	      $self->parse_access_group($ah->{ACCESS_GROUP},$al) ||
-	      $self->parse_route_lines($ah->{ROUTING},$al) ||
-	      $self->parse_crypto($ah->{CRYPTO},$al) ||
-	      $self->parse_dummy_lines($ah,$al)
-	      )
-	{  
-	    #my $p = pos($$al);
-	    #$$al =~ /\G(\n*|.*)$ts/cgxo;
-	    #print "--> $p $1 <--\n";
-	    #print ".";
-	    #pos($$al) = $p;
-	}
-    }
+
+'$Id$ ' =~ / (.+),v (.+?) /;
+
+my $id = "$1 $2";
+
+sub version_drc2_asa() {
+    return $id;
 }
 
+use base "Netspoc::Approve::Cisco_FW";
+use strict;
+use warnings;
+use Netspoc::Approve::Helper;
+use Netspoc::Approve::Parse_Cisco;
 
+
+sub get_parse_info {
+    my ($self) = @_;
+    my $info = $self->SUPER::get_parse_info();
+    $info->{interface} = {
+	    store => 'HWIF',
+	    named => 1,
+	    subcmd => {
+		'shutdown' => { store => 'SHUTDOWN', default => 1 },
+		'speed' => {store => 'HW_SPEED', parse => \&get_int },
+		'duplex' => { store => 'DUPLEX', parse => \&get_token },
+		'nameif' => { store => 'IF_NAME', parse => \&get_token },
+		'security-level' => { store => 'SECURITY', parse => \&get_int },
+		'ip address' => { 
+		    store => 'ADDRESS',
+		    parse => ['seq',
+			      { store => 'BASE', parse => \&get_ip },
+			      { store => 'MASK', parse => \&get_ip },
+			      ['seq',
+			       { parse => qr/standby/ },
+			       { store => 'STANDBY', parse => \&get_ip } ]] },
+		'management-only' => { 
+		    store => 'MANAGEMENT_ONLY', default => 1 },
+	    }
+    };
+    $info->{'nat-control'} = {
+	store => 'NAT_CONTROL',
+	default => 1,
+    };
+    return $info;
+}
+
+# Link hardware interface with logical interface.
+# Propagate ip address and shutdown status from hardware interface 
+# to logical interface.
+sub postprocess_config {
+    my ($self, $p) = @_;
+    if($p->{NAT_CONTROL}) {
+	errpr("Please disable 'nat-control'");
+    }
+    for my $entry (values %{ $p->{HWIF} }) {
+	if (my $name = $entry->{IF_NAME}) {
+	    $p->{IF}->{$name}->{SHUTDOWN} = $entry->{SHUTDOWN};
+	    if(my $address = $entry->{ADDRESS}) {
+		$p->{IF}->{$name}->{BASE} = $address->{BASE};
+		$p->{IF}->{$name}->{MASK} = $address->{MASK};
+	    }
+	}
+    }
+    $self->SUPER::postprocess_config($p);
+}
+
+sub set_pager {
+    my ($self) = @_;
+    $self->cmd('terminal pager 0');
+}
+   
 # Packages must return a true value;
 1;
 

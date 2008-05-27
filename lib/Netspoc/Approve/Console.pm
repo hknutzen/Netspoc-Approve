@@ -1,34 +1,24 @@
 
 package Netspoc::Approve::Console;
 
-use strict;
-use warnings;
-
-############################################################
-#
 # Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
-# Module to manage connection to device.
+# Manage connection to device.
 #
-############################################################
-
-
-############################################################
-# Version number.
-############################################################
 
 '$Id$ ' =~ / (.+),v (.+?) /;
 
 my $id = "$1 $2";
 
+
+use strict;
+use warnings;
+use Netspoc::Approve::Helper;
 require Exporter;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
-
-
-
 
 ############################################################
 #

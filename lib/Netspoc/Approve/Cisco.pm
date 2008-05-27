@@ -1,11 +1,11 @@
 
-package Netspoc::Approve::Device::Cisco;
+package Netspoc::Approve::Cisco;
 
 # Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
-# Remote configure cisco devices
-#
+# Module to remote configure cisco devices.
+
 
 '$Id$' =~ / (.+),v (.+?) /;
 
@@ -15,105 +15,229 @@ sub version_drc2_cisco() {
     return $id;
 }
 
+use base "Netspoc::Approve::Device";
 use strict;
 use warnings;
-use base "Netspoc::Approve::Device";
 use IO::Socket ();
 use Netspoc::Approve::Helper;
-use Netspoc::Approve::Device::Cisco::Parse;
+use Netspoc::Approve::Parse_Cisco;
 
 sub parse_device {
     my ($self, $lines) = @_;
 
     mypr "parse device config\n";
-    my $config = analyze_conf_lines($lines);
-
-    my $result;
     my $parse_info = $self->get_parse_info();
-    for my $cmd (keys %$config) {
-
-        # Parse known commands, ignore unknown commands.
-        my $cmd_info = $parse_info->{$cmd} or next;
-        my ($method, $key) = @$cmd_info;
-        for my $arg (@{ $config->{$cmd} }) {
-            my ($value, $name, $push) = $self->$method($arg);
-            get_eol($arg);
-            next if not $value;
-
-            # Attach unparsed command line.
-            # This isn't possible if the command is parsed into an
-            # array from its subcommands.
-            $value->{orig} = $arg->{orig} if ref($value) eq 'HASH';
-            if ($name) {
-                if ($push) {
-
-                    # Named commands of same type, parsed separately.
-                    push @{ $result->{$key}->{$name} }, $value;
-                }
-                else {
-
-                    # One named command with arguments or with multiple
-                    # subcommands; parsed together.
-                    $result->{$key}->{$name}
-                      and err_at_line($arg, "Redefining '$cmd $name'");
-                    $result->{$key}->{$name} = $value;
-                }
-            }
-            else {
-
-                # Unnamed commands of same type, parsed separately.
-                push @{ $result->{$key} }, $value;
-            }
-        }
-    }
+    my $config = analyze_conf_lines($lines, $parse_info);
+    my $result = $self->parse_config($config, $parse_info);
     mypr "... done parsing config\n";
     $self->postprocess_config($result);
     return $result;
 }
 
+sub parse_seq {
+    my($self, $arg, $info, $result) = @_;
+    my $type = $info->[0];
+    my $success;
+    for my $part (@{$info}[1..(@$info-1)]) {
+	my $ref = ref $part;
+	my $part_success;
+	if(not $ref) {
+
+	    # A method call which fills $result.
+	    # Return value: true if success.
+	    $part_success = $self->$part($arg, $result);
+	}
+	elsif($ref eq 'HASH') {
+	    if(my $msg = $part->{error}) {
+		err_at_line($arg, $msg);
+	    }
+	    my $parser = $part->{parse};
+	    my $params = $part->{params};
+	    my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ } 
+			      $params ? @$params : ());
+	    if(my $keys = $part->{store_multi}) {
+		my @values = parse_line($self, $arg, $parser, @evaled) 
+		    if $parser;
+		for(my $i = 0; $i < @values; $i++) {
+		    $result->{$keys->[$i]} = $values[$i];
+		}
+		$part_success = @values;
+	    }
+	    else {
+		my $value = parse_line($self, $arg, $parser, @evaled) 
+		    if $parser;
+		if(not defined $value) {
+		    $value = $part->{default};
+		}
+		if(defined $value) {
+		    if(my $key = $part->{store}) {
+			$result->{$key} = $value;
+		    }
+		    $part_success = 1;
+		}
+	    }
+	}
+	elsif($ref eq 'CODE') {
+	    $part_success = $part->($arg, $result);
+	}
+	elsif($ref eq 'ARRAY') {
+	    $part_success = parse_seq($self, $arg, $part, $result);
+	}
+	$success ||= $part_success;
+	if($type eq 'or') {
+	    last if $success;
+	}
+	elsif($type eq 'seq') {
+
+	    # Stop if first arg doesn't match.
+	    last if not $success;
+	}
+	else {
+	    errpr "internal: unexpected 'seq' type $type\n";
+	}
+    }
+    return $success;
+}
+	    
+sub parse_line {
+    my($self, $arg, $info, @params) = @_;
+    my $ref = ref $info;
+    if(not $ref) {
+
+	# A method name.
+	return($self->$info($arg, @params));
+    }
+    elsif($ref eq 'Regexp') {
+	return(check_regex($info, $arg));
+    }
+    elsif($ref eq 'CODE') {
+	return($info->($arg, @params));
+    }   
+    elsif($ref eq 'ARRAY') {
+	my $result = {};
+	parse_seq($self, $arg, $info, $result);
+	not keys %$result and $result = undef;
+	return($result);
+    }
+    else {
+	errpr "internal: unexpected parse attribute: $info\n";
+    }
+}
+
+# $config are prepared config lines.
+# $parse_info describes grammar.
+sub parse_config {
+    my($self, $config, $parse_info) = @_;
+    my $result = {};
+    for my $arg (@$config) {
+	my $cmd = get_token($arg);
+        my $cmd_info = $parse_info->{$cmd} or 
+	    errpr "internal: parsed unexpected cmd: $cmd\n";
+	if(my $msg = $cmd_info->{error}) {
+	    err_at_line($arg, $msg);
+	}
+	my $named = $cmd_info->{named};
+	my $name;
+	if($named and $named ne 'from_parser') {
+	    $name = get_token($arg);
+	}
+	my $parser = $cmd_info->{parse};
+	my $value = parse_line($self, $arg, $parser) if $parser;
+	if($named and $named eq 'from_parser') {
+	    $name = $value->{name} or err_at_line($arg, 'Missing name');
+	}
+	get_eol($arg);
+	if(my $subcmds = $arg->{subcmd}) {
+	    my $parse_info = $cmd_info->{subcmd} or 
+		err_at_line($arg, 'Unexpected subcommand');
+	    if(defined(my $value2 = parse_config($self, $subcmds, $parse_info)))
+	    {
+		if(defined $value) {
+		    $value = { %$value, %$value2 };
+		}
+		else {
+		    $value = $value2;
+		}
+	    }
+	}
+	if(not defined $value) {
+	    $value = $cmd_info->{default};
+	}
+	if(not defined $value) {
+	    next;
+	}
+	if(ref($value) eq 'HASH') {
+	    $named and $value->{name} = $name;
+	    $value->{orig} = $arg->{orig};
+	}
+	my $store = $cmd_info->{store};
+	my @extra_keys = ref $store ? @$store : $store;
+	my $key;
+	if($named) {
+	    $key = $name;
+	}
+	else {
+	    $key = pop @extra_keys;
+	}
+	my $dest = $result;
+	for my $x (@extra_keys) {
+	    $dest->{$x} ||= {};
+	    $dest = $dest->{$x};
+	}
+	if($cmd_info->{multi}) {
+	    push(@{ $dest->{$key} }, $value);
+	}
+	else {
+	    defined $dest->{$key} and
+		err_at_line($arg, 'Multiple occurences of command not allowed');
+	    $dest->{$key} = $value;
+	}
+    }
+    return($result);
+}
+
 # ip mask
 # host ip
 # any
-# ->{SPEC} ->{PORT_L} / {PORT_H}
 sub parse_address {
-    my ($self, $desc) = @_;
+    my ($self, $arg) = @_;
     my ($ip, $mask);
-    my $token = get_token($desc);
+    my $token = get_token($arg);
     if ($token eq 'any') {
         $ip = $mask = 0;
     }
     elsif ($token eq 'host') {
-        $ip   = get_ip($desc);
+        $ip   = get_ip($arg);
         $mask = 0xffffffff;
     }
     else {
         $ip   = quad2int($token);
-        $mask = get_ip($desc);
+        $mask = get_ip($arg);
     }
     return ({ BASE => $ip, MASK => $self->dev_cor($mask) });
 }
 
 sub parse_port {
-    my ($self, $proto, $desc) = @_;
-    my $port = get_token($desc);
+    my ($self, $arg, $proto) = @_;
+    my $port = get_token($arg);
     if ($proto eq 'tcp') {
         $port = $PORT_Trans_TCP{$port} || $port;
     }
     else {
         $port = $PORT_Trans_UDP{$port} || $port;
     }
-    $port =~ /^\d+$/ or err_at_line('Syntax');
+    $port =~ /^\d+$/ or err_at_line($arg, 'Expected port number');
     return $port;
 }
 
 # ( 'lt' | 'gt' | 'eq' | 'neq' ) port
 # 'range' port port
 sub parse_port_spec {
-    my ($self, $proto, $desc) = @_;
+    my ($self, $arg, $proto) = @_;
     my ($low, $high);
-    my $spec = check_regex('eq|gt|lt|neq|range', $desc)
+    my $spec = check_regex('eq|gt|lt|neq|range', $arg)
       or return {};
-    my $port = $self->parse_port($proto, $desc);
+    my $port = $self->parse_port($arg, $proto);
     if ($spec eq 'eq') {
         $low = $high = $port;
         $spec = 'range';
@@ -129,11 +253,11 @@ sub parse_port_spec {
         $spec = 'range';
     }
     elsif ($spec eq 'neq') {
-        die "port specifier 'neq' not implemented yet\n";
+        errpr "port specifier 'neq' not implemented yet\n";
     }
     elsif ($spec eq 'range') {
         $low = $port;
-        $high = $self->parse_port($proto, $desc);
+        $high = $self->parse_port($arg, $proto);
     }
     else {
         internal_err();
@@ -146,25 +270,31 @@ my $icmp_regex = join('|', '\d+', keys %ICMP_Trans);
 # <message-name> | (/d+/ [/d+])
 # ->{TYPE} / ->{CODE} (if defined)
 sub parse_icmp_spec {
-    my ($self, $desc) = @_;
+    my ($self, $arg) = @_;
     my ($type, $code);
-    my $token = check_regex($icmp_regex, $desc);
+    my $token = check_regex($icmp_regex, $arg);
     return({}) if not defined $token;
     if (my $spec = $ICMP_Trans{$token}) {
         ($type, $code) = @{$spec}{ 'type', 'code' };
     }
     else {
         $type = $token;
-        $code = check_regex('\d+', $desc) || -1;
+        $code = check_regex('\d+', $arg) || -1;
     }
     return ({ TYPE => $type, CODE => $code });
 }
 
-############################################################
-# --- helper ---
-############################################################
-sub num_compare { $a->[0] <=> $b->[0] }
-
+sub normalize_proto {
+    my ($self, $arg, $proto) = @_;
+    $proto = $IP_Trans{$proto} || $proto;
+    $proto =~ /^\d+$/ 
+	or $self->err_at_line($arg, "Expected numeric proto '$proto'");
+    $proto =~ /^(1|6|17)$/
+	and $self->err_at_line($arg, "Don't use numeric proto for", 
+			       " icmp|tcp|udp: '$proto'");
+    return($proto);
+}
+    
 #################################################
 # --- comparing ---
 #################################################
@@ -209,7 +339,7 @@ sub ports_a_in_b ($$) {
 # THEY ARE USED IN  static_global_local_match_a_b()
 #
 sub ip_netz_a_in_b {
-    my ($a, $b) = @_;
+    my ($self, $a, $b) = @_;
     my $am = $a->{MASK};
     my $bm = $b->{MASK};
     my $mm = $am & $bm;
@@ -225,11 +355,12 @@ sub ip_netz_a_in_b {
 #
 sub services_a_in_b {
     my ($a, $b) = @_;
+    my $aproto = $a->{TYPE};
     my $bproto = $b->{TYPE};
     if ($bproto eq 'ip') {
         return 1;
     }
-    if ($bproto eq $a->{TYPE}) {
+    if ($bproto eq $aproto) {
         if ($bproto eq 'icmp') {
             unless (exists $b->{SPEC}->{TYPE}) {
                 return 1;
@@ -259,28 +390,20 @@ sub services_a_in_b {
                 return 0;
             }
         }
-        if ($bproto eq 'tcp') {
-            my $src = ports_a_in_b($a->{SRC}->{SRV}, $b->{SRC}->{SRV});
-            ($src) or return 0;
-            my $dst = ports_a_in_b($a->{DST}->{SRV}, $b->{DST}->{SRV});
-            ($dst) or return 0;
+        if ($bproto eq 'tcp' or $bproto eq 'udp') {
+            my $src = ports_a_in_b($a->{SRC_PORT}, $b->{SRC_PORT})
+		or return 0;
+            my $dst = ports_a_in_b($a->{DST_PORT}, $b->{DST_PORT})
+		or return 0;
             if ($src == 1 and $dst == 1) {
                 ($b->{ESTA}) or return 1;
                 ($a->{ESTA}) and return 1;
             }
             return 2;    # intersection
         }
-        if ($bproto eq 'udp') {
-            my $src = ports_a_in_b($a->{SRC}->{SRV}, $b->{SRC}->{SRV});
-            ($src) or return 0;
-            my $dst = ports_a_in_b($a->{DST}->{SRV}, $b->{DST}->{SRV});
-            ($dst) or return 0;
-            ($src == $dst) and return $src;    # this is ok!
-            return 2;                          # intersection
-        }
         return 1;
     }
-    elsif ($a->{TYPE} eq 'ip') {
+    elsif ($aproto eq 'ip') {
 
         # intersection
         return 2;
@@ -307,9 +430,9 @@ sub acl_line_a_in_b {
     my $src;
     my $dst;
     my $srv;
-    $src = ip_netz_a_in_b($a->{SRC}, $b->{SRC});
+    $src = $self->ip_netz_a_in_b($a->{SRC}, $b->{SRC});
     ($src) or return 0;
-    $dst = ip_netz_a_in_b($a->{DST}, $b->{DST});
+    $dst = $self->ip_netz_a_in_b($a->{DST}, $b->{DST});
     ($dst) or return 0;
     $srv = services_a_in_b($a, $b);
     ($srv) or return 0;
@@ -362,10 +485,10 @@ sub acl_line_a_eq_b ($$$) {
         # icmp messages equal
     }
     elsif ($a->{TYPE} eq 'tcp' or $a->{TYPE} eq 'udp') {
-        my $ass = $asrc->{SRV};
-        my $ads = $adst->{SRV};
-        my $bss = $bsrc->{SRV};
-        my $bds = $bdst->{SRV};
+        my $ass = $a->{SRC_PORT};
+        my $ads = $a->{DST_PORT};
+        my $bss = $b->{SRC_PORT};
+        my $bds = $b->{DST_PORT};
         ($ass->{SPEC} xor $bss->{SPEC}) and return 0;
         ($ads->{SPEC} xor $bds->{SPEC}) and return 0;
         if ($ass->{SPEC}) {
@@ -413,36 +536,9 @@ sub route_line_a_eq_b {
     return 1;
 }
 
-#
-# May only be used for pix routes.
-#
 sub route_line_destination_a_eq_b {
     my ($self, $a, $b) = @_;
-    unless (defined($a->{IF}) && defined($b->{IF})) {
-        die "route_line_destination_a_eq_b only defined for pix\n";
-    }
-
-    # we do not consider the pix interfaces - otherwise - if pix os
-    # version changes -> weired behavior
-    ($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK})
-      or return 0;
-    return 1;
-}
-
-sub route_line_a_supersedes_b {
-    my ($self, $a, $b) = @_;
-    if ($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK}) {
-        for my $key (qw(NIF NEXTHOP)) {
-            if (defined($a->{$key}) || defined($b->{$key})) {
-                (        defined($a->{$key})
-                      && defined($b->{$key})
-                      && $a->{$key} eq $b->{$key})
-                  or return 0;
-            }
-        }
-        return 1;
-    }
-    return $self->ip_netz_a_in_b($a, $b);
+    return($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK});
 }
 
 ################################################################
@@ -548,7 +644,7 @@ sub obj_relation ( $$ ) {
 # - Hash of other rules
 # Result:
 # A list of rules matching R.
-sub get_hash_matches( $$$$$ ) {
+sub get_hash_matches ( $$$$$ ) {
     my ($matches, $p_rel, $s_rel, $d_rel, $bhash) = @_;
     my ($prot, $src, $dst) = @$matches;
     my @found;
@@ -568,39 +664,11 @@ sub get_hash_matches( $$$$$ ) {
     return @found;
 }
 
-#
-# this is only for debugging
-#
-sub show {
+sub acl_array_compare_a_in_b {
     my ($self, $ac, $bc) = @_;
 
-    my ($aprot, $asrc, $adst) = acl_prepare($ac);
-    my ($bprot, $bsrc, $bdst, $bhash) = acl_prepare($bc, 1);
-    my $p_rel = prot_relation($aprot, $bprot);
-    my $s_rel = obj_relation($asrc,   $bsrc);
-    my $d_rel = obj_relation($adst,   $bdst);
-
-    my $c = 0;
-    for my $ace (@{$ac}) {
-        my @found =
-          get_hash_matches($ace->{MATCHES}, $p_rel, $s_rel, $d_rel, $bhash);
-        print $ace->{orig}, "\n";
-        for my $a (@found) {
-            print "  ($c) ", $a->{orig},
-              " -> $a->{line}\n";
-            ++$c;
-        }
-        print "\n";
-    }
-}
-
-### main func ###
-
-sub acl_array_compare_a_in_b {
-    my ($self, $ac, $bc, $opt) = @_;
-
-    # setting options
-
+    # setting verbosity
+    my $opt = $self->{CMPVAL};
     my $verbose = 0;
     if ($opt & 1) {
         $verbose = 1;
@@ -631,7 +699,6 @@ sub acl_array_compare_a_in_b {
         $lines++;
         exists $s->{REMARK} and next;
 
-        #if($lines == 100){ exit;}
         my $inner           = 0;
         my @currentdenylist = ();
         if ($s->{MODE} eq 'deny') {
@@ -810,7 +877,8 @@ sub acl_array_compare_a_in_b {
                     print " **** DENY **** (", $lines, "): ";
                     print $s->{orig};
                     print " by ($inner): $deny_line\n";
-                    my @intersec = sort num_compare (@deny_int, @perm_int);
+                    my @intersec = 
+			sort { $a->[0] <=> $b->[0] } (@deny_int, @perm_int);
                     for my $p (@intersec) {
                         print " **** INTERSEC **** ", $p->[0], " : ";
                         print $p->[1]->{orig}, "\n";
@@ -828,7 +896,300 @@ sub acl_array_compare_a_in_b {
     return 0;
 }
 
-sub login_enable( $ ) {
+# calling rule: a should be spoc (new) acl
+#               b should be conf (old) acl
+sub acl_equal {
+    my ($self, $a_acl, $b_acl, $a_name, $b_name, $context) = @_;
+    my $diff = 0;
+    mypr "compare ACLs $a_name $b_name for $context\n";
+
+    ### textual compare
+    if (@{$a_acl} == @{$b_acl}) {
+        mypr "length equal: ", scalar @{$a_acl}, "\n";
+        mypr "compare line by line: ";
+        for (my $i = 0 ; $i < scalar @{$a_acl} ; $i++) {
+            if ($self->acl_line_a_eq_b($$a_acl[$i], $$b_acl[$i])) {
+                next;
+            }
+            else {
+
+                # acls differ
+                mypr " diff at ", $i + 1;
+                $diff = 1;
+                last;
+            }
+        }
+        mypr "\n";
+    }
+    else {
+        $diff = 1;
+        mypr "lenght differ:" .
+	    " OLD: " . scalar @{$b_acl} . 
+	    " NEW: " . scalar @{$a_acl} . "\n";
+    }
+    ### textual compare finished
+    if (!$diff) {
+        mypr "acl's textual identical!\n";
+	return 1;
+    }
+
+    my $newinold;
+    my $oldinnew;
+    mypr "acl's differ textualy!\n";
+    mypr "begin semantic compare:\n";
+    if ($self->{CMPVAL} eq 4) {
+	$newinold = $self->acl_array_compare_a_in_b($a_acl, $b_acl);
+	$oldinnew = $self->acl_array_compare_a_in_b($b_acl, $a_acl);
+    }
+    else {
+	mypr "#### BEGIN NEW in OLD - $context\n";
+	mypr "#### $a_name in $b_name\n";
+	$newinold = $self->acl_array_compare_a_in_b($a_acl, $b_acl);
+	mypr "#### END   NEW in OLD - $context\n";
+	mypr "#### BEGIN OLD in NEW - $context\n";
+	mypr "#### $b_name in $a_name\n";
+	$oldinnew = $self->acl_array_compare_a_in_b($b_acl, $a_acl);
+	mypr "#### END   OLD in NEW - $context\n";
+    }
+    if ($newinold and $oldinnew) {
+	$diff = 0;
+	mypr "#### ACLs equal ####\n";
+	return 1;
+    }
+    else {
+	mypr "acl's differ semanticaly!\n";
+	return 0;
+    }
+}
+
+###########################################
+# Rawdata processing
+###########################################
+
+sub merge_acls {
+    my ($self, $spoc_conf, $raw_conf, $extra) = @_;
+    for my $intf (keys %{ $raw_conf->{IF} }) {
+	mypr " interface: $intf\n";
+	my $ep_name;
+	my $sp_name;
+        unless ($ep_name = $raw_conf->{IF}->{$intf}->{ACCESS}) {
+            mypr " - no acl in raw data -\n";
+            next;
+        }
+
+        # There is a raw acl for this interface.
+        $spoc_conf->{IF}->{$intf} or 
+	    errpr "rawdata: $intf not found in spocfile\n";
+        unless ($sp_name = $spoc_conf->{IF}->{$intf}->{ACCESS}) {
+            warnpr "rawdata: no spocacl for interface: $intf\n";
+            next;
+        }
+
+        # There is a corresponding acl in spocfile.
+        unless ($raw_conf->{ACCESS}->{$ep_name}) {
+            errpr "rawdata: no matching raw acl found for name $ep_name" .
+		" in interface definition\n";
+            exit -1;
+        }
+        my $rawacl  = $raw_conf->{ACCESS}->{$ep_name};
+        my $spocacl = $spoc_conf->{ACCESS}->{$sp_name};
+
+	# Prepend raw acl._
+	unshift(@{$spoc_conf->{ACCESS}->{$sp_name}}, @$rawacl);
+
+	# Additionally prepend to original acl having object_groups.
+	if($extra) {
+	    unshift(@{$spoc_conf->{$extra}->{$sp_name}}, @$rawacl);
+	}
+	mypr "   entries prepended: " . scalar @{$rawacl} . "\n";
+    }
+}
+
+sub merge_rawdata {
+    my ($self, $spoc_conf, $raw_conf) = @_;
+    mypr "--- raw processing\n";
+    
+    # Route processing.
+    if ($spoc_conf->{ROUTING}) {
+	my $newroutes = ();
+      SPOC: for (my $i = 0 ; $i < scalar @{ $spoc_conf->{ROUTING} } ; $i++) {
+	  my $se = $spoc_conf->{ROUTING}->[$i];
+	  for my $re (@{ $raw_conf->{ROUTING} }) {
+	      if ($self->route_line_a_eq_b($se, $re)) {
+		  warnpr "RAW: double RE '$re->{orig}'" .
+		      " scheduled for remove from spocconf.\n";
+		  next SPOC;
+	      }
+	      elsif ( $re->{BASE} eq $se->{BASE}
+		      and $re->{MASK} eq $se->{MASK})
+	      {
+		  warnpr "RAW: inconsistent NEXT HOP in routing entries:\n";
+		  warnpr "     spoc: $se->{orig} (scheduled for remove)\n";
+		  warnpr "     raw:  $re->{orig} \n";
+		  next SPOC;
+	      }
+	  }
+	  push @{$newroutes}, $se;
+      }
+	$spoc_conf->{ROUTING} = $newroutes;
+    }
+    for my $re (@{ $raw_conf->{ROUTING} }) {
+	push @{ $spoc_conf->{ROUTING} }, $re;
+    }
+    mypr " attached routing entries: "
+	. scalar @{ $raw_conf->{ROUTING} } . "\n";
+
+    mypr "--- raw processing: done\n";
+    return 1;
+}
+###########################################
+#
+# END RAW processing
+#
+###########################################
+
+sub process_routing {
+    my ($self, $conf, $spoc_conf) = @_;
+    my $spoc_routing = $spoc_conf->{ROUTING};
+    my $conf_routing = $conf->{ROUTING};
+    if ($spoc_routing) {
+        if (not $conf_routing) {
+            if (not $conf->{OSPF}) {
+                errpr "ERROR: no routing entries found on device\n";
+                return 0;
+            }
+            else {
+                mypr "no routing entries found on device - but OSPF found...\n";
+
+                # generate empty routing config for device:
+                $conf_routing = $conf->{ROUTING} = [];
+            }
+        }
+        my $counter;
+        mypr "==== compare routing information ====\n\n";
+        mypr " routing entries on device:    ", scalar @$conf_routing,
+          "\n";
+        mypr " routing entries from netspoc: ", scalar @$spoc_routing,
+          "\n";
+        for my $c (@$conf_routing) {
+            $counter++;
+            unless ($self->{COMPARE}) {
+                mypr " $counter";
+            }
+            for my $s (@$spoc_routing) {
+                if ($self->route_line_a_eq_b($c, $s)) {
+                    $c->{DELETE} = $s->{DELETE} = 1;
+                    last;
+                }
+            }
+        }
+        mypr "\n";
+        unless ($self->{COMPARE}) {
+
+            #
+            # *** SCHEDULE RELOAD ***
+            #
+            # TODO: check if 10 minutes are OK
+            #
+            $self->schedule_reload(10);
+
+            # Transfer to device.
+            $self->cmd('configure terminal') or exit -1;
+            mypr "transfer routing entries to device:\n";
+            $counter = 0;
+	    
+	    # Add routes with long mask first.
+	    # If we switch the default route, this ensures, that we have the
+	    # new routes available before deleting the old default route.
+            for my $r ( sort {$b->{MASK} <=> $a->{MASK}} 
+			@{ $spoc_conf->{ROUTING} }) {
+                ($r->{DELETE}) and next;
+                $counter++;
+		
+		# PIX and ASA don't allow two routes to identical destination.
+		# Remove old route immediatly before adding the new one.
+		for my $c (@$conf_routing) {
+		    next if $c->{DELETE};
+		    if($self->route_line_destination_a_eq_b($r, $c)){
+			$self->cmd("no $c->{orig}") or exit -1;
+			$c->{DELETE} = 1; # Must not delete again.
+		    }
+		}
+                $self->cmd($r->{orig}) or exit -1;
+                mypr " $counter";
+            }
+            mypr " $counter";
+            mypr "\n";
+            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
+            mypr "deleting non matching routing entries from device\n";
+            $counter = 0;
+            for my $r (@$conf_routing) {
+                ($r->{DELETE}) and next;
+                $counter++;
+                my $tr = join ' ', "no", $r->{orig};
+                $self->cmd($tr) or exit -1;
+                mypr " $counter";
+            }
+            mypr " $counter";
+            mypr "\n";
+            $self->cmd('end') or exit -1;
+            $counter and $self->{CHANGE}->{ROUTE} = 1;
+            $self->cancel_reload();
+        }
+        else {
+
+            # show compare results
+            mypr "additional routing entries from spoc:\n";
+            $counter = 0;
+            for my $r (@$spoc_routing) {
+                ($r->{DELETE}) and next;
+                $counter++;
+                mypr $r->{orig}, "\n";
+            }
+            mypr "total: ", $counter, "\n";
+            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
+            mypr "non matching routing entries on device:\n";
+            $counter = 0;
+            for my $r (@$conf_routing) {
+                $r->{DELETE} and next;
+                $counter++;
+                mypr $r->{orig}, "\n";
+            }
+            mypr "total: ", $counter, "\n";
+            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
+        }
+        mypr "==== done ====\n";
+    }
+    else {
+        mypr "no routing entries specified - leaving routes untouched\n";
+    }
+    return 1;
+}
+
+sub prepare {
+    my ($self) = @_;
+    $self->{PROMPT}    = qr/\r\n.*[\%\>\$\#]\s?$/;
+    $self->{ENAPROMPT} = qr/\r\n.*#\s?$/;
+    $self->{ENA_MODE}  = 0;
+    $self->login_enable() or exit -1;
+    mypr "logged in\n";
+    $self->{ENA_MODE} = 1;
+    my $result = $self->issue_cmd('');
+    $result->{MATCH} =~ m/^\r\n\s?(\S+)\#\s?$/;
+    my $name = $1;
+
+    unless ($self->{CHECKHOST} eq 'no') {
+        $self->checkidentity($name) or exit -1;
+    }
+    else {
+        mypr "hostname checking disabled!\n";
+    }
+
+    # Set prompt again because of performance impact of standard prompt.
+    $self->{ENAPROMPT} = qr/\r\n\s?$name\S*#\s?$/;
+}
+
+sub login_enable {
     my ($self) = @_;
     my $ip = $self->{IP};
     my $user;
@@ -836,9 +1197,8 @@ sub login_enable( $ ) {
     my $con = $self->{CONSOLE};
 
     if ($self->{PASS} =~ /:/ or $self->{LOCAL_USER}) {
-        if ($self->{LOCAL_USER}) {
+        if ($user = $self->{LOCAL_USER}) {
             $pass = $self->{PASS};
-            $user = $self->{LOCAL_USER} or die "no user found\n";
         }
         else {
             ($user, $pass) = split(/:/, $self->{PASS});
@@ -853,7 +1213,7 @@ sub login_enable( $ ) {
             $server->close();
             mypr "port 22 open - trying SSH for login\n";
             $con->{EXPECT}->spawn("ssh", ("-l", "$user", "$ip"))
-              or die "Cannot spawn ssh: $!\n";
+              or errpr "Cannot spawn ssh: $!\n";
             my $prm = qr/password:|\(yes\/no\)\?/i;
             my $tmt = $self->{telnet_timeout};
             $con->con_wait("$prm", $tmt) or $con->con_error();
@@ -876,7 +1236,7 @@ sub login_enable( $ ) {
         else {
             mypr "port 22 closed -  trying telnet for login\n";
             $con->{EXPECT}->spawn("telnet", ($ip))
-              or die "Cannot spawn telnet: $!\n";
+              or errpr "Cannot spawn telnet: $!\n";
             my $tmt = $self->{telnet_timeout};
             my $prm = "Username:";
             $con->con_wait("$prm", $tmt) or $con->con_error();
@@ -895,7 +1255,7 @@ sub login_enable( $ ) {
         mypr "using simple TELNET for login\n";
         $pass = $self->{PASS};
         $con->{EXPECT}->spawn("telnet", ($ip))
-          or die "Cannot spawn telnet: $!\n";
+          or errpr "Cannot spawn telnet: $!\n";
         my $prm = "PIX passwd:|Password:";
         my $tmt = $self->{telnet_timeout};
         $con->con_wait("$prm", $tmt) or $con->con_error();
