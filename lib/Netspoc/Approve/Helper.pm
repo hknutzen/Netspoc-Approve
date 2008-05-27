@@ -257,10 +257,10 @@ sub mypr {
 sub errpr {
     $erro = "YES";
     print STDERR "ERROR>>> ", @_;
-    unless ($err_mode eq "COMPARE") {
-        print STDERR "ERROR>>> --- approve aborted ---\n";
+#    unless ($err_mode eq "COMPARE") {
+#        print STDERR "ERROR>>> --- approve aborted ---\n";
         exit -1;
-    }
+#    }
 }
 
 sub errpr_mode( $ ) {
@@ -393,7 +393,7 @@ sub updatestatus ( $$ ) {
 
 sub open_status( $ ) {
     my $job        = shift;
-    my $devicename = $job->{JOBNAME};
+    my $devicename = $job->{NAME};
     my $statuspath = $job->{GLOBAL_CONFIG}->{STATUSPATH};
 
     # open status file for update and checking
