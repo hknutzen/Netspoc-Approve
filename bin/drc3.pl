@@ -15,7 +15,7 @@ sub version_drc2() {
 $| = 1;    # output char by char
 
 use FindBin;
-use lib $FindBin::Bin;
+use lib '/home/hk/';
 use strict;
 use warnings;
 
@@ -24,19 +24,23 @@ use Fcntl;
 use Getopt::Long;
 
 use Netspoc::Approve::Device;
-use Netspoc::Approve::Device::Cisco::IOS;
-use Netspoc::Approve::Device::Cisco::IOS::FW;
-use Netspoc::Approve::Device::Cisco::Firewall::ASA;
-use Netspoc::Approve::Device::Cisco::Firewall::PIX;
-use Netspoc::Approve::Device::Cisco::Firewall::PIX::Fwsm;
+use Netspoc::Approve::Cisco;
+use Netspoc::Approve::IOS;
+use Netspoc::Approve::IOS_FW;
+use Netspoc::Approve::ASA;
+use Netspoc::Approve::PIX;
+use Netspoc::Approve::FWSM;
 use Netspoc::Approve::Helper;
 
 my %type2class = (
-    IOS    => 'Netspoc::Approve::Device::Cisco::IOS',
-    IOS_FW => 'Netspoc::Approve::Device::Cisco::IOS:FW',
-    ASA    => 'Netspoc::Approve::Device::Cisco::Firewall::ASA',
-    PIX    => 'Netspoc::Approve::Device::Cisco::Firewall::PIX',
-    FWSM   => 'Netspoc::Approve::Device::Cisco::Firewall::PIX::Fwsm',
+    IOS    => 'Netspoc::Approve::IOS',
+    IOS_FW => 'Netspoc::Approve::IOS_FW',
+    ASA    => 'Netspoc::Approve::ASA',
+    PIX    => 'Netspoc::Approve::PIX',
+    FWSM   => 'Netspoc::Approve::FWSM',
+
+    # Fallback
+    ''  => 'Netspoc::Approve::Cisco',
 );
 
 sub parse_ver( $ ) {
@@ -67,13 +71,12 @@ sub parse_ver( $ ) {
 # read command line switches:
 
 sub usage {
-    errpr_mode("COMPARE");
-    errpr "usage: 'drc2 -v'\n";
-    errpr "usage: 'drc2 [-C <level>] -P1 <conf1> -P2 <conf2> <device>'\n";
-    errpr "usage: 'drc2 [-C <level>] -F1 <file1> -F2 <file2> <device>'\n";
-    errpr "usage: 'drc2 <option> -N <file> <device>'\n\n";
+    print STDERR <<END;
+usage: 'drc2 -v'
+usage: 'drc2 [-C <level>] -P1 <conf1> -P2 <conf2> <device>'
+usage: 'drc2 [-C <level>] -F1 <file1> -F2 <file2> <device>'
+usage: 'drc2 <option> -N <file> <device>'
 
-    mypr <<END;
  -p [<num>]           ping with max. #num retries
  --NOREACH            do not check if device is reachable
  --PING_ONLY          only check reachability and exit
@@ -83,28 +86,26 @@ sub usage {
  -L <logdir>          path for saving telnet-logs
  -E <command>         if set, execute command on remote obj and show output
  -N <file>            if set, NetSPoC mode and file
- -G <file>            if set, file with epiloG data
  --LOGFILE <fullpath> path for print output (default is STDOUT)
  --LOGAPPEND          if logfile already exists, append logs
  --LOGVERSIONS        do not overwrite existing logfiles
  --NOLOGMESSAGE       supress output about logfile Names
- -I <username>        Username of Invokator (usually submitted by approve.pl)
+ -I <username>        Username of invokator (usually submitted by approve.pl)
  -C <level>           compare device with netspoc
                       0 = show only diffs
 		      1 = verbose
 		      2 = show matches
 		      3 = 1 & 2
 		      4 = silent
- -R                   cRypto map checking
  -S                   update Status
  -t <seconds>         timeout for telnet
- -T <telnet port>     port for telnet access. default is 23
- -F                   Force transfer of ACLs with fake ACE
- -h no                hostname checking in spocfile off
+ -F                   Force transfer of ACLs 
  -P1 p<policy#>       Compare netspoc generated Configs p<policy#>
  -P2 p<policy#>
  -F1 <file1>	      Compare netspoc generated Configs given by absolute paths
  -F2 <file2>
+ -Z		      ignored
+ -G <file>            ignored
  -v                   show version info
 
 END
@@ -130,23 +131,18 @@ my %opts = ();
     'LOGAPPEND',
     'LOGVERSIONS',
     'NOLOGMESSAGE',
-    'I:s',    # optional invokator username
+    'I=s',    # invokator username
     'NOREACH',
     'PING_ONLY',
     'C=i',
-    'A=s',
-    'R',
     'S',
     'G=s',
-    'T=i',
     'F',
-    'h=s',
     'M=i',
     'v',
-    'Z:s',    #device type is optional
+    'Z',    	# ignored
     'P1=s',
     'P2=s',
-    'FC=s',
     'F1=s',
     'F2=s'
 );
@@ -169,8 +165,7 @@ my $device_info =
   Netspoc::Approve::Device->get_obj_info($netobj, $opts{D}, $global_config);
 my $name  = $device_info->{NAME};
 my $type  = Netspoc::Approve::Device->get_spoc_type($name, $global_config);
-my $class = $type2class{$type}
-  or die "Cant't handle type '$type' of $netobj\n";
+my $class = $type2class{$type};
 
 my $job = $class->new(
     NAME          => $name,
@@ -193,7 +188,6 @@ if (my $f1 = $opts{F1}) {
     if ($job->compare_files($f1, $f2)) {
 
         # diffs
-        mypr "Diffs:\n";
         exit 1;
     }
     else {
@@ -315,12 +309,7 @@ else {
     mypr "reachability test skipped\n";
 }
 
-if ($job->{OPTS}->{R}) {
-
-    # check Crypto Config
-    $job->check_crypto();
-}
-elsif ($job->{OPTS}->{E}) {
+if ($job->{OPTS}->{E}) {
 
     # execute user command
     errpr_mode("COMPARE")

@@ -1,82 +1,58 @@
 
-package Netspoc::Approve::Device::Cisco::Firewall::PIX;
+package Netspoc::Approve::PIX;
 
 # Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
-# module to remote configure cisco PIX up to version 6.3
+# Remote configure Cisco PIX up to version 6.3
 #
 
 '$Id$ ' =~ / (.+),v (.+?) /;
 
 my $id = "$1 $2";
 
-use strict;
-use warnings;
-
-use base "Netspoc::Approve::Device::Cisco::Firewall";
-
 sub version_drc2_pix() {
     return $id;
 }
 
+use base "Netspoc::Approve::Cisco_FW";
+use strict;
+use warnings;
 use Netspoc::Approve::Helper;
-use Netspoc::Approve::Device::Cisco::Parse;
+use Netspoc::Approve::Parse_Cisco;
 
 sub get_parse_info {
     my ($self) = @_;
     my $info = $self->SUPER::get_parse_info();
-    $info->{interface} = ['parse_interface', 'HWIF'];
-    $info->{nameif} = ['parse_nameif', 'NAMEIF'];
-    $info->{'ip address'} = ['parse_ip_address', 'ADDRESS'];
-    return $info;
-}
 
-#############################################
-#
-# up to pix os 6.3
-#
 # interface <hardware_id> [<hardware_speed> [shutdown]]
-#
-# ->{<hardware_id>}->{SHUTDOWN}
-# ->{<hardware_id>}->{HW_SPEED}
-#
-sub parse_interface {
-    my ($self, $arg) = @_;
-    my $result;
+    $info->{interface} = {
+	store => 'HWIF',
+	named => 1,
+	parse => ['seq',
+		  { store => 'HW_SPEED', parse => \&check_token },
+		  { store => 'SHUTDOWN', parse => qr/shutdown/ } ]
+    };		  
 
-    my $id = get_token($arg);
-    $result->{HW_SPEED} = check_token($arg)
-	and $result->{SHUTDOWN} = check_regex('shutdown', $arg);
-    return($result, $id);
-}
-
-#############################################
-#
 # nameif {<hardware_id>|<vlan_id>} <if_name> <security_level>
-#
-sub parse_nameif {
-    my ($self, $arg) = @_;
-    my $result;
+    $info->{nameif} =  {
+	store => 'NAMEIF',
+	named => 1,
+	parse => ['seq',
+		  { store => 'IF_NAME', parse => \&get_token },
+		  { store => 'SECURITY', parse => \&get_token } ]
+    };
 
-    my $id = get_token($arg);
-    $result->{IF_NAME}  = get_token($arg);
-    $result->{SECURITY} = get_token($arg);
-    return($result, $id);
-}
-
-#############################################
-#
 # ip address <if_name> <ip-address> <netmask>
-#
-sub parse_ip_address {
-    my ($self, $arg) = @_;
-    my $result;
+    $info->{'ip address'} = {
+	store => 'ADDRESS',
+	named => 1,
+	parse => ['seq',
+		  { store => 'BASE', parse => \&get_ip },
+		  { store => 'MASK', parse => \&get_ip } ]
+    };
 
-    my $name = get_token($arg);
-    $result->{BASE} = get_ip($arg);
-    $result->{MASK} = get_ip($arg);
-    return($result, $name);
+    return $info;
 }
 
 # Link hardware interface with logical interface.
@@ -93,6 +69,32 @@ sub postprocess_config {
 	$p->{IF}->{$name}->{MASK} = $address->{MASK};
     }
     $self->SUPER::postprocess_config($p);
+}
+
+sub checkbanner {
+    my ($self) = @_;
+    mypr "Banner check disabled for PIX $self->{VERSION}\n";
+}
+
+sub set_pager {
+    my ($self) = @_;
+    errpr "Pager is not disabled - issue 'no pager' manually to continue\n";
+}
+    
+sub prepare {
+    my ($self) = @_;
+    $self->SUPER::prepare();
+    my $output = $self->shcmd('sh fixup');
+    if ($output =~ /\n\s*fixup\s+protocol\s+smtp\s+25/) {
+	unless ($self->{COMPARE}) {
+	    $self->cmd('configure terminal');
+
+	    # Needed for enhanced SMTP features.
+	    $self->cmd('no fixup protocol smtp 25');
+	    mypr "fixup for protocol smtp at port 25 now disabled!\n";
+	    $self->cmd('quit');
+	}
+    }
 }
 
 # Packages must return a true value;

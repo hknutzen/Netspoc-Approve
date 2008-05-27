@@ -28,6 +28,7 @@ use Fcntl qw/:flock/;    # import LOCK_* constants
 use File::Basename;
 
 use Netspoc::Approve::Helper;
+use Netspoc::Approve::Console;
 
 ############################################################
 # --- constructor ---
@@ -429,10 +430,11 @@ sub get_spoc_type($$$) {
 
     # Get type of object from newest spoc file.
     my $spocfile =
-      "$global_config->{NETSPOC}/current/".
-      "$global_config->{CODEPATH}$name";
-    my $type;
-    open(FILE, $spocfile) or die "Can't open $spocfile: $!\n";
+      "$global_config->{NETSPOC}current/$global_config->{CODEPATH}$name";
+
+    # Empty string is used for lookup of fallback class.
+    my $type = '';
+    open(FILE, $spocfile) or return $type;
     while (my $line = <FILE>) {
         if ($line =~ /\[ Model = (\S+) ]/) {
             $type = $1;
@@ -443,11 +445,20 @@ sub get_spoc_type($$$) {
     return $type;
 }
 
-sub get_epilog_name( $$ ) {
+# code/device -> src/raw/device || -> netspoc/raw/device
+sub get_raw_name( $$ ) {
     my ($self, $path) = @_;
-    $path =~
-      s/$self->{GLOBAL_CONFIG}->{CODEPATH}/$self->{GLOBAL_CONFIG}->{EPILOGPATH}/;
-    return $path;
+    my $raw_path;
+    my $code_dir = $self->{GLOBAL_CONFIG}->{CODEPATH};
+
+    # ToDo: Change EPILOGPATH to 'netspoc/raw' here and in newpolicy.
+    for my $raw_dir ($self->{GLOBAL_CONFIG}->{EPILOGPATH}, 'netspoc/raw') {
+	$raw_path = $path;
+	if($raw_path =~ s/$code_dir/$raw_dir/) {
+	    return($raw_path) if -f $raw_path;
+	}
+    }
+    return;
 }
 
 sub load_spocfile($$) {
@@ -479,9 +490,10 @@ sub load_spocfile($$) {
     return \@result;
 }
 
-sub load_epilog($$) {
+sub load_raw($$) {
     my ($self, $path) = @_;
     my @result;
+    return \@result if not $path;
     if (-f $path) {
         open(EPI, "<$path") or die "could not open rawdata: $path\n$!\n";
         @result = <EPI>;
@@ -502,39 +514,29 @@ sub load_epilog($$) {
     return \@result;
 }
 
-sub prepare_filemode {
-    my ($self, $path1, $path2) = @_;
-    my $conf1 = $self->load_spocfile($path1);
-    my $epi1  = $self->load_epilog($self->get_epilog_name($path1));
-    my $conf2 = $self->load_spocfile($path2);
-    my $epi2  = $self->load_epilog($self->get_epilog_name($path2));
-    my $parsed1 = $self->parse_device($conf1);
-    my $parsed2 = $self->parse_device($conf2);
-
-    # Merge EPILOG into SPOC config.
-    $self->process_rawdata($parsed1, $epi1) or return;
-    $self->process_rawdata($parsed2, $epi2) or return;
-
-    return ($parsed1, $parsed2);
+sub load_spoc {
+    my ($self, $path) = @_;
+    my $lines     = $self->load_spocfile($path);
+    my $conf      = $self->parse_device($lines);
+    my $raw_lines = $self->load_raw($self->get_raw_name($path));
+    my $raw_conf  = $self->parse_device($raw_lines);
+    $self->merge_rawdata($conf, $raw_conf);
+    return($conf);
 }
 
 sub prepare_devicemode {
     my ($self, $path) = @_;
+    my $spoc_conf = $self->load_spoc($path);
     my $device_lines = $self->get_config_from_device();
-    my $spoc_lines   = $self->load_spocfile($path);
-    my $epilog_lines = $self->load_epilog($self->get_epilog_name($path));
-    my $pspoc = $self->parse_spocfile($spoc_lines);
     my $conf  = $self->parse_device($device_lines);
 
     # Check for unknown interfaces at device.
-    $self->checkinterfaces($conf, $pspoc);
+    $self->checkinterfaces($conf, $spoc_conf);
 
     # Check if active firewall feature matches device type.
     $self->check_firewall($conf);
 
-    # Merge EPILOG into SPOC config.
-    $self->process_rawdata($pspoc, $epilog_lines) or return;
-    return ($conf, $pspoc);
+    return ($conf, $spoc_conf);
 }
 
 sub checkidentity( $$ ) {
@@ -551,11 +553,11 @@ sub checkbanner($) {
     if ( $self->{CHECKBANNER}
      and $self->{PRE_LOGIN_LINES} !~ /$self->{CHECKBANNER}/)
     {
-        if ($self->{APPROVE}) {
-            errpr "Missing banner at NetSPoC managed device.\n";
+        if ($self->{COMPARE}) {
+            warnpr "Missing banner at NetSPoC managed device.\n";
         }
         else {
-            warnpr "Missing banner at NetSPoC managed device.\n";
+            errpr "Missing banner at NetSPoC managed device.\n";
         }
     }
 }
@@ -568,15 +570,13 @@ sub adaption($) {
     my ($self) = @_;
 
     $self->{telnet_timeout} = $self->{OPTS}->{t} || 300;
-    $self->{telnet_port}    = $self->{OPTS}->{T} || 23;
     $self->{telnet_logs}    = $self->{OPTS}->{L} || undef;
 
     $self->{CHECKHOST}   = $self->{GLOBAL_CONFIG}->{CHECKHOST};
     $self->{CHECKBANNER} = $self->{GLOBAL_CONFIG}->{CHECKBANNER};
 
-    $self->{CHECK_DEVICE_IN_SPOCFILE} = $self->{OPTS}->{h} || "yes";
     $self->{FORCE_TRANSFER}           = $self->{OPTS}->{F};
-    $self->{PRINT_STATUS}             = $self->{OPTS}->{S} ? "yes" : "no";
+    $self->{PRINT_STATUS}             = $self->{OPTS}->{S};
 }
 
 sub con_setup( $$ ) {
@@ -587,7 +587,7 @@ sub con_setup( $$ ) {
       : '';
 
     $self->{CONSOLE} =
-	Netspoc::Approve::Helper->new_console($self, "telnet", $logfile,
+	Netspoc::Approve::Console->new_console($self, "telnet", $logfile,
 					      $startup_message);
 }
 
@@ -598,39 +598,41 @@ sub con_shutdown( $$ ) {
     $con->shutdown_console("$shutdown_message");
 }
 
-sub issue_cmd( $$$ ) {
-    my ($self, $cmd, $prompt) = @_;
-    my @output;
+sub issue_cmd( $$ ) {
+    my ($self, $cmd) = @_;
 
     my $con = $self->{CONSOLE};
-    $con->{PROMPT} = $prompt;
+    $con->{PROMPT} = $self->{ENA_MODE} ? $self->{ENAPROMPT} : $self->{PROMPT};
     $con->con_cmd("$cmd\n") or $con->con_error();
-    @output = ($con->{RESULT}->{BEFORE}, $con->{RESULT}->{MATCH});
-    return (\@output);
-
+    return($con->{RESULT});
 }
 
 sub cmd( $$ ) {
     my ($self, $cmd) = @_;
-    my $prompt = $self->{ENA_MODE} ? $self->{ENAPROMPT} : $self->{PROMPT};
-    my $out = $self->issue_cmd($cmd, $prompt) or return 0;
+    my $result = $self->issue_cmd($cmd);
 
     # check for  errors
     # argument is ref to prematch from issue_cmd
-    return $self->cmd_check_error(\${$out}[0]);
+    $self->cmd_check_error(\$result->{BEFORE}) or exit -1;
 }
 
 sub shcmd( $$ ) {
     my ($self, $cmd) = @_;
-    my $prompt = $self->{ENA_MODE} ? $self->{ENAPROMPT} : $self->{PROMPT};
-    my $out = $self->issue_cmd($cmd, $prompt) or die "...giving up\n";
-    return @$out;
+    my $result = $self->issue_cmd($cmd);
+    return($result->{BEFORE});
 }
 
+# Return 0 if no answer.
 sub check_device( $ ) {
     my ($self) = @_;
     my $retries = $self->{OPTS}->{p} || 3;
-    return $self->checkping($self->{IP}, $retries);
+
+    for (my $i = 1 ; $i <= $retries ; $i++) {
+        my $result = `ping -q -w $i -c 1 $self->{IP}`;
+        $result =~ /(\d+) received/;
+        $1 == 1 and return $i;
+    }
+    return 0;
 }
 
 sub remote_execute( $ ) {
@@ -645,8 +647,8 @@ sub remote_execute( $ ) {
     $self->prepare();
     $self->{OPTS}->{E} =~ s/\\n/\n/g;
     for my $line (split /[;]/, $self->{OPTS}->{E}) {
-        my @output = $self->shcmd($line) or exit -1;
-        mypr @output, "\n";
+        my $output = $self->shcmd($line);
+        mypr $output, "\n";
     }
     mypr "\n";
     $self->con_shutdown("STOP");
@@ -657,9 +659,8 @@ sub approve( $$ ) {
     $self->adaption();
     my $policy = $self->{OPTS}->{P};
 
-    # remember approve mode
-    $self->{APPROVE}       = 1;
     $self->{COMPARE}       = undef;
+    $self->{CMPVAL}        = 4;      # silent
 
     # set up console
     my $time = localtime();
@@ -672,9 +673,7 @@ sub approve( $$ ) {
     $self->checkbanner();
 
     # now do the main thing
-    my ($device_conf, $spoc_conf) =
-      $self->prepare_devicemode($spoc_path)
-      or errpr "devicemode prepare failed\n";
+    my ($device_conf, $spoc_conf) = $self->prepare_devicemode($spoc_path);
     if ($self->transfer($device_conf, $spoc_conf)) {
         mypr "approve done\n";
     }
@@ -705,9 +704,7 @@ sub compare( $$ ) {
     $self->checkbanner();
 
     # now do the main thing
-    my ($device_conf, $spoc_conf) =
-      $self->prepare_devicemode($spoc_path)
-      or errpr "devicemode prepare failed\n";
+    my ($device_conf, $spoc_conf) = $self->prepare_devicemode($spoc_path);
     if ($self->transfer($device_conf, $spoc_conf)) {
         mypr "compare done\n";
     }
@@ -721,7 +718,6 @@ sub compare( $$ ) {
     for my $key (keys %{$self->{CHANGE}}) {
 	mypr "comp: $policy $self->{NAME} *** $key changed ***\n";
     }
-
     return $self->{CHANGE};
 }
 
@@ -735,10 +731,8 @@ sub compare_files( $$$) {
     # default compare is silent(4) mode
     $self->{CMPVAL} = $self->{OPTS}->{C} || 4;
 
-    $self->{VERSION}      = "unknown";
-
-    my ($conf1, $conf2) = $self->prepare_filemode($path1, $path2)
-      or errpr "filemode prepare failed\n";
+    my $conf1 = $self->load_spoc($path1);
+    my $conf2 = $self->load_spoc($path2);
 
     if ($self->transfer($conf1, $conf2)) {
         mypr "compare done\n";
@@ -750,7 +744,6 @@ sub compare_files( $$$) {
     for my $key (keys %{$self->{CHANGE}}) {
 	mypr "comp: $self->{NAME} *** $key changed ***\n";
     }
-
     return $self->{CHANGE};
 }
 
@@ -841,22 +834,6 @@ sub logging($) {
         my ($self, $name) = @_;
         close($lock->{$name}) or die "could not unlock lockfile\n$!\n";
     }
-}
-
-# return 0 if no answer
-sub checkping ($$$) {
-    my ($self, $addr, $retries) = @_;
-
-    for (my $i = 1 ; $i <= $retries ; $i++) {
-
-        my $result = `ping -q -w $i -c 1 $addr`;
-
-        $result =~ /(\d+) received/;
-
-        $1 == 1 and return $i;
-
-    }
-    return "0";
 }
 
 1;

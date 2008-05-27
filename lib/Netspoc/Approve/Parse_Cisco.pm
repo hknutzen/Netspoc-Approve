@@ -1,13 +1,9 @@
-package Netspoc::Approve::Device::Cisco::Parse;
+package Netspoc::Approve::Parse_Cisco;
 
-############################################################
-#
 # Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
-# Module to parse cisco command lines.
-#
-############################################################
+# Functions to parse Cisco command lines.
 
 use strict;
 use warnings;
@@ -16,42 +12,53 @@ use Netspoc::Approve::Helper;
 require Exporter;
 
 our @ISA = qw(Exporter);
-our @EXPORT = qw(analyze_conf_lines err_at_line
-                 get_token get_regex get_int get_ip get_eol
-                 check_token check_regex check_int check_ip );
+our @EXPORT = 
+    qw(analyze_conf_lines err_at_line
+       get_token get_regex get_int get_ip get_eol
+       check_token check_regex check_int check_ip
+       get_name_in_out get_paren_token test_ne skip
+ );
 
+# A Cisco command line consists of two parts: command and argument.
+# A command is either a single word or it is made up of multiple words.
+# This function identifies all words, which are prefix of some command.
+# Known commands are hash entries of $parse_info.
+sub add_prefix_info {
+    my ($parse_info) = @_;
+    my $result = {};
 
-my %cmd_one_arg = ( 'remark' => 1,
-		    'description' => 1,
-    );
-my %cmd_is_prefix = ( 'ip' => 1,
-		      'crypto' => 1,
-		      'switchport' => 1,
-		      'router' => 1,
-    );
-my %has_subcmd = ( 'interface' => 1,
-		   'ip access-list' => 'ordered',
-		   'access-list' => 'ordered',
-		   'object-group' => 1,
-    );
-
+    for my $key (keys %$parse_info) {
+	my @split = split(' ', $key);
+	my $hash = $result;
+	while(@split > 1) {
+	    my $word = shift(@split);
+	    $hash->{$word} ||= {};
+	    $hash = $hash->{$word};
+	}
+	if(my $subcmd = $parse_info->{$key}->{subcmd}) {
+	    add_prefix_info($subcmd);
+	}
+    }
+    $parse_info->{_prefix} = $result if keys %$result;
+}
+	    
 # Read indented lines of commands from Cisco device.
-# Build a hash where
-# - sub-commands are attached to its master command,
-# - command lines are either
-#   - grouped by its first keyword 
-#   - or pushed to an array.
+# Build an array where each command line is described by a hash
+# - arg: an array of tokens split by whitespace
+#      first element, the command name, consists of multiple tokens,
+#      if prefix tokens are used.
+# - subcmd: sub-commands related to current command
 # 
-# $config->{$cmd1 => [{args => [args1, ...], sub => {$cmd => [..]}},
-#                     {args => [args2, ...], sub => {$cmd => [..]}},..]
-#           $cmd2 => [{args => [args3, ...], ordered => [[$cmd @args], ...]}]
-#        ..}
+# $config->[{args => [$cmd, @args], subcmd => [{args => [$cmd @args]}, ...]},
+#           {args => [$cmd, @args], subcmd => [...]}
+#        ..]
 #           
 sub analyze_conf_lines {
-    my ($lines) = @_;
-    my @config_stack;
+    my ($lines, $parse_info) = @_;
+    add_prefix_info($parse_info);
+    my @stack;
     my $level = 0;
-    my $config = {};
+    my $config = [];
     my $counter = 0;
 
     for my $line (@$lines) {
@@ -72,122 +79,153 @@ sub analyze_conf_lines {
 	    # Got expected command or sub-command.
 	}
 	elsif($sub_level > $level) {
-	    die "Got unexpected sub-command at line $counter\n";
+	    die "Too much indented ($sub_level > $level) at line $counter\n";
 	}
 	else {
 	    while($sub_level < $level) {
-		$config = pop @config_stack;
+		($config, $parse_info) = @{ pop @stack };
 		$level--;
 	    }
 	}
 	my @args;
-	(my $cmd, $rest) = split(' ', $rest, 2);
-	if($cmd_one_arg{$cmd}) {
-	    @args = ($rest);
-	}
-	else {
-	    @args = split(' ', $rest);
-	    if($cmd_is_prefix{$cmd}) {
-		$cmd .= ' ' . shift(@args);
+	(my $cmd, @args) = split(' ', $rest);
+	if(my $prefix_info = $parse_info->{_prefix}) {
+	    my $prefix = $cmd;
+	    while($prefix_info = $prefix_info->{$prefix}) {
+		$prefix = shift(@args);
+		$cmd .= ' ' . $prefix;
 	    }
 	}
 
-	# Remember current line number, set parse position.
-	# Remember a version of the unparsed line without duplicate whitespace.
-	my $new_cmd = { line => $counter, 
-			pos => 0, 
-			orig => join(' ', $cmd, @args) };
-	if(ref $config eq 'ARRAY') {
-	    $new_cmd->{args} = [ $cmd, @args ];
-	    push @$config, $new_cmd;
-	}
-	elsif(ref $config eq 'HASH') {
-	    @{$new_cmd}{'cmd', 'args'} = ($cmd, \@args);
-	    push @{ $config->{$cmd} }, $new_cmd;
+	# Ignore unknown command.
+	# Prepare to ignore subcommands as well.
+	if(not $parse_info->{$cmd}) {
+	    push @stack, [ $config, $parse_info ];
+	    $config = undef;
+	    $parse_info = undef;
+	    $level++;
 	}
 	else {
-	    die "Got unexpected sub-command at line $counter\n";
-	}
-	if(my $type = $has_subcmd{$cmd}) {
-	    push @config_stack, $config;
-	    $config = ($type eq 'ordered') ? [] : {};
-	    $new_cmd->{sub} = $config;
-	    $level++;
+
+	    # Remember current line number, set parse position.
+	    # Remember a version of the unparsed line without duplicate 
+	    # whitespace.
+	    my $new_cmd = { line => $counter, 
+			    pos => 0, 
+			    orig => join(' ', $cmd, @args),
+			    args => [ $cmd, @args ], };
+	    push(@$config, $new_cmd);
+	    if(my $subcmd = $parse_info->{$cmd}->{subcmd}) {
+		push @stack, [ $config, $parse_info ];
+		$config = [];
+		$new_cmd->{subcmd} = $config;
+		$parse_info = $subcmd;
+		$level++;
+	    }
 	}
     }
     while($level--) {
-	$config = pop @config_stack;
+	($config, $parse_info) = @{ pop @stack };
     }
     return $config;
 }  
 
 sub err_at_line {
-    my($desc, @args) = @_;
-    my $line = $desc->{line};
-    my $pos = $desc->{pos};
-    die @args, " at line $line, pos $pos\n";
+    my($arg, @msg) = @_;
+    my $line = $arg->{line};
+    my $pos = $arg->{pos};
+    die @msg, " at line $line, pos $pos\n";
 }
 
 sub check_token {
-    my($desc) = @_;
-    my $args = $desc->{args};
-    my $len = length $args;
-    $desc->{pos}+1 > $len and return;
-    return $args->[$desc->{pos}++];
+    my($arg) = @_;
+    my $args = $arg->{args};
+    $arg->{pos}+1 > @$args and return;
+    return $args->[$arg->{pos}++];
 }
     
 sub get_token {
-    my($desc) = @_;
-    my $result = check_token($desc);
-    defined($result) or err_at_line($desc, 'Missing token');
+    my($arg) = @_;
+    my $result = check_token($arg);
+    defined($result) or err_at_line($arg, 'Missing token');
     return $result;
 }
 
 sub get_eol {
-    my($desc) = @_;
-    my $result = check_token($desc);
-    defined($result) and err_at_line($desc, "Unexpected token '$result'");
+    my($arg) = @_;
+    my $result = check_token($arg);
+    defined($result) and err_at_line($arg, "Unexpected token '$result'");
     return 1;
 }
 
 sub get_regex {
-    my($regex, $desc) = @_;
-    my $token = get_token($desc);
-    $token =~ /^(:?$regex)$/ or err_at_line($desc, "Missing '$regex'");
+    my($regex, $arg) = @_;
+    my $token = get_token($arg);
+    $token =~ /^(:?$regex)$/ or err_at_line($arg, "Missing '$regex'");
     return $token;
 }
 
 sub check_regex {
-    my($regex, $desc) = @_;
-    defined(my $token = check_token($desc)) or return;
+    my($regex, $arg) = @_;
+    defined(my $token = check_token($arg)) or return;
     return $token if $token =~ /^(:?$regex)$/;
-    $desc->{pos}--;
+    $arg->{pos}--;
     return;
 }
 
 sub get_int {
-    my($desc) = @_;
-    return get_regex(qr/\d+/, $desc);
+    my($arg) = @_;
+    return get_regex(qr/\d+/, $arg);
 }
 
 sub check_int {
-    my($desc) = @_;
-    return check_regex(qr/\d+/, $desc);
+    my($arg) = @_;
+    return check_regex(qr/\d+/, $arg);
 }
 
 sub get_ip {
-    my($desc) = @_;
-    my $ip = quad2int(get_token($desc));
-    defined $ip or err_at_line($desc, "Missing IP");
+    my($arg) = @_;
+    my $ip = quad2int(get_token($arg));
+    defined $ip or err_at_line($arg, "Missing IP");
     return $ip;
 }
 
 sub check_ip {
-    my($desc) = @_;
-    my $token = check_token($desc) or return;
+    my($arg) = @_;
+    my $token = check_token($arg) or return;
     my $ip = quad2int($token);
     return $ip if defined $ip;
-    $desc->{pos}--;
+    $arg->{pos}--;
     return;
 }
 
+# parse arguments like 'ip access-group <name> in'
+sub get_name_in_out {
+    my($arg) = @_;
+    my $name = get_token($arg);
+    my $direction = get_regex('in|out', $arg);
+    return { $direction => $name };
+}
+
+sub get_paren_token {
+    my($arg) = @_;
+    my $token = get_token($arg);
+    my($inside) = ($token =~ /^\((.*)\)$/) or 
+	err_at_line($arg, 'Expected parenthesized value(s)');
+    return(split(/,/, $inside));
+}
+
+# Like bulitin function 'ne', but has additional argument $arg and 
+# returns undef as false.
+sub test_ne {
+    my($arg, $a, $b) = @_;
+    my $bool = $a ne $b;
+    return($bool ? $bool : undef);
+}
+
+# Ignore remaining arguments.
+sub skip {
+    my($arg) = @_;
+    while(check_token($arg)) {}
+    return;
+}

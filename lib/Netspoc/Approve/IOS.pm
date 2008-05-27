@@ -1,5 +1,5 @@
 
-package Netspoc::Approve::Device::Cisco::IOS;
+package Netspoc::Approve::IOS;
 
 # Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
@@ -15,8 +15,7 @@ sub version_drc2_ios() {
     return $id;
 }
 
-use base "Netspoc::Approve::Device::Cisco";
-
+use base "Netspoc::Approve::Cisco";
 use strict;
 use warnings;
 use FindBin;
@@ -25,242 +24,236 @@ use Fcntl;
 use SDBM_File;
 use IO::Socket ();
 use Netspoc::Approve::Helper;
-use Netspoc::Approve::Device::Cisco::Parse;
-
-sub dev_cor ($$) {
-    my ($self, $addr) = @_;
-    return ~$addr & 0xffffffff;
-}
-
-##########################################
-#
-# START parsing
-#
-##########################################
+use Netspoc::Approve::Parse_Cisco;
 
 # Parse info with attributes
 # - store: name of attribute where result is stored or
 #   array of names which are used to access sub-hash: {name1}->{name2}->..
 # - named: first argument is name which is used as key when storing result
-# - multi: multiple occurences of this command may occur
-# - parse: description how to parse and store arguments of command
-#   possible values:
-#   - string, used as argumnet for check_regex
+# - multi: multiple occurences of this command may occur 
+#          and are stored as an array.
+# - parse: description how to parse arguments of command; possible values:
+#   - regexp, used as argument for check_regex
 #   - function ref. which parses one or more arguments and returns a value
+#   - string: like function ref, but used as a method name
 #   - array ref with first element is
-#     - string 'seq': multiple parse info hashes are following, 
-#                     all are evaluated
+#     - string 'seq': multiple parse info hashes or seq arrays are following, 
+#                     all elements are evaluated, if the first element 
+#                     returns a defined value
 #     - string 'or': two or more parse info hashes are following,
 #                    they are evaluated until a defined value is returned.
 #   no parse attribute is given, if command has no (further) arguments.
-# - default: take this value if value of parse function was undef or no parse function is given.
+# - default: take this value if value of parse function was undef 
+#            or if no parse function is given.
 # - subcmd: parse info for subcommands of current command.
-my $cmd_info =
-{ interface =>
-  { store => 'IF',
-    named => 1,
-    subcmd =>
-    { 'ip address' => { 
-	store => 'ADDRESS',
-	parse => ['or', 
-		  { store => 'DYNAMIC', parse => 'negotiated', },
-		  { store => 'BASE', parse => \&check_ip, }, ], },
-      'ip unnumbered' => {
-	  store => ['ADDRESS', 'DYNAMIC'], default => 'unnumbered', },
-      'shutdown' => { 
-	  store => 'SHUTDOWN', default => 1, },
-      'ip access-group' => {
-	  store => 'ACCESS',
-	  parse => \&get_name_in_out, }
-      'ip inspect' => { 
-	  store => 'INSPECT', parse => \&get_token, },
-      'crypto ipsec client ezvpn' => { 
-	  store => ['CRYPTO', 'EZVPN'],
-	  parse => 
-	      ['seq',
-	       { store => 'NAME',
-		 parse => \&get_token, },
-	       { store => 'LOCATION',
-		 parse => \&check_token,
-		 default => 'outside', }, ], },
-      'crypto map' => { 
-	  store => ['CRYPTO', 'MAP'], parse => \&get_token, },
-      'switchport mode' => { 
-	  store => ['SWITCHPORT', 'MODE'], parse => \&get_token, }
-      'switchport access vlan' => {
-	  store => ['SWITCHPORT', 'VLAN'], multi => 1, parse => \&get_token, },
-      'switchport nonegotiate' => {
-	  store => ['SWITCHPORT', 'NONEGOTIATE'], default => 1, },
-    },
-  },
-  'ip route' =>
-  { store => 'ROUTING',
-    parse => ['seq',
-	      { store => 'BASE', parse => \&get_ip, },
-	      { store => 'MASK', parse => \&get_ip, },
-	      { store => 'NIF',  parse => '\w.*', }
-	      { store => 'NEXTHOP', parse => \&check_ip, },
-	      ['or',
-	       { store => 'METRIC', parse => '\d+', },
-	       { store => 'MISC', parse => 'permanent', },
-	       ['seq',
-		{ store => 'MISC', parse => 'track|tag', },
-		{ store => 'MISC_ARG', parse => \&get_token, },],],],
-  },
-  
-	       
-	       
-};
-
 sub get_parse_info {
     my ($self) = @_;
-    { 'ip route' => ['parse_ip_route', 'ROUTING'],
-      'ip access-list' => ['parse_ip_access_list', 'ACCESS'],
-      'access-list' => ['parse_access_list', 'ACCESS'],
-      'interface' => ['parse_interface_section', 'IF'],
-      'ip inspect' => ['parse_ip_inspect_line', 'INSPECT'],
-      'router ospf' => ['parse_router_ospf', 'OSPF'],
-      'crypto isakmp identity' => ['parse_crypto_isakmp_identity', 
-				   'ISKMP_IDENTITY'],
-      'crypto isakmp policy' => ['parse_crypto_isakmp_policy' 'isakmp_policy'],
-      'crypto ipsec transform set' => ['parse_crypto_ipsec_transform_set', 
-				       'IPSEC_TRANSFORM'],
-      'crypto ipsec client ezvpn' => ['parse_crypto_ipsec_client_ezvpn',
-				      'IPSEC_CLIENT_EZVPN' ],
-      'crypto map' => ['parse_crypto_map', 'CRYPTO_MAP'],
-
-    };
-}
-
-#
-# ip inspect name inspection-name ...
-#
-# only subset implemented
-#
-sub parse_ip_inspect {
-    my ($self, $arg) = @_;
-    my $result;
-    
-    my $what = get_token($arg);
-    if($what eq 'audit-trail') {
-	$result->{AUDIT_TRAIL} = 1;
-    }
-    elsif($what eq 'tcp') {
-    }
-    elsif($what eq 'name') {
-	$result->{NAME} = get_token($arg);
-	$result->{SPEC} = get_regex($arg);
-	if($result->{SPEC} eq 'rpc') {
-	    $result->{PROG} = get_token($arg);
-	    $result->{NUM}  = get_token($arg);
-	}
-    }
-    return $result;
-}
+    my $result =
+    { 
+	interface =>
+	{ store => 'IF',
+	  named => 1,
+	  subcmd =>
+	  { 'ip address' => { 
+	      store => 'ADDRESS',
+	      parse => ['or', 
+			{ store => 'DYNAMIC', parse => qr/negotiated/, },
+			['seq',
+			 { store => 'BASE', parse => \&check_ip, },
+			 { store => 'MASK', parse => \&check_ip, } ]] },
+	    'ip unnumbered' => {
+		store => ['ADDRESS', 'DYNAMIC'], default => 'unnumbered', },
+	    'shutdown' => { 
+		store => 'SHUTDOWN', default => 1, },
+	    'ip access-group' => {
+		store => 'ACCESS',
+		parse => \&get_name_in_out, },
+	    'ip inspect' => { 
+		store => 'INSPECT', parse => \&get_token, },
+	    'crypto ipsec client ezvpn' => { 
+		store => ['CRYPTO', 'EZVPN'],
+		parse => 
+		    ['seq',
+		     { store => 'NAME',
+		       parse => \&get_token, },
+		     { store => 'LOCATION',
+		       parse => \&check_token,
+		       default => 'outside', }, ], },
+		    'crypto map' => { 
+			store => ['CRYPTO', 'MAP'], parse => \&get_token, },
+	    'switchport mode' => { 
+		store => ['SWITCHPORT', 'MODE'], parse => \&get_token, },
+	    'switchport access vlan' => {
+		store => ['SWITCHPORT', 'VLAN'], multi => 1, 
+		parse => \&get_token, },
+	    'switchport nonegotiate' => {
+		store => ['SWITCHPORT', 'NONEGOTIATE'], default => 1, },
+	  },
+	},
 
 # ip route destination-prefix destination-prefix-mask
 #          [interface-type card/subcard/port] forward-addr
 #          [metric | permanent | track track-number | tag tag-value]
 #
-sub parse_ip_route {
-    my ($self, $arg) = @_;
-    my $result;
+	'ip route' => { 
+	    store => 'ROUTING',
+	    parse => ['seq',
+		      { store => 'BASE', parse => \&get_ip, },
+		      { store => 'MASK', parse => \&get_ip, },
+		      { store => 'NIF',  parse => qr/\w.*/, },
+		      { store => 'NEXTHOP', parse => \&check_ip, },
+		      ['or',
+		       { store => 'METRIC', parse => qr/\d+/, },
+		       { store => 'MISC', parse => qr/permanent/, },
+		       ['seq',
+			{ store => 'MISC', parse => qr/track|tag/, },
+			{ store => 'MISC_ARG', parse => \&get_token, },],],],
+	},
+	'ip access-list extended' => {
+	    store =>  'ACCESS',
+	    named => 1,
+	    subcmd => {
 
-    $result->{BASE} = get_ip($arg);
-    $result->{MASK} = get_ip($arg);
-    if(my $name = check_regex('\w.*', $arg)) {
-	$result->{NIF} = $name;
-    }
-    if(defined(my $ip = check_ip($arg))) {
-	$result->{NEXTHOP} = $ip
-    }
-    if(my $num = check_regex('\d+', $arg)) {
-	$result->{METRIC} = $num;
-    }
-    elsif(my $token = check_regex('permanent|track|tag', $arg)) {
-	$result->{MISC} = $token;
-	if($token eq 'track' || $token eq 'tag') {
-	    $result->{MISC_ARG} = get_token($arg);
-	}
-    }
-    return $result;
+		# 'deny' is mostly identical to 'permit',
+		# it will be automatically copied from 'permit'.
+		permit => {
+		    store => 'LIST',
+		    multi => 1,
+		    parse => ['seq',
+			      { store => 'MODE', default => 'permit' },
+			      ['or',
+			       ['seq',
+				{ store => 'TYPE', parse => qr/ip/ },
+				{ store => 'SRC', parse => 'parse_address' },
+				{ store => 'DST', parse => 'parse_address' } ],
+			       ['seq',
+				{ store => 'TYPE', parse => qr/udp|tcp/ },
+				{ store => 'SRC', parse => 'parse_address' },
+				{ store => 'SRC_PORT', 
+				  parse => 'parse_port_spec', 
+				  params => ['$TYPE'] },
+				{ store => 'DST', parse => 'parse_address' },
+				{ store => 'DST_PORT', 
+				  parse => 'parse_port_spec', 
+				  params => ['$TYPE'] },
+				{ store => 'ESTA', 
+				  parse => qr/established/ }, ],
+			       ['seq',
+				{ store => 'TYPE', parse => qr/icmp/ },
+				{ store => 'SRC', parse => 'parse_address' },
+				{ store => 'DST', parse => 'parse_address' },
+				{ store => 'SPEC', 
+				  parse => 'parse_icmp_spec' }, ],
+			       ['seq',
+				{ store => 'TYPE', parse => \&get_token },
+				{ store => 'TYPE' ,
+				  parse => 'normalize_proto', 
+				  params => [ '$TYPE' ] },
+				{ store => 'SRC', parse => 'parse_address' },
+				{ store => 'DST', parse => 'parse_address' } ]],
+			      { store => 'LOG', parse => qr/log-input|log/ } ]
+		},
+
+	    },
+	},
+	'router ospf' => {
+	    store => 'OSPF',
+	    subcmd => {},	# Has subcommands, but ignore them all.
+	    default => 1,
+	},
+	'crypto isakmp identity' => {
+	    store => [ 'CRYPTO', 'ISAKMP', 'IDENTITY' ],
+	    parse => \&get_token,
+	},
+
+# crypto isakmp policy <priority>
+#  <subcommands> 
+#  ..
+# return one hash for each priority
+	'crypto isakmp policy' => {
+	    named => 1,
+	    store => [ 'CRYPTO', 'ISAKMP', 'POLICY' ],
+	    subcmd => {
+		'authentication' => {
+		    store => 'AUTHENTICATION', parse => \&get_token, },
+		'encryption' => {
+		    store => 'ENCRYPTION', parse => \&get_token, },
+		'hash' => {
+		    store => 'HASH', parse => \&get_token, },
+		'group' => {
+		    store => 'GROUP', parse => \&get_token, },
+		'lifetime' => {
+		    store => 'LIFETIME', parse => \&get_token, },
+	    },
+	},
+	'crypto ipsec transform set' => {
+	    store => [ 'CRYPTO', 'IPSEC', 'TRANSFORM' ],
+	    named => 1,
+	    parse => ['seq',
+		      { store => 't1', parse => \&get_token, },
+		      { store => 't2', parse => \&get_token, },
+		      { store => 't3', parse => \&check_token, }, ],
+	},
+	'crypto ipsec client ezvpn' => {
+	    store => [ 'CRYPTO', 'IPSEC', 'CLIENT', 'EZVPN' ],
+	    named => 1,
+	    subcmd => {
+		'acl' => { 
+		    store => 'MATCH_ACL', parse => \&get_token, },
+		'peer' => {
+		    store => 'PEER', parse => \&get_ip, },
+		'connect' => {
+		    store => 'CONNECT', parse => \&get_token, },
+		'mode' => {
+		    store => 'MODE', parse => \&get_token, },
+		'virtual-interface' => {
+		    store => 'V_INTERFACE', parse => \&get_int, },
+	    },
+	},	      
+
+# crypto map <name> <seq> ipsec-isakmp
+#  <sub commands>
+#
+# Result: Add multiple values to named crypto map.
+	'crypto map' => {
+	    store => [ 'CRYPTO', 'MAP' ],
+	    named => 1,
+	    multi => 1,
+	    parse => ['seq',
+		      { store => 'SEQU', parse => \&get_int, },
+		      { store => 'TYPE', parse => qr/ipsec-isakmp/, }, ],
+	    subcmd => {
+		'match address' => {
+		    store => 'MATCH_ADDRESS', parse => \&get_token, },
+		'set ip access-group' => {
+		    store => 'ACCESS_GROUP', parse => \&get_name_in_out, },
+		'set peer' => {
+		    store => 'PEER', parse => \&get_ip, },
+		'set security-association lifetime' => {
+		    store => 'SECURITY_ASSOCIATION_LIFETIME',
+		    named => 1,
+		    parse => \&get_int,
+		},
+		'set transform-set' => {
+		    store => 'TRANSFORM_SET', parse => \&get_token, },
+		'set pfs' => {
+		    store => 'PFS', parse => \&get_token, },
+	    },
+	},
+    };
+
+    # Copy 'permit' entry and substitute 'permit' by 'deny';
+    my $entry = $result->{'ip access-list extended'}->{subcmd};
+    $entry = $entry->{deny} = { %{$entry->{permit}} };
+    $entry = $entry->{parse} = [ @{$entry->{parse}} ];
+    $entry = $entry->[1] = { %{$entry->[1]} };
+    $entry->{default} = 'deny';
+    $result;
 }
 
-##################################################################
-#
-#  acl syntax derived from cisco ios12.2 documentation
-#  pix is using subset of this with inverted masks
-#
-# [dynamic] action prot_spec [precedence] [tos] [log] [timerange][fragments]
-#     or   remark
-#
-sub parse_acl_entry {
-    my ($self, $arg) = @_;
-    my $result;
-    
-    # Attach original command line.
-    $result->{orig} = $arg->{orig};
-    if(check_regex('remark', $arg)) {
-	$result->{REMARK} = get_token($arg);
-    }
-    else {
-	if(check_regex('dynamic', $arg)) {
-	    $result->{DYNAMIC}->{NAME} = get_token($arg);
-	    if(check_regex('timeout', $arg)) {
-		$result->{DYNAMIC}->{TIMEOUT} = get_int($arg);
-	    }
-	}
-	$result->{MODE} = get_regex('permit|deny', $arg);
-	my $proto = get_token($arg);
-	if($proto eq 'ip') {
-	    $result->{SRC} = $self->parse_address($arg);
-	    $result->{DST} = $self->parse_address($arg);
-	}
-	elsif($proto eq 'udp' || $proto eq 'tcp') {
-
-	    # Combine keys of both results.
-	    $result->{SRC} = { %{$self->parse_address($arg)}, 
-			       %{$self->parse_port_spec($proto, $arg)} };
-	    $result->{DST} = { %{$self->parse_address($arg)}, 
-			       %{$self->parse_port_spec($proto, $arg)} };
-	    if(my $esta = check_regex('established', $arg)) {
-		$result->{ESTA} = $esta;
-	    }
-	}
-	elsif($proto eq 'icmp') {
-	    $result->{SRC} = $self->parse_address($arg);
-	    $result->{DST} = $self->parse_address($arg);
-	    $result->{SPEC} = $self->parse_icmp_spec($arg);
-	}
-	else {
-	    $proto = $IP_Trans{$proto} || $proto;
-	    $proto =~ /^\d+$/ 
-		or $self->err_at_line($arg, "Expected numeric proto '$proto'");
-	    $proto =~ /^(1|6|17)$/
-		and $self->err_at_line($arg, "Don't use numeric proto for", 
-				       " icmp|tcp|udp: '$proto'");
-	    $result->{SRC} = $self->parse_address($arg);
-	    $result->{DST} = $self->parse_address($arg);
-	}
-	$result->{TYPE} = $proto;
-	if(my $log = check_regex('log-input|log', $arg)) {
-	    $result->{LOG} = $log;
-	}
-    }
-    
-    return $result;
-}
-
-
-#
-# we must only parse the non-dynamic part of the acl.
-#
-sub parse_ip_access_list {
-    my ($self, $arg) = @_;
-    get_regex('extended', $arg);
-    my $name = get_token($arg);
-    my $sub_cmds = $arg->{sub};
-    return [ map { $self->parse_acl_entry($_) } @$sub_cmds ], $name;
+sub dev_cor ($$) {
+    my ($self, $addr) = @_;
+    return ~$addr & 0xffffffff;
 }
 
 # remark ...
@@ -309,210 +302,6 @@ sub parse_access_list {
 	$result = $self->parse_simple_acl_entry($arg);
     }
     return $result, $name, 'push';
-}
-
-sub parse_interface_section {
-    my ($self, $arg) = @_;
-    my $result;
-
-    my $name = get_token($arg);
-    for my $arg (@{ $arg->{sub} }) {
-	my $cmd = get_token($arg)
-	if($cmd eq 'ip access-group') {
-	    my $name = get_token($arg);
-	    my $direction = get_regex('in|out', $arg);
-	    if($direction eq 'in') {
-		$result->{ACCESS} = $name;
-	    }
-	    else {
-		$result->{ACCESS_OUT} = $name;
-	    }
-	}
-	elsif($cmd eq 'ip inspect') {
-	    $result->{INSPECT} = get_token($arg);
-	}
-	elsif($cmd eq 'shutdown') {
-	    $result->{SHUTDOWN} = 1;
-	}
-	elsif($cmd eq 'crypto map') {
-	    $result->{CRYPTO_MAP} = get_token($arg);
-	}
-	elsif($cmd eq 'crypto ipsec') {
-	    get_regex('client', $arg);
-	    get_regex('ezvpn', $arg);
-	    $result->{EZVPN}->{NAME} = get_token($arg);
-	    $result->{EZVPN}->{LOCATION} = 
-		check_token($arg) || 'outside';
-	}
-	elsif($cmd eq 'switchport mode') {
-	    $result->{SWITCHPORT}->{MODE} = get_token($arg);
-	}
-	elsif($cmd eq 'switchport access') {
-	    check_regex('vlan', $arg) or next;
-	    push(@{ $result->{SWITCHPORT}->{ACCESS_VLAN} }, 
-		 get_token($arg));
-	}
-	elsif($cmd eq 'switchport nonegotiate') {
-	    $result->{SWITCHPORT}->{NONEGOTIATE} = 1;
-	}
-	elsif($cmd eq 'ip address') {
-	    if(check_regex('negotiated', $arg)) {
-		$result->{ADDRESS}->{DYNAMIC} = 'negotiated';
-	    }
-	    else {
-		$result->{ADDRESS}->{BASE} = get_ip($arg);
-
-# ToDo: handle secondary IP address
-	    }
-	}
-	elsif($cmd eq 'ip unnumbered') {
-	    $result->{ADDRESS}->{DYNAMIC} = 'unnumbered';
-	}
-	else {
-
-	    # Ignore other sub-commands.
-	    while(check_token($arg)) {};
-	}
-	get_eol($arg);
-    }
-    return($result, $name);
-}
-
-sub parse_router_ospf {
-    my ($self, $arg) = @_;
-    return 1;
-}
-
-# crypto isakmp identity <value>
-# occurs only once, return <vaule>
-sub parse_crypto_isakmp_identity {
-    my ($self, $arg) = @_;
-    return(get_token($arg));
-}
-
-# crypto isakmp policy <priority>
-#  <subcommands> 
-#  ..
-# return one hash for each priority
-sub parse_crypto_isakmp_policy {
-    my ($self, $arg) = @_;
-    my $result;
-
-    my $priority = get_token($arg);
-    for my $arg (@{ $arg->{sub} }) {
-	my $cmd = get_token($arg);
-	if($cmd eq 'authentication') {
-	    $result->{AUTHENTICATION} = get_token($arg);
-        }
-        elsif ($cmd eq 'encryption'or $cmd eq 'encr') {
-            $p->{ENCRYPTION} = get_token($arg);
-        }
-        elsif ($cmd eq 'hash') {
-            $p->{HASH} = get_token($arg);
-        }
-        elsif ($cmd eq 'group') {
-            $p->{GROUP} = get_token($arg);
-        }
-        elsif ($cmd eq 'lifetime') {
-            $p->{LIFETIME} = get_token($arg);
-        }
-	else {
-
-	    # Ignore other sub-commands.
-	    while(check_token($arg)) {};
-	}
-	get_eol($arg);
-    }
-    return($result, $priority);
-}
-
-sub parse_crypto_ipsec_transform_set {
-    my ($self, $arg) = @_;
-    my $result;
-
-    my $name = get_token($arg);
-    $result->{T1} = get_token($arg);
-    $result->{T2} = get_token($arg);
-    $result->{T3} = check_token($arg);
-    return($result, $name);
-}
-
-sub parse_crypto_ipsec_client_ezvpn {
-    my ($self, $arg) = @_;
-    my $result;
-
-    my $name = get_token($arg);
-    for my $arg (@{ $arg->{sub} }) {
-	my $cmd = get_token($arg);
-        if ($cmd eq 'acl') {
-            $result->{MATCH_ACL} = get_token($arg);
-        }
-        elsif ($cmd eq 'peer') {
-            $result->{PEER} = get_ip($arg);;
-        }
-        elsif ($cmd eq'connect') {
-            $result->{CONNECT} = get_token($arg);
-        }
-        elsif ($cmd eq 'mode') {
-            $result->{MODE} = get_token($arg);
-        }
-        elsif ($cmd eq 'virtual-interface') {
-            $result->{V_INTERFACE} = 'Virtual-Template' . get_int($arg);
-        }
-        else {
-            mypr " Ignoring ezvpn parameter: $cmd\n";
-	    while(check_token($arg)) {};
-        }
-    }
-    return($result, $name);
-}
-
-# crypto map <name> <seq> ipsec-isakmp
-#  <sub commands>
-#
-# Result: Add multiple values to named crypto map.
-sub parse_crypto_map {
-    my ($self, $arg) = @_;
-    my $result;
-
-    $result->{name} = get_token($arg);
-    $result->{SEQU} = get_int($arg);
-    $result->{TYPE} = get_regex('ipsec-isakmp', $arg);
-    for my $arg (@{ $arg->{sub} }) {
-	my $cmd = get_token($arg);
-	if($cmd eq 'match address') {
-	    $result->{MATCH_ADDRESS} = get_token($arg);
-	}
-	elsif($cmd eq 'set ip access-group') {
-	    my $name = get_token($arg);
-	    if(get_regex('in|out'; $arg) eq 'in') {
-		$result->{ACCESS_GROUP_IN} = $name;
-	    }
-	    else {
-                $result->{ACCESS_GROUP_OUT} = $name;
-            }
-        }
-        elsif ($cmd eq 'set peer') {
-            my $ip = get_ip($arg);
-            push @{$result->{PEER}}, $ip;
-        }
-        elsif ($cmd eq 'set security-association lifetime') {
-	    my $unit = get_regex('seconds|kilobytes');
-	    my $value = get_int($arg);
-            $result->{SECURITY_ASSOCIATION_LIFETIME}->{$unit} = $value;
-        }
-        elsif ($cmd eq 'set transform-set') {
-            $result->{TRANSFORM_SET} = get_token($arg);
-        }
-        elsif ($cmd eq 'set pfs') {
-            $result->{PFS} = get_token($arg);
-        }
-        else {
-            mypr " Ignoring crypto map parameter: $cmd\n";
-	    while(check_token($arg)) {};
-        }
-    }
-    return($result, $name, 'push');
 }
 
 # checking, binding  and info printing of parsed crypto config
@@ -694,11 +483,13 @@ sub postprocess_config( $$ ) {
 
 sub get_config_from_device( $ ) {
     my ($self) = @_;
-
-    my @out = $self->shcmd('sh run') or exit -1;
-    my @conf = split /\n/, $out[0];
-    mypr "got config from device\n";
-    return (\@conf);
+    my $cmd = 'sh run';
+    my $output = $self->shcmd($cmd);
+    my @conf = split(/\n/, $output);
+    my $echo = shift(@conf);
+    $echo =~ /^\s*$cmd\s*$/ or 
+	errpr "Got unexpected echo in response to '$cmd': '$echo'\n";
+    return(\@conf);
 }
 
 ##############################################################
@@ -882,50 +673,36 @@ sub check_firewall ( $$ ) {
 }
 
 #######################################################
-# telnet login, check name and set convenient options
+# telnet login, check CHECKHOSTname and set convenient options
 #######################################################
-sub prepare() {
+sub prepare {
     my ($self) = @_;
-    $self->{PROMPT}    = qr/.*[\%\>\$\#]\s?$/;
-    $self->{ENAPROMPT} = qr/.*#\s?$/;
-    $self->{ENA_MODE}  = 0;
-    $self->login_enable() or exit -1;
-    mypr "logged in\n";
-    $self->{ENA_MODE} = 1;
-    my @output = $self->shcmd('') or exit -1;
-    $output[1] =~ m/^\x0d?(\S+)\#\s?$/;
-    my $name = $1;
+    my $name = $self->SUPER::prepare();
 
-    unless ($self->{CHECKHOST} eq 'no') {
-        $self->checkidentity($name) or exit -1;
-    }
-    else {
-        mypr "hostname checking disabled!\n";
-    }
-    $self->{ENAPROMPT} = qr/^[\w-]+(?:\([\w-]+\))?#\s?$/
-      ;    # speed up reading of long configs especially nvram
-    $self->cmd('term len 0') or exit -1;
-    my @tmp = $self->shcmd('sh ver');
-    $tmp[0] =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/i
-      or die "fatal error: could not identify IOS Version from $tmp[0]\n";
+    $self->cmd('term len 0');
+    my $output = $self->shcmd('sh ver');
+    $output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/i
+      or errpr "Could not identify version number from 'sh ver'\n";
     $self->{VERSION} = $1;
-    $tmp[0] =~ /(cisco\s+\S+) .*memory/i
-      or die "could not identify Hardware Info $tmp[0]\n";
+    $output =~ /(cisco\s+\S+) .*memory/i
+      or die "could not identify Hardware Info $output\n";
     $self->{HARDWARE} = $1;
 
     # max. term width is 511 for pix 512 for ios
-    $self->cmd('term width 512') or exit -1;
+    $self->cmd('term width 512');
     unless ($self->{COMPARE}) {
-        $self->cmd('conf t')             or exit -1;
-        $self->cmd('no logging console') or exit -1;
+        $self->cmd('conf t');
+        $self->cmd('no logging console');
         mypr "console logging is now disabled!\n";
-        $self->cmd('ip subnet-zero')
-          or exit -1;    # needed for default route to work as expected
+
+	# Needed for default route to work as expected.
+        $self->cmd('ip subnet-zero');
         mypr "ip subnet-zero is now enabled!\n";
-        $self->cmd('ip classless')
-          or exit -1;    # needed for default route to work as expected
+
+	# Needed for default route to work as expected.
+        $self->cmd('ip classless');
         mypr "ip classless is now enabled!\n";
-        $self->cmd('end') or exit -1;
+        $self->cmd('end');
 
     }
 
@@ -943,17 +720,17 @@ sub prepare() {
 sub write_mem( $$$ ) {
     my ($self, $retries, $seconds) = @_;
     mypr "writing config to nvram\n";
-    my @output;
+    my $output;
     my $written = 0;
     my $tries   = 0;
     while (not $written) {
-        @output = $self->shcmd('write memory') or exit -1;
+        $output = $self->shcmd('write memory');
         $tries++;
-        if ($output[0] =~ /Building configuration/) {
+        if ($output =~ /Building configuration/) {
             mypr "seems ok\n";
             $written = 1;
         }
-        elsif ($output[0] =~ /startup-config file open failed/i) {
+        elsif ($output =~ /startup-config file open failed/i) {
             if ($tries > $retries) {
                 errpr
                   "startup-config file open failed $tries times - giving up\n";
@@ -976,17 +753,19 @@ sub compare_ram_with_nvram( $ ) {
 
     # *** FETCH CONFIGS ***
     mypr "fetch running config from device again ";
-    my @out = $self->shcmd('show run brief')
-      or exit -1;    # do not show content of certificates
-                     # some devices have no 'brief' option
-    if ($out[0] =~ /^\s*%\s+invalid/im) {
-        @out = $self->shcmd('show run') or exit -1;
+
+    # Do not show content of certificates.
+    my $out = $self->shcmd('show run brief');
+
+    # Some devices have no 'brief' option.
+    if ($out =~ /^\s*%\s+invalid/im) {
+        $out = $self->shcmd('show run');
     }
-    my @conf = split /\n/, $out[0];
+    my @conf = split /\n/, $out;
     mypr "... done\n";
     mypr "fetch startup config from device again ";
-    @out = $self->shcmd('show start') or exit -1;
-    my @start = split /\n/, $out[0];
+    $out = $self->shcmd('show start');
+    my @start = split /\n/, $out;
     mypr "... done\n";
 
     # *** COMPARE ***
@@ -1100,17 +879,17 @@ sub schedule_reload ( $$ ) {
     mypr "schedule reload in $minutes minutes\n";
     my $psave = $self->{ENAPROMPT};
     $self->{ENAPROMPT} = qr/\[yes\/no\]:|\[confirm\]/;
-    my @out = $self->shcmd("reload in $minutes") or exit -1;
+    my $out = $self->shcmd("reload in $minutes");
 
     #$tel->buffer_empty;
     $self->{ENAPROMPT} = qr/\[confirm\]/;
-    if ($out[0] =~ /ave/) {
+    if ($out =~ /ave/) {
 
         # someone has fiddled with the router ;)
-        $self->cmd('n') or exit -1;
+        $self->cmd('n');
     }
     $self->{ENAPROMPT} = $psave;
-    $self->cmd('') or exit -1;
+    $self->cmd('');
     $self->{RELOAD_SCHEDULED} = 1;
     mypr "reload scheduled\n";
 }
@@ -1127,7 +906,7 @@ sub cancel_reload ( $ ) {
         my $tt  = $con->{TIMEOUT};
         $con->{TIMEOUT} = 2 * $tt;
         mypr "(timeout temporary set from $tt sec to $con->{TIMEOUT} sec)\n";
-        $self->cmd('reload cancel') or exit -1;
+        $self->cmd('reload cancel');
         $con->{TIMEOUT} = $tt;
 
         # we have to wait for the
@@ -1145,8 +924,8 @@ sub cancel_reload ( $ ) {
         }
 
         # really no reload scheduled?
-        my @out = $self->shcmd('sh reload');
-        unless ($out[0] =~ /No reload is scheduled/) {
+        my $out = $self->shcmd('sh reload');
+        unless ($out =~ /No reload is scheduled/) {
             warnpr "could not cancel reload\n";
         }
         else {
@@ -1214,51 +993,46 @@ sub compare_interface_acls {
 
 sub append_acl_entries( $$$ ) {
     my ($self, $name, $entries) = @_;
-    $self->cmd('configure terminal') or exit -1;
-
-    #mypr "ip access-list extended $name\n";
-    $self->cmd("ip access-list extended $name") or exit -1;
+    $self->cmd('configure terminal');
+    $self->cmd("ip access-list extended $name");
     my $counter = 0;
     for my $c (@$entries) {
-        my $acl = $self->acl_line_to_string($c);
-        $self->cmd($acl) or exit -1;
+        my $acl = $c->{orig};
+        $self->cmd($acl);
         $counter++;
         mypr " $counter";
     }
     mypr "\n";
-    $self->cmd('end') or exit -1;
+    $self->cmd('end');
 }
 
 sub remove_acl_entries( $$$ ) {
     my ($self, $name, $entries) = @_;
 
-    #
-    # remove ace's in reverse order!!!
-    #
-    $self->cmd('configure terminal') or exit -1;
+    # Remove ace's in reverse order!
+    $self->cmd('configure terminal');
 
     #mypr "ip access-list extended $name\n";
-    $self->cmd("ip access-list extended $name") or exit -1;
+    $self->cmd("ip access-list extended $name");
     my $counter = 0;
     for my $c (reverse @$entries) {
-        my $acl = "no " . $self->acl_line_to_string($c);
+        my $acl = "no $c->{orig}";
 
         # *** HACK *** to handle NV ram slowdown
-        my @output = $self->shcmd($acl);
-        $self->cmd_check_error(\${@output}[0]) or exit -1;
-        if ($output[0] =~ /Delete failed. NV generation of acl in progress/) {
+        my $output = $self->shcmd($acl);
+        $self->cmd_check_error(\$output) or exit -1;
+        if ($output =~ /Delete failed. NV generation of acl in progress/) {
             mypr "sleep 1 second and try again.\n";
             sleep 1;
-            $self->cmd($acl) or exit -1;
+            $self->cmd($acl);
         }
-
         # *** HACK END ***
-        #$self->cmd($acl) or exit -1;
+
         $counter++;
         mypr " $counter";
     }
     mypr "\n";
-    $self->cmd('end') or exit -1;
+    $self->cmd('end');
 }
 
 #
@@ -1321,11 +1095,11 @@ sub process_interface_acls ( $$$ ) {
         # first remove old entries because acl should be empty - otherwise
         # new entries are only appended - bad
         #
-        $self->cmd('configure terminal') or exit -1;
+        $self->cmd('configure terminal');
 
         #mypr "no ip access-list extended $aclname\n";
-        $self->cmd("no ip access-list extended $aclname") or exit -1;
-        $self->cmd('end')                                 or exit -1;
+        $self->cmd("no ip access-list extended $aclname");
+        $self->cmd('end');
         $self->cancel_reload();
 
         # hopefully this is not critical!
@@ -1340,22 +1114,22 @@ sub process_interface_acls ( $$$ ) {
         # assign new acl to interfaces
         #
         mypr "assign new acl:\n";
-        $self->cmd('configure terminal') or exit -1;
+        $self->cmd('configure terminal');
         mypr " interface $name\n";
-        $self->cmd("interface $name") or exit -1;
+        $self->cmd("interface $name");
         mypr " ip access-group $aclname in\n";
-        $self->cmd("ip access-group $aclname in") or exit -1;
-        $self->cmd('end')                         or exit -1;
+        $self->cmd("ip access-group $aclname in");
+        $self->cmd('end');
 
         #
         # delete old ACL (if present)
         #
-        $self->cmd('configure terminal') or exit -1;
+        $self->cmd('configure terminal');
         if ($confacl && exists $conf->{ACCESS}->{$confacl}) {
             mypr "no ip access-list extended $confacl\n";
-            $self->cmd("no ip access-list extended $confacl") or exit -1;
+            $self->cmd("no ip access-list extended $confacl");
         }
-        $self->cmd('end') or exit -1;
+        $self->cmd('end');
         $self->cancel_reload();
         mypr "---\n";
     }
@@ -1748,12 +1522,11 @@ sub crypto_processing( $$$ ) {
                         # first remove old entries because acl should be empty - otherwise
                         # new entries are only appended - bad
                         #
-                        $self->cmd('configure terminal') or exit -1;
+                        $self->cmd('configure terminal');
 
                         #mypr "no ip access-list extended $aclname\n";
-                        $self->cmd("no ip access-list extended $new_acl_name")
-                          or exit -1;
-                        $self->cmd('end') or exit -1;
+                        $self->cmd("no ip access-list extended $new_acl_name");
+                        $self->cmd('end');
                         $self->append_acl_entries($new_acl_name,
                             $spoc->{ACCESS}->{$spoc_acl_name});
 
@@ -1761,14 +1534,12 @@ sub crypto_processing( $$$ ) {
                         # assign new acl to interfaces
                         #
                         mypr "assign new acl:\n";
-                        $self->cmd('configure terminal') or exit -1;
+                        $self->cmd('configure terminal');
                         mypr " crypto map $conf_map_name $sequ\n";
-                        $self->cmd("crypto map $conf_map_name $sequ")
-                          or exit -1;
+                        $self->cmd("crypto map $conf_map_name $sequ");
                         mypr " set ip access-group $new_acl_name in\n";
-                        $self->cmd("set ip access-group $new_acl_name in")
-                          or exit -1;
-                        $self->cmd('end') or exit -1;
+                        $self->cmd("set ip access-group $new_acl_name in");
+                        $self->cmd('end');
                         $self->cancel_reload();
                         mypr "---\n";
 
@@ -1791,12 +1562,12 @@ sub crypto_processing( $$$ ) {
             #
             $self->schedule_reload(3);
             for my $acl (keys %surplus_acls) {
-                $self->cmd('configure terminal') or exit -1;
+                $self->cmd('configure terminal');
                 if ($acl and exists $conf->{ACCESS}->{$acl}) {
                     mypr "no ip access-list extended $acl\n";
-                    $self->cmd("no ip access-list extended $acl") or exit -1;
+                    $self->cmd("no ip access-list extended $acl");
                 }
-                $self->cmd('end') or exit -1;
+                $self->cmd('end');
             }
             $self->cancel_reload();
             mypr " --- done remove surplus acls ---\n";
@@ -1874,9 +1645,10 @@ sub transfer() {
 
             # check config size
             mypr "re-read config\n";
-            $self->cmd('show running')
-              or errpr
-              "possible Problem with config size: config NOT written!\n";
+	    my $result = $self->issue_cmd('show running');
+            $self->cmd_check_error(\$result->{BEFORE}) or 
+		errpr "Possible Problem with config size:"
+		. " config was NOT written!\n";
 
             # save config
             mypr "ok\n";
