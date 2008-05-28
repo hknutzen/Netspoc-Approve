@@ -8,7 +8,7 @@
 
 my $id = "$1 $2";
 
-sub version_drc2() {
+sub version_drc3() {
     return $id;
 }
 
@@ -47,7 +47,7 @@ sub parse_ver( $ ) {
     my $package = shift;
     for my $symname (keys %{$package}) {
         my $sym = ${$package}{$symname};
-        if ($sym =~ /::version_drc2/) {
+        if ($sym =~ /::version_drc3/) {
 
             #print "$sym\n";
             print &$sym() . "\n";
@@ -72,10 +72,10 @@ sub parse_ver( $ ) {
 
 sub usage {
     print STDERR <<END;
-usage: 'drc2 -v'
-usage: 'drc2 [-C <level>] -P1 <conf1> -P2 <conf2> <device>'
-usage: 'drc2 [-C <level>] -F1 <file1> -F2 <file2> <device>'
-usage: 'drc2 <option> -N <file> <device>'
+usage: 'drc3 -v'
+usage: 'drc3 [-C <level>] -P1 <conf1> -P2 <conf2> <device>'
+usage: 'drc3 [-C <level>] -F1 <file1> -F2 <file2> <device>'
+usage: 'drc3 <option> -N <file> <device>'
 
  -p [<num>]           ping with max. #num retries
  --NOREACH            do not check if device is reachable
@@ -182,7 +182,7 @@ $job->logging();
 if (my $f1 = $opts{F1}) {
     my $f2 = $opts{F2} or &usage;
 
-    # tell the drc2_helper that we only compare
+    # tell the Helper that we only compare
     errpr_mode("COMPARE");
 
     if ($job->compare_files($f1, $f2)) {
@@ -199,7 +199,7 @@ if (my $f1 = $opts{F1}) {
 if (my $p1 = $opts{P1}) {
     my $p2 = $opts{P2} or &usage;
 
-    # tell the drc2_helper that we only compare
+    # tell the Helper that we only compare
     errpr_mode("COMPARE");
 
     $p1 = readlink $global_config->{NETSPOC} . $p1 || $p1;
@@ -313,7 +313,7 @@ if ($job->{OPTS}->{E}) {
 
     # execute user command
     errpr_mode("COMPARE")
-      ;    # tell the drc2_helper not to print message approve aborted
+      ;    # tell the Helper not to print message approve aborted
     $job->remote_execute();
 }
 elsif (my $spoc_path = $job->{OPTS}->{N}) {
@@ -333,7 +333,7 @@ elsif (my $spoc_path = $job->{OPTS}->{N}) {
             #####################
             # compare Mode!
             #####################
-            errpr_mode("COMPARE");   # tell the drc2_helper that we only compare
+            errpr_mode("COMPARE");   # tell the Helper that we only compare
             my $compare_result = $job->compare($spoc_path);
             unless ($job->{OPTS}->{P} eq $nopolicy) {
                 unless ($job->{POLICY} =~ /^p(\d+)$/) {
