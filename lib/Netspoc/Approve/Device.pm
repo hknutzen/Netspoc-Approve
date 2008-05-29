@@ -718,7 +718,7 @@ sub compare( $$ ) {
     for my $key (keys %{$self->{CHANGE}}) {
 	mypr "comp: $policy $self->{NAME} *** $key changed ***\n";
     }
-    return $self->{CHANGE};
+    return scalar keys %{$self->{CHANGE}};
 }
 
 sub compare_files( $$$) {
@@ -744,7 +744,7 @@ sub compare_files( $$$) {
     for my $key (keys %{$self->{CHANGE}}) {
 	mypr "comp: $self->{NAME} *** $key changed ***\n";
     }
-    return $self->{CHANGE};
+    return scalar keys %{$self->{CHANGE}};
 }
 
 sub logging($) {
