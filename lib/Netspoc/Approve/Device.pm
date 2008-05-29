@@ -47,7 +47,7 @@ sub get_global_config($) {
     my $config = {};
 
     # Set masterdirectory and read global parameters.
-    my $madhome = '/home/hk/';
+    my $madhome = '/home/diamonds/';
     my $rcmad   = $madhome . '.rcmadnes';
     open(RCMAD, $rcmad) or die "Can't open $rcmad: $!\n";
 
@@ -190,7 +190,7 @@ sub build_db ($$) {
                   . " \'$entry->{SOURCE}->{LINE}\'\n";
             }
         }
-        elsif (defined quad2int_2($entry->{NAME})) {
+        elsif (defined quad2int($entry->{NAME})) {
 
             # no ip for this object found - so this may be a switch without
             # name - and we should not bother
@@ -387,7 +387,7 @@ sub get_obj_info($$$$) {
       || $db->{IP_HASH}->{$spec}
       || $db->{LEG_NAME_DB}->{$spec}
       || $db->{LEG_IP_DB}->{$spec}
-      or die "object $spec not found\n";
+    or return { NAME => $spec };
     $object->{NAME} or die "no object name found\n";
     $object->{IP}   or die "no address found\n";
     $object->{TYPE} or die "no object type found\n";
