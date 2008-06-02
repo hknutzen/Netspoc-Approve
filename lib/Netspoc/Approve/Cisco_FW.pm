@@ -556,7 +556,7 @@ sub expand_acl_entry($$$$) {
 		"unsupported object type '$group->{TYPE}'\n";
 	    
 	    $replace->{$adr} = 
-		[ "object-group $obj_id", $group->{NETWORK_OBJECT} ];
+		[ "object-group $obj_id ", $group->{NETWORK_OBJECT} ];
 
             # Remember that group $obj_id is referenced by ACL $acl 
 	    # and vice versa.
@@ -579,12 +579,12 @@ sub expand_acl_entry($$$$) {
 	    if($src_find) {
 		my $src_replace = $src->{orig};
 		$src_replace =~ s/network-object//;
-		$copy->{orig} =~ s/$src_find/$src_replace/;
+		$copy->{orig} =~ s/$src_find/$src_replace /;
 	    }
 	    if($dst_find) {
 		my $dst_replace = $dst->{orig};
 		$dst_replace =~ s/network-object//;
-		$copy->{orig} =~ s/$dst_find/$dst_replace/;
+		$copy->{orig} =~ s/$dst_find/$dst_replace /;
 	    }
             push @expanded, $copy;
         }
@@ -1004,7 +1004,8 @@ sub transfer () {
 		    for my $where (qw(SRC DST)) {
 			if (my $gid = $ace->{$where}->{OBJECT_GROUP}) {
 			    my $new_gid = $new_group_id{$gid};
-			    $cmd =~ s/object-group $gid/object-group $new_gid/;
+			    $cmd =~ 
+				s/object-group $gid /object-group $new_gid /;
 			}
 		    }
 		    $cmd =~ s/access-list $obj_id/access-list $new_id/;
