@@ -1021,7 +1021,7 @@ sub transfer () {
 			if (my $gid = $ace->{$where}->{OBJECT_GROUP}) {
 			    my $new_gid = $new_group_id{$gid};
 			    $cmd =~ 
-				s/object-group $gid /object-group $new_gid /;
+				s/object-group $gid(?!\S)/object-group $new_gid/;
 			}
 		    }
 		    $cmd =~ s/access-list $obj_id/access-list $new_id/;
@@ -1075,7 +1075,7 @@ sub transfer () {
     }
 
     if (not $self->{COMPARE}) {
-        if ($self->{CHANGE})
+        if (grep { $_ } values %{ $self->{CHANGE} })
         {
             mypr "saving config to flash\n";
             $self->cmd('write memory');
