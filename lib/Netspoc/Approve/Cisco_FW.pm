@@ -567,7 +567,7 @@ sub expand_acl_entry($$$$) {
 		"unsupported object type '$group->{TYPE}'\n";
 	    
 	    $replace->{$adr} = 
-		[ "object-group $obj_id ", $group->{NETWORK_OBJECT} ];
+		[ "object-group $obj_id", $group->{NETWORK_OBJECT} ];
 
             # Remember that group $obj_id is referenced by ACL $acl 
 	    # and vice versa.
@@ -590,13 +590,17 @@ sub expand_acl_entry($$$$) {
 	    if($src_find) {
 		my $src_replace = $src->{orig};
 		$src_replace =~ s/network-object//;
-		$copy->{orig} =~ s/$src_find/$src_replace /;
+		$copy->{orig} =~ s/$src_find(?!\S)/$src_replace/;
 	    }
 	    if($dst_find) {
 		my $dst_replace = $dst->{orig};
 		$dst_replace =~ s/network-object//;
-		$copy->{orig} =~ s/$dst_find/$dst_replace /;
+		$copy->{orig} =~ s/$dst_find(?!\S)/$dst_replace/;
 	    }
+
+	    # Remove 'access-list <name>' because we don't need this info
+	    # when printing during ACL compare.
+	    $copy->{orig} =~ s/^\S+\s+\S+\s+//;
             push @expanded, $copy;
         }
     }
