@@ -15,7 +15,6 @@ sub version_drc3() {
 $| = 1;    # output char by char
 
 use FindBin;
-use lib '/home/hk/';
 use strict;
 use warnings;
 
@@ -223,12 +222,12 @@ if (my $p1 = $opts{P1}) {
       . $p2 . "/"
       . $global_config->{CODEPATH}
       . $netobj;
-
+    my $exit;
     if ($job->lock($job->{NAME})) {
         if ($job->{OPTS}->{S}) {
             open_status($job);
             my $fc_state = getstatus('FC_STATE');
-            if ($job->compare_files($f1, $f2)) {
+            if ($exit = $job->compare_files($f1, $f2)) {
 
                 # diffs
                 if ($fc_state eq 'OK') {
@@ -253,7 +252,7 @@ if (my $p1 = $opts{P1}) {
             }
         }
         else {
-            $job->compare_files($f1, $f2);
+            $exit = $job->compare_files($f1, $f2);
         }
         $job->unlock($job->{NAME});
     }
@@ -268,7 +267,8 @@ if (my $p1 = $opts{P1}) {
     mypr
       "********************************************************************\n";
     mypr "\n";
-    exit;
+    $exit ||= 0;
+    exit $exit;
 }
 
 # check reachability
