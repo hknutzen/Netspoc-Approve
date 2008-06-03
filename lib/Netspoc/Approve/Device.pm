@@ -386,8 +386,7 @@ sub get_obj_info($$$$) {
     my $object = $db->{NAME_HASH}->{$spec}
       || $db->{IP_HASH}->{$spec}
       || $db->{LEG_NAME_DB}->{$spec}
-      || $db->{LEG_IP_DB}->{$spec}
-    or return { NAME => $spec };
+      || $db->{LEG_IP_DB}->{$spec};
     $object->{NAME} or die "no object name found\n";
     $object->{IP}   or die "no address found\n";
     $object->{TYPE} or die "no object type found\n";
