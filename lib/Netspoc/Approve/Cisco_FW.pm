@@ -331,49 +331,32 @@ sub cmd_check_error($$) {
     my ($self, $out) = @_;
 
     # do ERROR if unexpected line appears
-    if ($$out =~ /\n.*\n/m) {
+    if (my($msg) = $$out =~ /\n(.+)$/m) {
         #### hack start ###
-        ($$out =~ /\[OK\]/m) and return 1;    ### for write memory
-        ($$out =~ /will be identity translated for outbound/)
+        ($msg =~ /\[OK\]/m) and return 1;    ### for write memory
+        ($msg =~ /will be identity translated for outbound/)
           and return 1;                       # identity nat
-        ($$out =~ /nat 0 0.0.0.0 will be non-translated/)
+        ($msg =~ /nat 0 0.0.0.0 will be non-translated/)
           and return 1;                       # identity nat
-        ($$out =~ /Global \d+\.\d+\.\d+\.\d+ will be Port Address Translated/)
+        ($msg =~ /Global \d+\.\d+\.\d+\.\d+ will be Port Address Translated/)
           and return 1;                       # PAT
-        if ($$out =~ /overlapped\/redundant/) {
-            ### overlapping statics from netspoc
-            my @pre = split(/\n/, $$out);
-            for my $line (@pre) {
-                warnpr $line, "\n";
-            }
-            return 1;
-        }
-        if ($$out =~ /static overlaps/) {
-            ### overlapping statics with global from netspoc
-            my @pre = split(/\n/, $$out);
-            for my $line (@pre) {
-                warnpr $line, "\n";
-            }
-            return 1;
-        }
-        if ($$out =~ /Route already exists/) {
-            ### route warnings
-            my @pre = split(/\n/, $$out);
-            for my $line (@pre) {
-                warnpr $line, "\n";
-            }
-            return 1;
-        }
-        if ($$out =~ /ACE not added. Possible duplicate entry/) {
-            ### ace warnings
-            my @pre = split(/\n/, $$out);
+        if ($msg =~ /(
+		      # overlapping statics from netspoc
+		      overlapped\/redundant |
+		      # overlapping statics with global from netspoc
+		      static[ ]overlaps |
+		      # route warnings
+		      Route[ ]already[ ]exists |
+		      # ace warnings
+		      ACE[ ]not[ ]added[.][ ]Possible[ ]duplicate[ ]entry)/x) {
+            my @pre = split(/\n/, $msg);
             for my $line (@pre) {
                 warnpr $line, "\n";
             }
             return 1;
         }
         ### hack end ###
-        my @pre = split(/\n/, $$out);
+        my @pre = split(/\n/, $msg);
         for my $line (@pre) {
             errpr_info "+++ ", $line, "\n";
         }
