@@ -892,7 +892,7 @@ sub transfer () {
 
                 # Only remove group from PIX if all ACLs that reference
                 # this group are renewed by netspoc.
-                unless ($spoc_conf->{ACCESS_LIST}->{$name}->{TRANSFER}) {
+                if(not $acl_need_transfer{$name}) {
                     $remove_group = 0;
                     last;
                 }
@@ -1039,9 +1039,9 @@ sub transfer () {
 	    # Do it first, because otherwise group remove would not work.
             mypr "remove spare acls from device\n";
             for my $acl_name (keys %{ $conf->{ACCESS_LIST} }) {
-                if (    $conf->{acl2remove}->{$acl_name}
-		    and not $conf->{is_filter_acl}->{$acl_name}
-		    and not $conf->{is_crypto_acl}->{$acl_name})
+                if (    $acl_need_remove{$acl_name}
+		    or (    not $conf->{is_filter_acl}->{$acl_name}
+		        and not $conf->{is_crypto_acl}->{$acl_name}))
                 {
 		    my $cmd = ($self->{VERSION} >= 7.0) 
   			    ? "clear configure access-list $acl_name"
@@ -1055,8 +1055,8 @@ sub transfer () {
             mypr "remove spare object-groups from device\n";
             for my $gid (keys %{ $conf->{OBJECT_GROUP} }) {
                 my $type = $conf->{OBJECT_GROUP}->{$gid}->{TYPE};
-                if (not $conf->{group2acl}->{$gid}
-                    and $conf->{group2remove}->{$gid})
+                if (   $group_need_remove{$gid}
+		    or not $conf->{group2acl}->{$gid})
                 {
 		    my $cmd = "no object-group $type $gid";
                     mypr " $cmd\n";
