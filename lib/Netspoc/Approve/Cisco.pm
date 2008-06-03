@@ -1065,6 +1065,7 @@ sub process_routing {
                 $conf_routing = $conf->{ROUTING} = [];
             }
         }
+	$self->{CHANGE}->{ROUTE} = 0;
         my $counter;
         mypr "==== compare routing information ====\n\n";
         mypr " routing entries on device:    ", scalar @$conf_routing,

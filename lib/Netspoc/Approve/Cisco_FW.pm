@@ -904,6 +904,7 @@ sub transfer () {
     }
     else {
         mypr "processing access-lists\n";
+	$self->{CHANGE}->{ACL} = 0;
         for my $intf (keys %{ $spoc_conf->{IF} }) {
             $conf->{IF}->{$intf} or
                 errpr 
@@ -1064,6 +1065,7 @@ sub transfer () {
     # STATIC, GLOBAL, NAT
     for my $type (qw(STATIC GLOBAL NAT)) {
 	mypr " === processing $type ===\n";
+	$self->{CHANGE}->{$type} = 0;
 	$self->transfer_lines($spoc_conf->{$type}, $conf->{$type}) and 
 	    $self->{CHANGE}->{$type} = 1;
     }

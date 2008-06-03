@@ -714,8 +714,9 @@ sub compare( $$ ) {
     $time = localtime();
     $self->con_shutdown("STOP: $policy at > $time < ($id)");
     mypr "comp: $policy ", scalar localtime, " ($id)\n";
-    for my $key (keys %{$self->{CHANGE}}) {
-	mypr "comp: $policy $self->{NAME} *** $key changed ***\n";
+    for my $key (sort keys %{$self->{CHANGE}}) {
+	my $status = $self->{CHANGE}->{$key} ? 'changed' : 'unchanged';
+	mypr "comp: $policy $self->{NAME} *** $key $status ***\n";
     }
     return scalar keys %{$self->{CHANGE}};
 }
@@ -740,8 +741,9 @@ sub compare_files( $$$) {
         errpr "compare failed\n";
     }
     mypr "comp: ", scalar localtime, " ($id)\n";
-    for my $key (keys %{$self->{CHANGE}}) {
-	mypr "comp: $self->{NAME} *** $key changed ***\n";
+    for my $key (sort keys %{$self->{CHANGE}}) {
+	my $status = $self->{CHANGE}->{$key} ? 'changed' : 'unchanged';
+	mypr "comp: $self->{NAME} *** $key $status ***\n";
     }
     return scalar keys %{$self->{CHANGE}};
 }

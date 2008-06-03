@@ -97,13 +97,16 @@ sub get_parse_info {
 #
 	'ip route' => { 
 	    store => 'ROUTING',
+	    multi => 1,
 	    parse => ['seq',
 		      { store => 'BASE', parse => \&get_ip, },
 		      { store => 'MASK', parse => \&get_ip, },
 		      { store => 'NIF',  parse => qr/\w.*/, },
 		      { store => 'NEXTHOP', parse => \&check_ip, },
 		      ['or',
-		       { store => 'METRIC', parse => qr/\d+/, },
+		       { store => 'METRIC', 
+			 parse => \&check_int, 
+			 default => 1 },
 		       { store => 'MISC', parse => qr/permanent/, },
 		       ['seq',
 			{ store => 'MISC', parse => qr/track|tag/, },
@@ -307,6 +310,19 @@ sub parse_access_list {
 # checking, binding  and info printing of parsed crypto config
 sub postprocess_config( $$ ) {
     my ($self, $p) = @_;
+
+    $p->{ACCESS} = $p->{ACCESS}->{LIST};
+    for my $intf (values %{ $p->{IF} }) {
+	if(my $access = delete $intf->{ACCESS}) {
+	    if(my $value = $access->{in}) {
+		$intf->{ACCESS} = $value;
+	    }
+	    else {
+		$intf->{ACCESS_OUT} = $value;
+	    }
+	}
+    }
+	
     mypr meself(1) . "*** begin ***\n";
     my $crypto_map_found   = 0;
     my $ezvpn_client_found = 0;
@@ -1155,7 +1171,7 @@ sub generic_interface_acl_processing ( $$$ ) {
               "interface $intf->{name}: outgoing acl $acl detected\n";
         }
     }
-
+    $self->{CHANGE}->{ACL} = 0;
     $self->compare_interface_acls($spoc_conf, $conf) or return 0;
 
     # check which spocacls really have to be transfered
@@ -1395,6 +1411,7 @@ sub crypto_processing( $$$ ) {
         return 1;
     }
     if (exists $spoc->{CRYPTO}->{ISAKMP}) {
+	$self->{CHANGE}->{CRYPTO} = 0;
         ##################################
         #       standard IPSEC
         ##################################
@@ -1629,6 +1646,7 @@ sub transfer() {
         if ($self->{CONSOLE} and not $self->{CHANGE}) {
             mypr "no changes in running config -"
               . " check if startup is uptodate:\n";
+	    $self->{CHANGE}->{STARTUP_CONFIG} = 0;
             if ($self->compare_ram_with_nvram()) {
                 mypr "comp: Startup is uptodate\n";
             }
