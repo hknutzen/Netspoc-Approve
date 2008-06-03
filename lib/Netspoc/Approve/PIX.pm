@@ -83,7 +83,12 @@ sub get_config_from_device {
 	
 sub checkbanner {
     my ($self) = @_;
-    mypr "Banner check disabled for PIX $self->{VERSION}\n";
+    if($self->{VERSION} < 6.3) {
+	mypr "Banner check disabled for PIX $self->{VERSION}\n";
+    }
+    else {
+	$self->SUPER::checkbanner;
+    }
 }
 
 sub set_pager {
