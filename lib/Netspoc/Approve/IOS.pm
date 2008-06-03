@@ -1643,9 +1643,9 @@ sub transfer() {
     if ($self->{COMPARE}) {
 
 	# No CONSOLE available when called by compare_files
-        if ($self->{CONSOLE} and not $self->{CHANGE}) {
+        if ($self->{CONSOLE} and not grep { $_ } values %{ $self->{CHANGE} }) {
             mypr "no changes in running config -"
-              . " check if startup is uptodate:\n";
+              . " check if startup is uptodate:\n";ln
 	    $self->{CHANGE}->{STARTUP_CONFIG} = 0;
             if ($self->compare_ram_with_nvram()) {
                 mypr "comp: Startup is uptodate\n";
@@ -1659,7 +1659,7 @@ sub transfer() {
     }
     else {
         $self->cancel_reload();
-        if ($self->{CHANGE}) {
+        if (grep { $_ } values %{ $self->{CHANGE} }) {
 
             # check config size
             mypr "re-read config\n";
