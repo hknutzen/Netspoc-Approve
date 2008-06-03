@@ -452,7 +452,7 @@ sub get_raw_name( $$ ) {
     my $code_dir = $self->{GLOBAL_CONFIG}->{CODEPATH};
 
     # ToDo: Change EPILOGPATH to 'netspoc/raw' here and in newpolicy.
-    for my $raw_dir ($self->{GLOBAL_CONFIG}->{EPILOGPATH}, 'netspoc/raw') {
+    for my $raw_dir ($self->{GLOBAL_CONFIG}->{EPILOGPATH}, 'netspoc/raw/') {
 	$raw_path = $path;
 	if($raw_path =~ s/$code_dir/$raw_dir/) {
 	    return($raw_path) if -f $raw_path;
@@ -627,10 +627,9 @@ sub check_device( $ ) {
     my ($self) = @_;
     my $retries = $self->{OPTS}->{p} || 3;
 
-    for (my $i = 1 ; $i <= $retries ; $i++) {
+    for my $i (1 ..3) {
         my $result = `ping -q -w $i -c 1 $self->{IP}`;
-        $result =~ /(\d+) received/;
-        $1 == 1 and return $i;
+	return $i if $result =~ /1 received/;
     }
     return 0;
 }
