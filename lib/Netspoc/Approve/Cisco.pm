@@ -1067,16 +1067,10 @@ sub process_routing {
         }
 	$self->{CHANGE}->{ROUTE} = 0;
         my $counter;
-        mypr "==== compare routing information ====\n\n";
-        mypr " routing entries on device:    ", scalar @$conf_routing,
-          "\n";
-        mypr " routing entries from netspoc: ", scalar @$spoc_routing,
-          "\n";
+        mypr "==== compare routing information ====\n";
+        mypr " routing entries on device:    ", scalar @$conf_routing, "\n";
+        mypr " routing entries from netspoc: ", scalar @$spoc_routing, "\n";
         for my $c (@$conf_routing) {
-            $counter++;
-            unless ($self->{COMPARE}) {
-                mypr " $counter";
-            }
             for my $s (@$spoc_routing) {
                 if ($self->route_line_a_eq_b($c, $s)) {
                     $c->{DELETE} = $s->{DELETE} = 1;
@@ -1084,7 +1078,6 @@ sub process_routing {
                 }
             }
         }
-        mypr "\n";
         unless ($self->{COMPARE}) {
 
             #
@@ -1117,10 +1110,8 @@ sub process_routing {
 		    }
 		}
                 $self->cmd($r->{orig}) or exit -1;
-                mypr " $counter";
             }
-            mypr " $counter";
-            mypr "\n";
+            mypr " $counter\n";
             ($counter) and $self->{CHANGE}->{ROUTE} = 1;
             mypr "deleting non matching routing entries from device\n";
             $counter = 0;
@@ -1129,10 +1120,8 @@ sub process_routing {
                 $counter++;
                 my $tr = join ' ', "no", $r->{orig};
                 $self->cmd($tr) or exit -1;
-                mypr " $counter";
             }
-            mypr " $counter";
-            mypr "\n";
+            mypr " $counter\n";
             $self->cmd('end') or exit -1;
             $counter and $self->{CHANGE}->{ROUTE} = 1;
             $self->cancel_reload();
