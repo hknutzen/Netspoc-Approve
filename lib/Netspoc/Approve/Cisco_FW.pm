@@ -316,6 +316,7 @@ sub attr_eq( $$$ ) {
     my ($self, $a, $b) = @_;
     keys %$a == keys %$b or return 0;
     for my $k (keys %$a) {
+	next if $k eq 'orig';
 	return 0 if defined $a->{$k} xor defined $b->{$k};
 	next if not defined $a->{$k};
 	$a->{$k} eq $b->{$k} or return 0;
