@@ -63,8 +63,12 @@ sub get_parse_info {
 		      { store => 'DNS', parse => qr/dns/ },
 		      { store => 'OUTSIDE', parse => qr/outside/ },
 		      ['seq',
-		       { store => 'MAX_CONS', parse => \&check_int },
-		       { store => 'EMB_LIMIT', parse => \&check_int } ],
+		       { store => 'MAX_CONS', 
+			 parse => \&check_int,
+			 default => 0 },
+		       { store => 'EMB_LIMIT', 
+			 parse => \&check_int,
+			 default => 0 } ],
 		      { store => 'NORANDOMSEQ', parse => qr/norandomseq/ } ] },
 # static [(local_ifc,global_ifc)] {global_ip | interface} 
 #        {local_ip [netmask mask] | access-list acl_name} 
@@ -106,8 +110,12 @@ sub get_parse_info {
 			   parse => \&get_ip, 
 			   default => 0xffffffff } ]]],
 		      ['seq',
-		       { store => 'MAX_CONS', parse => \&check_int },
-		       { store => 'EMB_LIMIT', parse => \&check_int } ],
+		       { store => 'MAX_CONS', 
+			 parse => \&check_int,
+			 default => 0 },
+		       { store => 'EMB_LIMIT', 
+			 parse => \&check_int,
+			 default => 0 } ],
 		      { store => 'NORANDOMSEQ', parse => qr/norandomseq/ } ],
 	},
 
@@ -120,7 +128,9 @@ sub get_parse_info {
 		      { store => 'BASE', parse => \&get_ip },
 		      { store => 'MASK', parse => \&get_ip },
 		      { store => 'NEXTHOP', parse => \&get_ip },
-		      { store => 'METRIC', parse => \&check_int } ],
+		      { store => 'METRIC', 
+			parse => \&check_int, 
+			default => 1 } ],
 	},
 
 # access-group <access_list_name> in interface <if_name>
