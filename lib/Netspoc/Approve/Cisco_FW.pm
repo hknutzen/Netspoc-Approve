@@ -1051,9 +1051,6 @@ sub transfer () {
     }
 
     # STATIC, GLOBAL, NAT
-    my %control = (STATIC => \&attr_eq,
-		   GLOBAL => \&global_line_a_eq_b,
-		   NAT => \&attr_eq);
     for my $type (qw(STATIC GLOBAL NAT)) {
 	mypr " === processing $type ===\n";
 	$self->transfer_lines($spoc_conf->{$type}, $conf->{$type}) and 
