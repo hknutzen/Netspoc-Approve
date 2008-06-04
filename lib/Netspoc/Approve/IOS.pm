@@ -204,7 +204,7 @@ sub get_parse_info {
 		'acl' => { 
 		    store => 'MATCH_ACL', parse => \&get_token, },
 		'peer' => {
-		    store => 'PEER', parse => \&get_ip, },
+		    multi => 1, store => 'PEER', parse => \&get_ip, },
 		'connect' => {
 		    store => 'CONNECT', parse => \&get_token, },
 		'mode' => {
