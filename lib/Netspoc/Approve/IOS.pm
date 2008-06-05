@@ -53,6 +53,9 @@ sub get_parse_info {
 	interface =>
 	{ store => 'IF',
 	  named => 1,
+	  parse => ['seq',
+		    { parse => qr/type/ },
+		    { parse => qr/tunnel/ } ],
 	  subcmd =>
 	  { 'ip address' => { 
 	      store => 'ADDRESS',
