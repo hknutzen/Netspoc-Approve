@@ -314,7 +314,9 @@ sub parse_access_list {
 sub postprocess_config( $$ ) {
     my ($self, $p) = @_;
 
-    $p->{ACCESS} = $p->{ACCESS}->{LIST};
+    for my $entry (values %{ $p->{ACCESS} }) {
+	$entry = $entry->{LIST};
+    }
     for my $intf (values %{ $p->{IF} }) {
 	if(my $access = delete $intf->{ACCESS}) {
 	    if(my $value = $access->{in}) {
@@ -983,7 +985,17 @@ sub compare_interface_acls {
         my $ca_name;
         if (my $ca_name = $conf_intf->{ACCESS}) {
             if ($conf->{ACCESS}->{$ca_name}) {
-                mypr "at interface $name - spoc: $sa_name <-> actual: $ca_name\n";
+                mypr "interface $name - spoc: $sa_name, actual: $ca_name\n";
+		if (not 
+		    $self->acl_equal(
+			$spoc_conf->{ACCESS}->{$sa_name},
+			$conf->{ACCESS}->{$ca_name},
+			$sa_name, $ca_name, "interface $name"
+		    )
+		    )
+		{
+		    $intf->{TRANSFER} = 1;
+		}
             }
             else {
                 $intf->{TRANSFER} = 1;
@@ -995,16 +1007,6 @@ sub compare_interface_acls {
             $intf->{TRANSFER} = 1;
             warnpr "no incoming acl found at interface $name\n";
             next;
-        }
-        if (not 
-            $self->acl_equal(
-                $spoc_conf->{ACCESS}->{$sa_name},
-                $conf->{ACCESS}->{$ca_name},
-                $sa_name, $ca_name, "interface $name"
-            )
-          )
-        {
-            $intf->{TRANSFER} = 1;
         }
     }
     mypr "===== done ====\n";
