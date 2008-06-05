@@ -234,7 +234,7 @@ sub get_parse_info {
 		'set ip access-group' => {
 		    store => 'ACCESS_GROUP', parse => \&get_name_in_out, },
 		'set peer' => {
-		    store => 'PEER', parse => \&get_ip, },
+		    multi => 1, store => 'PEER', parse => \&get_ip, },
 		'set security-association lifetime' => {
 		    store => 'SECURITY_ASSOCIATION_LIFETIME',
 		    named => 1,
