@@ -49,6 +49,35 @@ sub check_firewall ( $$ ) {
 #
 # *** access-lists processing *** 
 #
+sub remove_acl_entries( $$$ ) {
+    my ($self, $name, $entries) = @_;
+
+    # Remove ace's in reverse order!
+    $self->cmd('configure terminal');
+
+    #mypr "ip access-list extended $name\n";
+    $self->cmd("ip access-list extended $name");
+    my $counter = 0;
+    for my $c (reverse @$entries) {
+        my $acl = "no $c->{orig}";
+
+        # *** HACK *** to handle NV ram slowdown
+        my $output = $self->shcmd($acl);
+        $self->cmd_check_error(\$output) or exit -1;
+        if ($output =~ /Delete failed. NV generation of acl in progress/) {
+            mypr "sleep 1 second and try again.\n";
+            sleep 1;
+            $self->cmd($acl);
+        }
+        # *** HACK END ***
+
+        $counter++;
+        mypr " $counter";
+    }
+    mypr "\n";
+    $self->cmd('end');
+}
+
 sub smart_transfer_acl( $$$$$ ){
     my ($self,$intf,$aclname,$sa,$ca) = @_;
     #
