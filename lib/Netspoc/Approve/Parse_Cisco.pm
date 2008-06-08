@@ -20,15 +20,25 @@ our @EXPORT =
  );
 
 # A Cisco command line consists of two parts: command and argument.
-# A command is either a single word or it is made up of multiple words.
-# This function identifies all words, which are prefix of some command.
-# Known commands are hash entries of $parse_info.
-sub add_prefix_info {
+# A command is either a single word or a multi word command.
+# A multi word command is put together from some prefix words 
+# and optionally from a suffix word of the command line.
+# This function identifies 
+# - all words, which are prefix of some command.
+# - if the prefix part of a command has a suffix.
+# Known commands are read from the hash keys of $parse_info.
+# The last word is a suffix if it is marked by a leading '+'.
+sub add_prefix_suffix_info {
     my ($parse_info) = @_;
     my $result = {};
 
     for my $key (keys %$parse_info) {
 	my @split = split(' ', $key);
+	if($split[-1] =~ /^\+(.*)/) {
+	    my $suffix = $1;
+	    pop @split;
+	    $parse_info->{_suffix}->{join(' ', @split)} = $suffix;
+	}
 	my $hash = $result;
 	while(@split > 1) {
 	    my $word = shift(@split);
@@ -36,7 +46,7 @@ sub add_prefix_info {
 	    $hash = $hash->{$word};
 	}
 	if(my $subcmd = $parse_info->{$key}->{subcmd}) {
-	    add_prefix_info($subcmd);
+	    add_prefix_suffix_info($subcmd);
 	}
     }
     $parse_info->{_prefix} = $result if keys %$result;
@@ -55,7 +65,7 @@ sub add_prefix_info {
 #           
 sub analyze_conf_lines {
     my ($lines, $parse_info) = @_;
-    add_prefix_info($parse_info);
+    add_prefix_suffix_info($parse_info);
     my @stack;
     my $level = 0;
     my $config = [];
@@ -105,6 +115,12 @@ sub analyze_conf_lines {
 	    while($prefix_info = $prefix_info->{$prefix}) {
 		$prefix = shift(@args);
 		$cmd .= ' ' . $prefix;
+	    }
+	}
+	if(my $suffix = $parse_info->{_suffix}->{$cmd}) {
+	    if($args[-1] eq $suffix) {
+		pop(@args);
+		$cmd .= ' +' . $suffix;
 	    }
 	}
 
