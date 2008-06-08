@@ -199,6 +199,16 @@ sub check_ip {
     return;
 }
 
+# <ip>[-<ip>]
+sub get_ip_pair {
+    my($arg) = @_;
+    my $pair = get_token($arg);
+    my($ip1, $ip2) = split(/-/, $pair, 2);
+    $ip1 = quad2int($ip);
+    $ip2 = quad2int($ip2) if $ip2;
+    return($ip1, $ip2);
+}
+
 # parse arguments like 'ip access-group <name> in'
 sub get_name_in_out {
     my($arg) = @_;
