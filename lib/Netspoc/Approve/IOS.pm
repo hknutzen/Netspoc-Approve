@@ -330,7 +330,7 @@ sub postprocess_config( $$ ) {
 	$entry = $entry->{LIST};
     }
 	
-    mypr meself(1) . "*** begin ***\n";
+    mypr meself(0) . "*** begin ***\n";
     my $crypto_map_found   = 0;
     my $ezvpn_client_found = 0;
     my %map_used;
@@ -477,7 +477,7 @@ sub postprocess_config( $$ ) {
             $entry->{PEER} or errpr "Crypto: no peer found\n";
         }
     }
-    mypr meself(1) . "*** end ***\n";
+    mypr meself(0) . "*** end ***\n";
     return 1;
 }
 
@@ -485,7 +485,7 @@ sub get_config_from_device( $ ) {
     my ($self) = @_;
     my $cmd = 'sh run';
     my $output = $self->shcmd($cmd);
-    my @conf = split(/\n/, $output);
+    my @conf = split(/\r\n/, $output);
     my $echo = shift(@conf);
     $echo =~ /^\s*$cmd\s*$/ or 
 	errpr "Got unexpected echo in response to '$cmd': '$echo'\n";
@@ -550,13 +550,13 @@ sub checkinterfaces($$) {
     for my $intf (values %{ $devconf->{IF} }) {
 	my $name = $intf->{name};
         next if ($intf->{SHUTDOWN});
-        next if ($intf->{name} eq 'Null0');
+        next if ($name eq 'Null0');
         next
           if (  $intf->{SWITCHPORT}
             and $intf->{SWITCHPORT}->{MODE}
             and $intf->{SWITCHPORT}->{MODE} eq "trunk");
         if (my $spoc_intf = $spocconf->{IF}->{$name}) {
-            if (my $addr = $spoc_intf->{ADDRESS}) {
+            if (my $addr = $intf->{ADDRESS}) {
                 if (my $base = $addr->{BASE}) {
                     mypr "$name ip: " . int2quad($base) . "\n";
                 }
@@ -944,7 +944,7 @@ sub compare_interface_acls {
     mypr "===== compare (incoming) acls =====\n";
     for my $intf (values %{ $spoc_conf->{IF} }) {
 	my $name = $intf->{name};
-        unless ($intf->{ACCESS}) {
+        unless ($intf->{ACCESS_GROUP_IN}) {
             warnpr "no spoc-acl for interface $name\n";
             next;
         }
@@ -960,9 +960,9 @@ sub compare_interface_acls {
             warnpr "Interface $name: transfer of ACL forced!\n";
             next;
         }
-        my $sa_name = $intf->{ACCESS};
+        my $sa_name = $intf->{ACCESS_GROUP_IN};
         my $ca_name;
-        if (my $ca_name = $conf_intf->{ACCESS}) {
+        if (my $ca_name = $conf_intf->{ACCESS_GROUP_IN}) {
             if ($conf->{ACCESS}->{$ca_name}) {
                 mypr "interface $name - spoc: $sa_name, actual: $ca_name\n";
 		if (not 
@@ -1026,8 +1026,8 @@ sub process_interface_acls ( $$$ ) {
     #
     for my $intf (values %{ $spoc_conf->{IF} }) {
 	my $name = $intf->{name};
-        $intf->{ACCESS} and $intf->{TRANSFER} or next;
-        my $confacl =  $conf->{IF}->{$name}->{ACCESS} || '';
+        $intf->{ACCESS_GROUP_IN} and $intf->{TRANSFER} or next;
+        my $confacl =  $conf->{IF}->{$name}->{ACCESS_GROUP_IN} || '';
 
         # check acl-names
         my $aclindex;
@@ -1047,7 +1047,7 @@ sub process_interface_acls ( $$$ ) {
         }
 
         # generate *new* access-list entries
-        my $spocacl = $intf->{ACCESS};
+        my $spocacl = $intf->{ACCESS_GROUP_IN};
         my $aclname = "$spocacl-DRC-$aclindex";
         $self->{CHANGE}->{ACL} = 1;
 
@@ -1309,7 +1309,7 @@ sub crypto_struct_equal( $$$$$ ) {
         return 0;
     }
     else {
-        errpr meself(1) . "unsupported type" . ref($a) . "\n";
+        errpr meself(0) . "unsupported type" . ref($a) . "\n";
 
     }
     return 0;
@@ -1542,7 +1542,7 @@ sub transfer() {
 	# No CONSOLE available when called by compare_files
         if ($self->{CONSOLE} and not grep { $_ } values %{ $self->{CHANGE} }) {
             mypr "no changes in running config -"
-              . " check if startup is uptodate:\n";ln
+              . " check if startup is uptodate:\n";
 	    $self->{CHANGE}->{STARTUP_CONFIG} = 0;
             if ($self->compare_ram_with_nvram()) {
                 mypr "comp: Startup is uptodate\n";
