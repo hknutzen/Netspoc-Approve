@@ -150,8 +150,8 @@ sub parse_config {
 	if(my $subcmds = $arg->{subcmd}) {
 	    my $parse_info = $cmd_info->{subcmd} or 
 		err_at_line($arg, 'Unexpected subcommand');
-	    if(defined(my $value2 = parse_config($self, $subcmds, $parse_info)))
-	    {
+	    my $value2 = parse_config($self, $subcmds, $parse_info);
+	    if(keys %$value2) {
 		if(defined $value) {
 		    $value = { %$value, %$value2 };
 		}
