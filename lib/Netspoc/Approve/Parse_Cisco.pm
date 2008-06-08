@@ -14,7 +14,7 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = 
     qw(analyze_conf_lines err_at_line
-       get_token get_regex get_int get_ip get_eol
+       get_token get_regex get_int get_ip get_eol get_ip_pair
        check_token check_regex check_int check_ip
        get_name_in_out get_paren_token test_ne skip
  );
@@ -204,7 +204,7 @@ sub get_ip_pair {
     my($arg) = @_;
     my $pair = get_token($arg);
     my($ip1, $ip2) = split(/-/, $pair, 2);
-    $ip1 = quad2int($ip);
+    $ip1 = quad2int($ip1);
     $ip2 = quad2int($ip2) if $ip2;
     return($ip1, $ip2);
 }
