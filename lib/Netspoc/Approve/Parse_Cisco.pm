@@ -60,9 +60,20 @@ sub analyze_conf_lines {
     my $level = 0;
     my $config = [];
     my $counter = 0;
+    my $in_banner = 0;
 
     for my $line (@$lines) {
 	$counter++;	
+
+	if(my $cmd = $in_banner) {
+	    if($line =~ /^\^/) {
+		$in_banner = 0;
+	    }
+	    else {
+		push(@{ $cmd->{lines} }, $line);
+	    }
+	    next;
+	}
 
 	# Ignore comment lines.
 	next if $line =~ /^ *!/;
@@ -122,6 +133,11 @@ sub analyze_conf_lines {
 		$parse_info = $subcmd;
 		$level++;
 	    }
+	    if($parse_info->{$cmd}->{banner}) {
+		$new_cmd->{lines} = [];
+		$in_banner = $new_cmd;
+	    }
+		
 	}
     }
     while($level--) {
