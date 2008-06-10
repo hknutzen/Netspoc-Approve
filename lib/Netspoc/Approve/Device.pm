@@ -518,7 +518,9 @@ sub load_spoc {
     my $lines     = $self->load_spocfile($path);
     my $conf      = $self->parse_device($lines);
     my $raw_lines = $self->load_raw($self->get_raw_name($path));
+    mypr "Parse spocfile config\n";
     my $raw_conf  = $self->parse_device($raw_lines);
+    mypr "... done parsing config\n";
     $self->merge_rawdata($conf, $raw_conf);
     return($conf);
 }
@@ -527,7 +529,9 @@ sub prepare_devicemode {
     my ($self, $path) = @_;
     my $spoc_conf = $self->load_spoc($path);
     my $device_lines = $self->get_config_from_device();
+    mypr "Parse device config\n";
     my $conf  = $self->parse_device($device_lines);
+    mypr "... done parsing config\n";
 
     # Check for unknown interfaces at device.
     $self->checkinterfaces($conf, $spoc_conf);
@@ -703,7 +707,7 @@ sub compare( $$ ) {
 	my $status = $self->{CHANGE}->{$key} ? 'changed' : 'unchanged';
 	mypr "comp: $policy $self->{NAME} *** $key $status ***\n";
     }
-    return scalar keys %{$self->{CHANGE}};
+    return grep { $_ } values %{ $self->{CHANGE} };
 }
 
 sub compare_files( $$$) {
@@ -730,7 +734,7 @@ sub compare_files( $$$) {
 	my $status = $self->{CHANGE}->{$key} ? 'changed' : 'unchanged';
 	mypr "comp: $self->{NAME} *** $key $status ***\n";
     }
-    return scalar keys %{$self->{CHANGE}};
+    return grep { $_ } values %{ $self->{CHANGE} };
 }
 
 sub logging($) {
