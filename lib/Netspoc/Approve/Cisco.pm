@@ -25,11 +25,9 @@ use Netspoc::Approve::Parse_Cisco;
 sub parse_device {
     my ($self, $lines) = @_;
 
-    mypr "parse device config\n";
     my $parse_info = $self->get_parse_info();
     my $config = analyze_conf_lines($lines, $parse_info);
     my $result = $self->parse_config($config, $parse_info);
-    mypr "... done parsing config\n";
     $self->postprocess_config($result);
     return $result;
 }
