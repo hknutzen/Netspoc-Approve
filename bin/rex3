@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+# Author: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
+#
+# Description:
+# Remote execute command on Cisco device.
+#
+# $Id$	
+
+use strict;
+use warnings;
+use Netspoc::Approve::Device;
+use Netspoc::Approve::Cisco;
+
+sub usage {
+    die <<END;
+description: rex (Remote EXecute) executes one or more command(s) at
+             specified device and prints output to STDOUT
+usage:       rex '<command>[;<command>]...' <device|IP>
+END
+}
+
+my $cmd = shift or usage;
+my $host = shift or usage;
+
+my $global_config = Netspoc::Approve::Device->get_global_config();
+
+# Try  to get IP address from spoc file (ignore type).
+# This may fail if there is no spoc file or if host is an IP address.
+my ($type, @ip) = 
+    Netspoc::Approve::Device->get_spoc_data($host, $global_config);
+
+# Get password and possibly IP address of host from device DB.
+my $device_info =
+  Netspoc::Approve::Device->get_obj_info($host, 
+					 $global_config->{DEVICEDBPATH}, 
+					 $global_config)
+    or die "Can't get password from device DB\n";
+
+# Take IP address from spoc file if available otherwise from device DB.
+my $job = Netspoc::Approve::Cisco->new(
+    NAME          => $device_info->{NAME},
+    IP            => shift(@ip) || $device_info->{IP},
+    PASS          => $device_info->{PASS},
+    LOCAL_USER    => $device_info->{LOCAL_USER},
+    GLOBAL_CONFIG => $global_config,
+);
+
+$job->remote_execute($cmd);
