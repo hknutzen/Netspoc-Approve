@@ -14,7 +14,6 @@ sub version_drc3() {
 
 $| = 1;    # output char by char
 
-use FindBin;
 use strict;
 use warnings;
 
@@ -37,9 +36,6 @@ my %type2class = (
     ASA    => 'Netspoc::Approve::ASA',
     PIX    => 'Netspoc::Approve::PIX',
     FWSM   => 'Netspoc::Approve::FWSM',
-
-    # Fallback
-    ''  => 'Netspoc::Approve::Cisco',
 );
 
 sub parse_ver( $ ) {
@@ -83,7 +79,6 @@ usage: 'drc3 <option> -N <file> <device>'
  -D <dir>             database directory for object lookup
  --DEBUGVPN           debug code generation for VPN              
  -L <logdir>          path for saving telnet-logs
- -E <command>         if set, execute command on remote obj and show output
  -N <file>            if set, NetSPoC mode and file
  --LOGFILE <fullpath> path for print output (default is STDOUT)
  --LOGAPPEND          if logfile already exists, append logs
@@ -124,7 +119,6 @@ my %opts = ();
     'DEBUGVPN',
     't=i',
     'L=s',
-    'E=s',
     'N=s',
     'LOGFILE=s',
     'LOGAPPEND',
@@ -157,27 +151,31 @@ if ($opts{v}) {
     exit unless @ARGV;
 }
 
-my $netobj = shift;
-$netobj and not @_ or &usage;
+my $name = shift;
+$name and not @_ or &usage;
 
-my $device_info =
-  Netspoc::Approve::Device->get_obj_info($netobj, $opts{D}, $global_config);
-my $name  = $device_info->{NAME};
-my $type  = Netspoc::Approve::Device->get_spoc_type($name, $global_config);
-my $class = $type2class{$type};
+# Get type and IP address from spoc file.
+# This may fail if there is no spoc file or if name is an IP address.
+# In this case we get an empty type and no IP.
+my ($type, @ip) = 
+    Netspoc::Approve::Device->get_spoc_data($name, $global_config)
+    or die "Can't get type and IP from spoc file\n";
+
+# Get class from type.
+my $class = $type2class{$type}
+or die "Can't find class for spoc type '$type'\n";
 
 my $job = $class->new(
     NAME          => $name,
-    IP            => $device_info->{IP},
-    PASS          => $device_info->{PASS},
-    LOCAL_USER    => $device_info->{LOCAL_USER},
+    IP            => shift(@ip),
     OPTS          => \%opts,
     GLOBAL_CONFIG => $global_config,
 );
 
-# enable logging if configured
+# Enable logging if configured.
 $job->logging();
 
+# Handle methods first, which don't need device's password.
 if (my $f1 = $opts{F1}) {
     my $f2 = $opts{F2} or &usage;
 
@@ -216,12 +214,12 @@ if (my $p1 = $opts{P1}) {
         $global_config->{NETSPOC} 
       . $p1 . "/"
       . $global_config->{CODEPATH}
-      . $netobj;
+      . $name;
     my $f2 =
         $global_config->{NETSPOC} 
       . $p2 . "/"
       . $global_config->{CODEPATH}
-      . $netobj;
+      . $name;
     my $exit;
     if ($job->lock($job->{NAME})) {
         if ($job->{OPTS}->{S}) {
@@ -271,7 +269,7 @@ if (my $p1 = $opts{P1}) {
     exit $exit;
 }
 
-# check reachability
+# Check reachability
 if (defined $job->{OPTS}->{PING_ONLY}) {
     mypr "\n";
     mypr
@@ -299,7 +297,7 @@ if (defined $job->{OPTS}->{PING_ONLY}) {
     exit $ex;
 }
 
-elsif (!$job->{OPTS}->{NOREACH}) {
+if (!$job->{OPTS}->{NOREACH}) {
     if (!$job->check_device()) {
         errpr "$job->{NAME}: reachability test failed\n";
         exit -1;
@@ -309,14 +307,14 @@ else {
     mypr "reachability test skipped\n";
 }
 
-if ($job->{OPTS}->{E}) {
+# Get password from device DB.
+my $device_info =
+  Netspoc::Approve::Device->get_obj_info($name, $opts{D}, $global_config)
+    or die "Can't get password from device DB\n";
+$job->{PASS} = $device_info->{PASS};
+$job->{LOCAL_USER} = $device_info->{LOCAL_USER};
 
-    # execute user command
-    errpr_mode("COMPARE")
-      ;    # tell the Helper not to print message approve aborted
-    $job->remote_execute();
-}
-elsif (my $spoc_path = $job->{OPTS}->{N}) {
+if (my $spoc_path = $job->{OPTS}->{N}) {
 
     # compare or approve network devices
     $job->{POLICY} = $job->{OPTS}->{P};
@@ -457,7 +455,7 @@ elsif (my $spoc_path = $job->{OPTS}->{N}) {
     mypr "\n";
 }
 else {
-    errpr "unknown option\n";
+    errpr "Invalid option\n";
     usage();
     exit -1;
 }
