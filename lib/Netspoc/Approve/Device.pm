@@ -388,8 +388,6 @@ sub get_obj_info($$$$) {
       || $db->{LEG_NAME_DB}->{$spec}
       || $db->{LEG_IP_DB}->{$spec};
     $object->{NAME} or die "no object name found\n";
-    $object->{IP}   or die "no address found\n";
-    $object->{TYPE} or die "no object type found\n";
     unless ($object->{PASS}) {
         my $user = getpwuid($>);
         if ($user ne $global_config->{SYSTEMUSER}) {
@@ -424,24 +422,29 @@ sub get_obj_info($$$$) {
     return ($object);
 }
 
-sub get_spoc_type($$$) {
+# Read name and IP addresses from header of spoc file.
+sub get_spoc_data($$$) {
     my ($self, $name, $global_config) = @_;
 
-    # Get type of object from newest spoc file.
+    # Get data from newest spoc file.
     my $spocfile =
       "$global_config->{NETSPOC}current/$global_config->{CODEPATH}$name";
 
     # Empty string is used for lookup of fallback class.
     my $type = '';
+    my @ip;
     open(FILE, $spocfile) or return $type;
     while (my $line = <FILE>) {
         if ($line =~ /\[ Model = (\S+) ]/) {
             $type = $1;
-            last;
+        }
+        if ($line =~ /\[ IP = (\S+) ]/) {
+            @ip = split(/,/, $1);
+	    last;
         }
     }
     close FILE;
-    return $type;
+    return($type, @ip);
 }
 
 # code/device -> src/raw/device || -> netspoc/raw/device
@@ -624,8 +627,11 @@ sub check_device( $ ) {
 }
 
 sub remote_execute( $ ) {
-    my ($self) = @_;
+    my ($self, $cmd) = @_;
     $self->adaption();
+
+    # tell the Helper not to print message approve aborted
+    errpr_mode("COMPARE");
 
     # to prevent configured by console messages
     # in compare mode prepare() does not change router config
@@ -633,8 +639,8 @@ sub remote_execute( $ ) {
     $self->con_setup(
         "START: execute user command at > " . scalar localtime() . " < ($id)");
     $self->prepare();
-    $self->{OPTS}->{E} =~ s/\\n/\n/g;
-    for my $line (split /[;]/, $self->{OPTS}->{E}) {
+    $cmd =~ s/\\n/\n/g;
+    for my $line (split /[;]/, $cmd) {
         my $output = $self->shcmd($line);
         mypr $output, "\n";
     }
