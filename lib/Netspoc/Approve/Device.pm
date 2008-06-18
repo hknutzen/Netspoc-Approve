@@ -545,13 +545,28 @@ sub prepare_devicemode {
     return ($conf, $spoc_conf);
 }
 
-sub checkidentity( $$ ) {
+sub checkidentity {
     my ($self, $name) = @_;
-    if ($name ne $self->{NAME}) {
-	errpr "wrong device name: $name expected: $self->{NAME}\n";
-	return 0;
+    if($self->{GLOBAL_CONFIG}->{CHECKHOST} eq 'no') {
+	 mypr "hostname checking disabled\n";
     }
-    return 1;
+    elsif($name ne $self->{NAME}) {
+	errpr "wrong device name: $name, expected: $self->{NAME}\n";
+	 exit -1;
+    }
+}
+
+sub checkbanner {
+    my ($self) = @_;
+    my $check = $self->{GLOBAL_CONFIG}->{CHECKBANNER} or return;
+    if ( $self->{PRE_LOGIN_LINES} !~ /$check/) {
+        if ($self->{COMPARE}) {
+            warnpr "Missing banner at NetSPoC managed device.\n";
+        }
+        else {
+            errpr "Missing banner at NetSPoC managed device.\n";
+        }
+    }
 }
 
 ##################################################################
@@ -563,9 +578,6 @@ sub adaption($) {
 
     $self->{telnet_timeout} = $self->{OPTS}->{t} || 300;
     $self->{telnet_logs}    = $self->{OPTS}->{L} || undef;
-
-    $self->{CHECKHOST}   = $self->{GLOBAL_CONFIG}->{CHECKHOST};
-    $self->{CHECKBANNER} = $self->{GLOBAL_CONFIG}->{CHECKBANNER};
 
     $self->{FORCE_TRANSFER}           = $self->{OPTS}->{F};
     $self->{PRINT_STATUS}             = $self->{OPTS}->{S};
@@ -663,7 +675,7 @@ sub approve( $$ ) {
     # prepare device for configuration
     $self->prepare();
 
-    # check if Netspoc message in device banner
+    # Check for Netspoc message in device banner.
     $self->checkbanner();
 
     # now do the main thing
