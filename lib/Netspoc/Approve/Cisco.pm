@@ -1165,13 +1165,7 @@ sub prepare {
     my $result = $self->issue_cmd('');
     $result->{MATCH} =~ m/^\r\n\s?(\S+)\#\s?$/;
     my $name = $1;
-
-    unless ($self->{CHECKHOST} eq 'no') {
-        $self->checkidentity($name) or exit -1;
-    }
-    else {
-        mypr "hostname checking disabled!\n";
-    }
+    $self->checkidentity($name);
 
     # Set prompt again because of performance impact of standard prompt.
     $self->{ENAPROMPT} = qr/\r\n\s?$name\S*#\s?$/;
@@ -1264,20 +1258,6 @@ sub login_enable {
         $self->cmd($self->{ENABLE_PASS} || $pass) or return 0;
     }
     return 1;
-}
-
-sub checkbanner($) {
-    my ($self) = @_;
-    if ( $self->{CHECKBANNER}
-     and $self->{PRE_LOGIN_LINES} !~ /$self->{CHECKBANNER}/)
-    {
-        if ($self->{COMPARE}) {
-            warnpr "Missing banner at NetSPoC managed device.\n";
-        }
-        else {
-            errpr "Missing banner at NetSPoC managed device.\n";
-        }
-    }
 }
 
 # Packages must return a true value;
