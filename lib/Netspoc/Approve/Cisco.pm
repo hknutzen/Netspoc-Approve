@@ -1046,6 +1046,26 @@ sub merge_rawdata {
 #
 ###########################################
 
+sub enter_conf_mode {
+    my($self) = @_;
+    $self->cmd('configure terminal');
+}
+
+sub leave_conf_mode {
+    my($self) = @_;
+    $self->cmd('end');
+}
+
+sub route_add {
+    my($self, $entry) = @_;
+    return($entry->{orig});
+}
+
+sub route_del {
+    my($self, $entry) = @_;
+    return("no $entry->{orig}");
+}
+
 sub process_routing {
     my ($self, $conf, $spoc_conf) = @_;
     my $spoc_routing = $spoc_conf->{ROUTING};
@@ -1086,7 +1106,7 @@ sub process_routing {
             $self->schedule_reload(10);
 
             # Transfer to device.
-            $self->cmd('configure terminal') or exit -1;
+            $self->enter_conf_mode;
             mypr "transfer routing entries to device:\n";
             $counter = 0;
 	    
@@ -1103,11 +1123,11 @@ sub process_routing {
 		for my $c (@$conf_routing) {
 		    next if $c->{DELETE};
 		    if($self->route_line_destination_a_eq_b($r, $c)){
-			$self->cmd("no $c->{orig}") or exit -1;
+			$self->cmd($self->route_del($c));
 			$c->{DELETE} = 1; # Must not delete again.
 		    }
 		}
-                $self->cmd($r->{orig}) or exit -1;
+                $self->cmd($self->route_add($r));
             }
             mypr " $counter\n";
             ($counter) and $self->{CHANGE}->{ROUTE} = 1;
@@ -1116,11 +1136,10 @@ sub process_routing {
             for my $r (@$conf_routing) {
                 ($r->{DELETE}) and next;
                 $counter++;
-                my $tr = join ' ', "no", $r->{orig};
-                $self->cmd($tr) or exit -1;
+                $self->cmd($self->route_del($r));
             }
             mypr " $counter\n";
-            $self->cmd('end') or exit -1;
+            $self->leave_conf_mode;
             $counter and $self->{CHANGE}->{ROUTE} = 1;
             $self->cancel_reload();
         }
@@ -1132,7 +1151,7 @@ sub process_routing {
             for my $r (@$spoc_routing) {
                 ($r->{DELETE}) and next;
                 $counter++;
-                mypr $r->{orig}, "\n";
+                mypr $self->route_add($r), "\n";
             }
             mypr "total: ", $counter, "\n";
             ($counter) and $self->{CHANGE}->{ROUTE} = 1;
@@ -1141,7 +1160,7 @@ sub process_routing {
             for my $r (@$conf_routing) {
                 $r->{DELETE} and next;
                 $counter++;
-                mypr $r->{orig}, "\n";
+                mypr $self->route_del($r), "\n";
             }
             mypr "total: ", $counter, "\n";
             ($counter) and $self->{CHANGE}->{ROUTE} = 1;
@@ -1173,18 +1192,12 @@ sub prepare {
 
 sub login_enable {
     my ($self) = @_;
-    my $ip = $self->{IP};
-    my $user;
-    my $pass;
-    my $con = $self->{CONSOLE};
+    my($con, $ip, $user, $pass) = @{$self}{qw(CONSOLE IP LOCAL_USER PASS)};
 
-    if ($self->{PASS} =~ /:/ or $self->{LOCAL_USER}) {
-        if ($user = $self->{LOCAL_USER}) {
-            $pass = $self->{PASS};
-        }
-        else {
-            ($user, $pass) = split(/:/, $self->{PASS});
-        }
+    if(not $pass) {
+	($user, $pass) = $self->get_aaa_password();
+    }
+    if ($user) {
         mypr "Username found\n";
         mypr "checking for SSH access at port 22\n";
         my $server = IO::Socket::INET->new(
@@ -1196,13 +1209,11 @@ sub login_enable {
             mypr "port 22 open - trying SSH for login\n";
             $con->{EXPECT}->spawn("ssh", ("-l", "$user", "$ip"))
               or errpr "Cannot spawn ssh: $!\n";
-            my $prm = qr/password:|\(yes\/no\)\?/i;
-            my $tmt = $self->{telnet_timeout};
-            $con->con_wait("$prm", $tmt) or $con->con_error();
+            my $prompt = qr/password:|\(yes\/no\)\?/i;
+            $con->con_wait($prompt) or $con->con_error();
             if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
                 $con->con_dump();
                 $con->{PROMPT}  = qr/password:/i;
-                $con->{TIMEOUT} = $self->{telnet_timeout};
                 $con->con_cmd("yes\n") or $con->con_error();
                 mypr "\n";
                 warnpr
@@ -1210,7 +1221,6 @@ sub login_enable {
                 $con->con_dump();
             }
             $con->{PROMPT}  = $self->{PROMPT};
-            $con->{TIMEOUT} = $self->{telnet_timeout};
             $con->con_cmd("$pass\n") or $con->con_error();
             $con->con_dump();
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
@@ -1219,16 +1229,14 @@ sub login_enable {
             mypr "port 22 closed -  trying telnet for login\n";
             $con->{EXPECT}->spawn("telnet", ($ip))
               or errpr "Cannot spawn telnet: $!\n";
-            my $tmt = $self->{telnet_timeout};
-            my $prm = "Username:";
-            $con->con_wait("$prm", $tmt) or $con->con_error();
+            my $prompt = "Username:";
+            $con->con_wait($prompt) or $con->con_error();
             $con->con_dump();
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-            $con->con_issue_cmd("$user\n", "[Pp]assword:", $tmt)
+            $con->con_issue_cmd("$user\n", "[Pp]assword:")
               or $con->con_error();
             $con->con_dump();
             $con->{PROMPT}  = $self->{PROMPT};
-            $con->{TIMEOUT} = $tmt;
             $con->con_cmd("$pass\n") or $con->con_error();
             $con->con_dump();
         }
@@ -1238,13 +1246,11 @@ sub login_enable {
         $pass = $self->{PASS};
         $con->{EXPECT}->spawn("telnet", ($ip))
           or errpr "Cannot spawn telnet: $!\n";
-        my $prm = "PIX passwd:|Password:";
-        my $tmt = $self->{telnet_timeout};
-        $con->con_wait("$prm", $tmt) or $con->con_error();
+        my $prompt = "PIX passwd:|Password:";
+        $con->con_wait($prompt) or $con->con_error();
         $con->con_dump();
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
         $con->{PROMPT}           = $self->{PROMPT};
-        $con->{TIMEOUT}          = $self->{telnet_timeout};
         $con->con_cmd("$pass\n") or $con->con_error();
         $con->con_dump();
     }
