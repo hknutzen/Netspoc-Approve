@@ -583,7 +583,7 @@ sub expand_acl_entry($$$$) {
 
 	    # Remove 'access-list <name>' because we don't need this info
 	    # when printing during ACL compare.
-	    $copy->{orig} =~ s/^\S+\s+\S+\s+//;
+	    $copy->{orig} =~ s/^access-list\s+\S+\s+(extended\s+)?//;
             push @expanded, $copy;
         }
     }
