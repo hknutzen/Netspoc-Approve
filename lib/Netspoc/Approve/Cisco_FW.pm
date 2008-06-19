@@ -861,29 +861,6 @@ sub transfer () {
     my %acl_need_remove;
     my %group_need_remove;
 
-    my $mark_for_remove = sub {
-        my ($acl_name) = @_;
-	$acl_need_remove{$acl_name} and errpr "unexpected REMOVE mark\n";
-        $acl_need_remove{$acl_name} = 1;
-        mypr "marked acl $acl_name for remove\n";
-        for my $gid (keys %{ $conf->{acl2group}->{$acl_name} }) {
-            next if $group_need_remove{$gid};
-            my $remove_group = 1;
-            for my $name (keys %{ $conf->{group2acl}->{$gid} }) {
-
-                # Only remove group from PIX if all ACLs that reference
-                # this group are renewed by netspoc.
-                if(not $acl_need_transfer{$name}) {
-                    $remove_group = 0;
-                    last;
-                }
-            }
-            if ($remove_group) {
-                $group_need_remove{$gid} = 1;
-                mypr "marked group $gid for remove\n";
-            }
-        }
-    };
     unless ($spoc_conf->{IF}) {
         warnpr " no interfaces specified - leaving access-lists untouched\n";
     }
@@ -955,13 +932,35 @@ sub transfer () {
                 mypr "-------------------------------------------------\n";
             }
 
-            # Mark objects for removal.
+            # Mark acls for removal.
             for my $intf (keys %{ $spoc_conf->{IF} }) {
                 my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
-                  &$get_acl_names_and_objects($intf);
+		    &$get_acl_names_and_objects($intf);
                 next if not $acl_need_transfer{$spocacl_name};
-                $confacl and $mark_for_remove->($confacl_name);
+		next if not $confacl;
+		$acl_need_remove{$confacl_name} and errpr "unexpected REMOVE mark\n";
+		$acl_need_remove{$confacl_name} = 1;
+		mypr "marked acl $confacl_name for remove\n";
+		for my $gid (keys %{ $conf->{acl2group}->{$confacl_name} }) {
+
+		    # Mark group as candidate for removal.
+		    $group_need_remove{$gid} = 1;
+		}
             }
+
+	    # Only remove group if all ACLs that reference
+	    # this group are renewed by netspoc.
+	    for my $gid (keys %group_need_remove) {
+		for my $confacl_name (keys %{ $conf->{group2acl}->{$gid} }) {
+		    if(not $acl_need_remove{$confacl_name}) {
+			$group_need_remove{$gid} = undef;
+			last;
+		    }
+		}
+		if($group_need_remove{$gid}) {
+		    mypr "marked group $gid for remove\n";
+		}
+	    }
 
             # Generate names for transfer.
 	    my %new_group_id;
@@ -1037,10 +1036,10 @@ sub transfer () {
             # Remove groups.
             mypr "remove spare object-groups from device\n";
             for my $gid (keys %{ $conf->{OBJECT_GROUP} }) {
-                my $type = $conf->{OBJECT_GROUP}->{$gid}->{TYPE};
                 if (   $group_need_remove{$gid}
 		    or not $conf->{group2acl}->{$gid})
                 {
+		    my $type = $conf->{OBJECT_GROUP}->{$gid}->{TYPE};
 		    my $cmd = "no object-group $type $gid";
                     mypr " $cmd\n";
                     $self->cmd($cmd);
