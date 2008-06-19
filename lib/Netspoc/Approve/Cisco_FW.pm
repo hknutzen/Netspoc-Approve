@@ -331,7 +331,7 @@ sub cmd_check_error($$) {
     my ($self, $out) = @_;
 
     # do ERROR if unexpected line appears
-    if (my($msg) = $$out =~ /\n(.+)$/m) {
+    if (my($msg) = $$out =~ /\n(.+)$/s) {
         #### hack start ###
         ($msg =~ /\[OK\]/m) and return 1;    ### for write memory
         ($msg =~ /will be identity translated for outbound/)
