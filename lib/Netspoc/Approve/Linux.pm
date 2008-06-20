@@ -17,7 +17,13 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-sub get_spoc_parse_info {
+my $config = {
+    device_routing_file => '/etc/network/routing',
+    tmp_file => '/tmp/netspoc',
+    store_flash_cmd => '/usr/sbin/backup',
+};
+
+sub get_parse_info {
     my ($self) = @_;
     my $result =
     { 
@@ -25,10 +31,19 @@ sub get_spoc_parse_info {
 	    store => 'ROUTING',
 	    multi => 1,
 	    parse => ['seq',
+		      ['or',
+		       { parse => qr/add/ },
+		       { error => 'expected keyword "add"' } ],
 		      { parse => qr/unicast|local|broadcast|multicast|throw|unreachable|prohibit|blackhole|nat/,
-			store => 'TYPE', default => 'unicast'},
+			store => 'TYPE', default => 'unicast' },
 		      { parse => \&get_ip_prefix, 
 			store_multi => ['BASE', 'MASK'] },
+		      ['seq',
+		       { parse => qr/via/ },
+		       { parse => \&get_ip, store => 'NEXTHOP' } ],
+		      ['seq',
+		       { parse => qr/dev/ },
+		       { parse => \&get_token, store => 'NIF' } ],
 		      ['seq',
 		       { parse => qr/tos/ },
 		       { parse => \&get_token, store => 'TOS' } ],
@@ -48,12 +63,6 @@ sub get_spoc_parse_info {
 		       { parse => qr/mpath/ },
 		       { parse => \&get_token, store => 'MPATH' } ],
 		      ['seq',
-		       { parse => qr/via/ },
-		       { parse => \&get_ip, store => 'NEXTHOP' } ],
-		      ['seq',
-		       { parse => qr/dev/ },
-		       { parse => \&get_ip, store => 'NIF' } ],
-		      ['seq',
 		       { parse => qr/weight/ },
 		       { parse => \&get_ip, store => 'WEIGHT' } ],
 		      {parse => qr/onlink|pervasive/, store => 'NHFLAGS' },
@@ -68,14 +77,7 @@ sub get_spoc_parse_info {
     $result;
 };
 
-		      
-sub parse_spoc {
-    my ($self, $lines) = @_;
-
-    Netspoc::Approve::Cisco->parse_device($lines);
-}
-
-sub analyse_args {
+sub analyze_args {
     my ($lines) = @_;
     my $config = [];
     my $counter = 0;
@@ -96,17 +98,27 @@ sub analyse_args {
     return($config);
 }
     
+# Parse output of "ip route show".
+# Output is like single "ip route add ..." commands 
+# without the prefix "ip route add".
 sub get_parsed_config_from_device {
     my ($self) = @_;
     my $lines = $self->get_cmd_output('ip route show');
     my $parse_route = $self->get_parse_info->{'ip route'};
     my $parser = $parse_route->{parse};
+
+    # Remove 2. element 'add' from array.
+    $parser = [ @$parser ];
+    splice(@$parser, 1, 1);
     my $store = $parse_route->{store};
     $parse_route->{multi} or errpr  "internal: expected attribute 'multi'\n";
     my $args = analyze_args($lines);
     my @routes;
     for my $arg (@$args) {
-	push(@routes, parse_line($self, $arg, $parser));
+	my $entry = $self->parse_line($arg, $parser);
+	get_eol($arg);
+	$entry->{orig} = $arg->{orig};
+	push(@routes, $entry); 
     }
     my $config = { $store => \@routes };
     $self->postprocess_device_config($config);
@@ -115,10 +127,33 @@ sub get_parsed_config_from_device {
 
 sub postprocess_device_config {
     my ($self, $config) = @_;
-    $config->{ROUTING} = 
-	[ grep { !$_->{PROTO} || $_->{PROTO} eq 'static'; }
-	  @{ $config->{ROUTING} } ];
+
+    # Ignore entries with 'scope link'.
+    # Ignore entries with 'proto xxx' except 'proto static'.
+    # Ignore attribute 'dev', if 'via' is provided.
+    my @routes;
+    for my $entry (@{ $config->{ROUTING} }) {
+	next if $entry->{SCOPE} && $entry->{SCOPE} eq 'link';
+	next if $entry->{PROTO} && $entry->{PROTO} ne 'static';
+	if($entry->{NEXTHOP}) {
+	    delete $entry->{NIF};
+	}
+	push(@routes, $entry);
+    }
+    $config->{ROUTING} = \@routes;
+    return($config);
 }    
+
+# NoOp.
+sub postprocess_config {
+    my ($self, $config) = @_;
+} 
+  
+sub merge_rawdata {
+    my ($self, $spoc_conf, $raw_conf) = @_;
+
+    $self->merge_routing($spoc_conf, $raw_conf);
+}
 
 # NoOp.
 sub checkinterfaces {
@@ -128,6 +163,11 @@ sub checkinterfaces {
 # NoOp.
 sub check_firewall {
     my($self) = @_;
+}
+
+sub cmd_check_error($$) {
+    my ($self, $out) = @_;
+    return 1;
 }
 
 # NoOp.
@@ -150,14 +190,51 @@ sub leave_conf_mode {
     my($self) = @_;
 }
 
+# Entry from netspoc is complete  command.
 sub route_add {
     my($self, $entry) = @_;
-    return("route add $entry->{orig}");
+    return($entry->{orig});
 }
 
+# Entry from device is output of 'ip route show',
+# but is full command in case of filecompare.
 sub route_del {
     my($self, $entry) = @_;
-    return("route del $entry->{orig}");
+    my $orig = $entry->{orig};
+    $orig =~ s/^ip route add//;
+    return("ip route del $entry->{orig}");
+}
+
+sub transfer() {
+    my ($self, $conf, $spoc_conf) = @_;
+
+    # Change running configuration of device.
+    $self->process_routing($conf, $spoc_conf);
+
+    # Change startup configuration of device.
+    if (not $self->{COMPARE}) {
+        if (grep { $_ } values %{ $self->{CHANGE} }) {
+            mypr "saving config to flash\n";  
+	    my $tmp_file = $config->{tmp_file};
+	    $self->cmd("rm $tmp_file");
+	    $self->cmd("echo Generated by NetSPoC >> $tmp_file");
+	    for my $entry (@{ $spoc_conf->{ROUTING} }) {
+		my $cmd = $self->route_add($entry);
+		$self->cmd("echo $cmd >> $tmp_file");
+	    }
+	    $self->cmd("mv $tmp_file $config->{device_routing_file}");
+	    if(my $cmd = $config->{store_flash_cmd}) {
+		$self->cmd($cmd);
+	    }
+            mypr "...done\n";
+        }
+        else {
+            mypr "no changes to save\n";
+        }
+    }
+    else {
+        mypr "compare finish\n";
+    }  
 }
 
 sub prepare {
@@ -165,19 +242,19 @@ sub prepare {
     $self->{PROMPT}    = qr/\r\n.*[\%\>\$\#]\s?$/;
     $self->{ENAPROMPT} = qr/\r\n.*#\s?$/;
     $self->{ENA_MODE}  = 0;
-    $self->ssh_login() or exit -1;
+    $self->login_enable() or exit -1;
     mypr "logged in\n";
     $self->{ENA_MODE} = 1;
     my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^\r\n\s?(\S+):\S*\#\s?$/;
+    $result->{MATCH} =~ m/^\r\n\s?(\S+):.*\#\s?$/;
     my $name = $1;
-    $self->checkidentity($name) or exit -1;
+    $self->checkidentity($name);
 
     # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/\r\n\s?$name:\S*#\s?$/;
+    $self->{ENAPROMPT} = qr/\r\n\s?$name:.*\#\s?$/;
 }
 
-sub ssh_login {
+sub login_enable {
     my ($self) = @_;
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
     $con->{EXPECT}->spawn('ssh', '-l', 'root', $ip)
@@ -198,6 +275,7 @@ sub ssh_login {
 	$con->con_dump();
     }
     $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+    return 1;
 }
 
 # Packages must return a true value;
