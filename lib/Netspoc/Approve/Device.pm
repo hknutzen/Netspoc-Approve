@@ -379,56 +379,63 @@ sub build_db ($$) {
     };
 }
 
-# take name or ip and retrieve passwd, name, ip (and type)
-sub get_obj_info($$$$) {
-    my ($self, $spec, $db_path, $global_config) = @_;
+# Take name or ip and retrieve name, ip and optional password.
+sub get_obj_info {
+    my ($self, $spec, $db_path) = @_;
     my $db     = $self->build_db($db_path);
     my $object = $db->{NAME_HASH}->{$spec}
       || $db->{IP_HASH}->{$spec}
       || $db->{LEG_NAME_DB}->{$spec}
       || $db->{LEG_IP_DB}->{$spec};
-    $object->{NAME} or die "no object name found\n";
-    unless ($object->{PASS}) {
-        my $user = getpwuid($>);
-        if ($user ne $global_config->{SYSTEMUSER}) {
-            print STDOUT "Running in non privileged mode an no "
-              . "password founf in database.\n";
-            print STDOUT "Password for $user?";
-            system('stty', '-echo');
-            my $password = <STDIN>;
-            system('stty', 'echo');
-            print STDOUT "  ...thank you :)\n";
-            chomp $password;
-            $object->{PASS}       = $password;
-            $object->{LOCAL_USER} = $user;
-        }
-        else {
-
-            # no pasword in Database - use aaa_credentials
-            open(AAA, $global_config->{AAA_CREDENTIAL})
-              or die "could not open "
-              . "$self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL} $!\n";
-            my $credentials = <AAA>;
-            $credentials =~ (/^\s*(\S+)\s*(\S+)\s*$/)
-              or die "no aaa credential found\n";
-            $object->{PASS} = $2;
-
-            # overwrite user
-            $object->{LOCAL_USER} = $1;
-            mypr "User $1 from aaa credentials extracted\n";
-            close(AAA);
-        }
+    return if not $object;
+    if(my $pass = $object->{PASS} && ! $object->{LOCAL_USER}) {
+	if($pass =~ /^(.*?):(.*)$/) {
+	    $object->{LOCAL_USER} = $1;
+	    $object->{PASS} = $2;
+	}
     }
-    return ($object);
+    return $object;
+}
+
+sub get_aaa_password {
+    my ($self) = @_;
+    my $pass;
+    my $user = getpwuid($>);
+    if ($user eq $self->{GLOBAL_CONFIG}->{SYSTEMUSER}) {
+
+	# Use AAA credentials.
+	my $aaa_credential = $self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL};
+	open(AAA, $aaa_credential)
+	    or die "Could not open $aaa_credential: $!\n";
+	my $credentials = <AAA>;
+	close(AAA);
+	($user, $pass) = $credentials =~ (/^\s*(\S+)\s*(\S+)\s*$/)
+	    or die "No AAA credential found\n";
+	mypr "User $1 from aaa credentials extracted\n";
+    }
+    else {
+	print STDOUT "Running in non privileged mode an no "
+	    . "password found in database.\n";
+	print STDOUT "Password for $user?";
+	system('stty', '-echo');
+	$pass = <STDIN>;
+	system('stty', 'echo');
+	print STDOUT "  ...thank you :)\n";
+	chomp $pass;
+    }
+    return ($user, $pass);
 }
 
 # Read name and IP addresses from header of spoc file.
-sub get_spoc_data($$$) {
-    my ($self, $name, $global_config) = @_;
+sub get_spoc_data {
+    my ($self, $global_config, $name, $codepath) = @_;
 
-    # Get data from newest spoc file.
-    my $spocfile =
-      "$global_config->{NETSPOC}current/$global_config->{CODEPATH}$name";
+    # Get data from newest spoc file or from $codepath if called 
+    # by 'local' compare.
+    my $spocfile = 
+	$codepath ? 
+	$codepath :
+	"$global_config->{NETSPOC}current/$global_config->{CODEPATH}$name";
 
     # Empty string is used for lookup of fallback class.
     my $type = '';
@@ -590,15 +597,17 @@ sub con_setup( $$ ) {
       ? "$self->{telnet_logs}$self->{NAME}.tel"
       : '';
 
-    $self->{CONSOLE} =
+    my $con = $self->{CONSOLE} =
 	Netspoc::Approve::Console->new_console($self, "telnet", $logfile,
 					      $startup_message);
+    $con->{TIMEOUT} = $self->{telnet_timeout};
 }
 
 sub con_shutdown( $$ ) {
     my ($self, $shutdown_message) = @_;
     my $con = $self->{CONSOLE};
-    $con->con_issue_cmd("exit\n", eof, 5);
+    $con->{TIMEOUT} = 5;
+    $con->con_issue_cmd("exit\n", eof);
     $con->shutdown_console("$shutdown_message");
 }
 
