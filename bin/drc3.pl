@@ -109,7 +109,7 @@ END
 my $global_config = Netspoc::Approve::Device->get_global_config();
 Getopt::Long::Configure("no_ignore_case");
 
-my %opts = ();
+my %opts;
 
 &GetOptions(
     \%opts,
@@ -155,11 +155,15 @@ my $name = shift;
 $name and not @_ or &usage;
 
 # Get type and IP address from spoc file.
+# Prefer local spoc file; take file from policy DB otherwise.
 # This may fail if there is no spoc file or if name is an IP address.
 # In this case we get an empty type and no IP.
 my ($type, @ip) = 
-    Netspoc::Approve::Device->get_spoc_data($name, $global_config)
-    or die "Can't get type and IP from spoc file\n";
+    Netspoc::Approve::Device->get_spoc_data($global_config, 
+					    $name, $opts{N} || $opts{F1});
+
+$type or die "Can't get type from spoc file\n";
+@ip > 0 or die "Can't get IP from spoc file\n";
 
 # Get class from type.
 my $class = $type2class{$type}
@@ -308,11 +312,11 @@ else {
 }
 
 # Get password from device DB.
-my $device_info =
-  Netspoc::Approve::Device->get_obj_info($name, $opts{D}, $global_config)
-    or die "Can't get password from device DB\n";
-$job->{PASS} = $device_info->{PASS};
-$job->{LOCAL_USER} = $device_info->{LOCAL_USER};
+if(my $device_info = Netspoc::Approve::Device->get_obj_info($name, $opts{D}))
+{
+    $job->{PASS} = $device_info->{PASS};
+    $job->{LOCAL_USER} = $device_info->{LOCAL_USER};
+}
 
 if (my $spoc_path = $job->{OPTS}->{N}) {
 
