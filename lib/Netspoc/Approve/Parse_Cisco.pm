@@ -14,7 +14,7 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = 
     qw(analyze_conf_lines err_at_line
-       get_token get_regex get_int get_ip get_eol get_ip_pair
+       get_token get_regex get_int get_ip get_eol get_ip_pair get_ip_prefix
        check_token check_regex check_int check_ip
        get_name_in_out get_paren_token test_ne skip
  );
@@ -235,10 +235,37 @@ sub check_ip {
 sub get_ip_pair {
     my($arg) = @_;
     my $pair = get_token($arg);
-    my($ip1, $ip2) = split(/-/, $pair, 2);
-    $ip1 = quad2int($ip1);
-    $ip2 = quad2int($ip2) if $ip2;
+    my($from, $to) = split(/-/, $pair, 2);
+    my $ip1 = quad2int($from);
+    defined $ip1 or err_at_line($arg, "Expected IP: $from");
+    my $ip2 = $ip1;
+    if($to) {
+	$ip2 = quad2int($to); 
+	defined $ip2 or err_at_line($arg, "Expected IP: $to");
+    }
     return($ip1, $ip2);
+}
+
+# <ip>[/<prefix>] | default
+sub get_ip_prefix {
+    my($arg) = @_;
+    my $pair = get_token($arg);
+    my($base, $mask);
+    if($pair eq 'default') {
+	$base = $mask = 0;
+    }
+    else {
+	my($addr, $prefix) = split(m'/', $pair, 2);
+	$base = quad2int($addr);
+	defined $base or err_at_line($arg, "Expected IP: $addr");
+	$mask = 0xffffffff;
+	if($prefix) {
+	    $prefix =~ /^\d+$/ and $prefix <= 32 or
+		err_at_line($arg, "Expected IP prefix: $prefix");
+	    $mask = 0xffffffff & (0xffffffff << (32 - $prefix));
+	}
+    }
+    return($base, $mask);
 }
 
 # parse arguments like 'ip access-group <name> in'
