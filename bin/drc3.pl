@@ -22,6 +22,7 @@ use Fcntl;
 use Getopt::Long;
 
 use Netspoc::Approve::Device;
+use Netspoc::Approve::Linux;
 use Netspoc::Approve::Cisco;
 use Netspoc::Approve::IOS;
 use Netspoc::Approve::IOS_FW;
@@ -31,6 +32,7 @@ use Netspoc::Approve::FWSM;
 use Netspoc::Approve::Helper;
 
 my %type2class = (
+    Linux  => 'Netspoc::Approve::Linux',
     IOS    => 'Netspoc::Approve::IOS',
     IOS_FW => 'Netspoc::Approve::IOS_FW',
     ASA    => 'Netspoc::Approve::ASA',
