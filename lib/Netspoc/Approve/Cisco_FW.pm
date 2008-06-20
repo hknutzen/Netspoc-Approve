@@ -464,8 +464,7 @@ sub get_config_from_device( $ ) {
 sub merge_rawdata {
     my ($self, $spoc_conf, $raw_conf) = @_;
 
-    # Routing
-    $self->SUPER::merge_rawdata($spoc_conf, $raw_conf);
+    $self->merge_routing($spoc_conf, $raw_conf);
 
     # access-list 
     keys %{$raw_conf->{OBJECT_GROUP}} and 
