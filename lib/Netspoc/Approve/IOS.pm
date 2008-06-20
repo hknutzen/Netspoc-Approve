@@ -18,11 +18,6 @@ sub version_drc2_ios() {
 use base "Netspoc::Approve::Cisco";
 use strict;
 use warnings;
-use FindBin;
-use lib $FindBin::Bin;
-use Fcntl;
-use SDBM_File;
-use IO::Socket ();
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
@@ -498,9 +493,7 @@ sub get_config_from_device( $ ) {
 sub merge_rawdata {
     my ($self, $spoc_conf, $raw_conf) = @_;
 
-    $self->SUPER::merge_rawdata($spoc_conf, $raw_conf);
-
-    # Access-list processing.
+    $self->merge_routing($spoc_conf, $raw_conf);
     $self->merge_acls($spoc_conf, $raw_conf);
 }
 
