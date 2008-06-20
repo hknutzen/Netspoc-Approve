@@ -110,10 +110,10 @@ sub shutdown_console ($$) {
 #    was set in $ERRNO during the last read on $object's
 #    handle.
 
-sub con_wait($$$) {
-    my ( $CON, $prompt, $timeout ) = @_;
-    my ( $package, $file, $ln, $sub ) = caller 1;
-    $sub eq "drc2_ios_exp::issue_cmd" or delete $CON->{RESULT};
+sub con_wait {
+    my ( $CON, $prompt) = @_;
+    my $timeout = $CON->{TIMEOUT};
+    delete $CON->{RESULT};
     my @result;
     if ( defined $CON->{PAGER} ) {
         @result =
@@ -123,9 +123,6 @@ sub con_wait($$$) {
     else {
         @result = $CON->{EXPECT}->expect( $timeout, '-re', $prompt );
     }
-    $CON->{RESULT}->{PROMPT} = $prompt;
-    defined $CON->{PAGER} and $CON->{RESULT}->{PAGER} = $CON->{PAGER};
-    $CON->{RESULT}->{TIMEOUT} = $timeout;
     $CON->{RESULT}->{ERROR}   = $result[1];
     $CON->{RESULT}->{MPPOS}   = $result[0];
     $CON->{RESULT}->{MATCH}   = $result[2];
@@ -135,29 +132,28 @@ sub con_wait($$$) {
     return 1;
 }
 
-sub con_issue_cmd ($$$$) {
-    my ( $CON, $cmd, $prompt, $timeout ) = @_;
+sub con_issue_cmd {
+    my ( $CON, $cmd, $prompt ) = @_;
     $CON->{RESULT}->{CMD} = $cmd;
 
     $CON->{EXPECT}->send( $cmd );
-    $CON->con_wait( $prompt, $timeout ) or return 0;
+    $CON->con_wait( $prompt ) or return 0;
     if ( defined $CON->{PAGER} ) {
         my $bbuffer = '';
         while ( $CON->{RESULT}->{MATCH} =~ $CON->{PAGER} ) {
             $bbuffer = $bbuffer . $CON->{RESULT}->{BEFORE};
             $CON->{EXPECT}->send( $CON->{PAGER_KEY} );
-            $CON->con_wait( $prompt, $timeout ) or return 0;
+            $CON->con_wait( $prompt ) or return 0;
         }
         $CON->{RESULT}->{BEFORE} = $bbuffer . $CON->{RESULT}->{BEFORE};
     }
     return 1;
 }
 
-sub con_cmd ($$) {
+sub con_cmd {
     my ( $CON, $cmd ) = @_;
-    my $prompt  = $CON->{PROMPT};
-    my $timeout = $CON->{TIMEOUT};
-    return $CON->con_issue_cmd( $cmd, $prompt, $timeout );
+    my $prompt = $CON->{PROMPT};
+    return $CON->con_issue_cmd( $cmd, $prompt );
 }
 
 sub con_error {
