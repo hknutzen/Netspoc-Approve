@@ -22,176 +22,13 @@ use IO::Socket ();
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-sub parse_device {
-    my ($self, $lines) = @_;
-
-    my $parse_info = $self->get_parse_info();
-    my $config = analyze_conf_lines($lines, $parse_info);
-    my $result = $self->parse_config($config, $parse_info);
-    $self->postprocess_config($result);
-    return $result;
-}
-
-sub parse_seq {
-    my($self, $arg, $info, $result) = @_;
-    my $type = $info->[0];
-    my $success;
-    for my $part (@{$info}[1..(@$info-1)]) {
-	my $ref = ref $part;
-	my $part_success;
-	if(not $ref) {
-
-	    # A method call which fills $result.
-	    # Return value: true if success.
-	    $part_success = $self->$part($arg, $result);
-	}
-	elsif($ref eq 'HASH') {
-	    if(my $msg = $part->{error}) {
-		err_at_line($arg, $msg);
-	    }
-	    my $parser = $part->{parse};
-	    my $params = $part->{params};
-	    my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ } 
-			      $params ? @$params : ());
-	    if(my $keys = $part->{store_multi}) {
-		my @values = parse_line($self, $arg, $parser, @evaled) 
-		    if $parser;
-		for(my $i = 0; $i < @values; $i++) {
-		    $result->{$keys->[$i]} = $values[$i];
-		}
-		$part_success = @values;
-	    }
-	    else {
-		my $value = parse_line($self, $arg, $parser, @evaled) 
-		    if $parser;
-		if(not defined $value) {
-		    $value = $part->{default};
-		}
-		if(defined $value) {
-		    if(my $key = $part->{store}) {
-			$result->{$key} = $value;
-		    }
-		    $part_success = 1;
-		}
-	    }
-	}
-	elsif($ref eq 'CODE') {
-	    $part_success = $part->($arg, $result);
-	}
-	elsif($ref eq 'ARRAY') {
-	    $part_success = parse_seq($self, $arg, $part, $result);
-	}
-	$success ||= $part_success;
-	if($type eq 'or') {
-	    last if $success;
-	}
-	elsif($type eq 'seq') {
-
-	    # Stop if first arg doesn't match.
-	    last if not $success;
-	}
-	else {
-	    errpr "internal: unexpected 'seq' type $type\n";
-	}
-    }
-    return $success;
-}
-	    
-sub parse_line {
-    my($self, $arg, $info, @params) = @_;
-    my $ref = ref $info;
-    if(not $ref) {
-
-	# A method name.
-	return($self->$info($arg, @params));
-    }
-    elsif($ref eq 'Regexp') {
-	return(check_regex($info, $arg));
-    }
-    elsif($ref eq 'CODE') {
-	return($info->($arg, @params));
-    }   
-    elsif($ref eq 'ARRAY') {
-	my $result = {};
-	parse_seq($self, $arg, $info, $result);
-	not keys %$result and $result = undef;
-	return($result);
-    }
-    else {
-	errpr "internal: unexpected parse attribute: $info\n";
-    }
-}
-
-# $config are prepared config lines.
-# $parse_info describes grammar.
-sub parse_config {
-    my($self, $config, $parse_info) = @_;
-    my $result = {};
-    for my $arg (@$config) {
-	my $cmd = get_token($arg);
-        my $cmd_info = $parse_info->{$cmd} or 
-	    errpr "internal: parsed unexpected cmd: $cmd\n";
-	if(my $msg = $cmd_info->{error}) {
-	    err_at_line($arg, $msg);
-	}
-	my $named = $cmd_info->{named};
-	my $name;
-	if($named and $named ne 'from_parser') {
-	    $name = get_token($arg);
-	}
-	my $parser = $cmd_info->{parse};
-	my $value = parse_line($self, $arg, $parser) if $parser;
-	if($named and $named eq 'from_parser') {
-	    $name = $value->{name} or err_at_line($arg, 'Missing name');
-	}
-	get_eol($arg);
-	if(my $subcmds = $arg->{subcmd}) {
-	    my $parse_info = $cmd_info->{subcmd} or 
-		err_at_line($arg, 'Unexpected subcommand');
-	    my $value2 = parse_config($self, $subcmds, $parse_info);
-	    if(keys %$value2) {
-		if(defined $value) {
-		    $value = { %$value, %$value2 };
-		}
-		else {
-		    $value = $value2;
-		}
-	    }
-	}
-	if(not defined $value) {
-	    $value = $cmd_info->{default};
-	}
-	if(not defined $value) {
-	    next;
-	}
-	if(ref($value) eq 'HASH') {
-	    $named and $value->{name} = $name;
-	    $value->{orig} = $arg->{orig};
-	}
-	my $store = $cmd_info->{store};
-	my @extra_keys = ref $store ? @$store : $store;
-	my $key;
-	if($named) {
-	    $key = $name;
-	}
-	else {
-	    $key = pop @extra_keys;
-	}
-	my $dest = $result;
-	for my $x (@extra_keys) {
-	    $dest->{$x} ||= {};
-	    $dest = $dest->{$x};
-	}
-	if($cmd_info->{multi}) {
-	    push(@{ $dest->{$key} }, $value);
-	}
-	else {
-	    defined $dest->{$key} and
-		err_at_line($arg, 'Multiple occurences of command not allowed');
-	    $dest->{$key} = $value;
-	}
-    }
-    return($result);
+sub get_parsed_config_from_device {
+    my ($self) = @_;
+    my $device_lines = $self->get_config_from_device();
+    mypr "Parse device config\n";
+    my $conf  = $self->parse_config($device_lines);
+    mypr "... done parsing config\n";
+    return($conf);
 }
 
 # ip mask
@@ -517,26 +354,6 @@ sub acl_line_a_eq_b ($$$) {
         ($a->{LOG} eq $b->{LOG}) or return 0;
     }
     return 1;
-}
-
-sub route_line_a_eq_b {
-    my ($self, $a, $b) = @_;
-    ($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK})
-      or return 0;
-    for my $key (qw(IF NIF NEXTHOP METRIC MISC MISC_ARG)) {
-        if (defined($a->{$key}) || defined($b->{$key})) {
-            (        defined($a->{$key})
-                  && defined($b->{$key})
-                  && $a->{$key} eq $b->{$key})
-              or return 0;
-        }
-    }
-    return 1;
-}
-
-sub route_line_destination_a_eq_b {
-    my ($self, $a, $b) = @_;
-    return($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK});
 }
 
 ################################################################
@@ -960,10 +777,7 @@ sub acl_equal {
     }
 }
 
-###########################################
 # Rawdata processing
-###########################################
-
 sub merge_acls {
     my ($self, $spoc_conf, $raw_conf, $extra) = @_;
     for my $intf (keys %{ $raw_conf->{IF} }) {
@@ -992,7 +806,7 @@ sub merge_acls {
         my $rawacl  = $raw_conf->{ACCESS}->{$ep_name};
         my $spocacl = $spoc_conf->{ACCESS}->{$sp_name};
 
-	# Prepend raw acl._
+	# Prepend raw acl.
 	unshift(@{$spoc_conf->{ACCESS}->{$sp_name}}, @$rawacl);
 
 	# Additionally prepend to original acl having object_groups.
@@ -1002,49 +816,6 @@ sub merge_acls {
 	mypr "   entries prepended: " . scalar @{$rawacl} . "\n";
     }
 }
-
-sub merge_rawdata {
-    my ($self, $spoc_conf, $raw_conf) = @_;
-    mypr "--- raw processing\n";
-    
-    # Route processing.
-    if ($spoc_conf->{ROUTING}) {
-	my $newroutes = ();
-      SPOC: for (my $i = 0 ; $i < scalar @{ $spoc_conf->{ROUTING} } ; $i++) {
-	  my $se = $spoc_conf->{ROUTING}->[$i];
-	  for my $re (@{ $raw_conf->{ROUTING} }) {
-	      if ($self->route_line_a_eq_b($se, $re)) {
-		  warnpr "RAW: double RE '$re->{orig}'" .
-		      " scheduled for remove from spocconf.\n";
-		  next SPOC;
-	      }
-	      elsif ( $re->{BASE} eq $se->{BASE}
-		      and $re->{MASK} eq $se->{MASK})
-	      {
-		  warnpr "RAW: inconsistent NEXT HOP in routing entries:\n";
-		  warnpr "     spoc: $se->{orig} (scheduled for remove)\n";
-		  warnpr "     raw:  $re->{orig} \n";
-		  next SPOC;
-	      }
-	  }
-	  push @{$newroutes}, $se;
-      }
-	$spoc_conf->{ROUTING} = $newroutes;
-    }
-    for my $re (@{ $raw_conf->{ROUTING} }) {
-	push @{ $spoc_conf->{ROUTING} }, $re;
-    }
-    mypr " attached routing entries: "
-	. scalar @{ $raw_conf->{ROUTING} } . "\n";
-
-    mypr "--- raw processing: done\n";
-    return 1;
-}
-###########################################
-#
-# END RAW processing
-#
-###########################################
 
 sub enter_conf_mode {
     my($self) = @_;
@@ -1064,113 +835,6 @@ sub route_add {
 sub route_del {
     my($self, $entry) = @_;
     return("no $entry->{orig}");
-}
-
-sub process_routing {
-    my ($self, $conf, $spoc_conf) = @_;
-    my $spoc_routing = $spoc_conf->{ROUTING};
-    my $conf_routing = $conf->{ROUTING};
-    if ($spoc_routing) {
-        if (not $conf_routing) {
-            if (not $conf->{OSPF}) {
-                errpr "ERROR: no routing entries found on device\n";
-                return 0;
-            }
-            else {
-                mypr "no routing entries found on device - but OSPF found...\n";
-
-                # generate empty routing config for device:
-                $conf_routing = $conf->{ROUTING} = [];
-            }
-        }
-	$self->{CHANGE}->{ROUTE} = 0;
-        my $counter;
-        mypr "==== compare routing information ====\n";
-        mypr " routing entries on device:    ", scalar @$conf_routing, "\n";
-        mypr " routing entries from netspoc: ", scalar @$spoc_routing, "\n";
-        for my $c (@$conf_routing) {
-            for my $s (@$spoc_routing) {
-                if ($self->route_line_a_eq_b($c, $s)) {
-                    $c->{DELETE} = $s->{DELETE} = 1;
-                    last;
-                }
-            }
-        }
-        unless ($self->{COMPARE}) {
-
-            #
-            # *** SCHEDULE RELOAD ***
-            #
-            # TODO: check if 10 minutes are OK
-            #
-            $self->schedule_reload(10);
-
-            # Transfer to device.
-            $self->enter_conf_mode;
-            mypr "transfer routing entries to device:\n";
-            $counter = 0;
-	    
-	    # Add routes with long mask first.
-	    # If we switch the default route, this ensures, that we have the
-	    # new routes available before deleting the old default route.
-            for my $r ( sort {$b->{MASK} <=> $a->{MASK}} 
-			@{ $spoc_conf->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-		
-		# PIX and ASA don't allow two routes to identical destination.
-		# Remove old route immediatly before adding the new one.
-		for my $c (@$conf_routing) {
-		    next if $c->{DELETE};
-		    if($self->route_line_destination_a_eq_b($r, $c)){
-			$self->cmd($self->route_del($c));
-			$c->{DELETE} = 1; # Must not delete again.
-		    }
-		}
-                $self->cmd($self->route_add($r));
-            }
-            mypr " $counter\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-            mypr "deleting non matching routing entries from device\n";
-            $counter = 0;
-            for my $r (@$conf_routing) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                $self->cmd($self->route_del($r));
-            }
-            mypr " $counter\n";
-            $self->leave_conf_mode;
-            $counter and $self->{CHANGE}->{ROUTE} = 1;
-            $self->cancel_reload();
-        }
-        else {
-
-            # show compare results
-            mypr "additional routing entries from spoc:\n";
-            $counter = 0;
-            for my $r (@$spoc_routing) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                mypr $self->route_add($r), "\n";
-            }
-            mypr "total: ", $counter, "\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-            mypr "non matching routing entries on device:\n";
-            $counter = 0;
-            for my $r (@$conf_routing) {
-                $r->{DELETE} and next;
-                $counter++;
-                mypr $self->route_del($r), "\n";
-            }
-            mypr "total: ", $counter, "\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-        }
-        mypr "==== done ====\n";
-    }
-    else {
-        mypr "no routing entries specified - leaving routes untouched\n";
-    }
-    return 1;
 }
 
 sub prepare {
