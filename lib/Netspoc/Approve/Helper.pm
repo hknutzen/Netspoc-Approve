@@ -16,8 +16,6 @@ sub version_drc2_helper() {
 }
 
 require Exporter;
-use FindBin;
-use lib $FindBin::Bin;
 use strict;
 use warnings;
 use Fcntl;
