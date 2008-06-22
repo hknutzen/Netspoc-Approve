@@ -681,6 +681,7 @@ sub parse_config1 {
 	if(ref($value) eq 'HASH') {
 	    $named and $value->{name} = $name;
 	    $value->{orig} = $arg->{orig};
+	    $value->{line} = $arg->{line};
 	}
 	my $store = $cmd_info->{store};
 	my @extra_keys = ref $store ? @$store : $store;
