@@ -47,9 +47,9 @@ sub parse_address {
     }
     else {
         $ip   = quad2int($token);
-        $mask = get_ip($arg);
+        $mask = $self->dev_cor(get_ip($arg));
     }
-    return ({ BASE => $ip, MASK => $self->dev_cor($mask) });
+    return ({ BASE => $ip, MASK => $mask });
 }
 
 sub parse_port {
@@ -71,7 +71,7 @@ sub parse_port_spec {
     my ($self, $arg, $proto) = @_;
     my ($low, $high);
     my $spec = check_regex('eq|gt|lt|neq|range', $arg)
-      or return {};
+      or return { LOW => 0, HIGH => 0xffff };
     my $port = $self->parse_port($arg, $proto);
     if ($spec eq 'eq') {
         $low = $high = $port;
@@ -88,7 +88,7 @@ sub parse_port_spec {
         $spec = 'range';
     }
     elsif ($spec eq 'neq') {
-        errpr "port specifier 'neq' not implemented yet\n";
+        errpr "port specifier 'neq' not implemented\n";
     }
     elsif ($spec eq 'range') {
         $low = $port;
@@ -97,7 +97,7 @@ sub parse_port_spec {
     else {
         internal_err();
     }
-    return ({ SPEC => $spec, PORT_L => $low, PORT_H => $high });
+    return ({ LOW => $low, HIGH => $high });
 }
 
 my $icmp_regex = join('|', '\d+', keys %ICMP_Trans);
@@ -131,65 +131,41 @@ sub normalize_proto {
 }
     
 #################################################
-# --- comparing ---
+# comparing 
 #################################################
 
+# return value: 0: no
+#               1: yes
+#               2: intersection
+sub ports_a_in_b ($$) {
+    my ($a, $b) = @_;
+    return 0 if $a->{HIGH} < $b->{LOW} || $b->{HIGH} < $a->{LOW};
+    return 1 if $b->{LOW} <= $a->{LOW} && $a->{HIGH} <= $b->{HIGH};
+    return 2;
+}
+
+# a in b iff (a_mask | b_mask) == a_mask
+#            AND
+#            (a_mask & b_mask & a_base) == (a_mask & b_mask & b_base)
 #
 # return value: 0: no
 #               1: yes
 #               2: intersection
-#
-sub ports_a_in_b ($$) {
-    my ($a, $b) = @_;
-    unless ($b->{SPEC}) {
-
-        # no ports spec matches all ports
-        return 1;
-    }
-    unless ($a->{SPEC}) {
-        if ($b->{PORT_L} == 0 && $b->{PORT_H} == 0xffff) {
-            return 1;
-        }
-        else {
-            return 2;
-        }
-    }
-    if ($a->{PORT_H} < $b->{PORT_L} || $b->{PORT_H} < $a->{PORT_L}) {
-        return 0;
-    }
-    if ($b->{PORT_L} <= $a->{PORT_L} && $a->{PORT_H} <= $b->{PORT_H}) {
-        return 1;
-    }
-    else {
-        return 2;
-    }
-}
-
-#
-# a in b iff (a_mask | b_mask) = a_mask
-#            AND
-#            (a_mask & b_mask) & a_base) = (a_mask & b_mask & b_base)
-#
-#  WARNING: DO NOT CHANGE THE RETURN VALUES!
-# THEY ARE USED IN  static_global_local_match_a_b()
-#
 sub ip_netz_a_in_b {
     my ($self, $a, $b) = @_;
     my $am = $a->{MASK};
     my $bm = $b->{MASK};
-    my $mm = $am & $bm;
-    ($mm & $a->{BASE} ^ $mm & $b->{BASE}) and return 0;    # no
-    (($am | $bm) ^ $am) or return 1;                       # yes
-    return 2;                                              # intersection
+    my $m  = $am & $bm;
+    return 0 if ($m & $a->{BASE}) != ($m & $b->{BASE});
+    return 1 if ($am | $bm) == $am;
+    return 2;
 }
 
-#
 # return value: 0: no
 #               1: yes
 #               2: intersection
-#
 sub services_a_in_b {
-    my ($a, $b) = @_;
+    my ($self, $a, $b) = @_;
     my $aproto = $a->{TYPE};
     my $bproto = $b->{TYPE};
     if ($bproto eq 'ip') {
@@ -197,162 +173,80 @@ sub services_a_in_b {
     }
     if ($bproto eq $aproto) {
         if ($bproto eq 'icmp') {
-            unless (exists $b->{SPEC}->{TYPE}) {
-                return 1;
-            }
-            unless (exists $a->{SPEC}->{TYPE}) {
-                return 2;
-            }
-
-            # ok. TYPE has to be set for both a and b
-            if ($a->{SPEC}->{TYPE} ne $b->{SPEC}->{TYPE}) {
-                return 0;
-            }
-
-            # types are equal, check CODE
-            unless (exists $b->{SPEC}->{CODE}) {
-                return 1;
-            }
-            unless (exists $a->{SPEC}->{CODE}) {
-                return 2;
-            }
-
-            # both SPEC are 'code'
-            if ($a->{SPEC}->{CODE} eq $b->{SPEC}->{CODE}) {
-                return 1;
-            }
-            else {
-                return 0;
-            }
+	    my $a_spec = $a->{SPEC};
+	    my $b_spec = $b->{SPEC};
+	    for my $what (qw(TYPE CODE)) {
+                return 1 if not defined $b_spec->{$what};
+                return 2 if not defined $a_spec->{$what};
+                return 0 if not $a_spec->{$what} eq $b_spec->{$what};
+	    }
+	    return 1;
         }
         if ($bproto eq 'tcp' or $bproto eq 'udp') {
-            my $src = ports_a_in_b($a->{SRC_PORT}, $b->{SRC_PORT})
-		or return 0;
-            my $dst = ports_a_in_b($a->{DST_PORT}, $b->{DST_PORT})
-		or return 0;
+            my $src = ports_a_in_b($a->{SRC_PORT}, $b->{SRC_PORT}) or return 0;
+            my $dst = ports_a_in_b($a->{DST_PORT}, $b->{DST_PORT}) or return 0;
             if ($src == 1 and $dst == 1) {
-                ($b->{ESTA}) or return 1;
-                ($a->{ESTA}) and return 1;
+                $b->{ESTA} or return 1;
+                $a->{ESTA} and return 1;
             }
-            return 2;    # intersection
+            return 2;
         }
         return 1;
     }
     elsif ($aproto eq 'ip') {
-
-        # intersection
         return 2;
     }
     return 0;
 }
 
-#
 # check if SRC SRV DST SRV  from a
 # is subset of or intersection with
 #          SRC SRV DST SRV from b
 #
 # do not check permit/deny !
 #
-#
 # return value: 0: no
 #               1: yes
 #               2: intersection
-#
 sub acl_line_a_in_b {
     my ($self, $a, $b) = @_;
-    exists $a->{REMARK} and return 1;
-    exists $b->{REMARK} and return 0;
-    my $src;
-    my $dst;
-    my $srv;
-    $src = $self->ip_netz_a_in_b($a->{SRC}, $b->{SRC});
-    ($src) or return 0;
-    $dst = $self->ip_netz_a_in_b($a->{DST}, $b->{DST});
-    ($dst) or return 0;
-    $srv = services_a_in_b($a, $b);
-    ($srv) or return 0;
-    ($src == $dst and $dst == $srv and $srv == 1) and return 1;
+    my $src = $self->ip_netz_a_in_b($a->{SRC}, $b->{SRC}) or return 0;
+    my $dst = $self->ip_netz_a_in_b($a->{DST}, $b->{DST}) or return 0;
+    my $srv = $self->services_a_in_b($a, $b) or return 0;
+    $src == 1 and $dst == 1 and $srv == 1 and return 1;
     return 2;
 }
 
-sub acl_line_a_eq_b ($$$) {
-
-    # fast :)
+sub acl_line_a_eq_b {
     my ($self, $a, $b) = @_;
-    if (exists $a->{REMARK}) {
-        exists $b->{REMARK} or return 0;
-        if ($a->{REMARK} eq $b->{REMARK}) {
-            return 1;
-        }
-        else {
-            return 0;
-        }
+    return 0 if $a->{MODE} ne $b->{MODE};
+    return 0 if $a->{TYPE} ne $b->{TYPE};
+    for my $where (qw(SRC DST)) {
+	my $aobj = $a->{$where};
+	my $bobj = $b->{$where};
+        return 0 if $aobj->{BASE} != $bobj->{BASE};
+        return 0 if $aobj->{MASK} != $bobj->{MASK};
     }
-    exists $b->{REMARK} and return 0;
-
-    my $asrc = $a->{SRC};
-    my $adst = $a->{DST};
-    my $bsrc = $b->{SRC};
-    my $bdst = $b->{DST};
-    unless ($a->{MODE} eq $b->{MODE}
-        && $a->{TYPE} eq $b->{TYPE}
-        && $asrc->{BASE} == $bsrc->{BASE}
-        && $asrc->{MASK} == $bsrc->{MASK}
-        && $adst->{BASE} == $bdst->{BASE}
-        && $adst->{MASK} == $bdst->{MASK})
-    {
-        return 0;
-    }
-
-    # source and destination equal
     if ($a->{TYPE} eq 'icmp') {
         my $as = $a->{SPEC};
         my $bs = $b->{SPEC};
-        (exists $as->{TYPE} xor exists $bs->{TYPE}) and return 0;
-        if (exists $as->{TYPE}) {
-            ($as->{TYPE} == $bs->{TYPE}) or return 0;
-            (exists $as->{CODE} xor exists $bs->{CODE}) and return 0;
-            if (exists $as->{CODE}) {
-                ($as->{CODE} == $bs->{CODE}) or return 0;
-            }
-        }
-
-        # icmp messages equal
+	for my $where (qw(TYPE CODE)) {
+	    return 0 if defined $as->{$where} xor defined $bs->{$where};
+	    return 1 if not defined $as->{$where};
+	    return 0 if $as->{$where} != $bs->{$where};
+	}
     }
     elsif ($a->{TYPE} eq 'tcp' or $a->{TYPE} eq 'udp') {
-        my $ass = $a->{SRC_PORT};
-        my $ads = $a->{DST_PORT};
-        my $bss = $b->{SRC_PORT};
-        my $bds = $b->{DST_PORT};
-        ($ass->{SPEC} xor $bss->{SPEC}) and return 0;
-        ($ads->{SPEC} xor $bds->{SPEC}) and return 0;
-        if ($ass->{SPEC}) {
-            ($ass->{SPEC} eq $bss->{SPEC}) or return 0;
-            (         $ass->{PORT_L} == $bss->{PORT_L}
-                  and $ass->{PORT_H} == $bss->{PORT_H})
-              or return 0;
+	for my $where (qw(SRC_PORT DST_PORT)) {
+	    my $aport = $a->{$where};
+	    my $bport = $b->{$where};
+	    return 0 if $aport->{LOW} != $bport->{LOW} or 
+		        $aport->{HIGH} != $bport->{HIGH};
         }
-        if ($ads->{SPEC}) {
-            ($ads->{SPEC} eq $bds->{SPEC}) or return 0;
-            (         $ads->{PORT_L} == $bds->{PORT_L}
-                  and $ads->{PORT_H} == $bds->{PORT_H})
-              or return 0;
-        }
-
-        # Ports are equal
-        if ($a->{TYPE} eq 'tcp') {
-            ($a->{ESTA} xor $b->{ESTA}) and return 0;
-            if ($a->{ESTA}) {
-                ($a->{ESTA} eq $b->{ESTA}) or return 0;
-            }
-
-            # Established entry equal
-        }
+	return 0 if $a->{ESTA} xor $b->{ESTA};
     }
-    ($a->{LOG} xor $b->{LOG}) and return 0;
-    if ($a->{LOG}) {
-        ($a->{LOG} eq $b->{LOG}) or return 0;
-    }
+    return 0 if $a->{LOG} xor $b->{LOG};
+    return 0 if $a->{LOG} and $a->{LOG} ne $b->{LOG};
     return 1;
 }
 
@@ -370,11 +264,9 @@ sub acl_line_a_eq_b ($$$) {
 #  fill
 # Return 3 values, array references to unique proto, src and dst addresses
 # return 4. value $acl_hash if $do_acl_hash is set.
-#
-# Add attribute {line} to each rule.
 sub acl_prepare ( $;$ ) {
     my ($rules, $do_acl_hash) = @_;
-    my $i = 0;
+    my $line = 1;
     my %prot;
     my %sb2sm2src;
     my %db2dm2dst;
@@ -384,8 +276,6 @@ sub acl_prepare ( $;$ ) {
     my @acl_list;
 
     for my $r (@$rules) {
-        $r->{line} = $i++;
-        next if $r->{REMARK};
         my $prot = $r->{TYPE};
         my $src  = $r->{SRC};
         my $dst  = $r->{DST};
@@ -421,7 +311,8 @@ sub acl_prepare ( $;$ ) {
 }
 
 # Parameter: 2 lists with protocols A and B
-# Result: A hash having entries a->b->1 for protocols where intersection is not empty.
+# Result: 
+# A hash having entries a->b->1 for protocols where intersection is not empty.
 sub prot_relation ( $$ ) {
     my ($aprot, $bprot) = @_;
     my %hash;
@@ -436,7 +327,8 @@ sub prot_relation ( $$ ) {
 }
 
 # Parameter: 2 lists with objects A and B
-# Result: A hash having entries a->b->1 for elements where intersection is not empty.
+# Result: 
+# A hash having entries a->b->1 for elements where intersection is not empty.
 sub obj_relation ( $$ ) {
     my ($aobj, $bobj) = @_;
     my %hash;
@@ -482,20 +374,11 @@ sub get_hash_matches ( $$$$$ ) {
 sub acl_array_compare_a_in_b {
     my ($self, $ac, $bc) = @_;
 
-    # setting verbosity
+    # Set verbosity.
     my $opt = $self->{CMPVAL};
-    my $verbose = 0;
-    if ($opt & 1) {
-        $verbose = 1;
-    }
-    my $showmatches = 0;
-    if ($opt & 2) {
-        $showmatches = 1;
-    }
-    my $silent = 0;
-    if ($opt eq 4) {
-        $silent = 1;
-    }
+    my $verbose = ($opt & 1);
+    my $showmatches = ($opt & 2);
+    my $silent = ($opt eq 4);
 
     my ($aprot, $asrc, $adst) = acl_prepare($ac);
     my ($bprot, $bsrc, $bdst, $bhash) = acl_prepare($bc, 1);
@@ -509,206 +392,161 @@ sub acl_array_compare_a_in_b {
 
     my $log_mismatch = 0;
 
-    my $lines = 0;
-  OUTER: for my $s (@$ac) {
-        $lines++;
-        exists $s->{REMARK} and next;
+  OUTER: 
+    for my $s (@$ac) {
+	my @currentdenylist;
+	if ($s->{MODE} eq 'deny') {
 
-        my $inner           = 0;
-        my @currentdenylist = ();
-        if ($s->{MODE} eq 'deny') {
+	    # Push deny for later inspection.
+	    push @ad, $s;
+	    next;
+	}
 
-            # push deny for later inspection
-            push @ad, [ $lines, $s ];
-            next;
-        }
-        else {
+	# Check if current permit is subject of deny.
+	for my $deny (@ad) {
+	    my $result = $self->acl_line_a_in_b($s, $deny);
+	    if ($result == 1) {
+		if (not $silent) {
+		    print "**** USELESS **** ($s->{line}) : $s->{orig}";
+		    print " denied by ($deny->{line}) : $deny->{orig}\n";
+		}
+		next OUTER;
+	    }
+	    elsif ($result == 2) {
+		push @currentdenylist, $deny;
+		if ($verbose) {
+		    print "**** VERBOSE (fill currentdenylist) ****";
+		    print " $s->{line} : $s->{orig}";
+		    print " partial $deny->{line} : $deny->{orig}\n";
+		}
+	    }
 
-            # check if current permit is subject of deny
-            for my $deny (@ad) {
-                my $result = $self->acl_line_a_in_b($s, $deny->[1]);
-                if ($result == 1) {
-                    unless ($silent) {
-                        print "**** USELESS **** ", $lines, " : ";
-                        print $s->{orig}, "\n";
-                        print " denied by ", $deny->[0], " : ";
-                        print $deny->[1]->{orig}, "\n";
-                    }
-                    next OUTER;
-                }
-                if ($result == 2) {
+	    # else nothing to do - no intersection
+	}
+	my @perm_int;
+	my @deny_int;
+	my $deny_match   = 'NO';
+	my $deny_line    = 'implicit deny at end of acl';
+	my $deny_line_nr = '';
+	my $matches      = delete $s->{MATCHES};
+	my @found =
+	    sort { $a->{line} <=> $b->{line} }
+	get_hash_matches($matches, $p_rel, $s_rel, $d_rel, $bhash);
+      INNER: 
+	for my $p (@found) {
+	    my $result = $self->acl_line_a_in_b($s, $p);
+	    if ($result == 1) {
+		if ($p->{MODE} eq 'deny') {
 
-                    # list of curent denys
-                    push @currentdenylist, $deny;
-                    ($verbose) and do {
-                        print "**** VERBOSE (fill currentdenylist) **** ",
-                          $lines, " : ";
-                        print $s->{orig};
-                        print " partial ", $deny->[0], " : ";
-                        print $deny->[1]->{orig}, "\n";
-                      }
-                }
+		    # this is denied, but maybe some permits before...
+		    # this is ok because @perm_int is checked at last.
+		    $deny_match = 'YES';
+		    $deny_line = $p->{orig};
+		    $deny_line_nr = $p->{line};
+		    last;
+		}
+		else {
 
-                # else nothing to do - no intersection
-            }
-        }
-        my @perm_int   = ();
-        my @deny_int   = ();
-        my $deny_match = "NO";
-        my $matches    = delete $s->{MATCHES};
-        my @found =
-          sort { $a->{line} <=> $b->{line} }
-          get_hash_matches($matches, $p_rel, $s_rel, $d_rel, $bhash);
-        my $p;
-      INNER: for my $ace (@found) {
-	    $p = $ace;
-            $inner = $p->{line} + 1;
-            exists $p->{REMARK} and next;
-            ($self->acl_line_a_in_b($s, $p)) or next;
-            if ($self->acl_line_a_in_b($s, $p) == 1) {
-                if ($p->{MODE} eq 'deny') {
+		    # full permit
+		    # check if found deny is subset of @currentdenylist
+		  CHECK: 
+		    for my $deny (@deny_int) {
+			for my $cd (@currentdenylist) {
+			    if ($self->acl_line_a_in_b($deny, $cd) == 1) {
+				if ($verbose) {
+				    print "**** VERBOSE (right side) ****";
+				    print " ($p->{line}): $p->{orig}";
+				    print " partial";
+				    print " $deny->{line} : $deny->{orig}";
+				    print " has full match at left side:";
+				    print " ($cd->{line}): $cd->{orig}\n";
+				};
+				next CHECK;
+			    }
+			}
 
-                    # this is denied, but maybe some permits before...
-                    # this is ok because @perm_int is checked at last.
-                    $deny_match = 'YES';
-                    last;
-                }
-                else {
+			if (not $silent) {
+			    print "+++ DENY MISMATCH +++";
+			    print " ($p->{line}): $p->{orig}";
+			    print " at right side has predecessor";
+			    print " ($deny->{line}): $deny->{orig}";
+			    print " which has no full match at left side\n";
+			    print "+++ While searching for match:";
+			    print " ($s->{line}): $s->{orig}\n";
+			};
+			$deny_match = 'DMIS';
+		    }
+		    if ($deny_match eq 'DMIS') {
+			last INNER;
+		    }
 
-                    # full permit
-                    #check if found denys subset of @cdlist
-                  CHECK: for my $deny (@deny_int) {
-                        for my $cd (@currentdenylist) {
-                            if ($self->acl_line_a_in_b($deny->[1], $cd->[1]) ==
-                                1)
-                            {
-                                ($verbose) and do {
-                                    print "**** VERBOSE (right side) **** (";
-                                    print $inner, "): ",
-                                      $p->{orig};
-                                    print " partial ";
-                                    print $deny->[0], " : ",
-                                      $deny->[1]->{orig};
-                                    print " has full match at left side: (";
-                                    print $cd->[0], "): ",
-                                      $cd->[1]->{orig};
-                                    print "\n";
-                                };
-                                next CHECK;
-                            }
-                        }
+		    # ok
+		    if (@perm_int && $verbose) {
+			print "**** VERBOSE **** $s->{line} match  $p->{line} ";
+			print "with ", scalar(@perm_int), " intersections\n";
+		    }
+		}
+		my $lm;
+		if ($p->{LOG} xor $s->{LOG}) {
+		    $lm = $log_mismatch = 1;
+		}
+		elsif ($p->{LOG}) {
+		    if ($p->{LOG} ne $s->{LOG}) {
+			$lm = $log_mismatch = 1;
+		    }
+		}
+		if ($lm and !$silent) {
+		    print "**** LOG MISMATCH **** ($s->{line}): $s->{orig}";
+		    print " in ($p->{line}): $p->{orig}\n";
+		}
+		elsif ($showmatches) {
+		    print "**** SHOW MATCHES **** ($s->{line}): $s->{orig}";
+		    print " in ($p->{line}): $p->{orig}\n";
+		}
+		next OUTER;
+	    }
+	    elsif($result == 2) {
+		if ($p->{MODE} eq 'deny') {
+		    push @deny_int, $p;
+		    if ($verbose) {
+			print "**** VERBOSE (fill deny_intersec) **** ";
+			print "$s->{line} : $s->{orig}";
+			print " partial $p->{line} : $p->{orig}\n";
+		    }
+		}
+		else {
 
-                        # deny mismatch!
-                        ($silent) or do {
-                            print "+++ DENY MISMATCH +++ (";
-                            print $inner, "): ", $p->{orig};
-                            print " at right side has predecessor (";
-                            print $deny->[0], "): ",
-                              $deny->[1]->{orig};
-                            print " which has no full match at left side\n";
-                            print "+++ While searching for match: (";
-                            print $lines, "): ", $s->{orig},
-                              "\n";
-                        };
-                        $deny_match = 'DMIS';
+		    # permit intersection
+		    push @perm_int, $p;
+		    if ($verbose) {
+			print "($s->{line}): $s->{orig}";
+			print " INTERSECTION ($p->{line}): $p->{orig}\n";
+		    }
+		}
+	    }
 
-                        #last INNER;
-                    }
-                    if ($deny_match eq 'DMIS') {
-                        last INNER;
-                    }
-
-                    # ok
-                    if (@perm_int && $verbose) {
-                        print "**** VERBOSE **** $lines match  $inner ";
-                        print "with ", scalar(@perm_int), " intersections\n";
-                    }
-
-                    #unless(1 || $self->acl_line_a_eq_b($s,$p)){
-                    #    print "($lines): ". $s->{orig};
-                    #    print " in ($inner): ", $p->{orig};
-                    #    print "\n";
-                    #}
-                }
-                my $lm;
-                if ($p->{LOG} xor $s->{LOG}) {
-                    $lm = $log_mismatch = 1;
-                }
-                elsif ($p->{LOG}) {
-                    if ($p->{LOG} ne $s->{LOG}) {
-                        $lm = $log_mismatch = 1;
-                    }
-                }
-                if ($lm and !$silent) {
-                    print "**** LOG MISMATCH **** ($lines): ",
-                      $s->{orig};
-                    print " in ($inner): ", $p->{orig}, "\n";
-                }
-                elsif ($showmatches) {
-                    print "**** SHOW MATCHES **** ($lines): ",
-                      $s->{orig};
-                    print " in ($inner): ", $p->{orig}, "\n";
-                }
-                next OUTER;
-            }
-            else {
-                if ($p->{MODE} eq 'deny') {
-
-                    # partial deny
-                    #$deny_match = 'YES';
-                    push @deny_int, [ $inner, $p ];
-                    ($verbose) and do {
-                        print "**** VERBOSE (fill deny_intersec) **** ", $lines,
-                          " : ";
-                        print $s->{orig};
-                        print " partial ", $inner, " : ";
-                        print $p->{orig}, "\n";
-                      }
-                }
-                else {
-
-                    # permit intersection!
-                    push @perm_int, [ $inner, $p ];
-                    if ($verbose) {
-                        print "($lines): ", $s->{orig};
-                        print " INTERSECTION ($inner): ", $p->{orig};
-                        print "\n";
-                    }
-                }
-            }
-        }
-        $clean = 0;
-        ($silent) or do {
-            unless ($deny_match eq 'DMIS') {
-                my $deny_line;
-                if ($deny_match eq 'YES') {
-                    $deny_line = $p->{orig};
-                }
-                else {
-                    $inner     = "";
-                    $deny_line = 'implicit deny at end of acl';
-                }
-                if (@perm_int) {
-                    print " **** DENY **** (", $lines, "): ";
-                    print $s->{orig};
-                    print " by ($inner): $deny_line\n";
-                    my @intersec = 
-			sort { $a->[0] <=> $b->[0] } (@deny_int, @perm_int);
-                    for my $p (@intersec) {
-                        print " **** INTERSEC **** ", $p->[0], " : ";
-                        print $p->[1]->{orig}, "\n";
-                    }
-                }
-                else {
-                    print " **** DENY **** (", $lines, "): ";
-                    print $s->{orig};
-                    print " by ($inner): $deny_line\n";
-                }
-            }
-          }
+	    # else nothing to do - no intersection
+	}
+	$clean = 0;
+	if(not $silent) {
+	    unless ($deny_match eq 'DMIS') {
+		if (@perm_int) {
+		    print " **** DENY **** ($s->{line}): $s->{orig}";
+		    print " by ($deny_line_nr): $deny_line\n";
+		    my @intersec = sort { $a->{line} <=> $b->{line } }
+		    (@deny_int, @perm_int);
+		    for my $p (@intersec) {
+			print " **** INTERSEC **** $p->{line} : $p->{orig}\n";
+		    }
+		}
+		else {
+		    print "**** DENY **** ($s->{line}): $s->{orig}";
+		    print " by ($deny_line_nr): $deny_line\n";
+		}
+	    }
+	}
     }
-    ($clean and !$log_mismatch) and return 1;    # a in b
-    return 0;
+    return ($clean and !$log_mismatch);    # a in b
 }
 
 # calling rule: a should be spoc (new) acl
