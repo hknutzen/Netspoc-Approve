@@ -1029,6 +1029,17 @@ sub approve {
     $self->con_shutdown("STOP: $policy at > $time < ($id)");
 }
 
+sub get_change_status {
+    my ($self) = @_;
+    my $time = localtime();
+    mypr "compare: $time ($id)\n";
+    for my $key (sort keys %{$self->{CHANGE}}) {
+	my $status = $self->{CHANGE}->{$key} ? 'changed' : 'unchanged';
+	mypr "compare: $self->{NAME} *** $key $status ***\n";
+    }
+    return(grep { $_ } values %{ $self->{CHANGE} });
+}
+
 sub compare {
     my ($self, $spoc_path) = @_;
     $self->adaption();
@@ -1059,12 +1070,7 @@ sub compare {
 
     $time = localtime();
     $self->con_shutdown("STOP: $policy at > $time < ($id)");
-    mypr "comp: $policy ", scalar localtime, " ($id)\n";
-    for my $key (sort keys %{$self->{CHANGE}}) {
-	my $status = $self->{CHANGE}->{$key} ? 'changed' : 'unchanged';
-	mypr "comp: $policy $self->{NAME} *** $key $status ***\n";
-    }
-    return grep { $_ } values %{ $self->{CHANGE} };
+    return($self->get_change_status());
 }
 
 sub compare_files {
@@ -1074,8 +1080,9 @@ sub compare_files {
     # save compare mode
     $self->{COMPARE} = 1;
 
-    # default compare is silent(4) mode
-    $self->{CMPVAL} = $self->{OPTS}->{C} || 4;
+    # Default compare is silent(4) mode
+    $self->{CMPVAL} = $self->{OPTS}->{C};
+    defined($self->{CMPVAL}) or $self->{CMPVAL} = 4;
 
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
@@ -1086,12 +1093,7 @@ sub compare_files {
     else {
         errpr "compare failed\n";
     }
-    mypr "comp: ", scalar localtime, " ($id)\n";
-    for my $key (sort keys %{$self->{CHANGE}}) {
-	my $status = $self->{CHANGE}->{$key} ? 'changed' : 'unchanged';
-	mypr "comp: $self->{NAME} *** $key $status ***\n";
-    }
-    return grep { $_ } values %{ $self->{CHANGE} };
+    return($self->get_change_status());
 }
 
 sub logging {
