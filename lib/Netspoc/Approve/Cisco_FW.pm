@@ -317,6 +317,7 @@ sub attr_eq( $$$ ) {
     keys %$a == keys %$b or return 0;
     for my $k (keys %$a) {
 	next if $k eq 'orig';
+	next if $k eq 'line';
 	return 0 if defined $a->{$k} xor defined $b->{$k};
 	next if not defined $a->{$k};
 	$a->{$k} eq $b->{$k} or return 0;
