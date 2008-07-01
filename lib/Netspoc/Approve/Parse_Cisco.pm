@@ -259,7 +259,7 @@ sub get_ip_prefix {
 	$base = quad2int($addr);
 	defined $base or err_at_line($arg, "Expected IP: $addr");
 	$mask = 0xffffffff;
-	if($prefix) {
+	if(defined $prefix) {
 	    $prefix =~ /^\d+$/ and $prefix <= 32 or
 		err_at_line($arg, "Expected IP prefix: $prefix");
 	    $mask = 0xffffffff & (0xffffffff << (32 - $prefix));
