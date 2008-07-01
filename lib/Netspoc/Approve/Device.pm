@@ -961,7 +961,7 @@ sub get_cmd_output {
     my ($self, $cmd) = @_;
     my @lines = split(/\r?\n/, $self->shcmd($cmd));
     my $echo = shift(@lines);
-    $echo =~ /^\s*$cmd\s*$/ or 
+    $echo eq $cmd or 
 	errpr "Got unexpected echo in response to '$cmd': '$echo'\n";
     return(\@lines);
 }
