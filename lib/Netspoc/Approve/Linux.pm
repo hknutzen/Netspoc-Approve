@@ -324,6 +324,9 @@ sub prepare {
 
     # Set prompt again because of performance impact of standard prompt.
     $self->{ENAPROMPT} = qr/\r\n\s?$name:.*\#\s?$/;
+
+    # Parameter --noediting prevents \r to be inserted in echoed commands.
+    $self->issue_cmd('exec /bin/bash --noediting');
 }
 
 sub login_enable {
