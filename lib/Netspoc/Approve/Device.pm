@@ -1033,10 +1033,14 @@ sub approve {
 sub get_change_status {
     my ($self) = @_;
     my $time = localtime();
-    mypr "compare: $time ($id)\n";
+    mypr "comp: $time ($id)\n";
     for my $key (sort keys %{$self->{CHANGE}}) {
-	my $status = $self->{CHANGE}->{$key} ? 'changed' : 'unchanged';
-	mypr "compare: $self->{NAME} *** $key $status ***\n";
+	if($self->{CHANGE}->{$key}) { 
+	    mypr "comp: $self->{NAME} *** $key changed ***\n";
+	}
+	else {
+	    mypr "comp: $self->{NAME} $key unchanged\n";
+	}
     }
     return(grep { $_ } values %{ $self->{CHANGE} });
 }
