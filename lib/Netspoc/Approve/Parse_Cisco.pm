@@ -262,7 +262,7 @@ sub get_ip_prefix {
 	if(defined $prefix) {
 	    $prefix =~ /^\d+$/ and $prefix <= 32 or
 		err_at_line($arg, "Expected IP prefix: $prefix");
-	    $mask = 0xffffffff & (0xffffffff << (32 - $prefix));
+	    $mask = 2**32 - 2**(32 - $prefix);
 	}
     }
     return($base, $mask);
