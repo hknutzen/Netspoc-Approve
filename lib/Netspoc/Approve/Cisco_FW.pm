@@ -726,7 +726,7 @@ sub transfer_lines {
             $self->cmd($s->{orig});
             mypr " $counter";
         }
-	$self->cmd('end');
+	$self->cmd('exit');
         $counter and $change = 1;
         mypr " $counter\n";
     }
@@ -1052,7 +1052,7 @@ sub transfer () {
                     $self->cmd($cmd);
                 }
             }
-	    $self->cmd('end');
+	    $self->cmd('exit');
         }
     }
 
