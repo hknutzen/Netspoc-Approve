@@ -758,12 +758,12 @@ sub login_enable {
     }
     my $psave = $self->{PROMPT};
     $self->{PROMPT} = qr/Password:|#/;
-    $self->cmd('enable') or return 0;
+    $self->issue_cmd('enable');
     unless ($con->{RESULT}->{MATCH} eq "#") {
 
         # Enable password required.
         $self->{PROMPT} = $psave;
-        $self->cmd($self->{ENABLE_PASS} || $pass) or return 0;
+        $self->issue_cmd($self->{ENABLE_PASS} || $pass);
     }
     return 1;
 }
