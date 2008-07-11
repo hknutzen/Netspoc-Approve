@@ -707,7 +707,7 @@ sub transfer_lines {
     unless ($self->{COMPARE}) {
         mypr "deleting non matching entries from device:\n";
         $counter = 0;
-	$self->cmd('configure terminal');
+	$self->enter_conf_mode;
         for my $d (@{$device_lines}) {
             ($d->{DELETE}) and next;
             $counter++;
@@ -725,7 +725,7 @@ sub transfer_lines {
             $self->cmd($s->{orig});
             mypr " $counter";
         }
-	$self->cmd('exit');
+	$self->leave_conf_mode;
         $counter and $change = 1;
         mypr " $counter\n";
     }
@@ -982,7 +982,7 @@ sub transfer () {
                   $generate_names_for_transfer->($obj_id, $conf->{ACCESS_LIST});
             }
 
-	    $self->cmd('configure terminal');
+            $self->enter_conf_mode;
 
             # Transfer groups.
             mypr "transfer object-groups to device\n";
@@ -1051,7 +1051,7 @@ sub transfer () {
                     $self->cmd($cmd);
                 }
             }
-	    $self->cmd('exit');
+            $self->leave_conf_mode;
         }
     }
 
