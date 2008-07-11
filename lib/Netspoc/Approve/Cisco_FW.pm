@@ -242,18 +242,25 @@ sub get_parse_info {
 	},
 
 # crypto map map-name seq-num match address acl_name
+# ignore 
+# crypto map map-name seq-num *
+# crypto map map-name interface *
 	'crypto map' => {
 	    store => ['CRYPTO', 'MAP'],
 	    named => 1,
 	    multi => 1,
-	    parse => ['seq',
-		      { store => 'SEQU', parse => \&get_int, },
-		      ['or',
-		       ['seq',
-			{ parse => qr/match/ },
-			{ parse => qr/address/ },
-			{ store => 'MATCH_ADDRESS', parse => \&get_token } ],
-		       { parse => \&skip } ]] 
+	    parse => ['or',
+		      ['seq',
+		       { parse => qr/interface/ },
+		       { parse => \&skip } ],
+		      ['seq',
+		       { store => 'SEQU', parse => \&get_int, },
+		       ['or',
+			['seq',
+			 { parse => qr/match/ },
+			 { parse => qr/address/ },
+			 { store => 'MATCH_ADDRESS', parse => \&get_token } ],
+			{ parse => \&skip } ]]]
 	},
     }
 }
