@@ -128,9 +128,8 @@ sub get_parse_info {
 		      { store => 'BASE', parse => \&get_ip },
 		      { store => 'MASK', parse => \&get_ip },
 		      { store => 'NEXTHOP', parse => \&get_ip },
-		      { store => 'METRIC', 
-			parse => \&check_int, 
-			default => 1 } ],
+		      # don't store METRIC, values seem to be arbitrary for PIX
+		      { parse => \&check_int } ],
 	},
 
 # access-group <access_list_name> in interface <if_name>
