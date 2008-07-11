@@ -684,12 +684,14 @@ sub prepare {
     mypr "logged in\n";
     $self->{ENA_MODE} = 1;
     my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^\r\n\s?(\S+)\#\s?$/;
+    $result->{MATCH} =~ m/^(\r\n\s?\S+)\#\s?$/;
+    my $prompt_prefix = $1;
+    $prompt_prefix =~ /\s*(.*)$/;
     my $name = $1;
     $self->checkidentity($name);
 
     # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/\r\n\s?$name\S*#\s?$/;
+    $self->{ENAPROMPT} = qr/$promp_prefix\S*#\s?$/;
 }
 
 sub login_enable {
