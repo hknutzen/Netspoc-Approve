@@ -95,7 +95,13 @@ sub set_pager {
     my ($self) = @_;
     errpr "Pager is not disabled - issue 'no pager' manually to continue\n";
 }
-    
+
+# PIX doesn't like 'end'.
+sub leave_conf_mode {
+    my($self) = @_;
+    $self->cmd('exit';
+}
+
 sub prepare {
     my ($self) = @_;
     $self->SUPER::prepare();
