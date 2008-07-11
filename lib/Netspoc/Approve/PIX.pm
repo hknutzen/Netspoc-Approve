@@ -99,7 +99,7 @@ sub set_pager {
 # PIX doesn't like 'end'.
 sub leave_conf_mode {
     my($self) = @_;
-    $self->cmd('exit';
+    $self->cmd('exit');
 }
 
 sub prepare {
