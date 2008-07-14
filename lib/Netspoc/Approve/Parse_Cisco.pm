@@ -100,7 +100,8 @@ sub analyze_conf_lines {
 	    # Got expected command or sub-command.
 	}
 	elsif($sub_level > $level) {
-	    die "Too much indented ($sub_level > $level) at line $counter\n";
+	    die "Too much indented ($sub_level > $level) at line $counter:\n",
+	    ">>$line<<\n";
 	}
 	else {
 	    while($sub_level < $level) {
@@ -165,8 +166,15 @@ sub analyze_conf_lines {
 sub err_at_line {
     my($arg, @msg) = @_;
     my $line = $arg->{line};
-    my $pos = $arg->{pos};
-    die @msg, " at line $line, pos $pos\n";
+
+    # $pos starts from 0 and points to next arg.
+    # But humans start counting from 1, hence $pos points to current arg.
+    # Fix value of $pos for multi word first arg like "ip address",
+    # but ignore suffix of multi word arg like "ip address +secondary"
+    # using negative lookahead.
+    my @arg0 = split(/[ ](?![+])/, $arg->{args}->[0]);
+    my $pos = $arg->{pos} + @arg0 - 1;
+    die @msg, " at line $line, pos $pos:\n>>$arg->{orig}<<\n";
 }
 
 sub check_token {
