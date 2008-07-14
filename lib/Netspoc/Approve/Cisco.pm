@@ -691,7 +691,7 @@ sub prepare {
     $self->checkidentity($name);
 
     # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/$promp_prefix\S*#\s?$/;
+    $self->{ENAPROMPT} = qr/$prompt_prefix\S*#\s?$/;
 }
 
 sub login_enable {
