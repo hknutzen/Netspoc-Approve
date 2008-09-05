@@ -587,14 +587,11 @@ sub expand_acl_entry($$$$) {
 		$copy->{orig} =~ s/$dst_find(?!\S)/$dst_replace/;
 	    }
 
-	    # Remove 'access-list <name>' to get shorter output
-	    # during ACL compare.
-	    # But leave ACL untouched during approve, because
-	    # expanded raw ACL is referenced in merge_acls and 
-	    # applied to device later.
-	    if($self->{COMPARE}) {
-		$copy->{orig} =~ s/^access-list\s+\S+\s+(extended\s+)?//;
-	    }
+	    # Remove 'access-list <name>' from original input line.
+	    # 1. to get shorter output during ACL compare.
+	    # 2. we merge different names from raw files and need to add
+	    #    a new name during approve anyway.
+	    $copy->{orig} =~ s/^access-list\s+\S+\s+(extended\s+)?//;
             push @expanded, $copy;
         }
     }
@@ -610,6 +607,12 @@ sub postprocess_config {
         for my $entry (@{ $p->{ACCESS_LIST}->{$acl_name} }) {
             my $e_acl = $self->expand_acl_entry($entry, $p, $acl_name);
 	    push @{$p->{ACCESS}->{$acl_name}},@$e_acl;
+
+	    # Remove 'access-list <name>' from original input line.
+	    # 1. to get shorter output during ACL compare.
+	    # 2. we merge different names from raw files and need to add
+	    #    a new name during approve anyway.
+	    $entry->{orig} =~ s/^access-list\s+\S+\s+(extended\s+)?//;
         }
     }
 
@@ -1017,7 +1020,7 @@ sub transfer () {
 				s/object-group $gid(?!\S)/object-group $new_gid/;
 			}
 		    }
-		    $cmd =~ s/access-list $obj_id/access-list $new_id/;
+		    $cmd = "access-list $new_id " . $cmd;
                     $self->cmd($cmd);
                 }
                 mypr "\n";
