@@ -587,9 +587,14 @@ sub expand_acl_entry($$$$) {
 		$copy->{orig} =~ s/$dst_find(?!\S)/$dst_replace/;
 	    }
 
-	    # Remove 'access-list <name>' because we don't need this info
-	    # when printing during ACL compare.
-	    $copy->{orig} =~ s/^access-list\s+\S+\s+(extended\s+)?//;
+	    # Remove 'access-list <name>' to get shorter output
+	    # during ACL compare.
+	    # But leave ACL untouched during approve, because
+	    # expanded raw ACL is referenced in merge_acls and 
+	    # applied to device later.
+	    if($self->{COMPARE}) {
+		$copy->{orig} =~ s/^access-list\s+\S+\s+(extended\s+)?//;
+	    }
             push @expanded, $copy;
         }
     }
