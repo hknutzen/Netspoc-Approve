@@ -655,9 +655,6 @@ sub parse_config1 {
 	}
 	my $parser = $cmd_info->{parse};
 	my $value = parse_line($self, $arg, $parser) if $parser;
-	if($named and $named eq 'from_parser') {
-	    $name = $value->{name} or err_at_line($arg, 'Missing name');
-	}
 	get_eol($arg);
 	if(my $subcmds = $arg->{subcmd}) {
 	    my $parse_info = $cmd_info->{subcmd} or 
@@ -677,6 +674,9 @@ sub parse_config1 {
 	}
 	if(not defined $value) {
 	    next;
+	}
+	if($named and $named eq 'from_parser') {
+	    $name = $value->{name} or err_at_line($arg, 'Missing name');
 	}
 	if(ref($value) eq 'HASH') {
 	    $named and $value->{name} = $name;
