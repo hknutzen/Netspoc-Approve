@@ -88,7 +88,7 @@ sub get_parse_info {
 	    'switchport mode' => { 
 		store => ['SWITCHPORT', 'MODE'], parse => \&get_token, },
 	    'switchport access vlan' => {
-		store => ['SWITCHPORT', 'VLAN'], multi => 1, 
+		store => ['SWITCHPORT', 'ACCESS_VLAN'], multi => 1, 
 		parse => \&get_token, },
 	    'switchport nonegotiate' => {
 		store => ['SWITCHPORT', 'NONEGOTIATE'], default => 1, },
