@@ -73,6 +73,7 @@ sub analyze_conf_lines {
     my $config = [];
     my $counter = 0;
     my $in_banner = 0;
+    my $first_subcmd = 0;
 
     for my $line (@$lines) {
 	$counter++;	
@@ -102,15 +103,32 @@ sub analyze_conf_lines {
 	    # Got expected command or sub-command.
 	}
 	elsif($sub_level > $level) {
-	    die "Too much indented ($sub_level > $level) at line $counter:\n",
-	    ">>$line<<\n";
-	}
-	else {
-	    while($sub_level < $level) {
-		($config, $parse_info) = @{ pop @stack };
-		$level--;
+
+	    # Some older IOS versions use sub commands, 
+	    # which have a higher indentation level than 1.
+	    # This is only applicable for the first sub command.
+	    if($first_subcmd) {
+		$level = $sub_level;
+	    }
+	    else {
+		die "Expected indentation '$level' but got '$sub_level'",
+		" at line $counter:\n",
+		">>$line<<\n";
 	    }
 	}
+	else {
+	    while($sub_level < $level && @stack) {
+		($config, $parse_info, $level) = @{ pop @stack };
+	    }
+	    
+	    # All sub commands need to use the same indentation level.
+	    if ($sub_level != $level) {
+		die "Expected indentation '$level' but got '$sub_level'",
+		" at line $counter:\n",
+		">>$line<<\n";
+	    }
+	}
+	$first_subcmd = 0;
 	my @args;
 	(my $cmd, @args) = split(' ', $rest);
 	if(my $prefix_info = $parse_info->{_prefix}) {
@@ -130,10 +148,11 @@ sub analyze_conf_lines {
 	# Ignore unknown command.
 	# Prepare to ignore subcommands as well.
 	if(not $parse_info->{$cmd}) {
-	    push @stack, [ $config, $parse_info ];
+	    push @stack, [ $config, $parse_info, $level ];
 	    $config = undef;
 	    $parse_info = undef;
 	    $level++;
+	    $first_subcmd = 1;
 	}
 	else {
 
@@ -146,11 +165,12 @@ sub analyze_conf_lines {
 			    args => [ $cmd, @args ], };
 	    push(@$config, $new_cmd);
 	    if(my $subcmd = $parse_info->{$cmd}->{subcmd}) {
-		push @stack, [ $config, $parse_info ];
+		push @stack, [ $config, $parse_info, $level ];
 		$config = [];
 		$new_cmd->{subcmd} = $config;
 		$parse_info = $subcmd;
 		$level++;
+		$first_subcmd = 1;
 	    }
 	    if($parse_info->{$cmd}->{banner}) {
 		$new_cmd->{lines} = [];
@@ -160,7 +180,7 @@ sub analyze_conf_lines {
 	}
     }
     while($level--) {
-	($config, $parse_info) = @{ pop @stack };
+	($config, $parse_info, $level) = @{ pop @stack };
     }
     return $config;
 }  
