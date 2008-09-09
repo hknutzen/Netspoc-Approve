@@ -71,16 +71,6 @@ sub postprocess_config {
     $self->SUPER::postprocess_config($p);
 }
 
-# Normalize indentation for subcommands of PIX config.
-# Our lexical analyzer expects single indented subcommands 
-# but PIX has double indented subcommands.
-sub get_config_from_device {
-    my ($self) = @_;
-    my $lines = $self->SUPER::get_config_from_device;
-    map { s/^  / / } @$lines;
-    return($lines),
-}
-	
 sub checkbanner {
     my ($self) = @_;
     if($self->{VERSION} < 6.3) {
