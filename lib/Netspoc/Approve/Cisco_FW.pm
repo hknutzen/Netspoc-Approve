@@ -354,6 +354,8 @@ sub cmd_check_error($$) {
 		      static[ ]overlaps |
 		      # route warnings
 		      Route[ ]already[ ]exists |
+		      # object-group warnings
+		      Adding[ ]obj[ ]\([^()]+\)[ ]to[ ]grp[ ]\([^()]+\)[ ]failed;[ ]object[ ]already[ ]exists |
 		      # ace warnings
 		      ACE[ ]not[ ]added[.][ ]Possible[ ]duplicate[ ]entry)/x) {
             my @pre = split(/\n/, $msg);
