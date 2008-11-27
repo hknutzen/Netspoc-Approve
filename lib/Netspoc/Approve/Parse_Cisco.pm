@@ -39,7 +39,7 @@ sub add_prefix_suffix_info {
 	if($split[-1] =~ /^\+(.*)/) {
 	    my $suffix = $1;
 	    pop @split;
-	    $parse_info->{_suffix}->{join(' ', @split)} = $suffix;
+	    $parse_info->{_suffix}->{join(' ', @split)}->{$suffix} = 1;
 	}
 	my $hash = $result;
 	while(@split > 1) {
@@ -138,10 +138,11 @@ sub analyze_conf_lines {
 		$cmd .= ' ' . $prefix;
 	    }
 	}
-	if(my $suffix = $parse_info->{_suffix}->{$cmd}) {
-	    if($args[-1] eq $suffix) {
+	if(my $suffix_hash = $parse_info->{_suffix}->{$cmd}) {
+	    my $last_arg = $args[-1];
+	    if($suffix_hash->{$last_arg}) {
 		pop(@args);
-		$cmd .= ' +' . $suffix;
+		$cmd .= ' +' . $last_arg;
 	    }
 	}
 
