@@ -758,7 +758,7 @@ sub route_line_a_eq_b {
     my ($self, $a, $b) = @_;
     ($a->{BASE} == $b->{BASE} && $a->{MASK} == $b->{MASK})
       or return 0;
-    for my $key (qw(IF NIF NEXTHOP METRIC MISC MISC_ARG)) {
+    for my $key (qw(IF NIF NEXTHOP METRIC TRACK TAG PERMANENT)) {
         if (defined($a->{$key}) || defined($b->{$key})) {
             (        defined($a->{$key})
                   && defined($b->{$key})
