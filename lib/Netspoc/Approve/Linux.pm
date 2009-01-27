@@ -256,7 +256,7 @@ sub route_del {
     my($self, $entry) = @_;
     my $orig = $entry->{orig};
     $orig =~ s/^ip route add//;
-    return("ip route del $entry->{orig}");
+    return("ip route del $orig");
 }
 
 sub write_startup_routing {
