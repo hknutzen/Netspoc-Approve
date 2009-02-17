@@ -124,8 +124,7 @@ sub analyze_conf_lines {
 	    # All sub commands need to use the same indentation level.
 	    if ($sub_level != $level) {
 		if ( ( ($level+1) == $sub_level ) && $rest eq 'quit' ) {
-		    # Skipped certificate data.
-		    print "Skipped ca-data\n";
+		    # Skip certificate data.
 		}
 		else {
 		    die "Expected indentation '$level' but got '$sub_level'",
