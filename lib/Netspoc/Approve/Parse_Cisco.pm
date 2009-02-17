@@ -123,9 +123,15 @@ sub analyze_conf_lines {
 	    
 	    # All sub commands need to use the same indentation level.
 	    if ($sub_level != $level) {
-		die "Expected indentation '$level' but got '$sub_level'",
-		" at line $counter:\n",
-		">>$line<<\n";
+		if ( ( ($level+1) == $sub_level ) && $rest eq 'quit' ) {
+		    # Skipped certificate data.
+		    print "Skipped ca-data\n";
+		}
+		else {
+		    die "Expected indentation '$level' but got '$sub_level'",
+		    " at line $counter:\n",
+		    ">>$line<<\n";
+		}
 	    }
 	}
 	$first_subcmd = 0;
