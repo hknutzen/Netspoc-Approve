@@ -1098,7 +1098,7 @@ sub compare_files {
 
     # Default compare is silent(4) mode
     $self->{CMPVAL} = $self->{OPTS}->{C};
-    $self->{CMPVAL} ||= 4;
+    defined $self->{CMPVAL} or $self->{CMPVAL} = 4;
 
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
