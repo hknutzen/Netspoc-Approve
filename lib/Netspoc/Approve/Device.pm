@@ -944,11 +944,17 @@ sub issue_cmd {
 
 sub cmd {
     my ($self, $cmd) = @_;
-    my $result = $self->issue_cmd($cmd);
 
-    # check for  errors
-    # argument is ref to prematch from issue_cmd
-    $self->cmd_check_error(\$result->{BEFORE}) or exit -1;
+    if ( $self->{CMD2STDOUT} ) {
+	mypr "$cmd\n";
+    }
+    else {
+	my $result = $self->issue_cmd($cmd);
+	
+	# check for  errors
+	# argument is ref to prematch from issue_cmd
+	$self->cmd_check_error(\$result->{BEFORE}) or exit -1;
+    }
 }
 
 sub shcmd {
@@ -1082,12 +1088,17 @@ sub compare_files {
     my ($self, $path1, $path2) = @_;
     $self->adaption();
 
-    # save compare mode
-    $self->{COMPARE} = 1;
+    if ( $self->{OPTS}->{C} ) {
+	# save compare mode
+	$self->{COMPARE} = 1;
+    }
+    else {
+	$self->{CMD2STDOUT} = 1;
+    }
 
     # Default compare is silent(4) mode
     $self->{CMPVAL} = $self->{OPTS}->{C};
-    defined($self->{CMPVAL}) or $self->{CMPVAL} = 4;
+    $self->{CMPVAL} ||= 4;
 
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
