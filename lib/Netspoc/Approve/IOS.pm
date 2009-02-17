@@ -105,16 +105,22 @@ sub get_parse_info {
 	    parse => ['seq',
 		      { store => 'BASE', parse => \&get_ip, },
 		      { store => 'MASK', parse => \&get_ip, },
-		      { store => 'NIF',  parse => qr/\w.*/, },
-		      { store => 'NEXTHOP', parse => \&check_ip, },
 		      ['or',
+		       { store => 'NEXTHOP', parse => \&check_ip, },
+		       ['seq',
+			{ store => 'NIF',  parse => \&get_token, },
+			{ store => 'NEXTHOP', parse => \&check_ip, },],],
+		      ['seq',
 		       { store => 'METRIC', 
 			 parse => \&check_int, 
 			 default => 1 },
-		       { store => 'MISC', parse => qr/permanent/, },
 		       ['seq',
-			{ store => 'MISC', parse => qr/track|tag/, },
-			{ store => 'MISC_ARG', parse => \&get_token, },],],],
+			{ parse => qr/track/, },
+			{ store => 'TRACK', parse => \&get_token, },],
+		       ['seq',
+			{ parse => qr/tag/, },
+			{ store => 'TAG', parse => \&get_token, },],
+		       { store => 'PERMANENT', parse => qr/permanent/, },],],
 	},
 	'ip access-list extended' => {
 	    store =>  'ACCESS',
@@ -1113,7 +1119,7 @@ sub generic_interface_acl_processing ( $$$ ) {
 
     # check for outgoing ACLS
     for my $intf (values %{ $conf->{IF} }) {
-        if (my $acl = $intf->{ACCESS_OUT} and not $intf->{SHUTDOWN})
+        if (my $acl = $intf->{ACCESS_GROUP_OUT} and not $intf->{SHUTDOWN})
         {
             warnpr
               "interface $intf->{name}: outgoing acl $acl detected\n";
