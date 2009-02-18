@@ -347,6 +347,13 @@ sub cmd_check_error($$) {
           and return 1;                       # identity nat
         ($msg =~ /Global \d+\.\d+\.\d+\.\d+ will be Port Address Translated/)
           and return 1;                       # PAT
+
+	# global (xxx) interface
+	# PIX: xxx interface address added to PAT pool
+	# ASA: INFO: xxx interface address added to PAT pool
+	$msg =~ /interface address added to PAT pool/
+	    and return 1;
+
         if ($msg =~ /(
 		      # overlapping statics from netspoc
 		      overlapped\/redundant |
