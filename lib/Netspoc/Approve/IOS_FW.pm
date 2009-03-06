@@ -313,7 +313,8 @@ sub process_interface_acls( $$$ ){
 	my $lines = $self->get_config_from_device();
 	$self->parse_device($new_conf, $lines) or 
 	    die "could not get router config\n";
-	$self->compare_interface_acls($pspoc,$new_conf,1); # be verbose, becaus mismatch is fatal
+	# be verbose, because mismatch is fatal
+	$self->compare_interface_acls($new_conf, $pspoc, 1); 
 	for my $intf (keys %{$$pspoc{IF}}){
 	    if($$pspoc{IF}->{$intf}->{TRANSFER} eq 'YES'){
 		errpr "acl change at interface \'$intf\' not complete\n";
