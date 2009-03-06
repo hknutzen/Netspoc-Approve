@@ -940,7 +940,7 @@ sub cancel_reload ( $ ) {
 # and check for textual identical acls
 #
 sub compare_interface_acls {
-    my ($self, $spoc_conf, $conf) = @_;
+    my ($self, $conf, $spoc_conf) = @_;
 
     mypr "===== compare (incoming) acls =====\n";
     for my $intf (values %{ $spoc_conf->{IF} }) {
@@ -968,9 +968,9 @@ sub compare_interface_acls {
                 mypr "interface $name - spoc: $sa_name, actual: $ca_name\n";
 		if (not 
 		    $self->acl_equal(
-			$spoc_conf->{ACCESS}->{$sa_name},
 			$conf->{ACCESS}->{$ca_name},
-			$sa_name, $ca_name, "interface $name"
+			$spoc_conf->{ACCESS}->{$sa_name},
+			$ca_name, $sa_name, "interface $name"
 		    )
 		    )
 		{
@@ -1126,7 +1126,7 @@ sub generic_interface_acl_processing ( $$$ ) {
         }
     }
     $self->{CHANGE}->{ACL} = 0;
-    $self->compare_interface_acls($spoc_conf, $conf) or return 0;
+    $self->compare_interface_acls($conf, $spoc_conf) or return 0;
 
     # check which spocacls really have to be transfered
     if ($self->{COMPARE}) {
@@ -1163,49 +1163,49 @@ sub generic_interface_acl_processing ( $$$ ) {
 sub crypto_struct_equal( $$$$$ );
 
 sub crypto_struct_equal( $$$$$ ) {
-    my ($self, $a, $b, $context, $changes, $ident) = @_;
+    my ($self, $conf, $spoc, $context, $changes, $ident) = @_;
     $ident = " $ident";
 
-    #print "-$a--$b-\n";
-    if (!ref $a) {
-        if (!ref $b) {
-            ($a eq $b) and return 1;
+    #print "-$conf--$spoc-\n";
+    if (!ref $conf) {
+        if (!ref $spoc) {
+            ($conf eq $spoc) and return 1;
         }
         else {
-            my $type = ref $b;
-            errpr "could not compare scalar $a with type $type\n";
+            my $type = ref $spoc;
+            errpr "could not compare scalar $conf with type $type\n";
         }
-        mypr "${ident}diff $a <=> $b\n";
+        mypr "${ident}diff $conf <=> $spoc\n";
         return 0;
     }
-    elsif (ref $a eq 'SCALAR') {
-        if (ref $b eq 'SCALAR') {
-            $self->crypto_struct_equal($$a, $$b, $context, $changes, $ident)
+    elsif (ref $conf eq 'SCALAR') {
+        if (ref $spoc eq 'SCALAR') {
+            $self->crypto_struct_equal($$conf, $$spoc, $context, $changes, $ident)
               and return 1;
         }
         else {
-            my $type = ref $b;
-            errpr "could not compare scalar ref $a with type $type\n";
+            my $type = ref $spoc;
+            errpr "could not compare scalar ref $conf with type $type\n";
         }
-        mypr "${ident}diff $a <=> $b\n";
+        mypr "${ident}diff $conf <=> $spoc\n";
         return 0;
     }
-    elsif (ref $a eq 'ARRAY') {
-        if (ref $b eq 'ARRAY') {
+    elsif (ref $conf eq 'ARRAY') {
+        if (ref $spoc eq 'ARRAY') {
 
             # arrays are equal iff have same elements in same order
-            if (@$a == @$b) {
+            if (@$conf == @$spoc) {
                 my $equal         = 1;
                 my $upper_context = $context;
-                for (my $i = 0 ; $i < scalar @$a ; $i++) {
+                for (my $i = 0 ; $i < scalar @$conf ; $i++) {
                     if ($upper_context eq "INSTANCES") {
 
                         # this MUSTbe the sequence number from DEVICE!!!!
-                        $context = $b->[$i]->{SEQU};
+                        $context = $spoc->[$i]->{SEQU};
                     }
                     unless (
                         $self->crypto_struct_equal(
-                            @$a[$i], @$b[$i], $context, $changes, $ident
+                            $conf->[$i], $spoc->[$i], $context, $changes, $ident
                         )
                       )
                     {
@@ -1220,32 +1220,32 @@ sub crypto_struct_equal( $$$$$ ) {
             }
         }
         else {
-            my $type = ref $b;
+            my $type = ref $spoc;
             errpr "could not compare array with type $type\n";
         }
         return 0;
     }
-    elsif (ref $a eq 'HASH') {
-        if (ref $b eq 'HASH') {
+    elsif (ref $conf eq 'HASH') {
+        if (ref $spoc eq 'HASH') {
             my $equal = 1;
-            for my $key (keys %$a) {
+            for my $key (keys %$conf) {
                 if ($key eq "ACCESS_GROUP_IN") {
-		    my $a_acl = $a->{$key};
+		    my $conf_acl = $conf->{$key};
 
                     # special handling for this entry because it
                     # is subject of change by netspoc
-                    if (my $b_acl = $b->{$key}) {
+                    if (my $spoc_acl = $spoc->{$key}) {
                         unless (
                             $self->acl_equal(
-                                $a->{FILTER_ACL},  $b->{FILTER_ACL},
-                                $a_acl, $b_acl, $key
+                                $conf->{FILTER_ACL},  $spoc->{FILTER_ACL},
+                                $conf_acl, $spoc_acl, $key
                             )
                           )
                         {
 
                             # $context holds sequence number of map
-                            $changes->{$key}->{$context}->{SPOC} = $a_acl;
-                            $changes->{$key}->{$context}->{CONF} = $b_acl;
+                            $changes->{$key}->{$context}->{CONF} = $conf_acl;
+                            $changes->{$key}->{$context}->{SPOC} = $spoc_acl;
 
                             # differences in the contents of these ACLs handled elsewhere!
                             # $equal = 0;
@@ -1253,18 +1253,18 @@ sub crypto_struct_equal( $$$$$ ) {
                     }
                     else {
                         warnpr "no crypto filter ACL found\n";
-                        $changes->{$key}->{$context}->{SPOC} = $a_acl;
-                        $changes->{$key}->{$context}->{CONF} = '';
+                        $changes->{$key}->{$context}->{CONF} = $conf_acl;
+                        $changes->{$key}->{$context}->{SPOC} = '';
                     }
                 }
-                elsif (exists $b->{$key}) {
+                elsif (exists $spoc->{$key}) {
                     if ($key eq "MATCH_ADDRESS") {
 
                         # Parser already checked that match address is present.
                         unless (
                             $self->acl_equal(
-                                $a->{MATCH_ACL},  $b->{MATCH_ACL},
-                                $a->{$key}, $b->{$key}, $key
+                                $conf->{MATCH_ACL},  $spoc->{MATCH_ACL},
+                                $conf->{$key}, $spoc->{$key}, $key
                             )
                           )
                         {
@@ -1280,7 +1280,7 @@ sub crypto_struct_equal( $$$$$ ) {
                     else {
                         unless (
                             $self->crypto_struct_equal(
-                                $a->{$key}, $b->{$key}, $context,
+                                $conf->{$key}, $spoc->{$key}, $context,
                                 $changes,     $ident
                             )
                           )
@@ -1295,8 +1295,8 @@ sub crypto_struct_equal( $$$$$ ) {
                     $equal = 0;
                 }
             }
-            for my $key (keys %$b) {
-                unless (exists $a->{$key}) {
+            for my $key (keys %$spoc) {
+                unless (exists $conf->{$key}) {
                     mypr "${ident}missing hash-key $key in netspoc config\n";
                     $equal = 0;
                 }
@@ -1304,13 +1304,13 @@ sub crypto_struct_equal( $$$$$ ) {
             return $equal;
         }
         else {
-            my $type = ref $b;
+            my $type = ref $spoc;
             errpr "could not compare hash with type $type\n";
         }
         return 0;
     }
     else {
-        errpr meself(0) . "unsupported type" . ref($a) . "\n";
+        errpr meself(0) . "unsupported type" . ref($conf) . "\n";
 
     }
     return 0;
@@ -1338,7 +1338,7 @@ sub crypto_processing( $$$ ) {
         if (my $conf_isakmp = $conf->{CRYPTO}->{ISAKMP}) {
             if (
                 $self->crypto_struct_equal(
-                    $spoc_isakmp, $conf_isakmp, $context, $changes, ''
+                    $conf_isakmp, $spoc_isakmp, $context, $changes, ''
                 )
               )
             {
@@ -1385,8 +1385,8 @@ sub crypto_processing( $$$ ) {
             mypr " $spoc_map_name <-> $conf_map_name\n";
             unless (
                 $self->crypto_struct_equal(
-                    $spoc->{CRYPTO}->{MAP}->{$spoc_map_name},
                     $conf->{CRYPTO}->{MAP}->{$conf_map_name},
+                    $spoc->{CRYPTO}->{MAP}->{$spoc_map_name},
                     'INSTANCES', $changes, ''
                 )
               )
@@ -1498,8 +1498,8 @@ sub crypto_processing( $$$ ) {
         if (exists $conf->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}) {
             if (
                 $self->crypto_struct_equal(
-                    $spoc->{CRYPTO}->{IPSEC},
                     $conf->{CRYPTO}->{IPSEC},
+                    $spoc->{CRYPTO}->{IPSEC},
                     $context, $changes, ''
                 )
               )
