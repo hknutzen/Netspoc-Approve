@@ -549,19 +549,17 @@ sub acl_array_compare_a_in_b {
     return ($clean and !$log_mismatch);    # a in b
 }
 
-# calling rule: a should be spoc (new) acl
-#               b should be conf (old) acl
 sub acl_equal {
-    my ($self, $a_acl, $b_acl, $a_name, $b_name, $context) = @_;
+    my ($self, $conf_acl, $spoc_acl, $conf_name, $spoc_name, $context) = @_;
     my $diff = 0;
-    mypr "compare ACLs $a_name $b_name for $context\n";
+    mypr "compare ACLs OLD=$conf_name NEW=$spoc_name for $context\n";
 
     ### textual compare
-    if (@{$a_acl} == @{$b_acl}) {
-        mypr "length equal: ", scalar @{$a_acl}, "\n";
+    if (@{$conf_acl} == @{$spoc_acl}) {
+        mypr "length equal: ", scalar @{$conf_acl}, "\n";
         mypr "compare line by line: ";
-        for (my $i = 0 ; $i < scalar @{$a_acl} ; $i++) {
-            if ($self->acl_line_a_eq_b($$a_acl[$i], $$b_acl[$i])) {
+        for (my $i = 0 ; $i < scalar @{$conf_acl} ; $i++) {
+            if ($self->acl_line_a_eq_b($$conf_acl[$i], $$spoc_acl[$i])) {
                 next;
             }
             else {
@@ -577,8 +575,8 @@ sub acl_equal {
     else {
         $diff = 1;
         mypr "lenght differ:" .
-	    " OLD: " . scalar @{$b_acl} . 
-	    " NEW: " . scalar @{$a_acl} . "\n";
+	    " OLD: " . scalar @{$conf_acl} . 
+	    " NEW: " . scalar @{$spoc_acl} . "\n";
     }
     ### textual compare finished
     if (!$diff) {
@@ -591,17 +589,15 @@ sub acl_equal {
     mypr "acl's differ textualy!\n";
     mypr "begin semantic compare:\n";
     if ($self->{CMPVAL} eq 4) {
-	$newinold = $self->acl_array_compare_a_in_b($a_acl, $b_acl);
-	$oldinnew = $self->acl_array_compare_a_in_b($b_acl, $a_acl);
+	$newinold = $self->acl_array_compare_a_in_b($spoc_acl, $conf_acl);
+	$oldinnew = $self->acl_array_compare_a_in_b($conf_acl, $spoc_acl);
     }
     else {
 	mypr "#### BEGIN NEW in OLD - $context\n";
-	mypr "#### $a_name in $b_name\n";
-	$newinold = $self->acl_array_compare_a_in_b($a_acl, $b_acl);
+	$newinold = $self->acl_array_compare_a_in_b($spoc_acl, $conf_acl);
 	mypr "#### END   NEW in OLD - $context\n";
 	mypr "#### BEGIN OLD in NEW - $context\n";
-	mypr "#### $b_name in $a_name\n";
-	$oldinnew = $self->acl_array_compare_a_in_b($b_acl, $a_acl);
+	$oldinnew = $self->acl_array_compare_a_in_b($conf_acl, $spoc_acl);
 	mypr "#### END   OLD in NEW - $context\n";
     }
     if ($newinold and $oldinnew) {
