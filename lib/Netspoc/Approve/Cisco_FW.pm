@@ -771,65 +771,6 @@ sub transfer_lines {
     return $change;
 }
 
-sub acls_identical {
-    my ($self, $confacl, $spocacl, $intf) = @_;
-    mypr "check for textual identity\n";
-    if (@$spocacl != @$confacl) {
-        mypr "lenght of acls differ: at device ", scalar @{$confacl},
-          " from netspoc ", scalar @{$spocacl}, "\n";
-        return 0;
-    }
-    mypr " acls have equal lenght: ", scalar @$spocacl, "\n";
-    mypr " compare line by line: ";
-    for (my $i = 0 ; $i < scalar @{$spocacl} ; $i++) {
-	if ($self->acl_line_a_eq_b($$spocacl[$i], $$confacl[$i])) {
-	    next;
-	}
-	else {
-	    mypr "equal lenght acls (", scalar @{$spocacl}, ") differ at ",
-	    ++$i, "!\n";
-	    return 0;
-	}
-    }
-    mypr "no diffs\n";
-
-    if ($self->{COMPARE}) {
-
-        # show compare results
-        mypr "#### BEGIN NEW in OLD - interface $intf\n";
-        my $newinold =
-          $self->acl_array_compare_a_in_b($spocacl, $confacl);
-        mypr "#### END   NEW in OLD - interface $intf\n";
-        mypr "#### BEGIN OLD in NEW - interface $intf\n";
-        my $oldinnew =
-          $self->acl_array_compare_a_in_b($confacl, $spocacl);
-        mypr "#### END   OLD in NEW - interface $intf\n";
-        if ($newinold && $oldinnew) {
-            mypr "#### ACLs equal for interface $intf\n";
-            return 1;
-        }
-        else {
-            mypr "#### ACLs differ - at interface $intf ####\n";
-            return 0;
-        }
-    }
-    else {
-        mypr "  do semantic compare - at interface $intf:\n";
-        if (
-            $self->acl_array_compare_a_in_b($spocacl, $confacl)  
-            && $self->acl_array_compare_a_in_b($confacl, $spocacl)
-          )
-        {
-            mypr "   -> interface $intf: acls identical\n";
-            return 1;
-        }
-        else {
-            mypr "   -> interface $intf: acls differ\n";
-            return 0;
-        }
-    }
-}
-
 sub transfer () {
     my ($self, $conf, $spoc_conf) = @_;
 
