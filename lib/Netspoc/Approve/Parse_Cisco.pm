@@ -334,3 +334,13 @@ sub skip {
     while(check_token($arg)) {}
     return;
 }
+
+# Collect remaining arguments.
+sub get_to_eol {
+    my($arg) = @_;
+    my $string;
+    while(my $token = check_token($arg)) {
+	$string .= $token;
+    }
+    return $string;
+}
