@@ -18,7 +18,7 @@ our @EXPORT =
     qw(analyze_conf_lines err_at_line
        get_token get_regex get_int get_ip get_eol get_ip_pair get_ip_prefix
        check_token check_regex check_int check_ip
-       get_name_in_out get_paren_token test_ne skip
+       get_name_in_out get_paren_token test_ne skip get_to_eol
  );
 
 # A Cisco command line consists of two parts: command and argument.
