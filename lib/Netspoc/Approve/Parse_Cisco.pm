@@ -331,7 +331,7 @@ sub test_ne {
 # Ignore remaining arguments.
 sub skip {
     my($arg) = @_;
-    while(check_token($arg)) {}
+    while ( defined( check_token($arg) ) ) {}
     return;
 }
 
@@ -339,7 +339,7 @@ sub skip {
 sub get_to_eol {
     my($arg) = @_;
     my $string;
-    while(my $token = check_token($arg)) {
+    while ( defined( my $token = check_token($arg) ) ) {
 	$string .= $token . ' ';
     }
     $string =~ s/\s*$//;
