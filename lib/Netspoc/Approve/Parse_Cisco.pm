@@ -342,5 +342,6 @@ sub get_to_eol {
     while(my $token = check_token($arg)) {
 	$string .= $token . ' ';
     }
+    $string =~ s/\s*$//;
     return $string;
 }
