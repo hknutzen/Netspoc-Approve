@@ -576,7 +576,8 @@ sub parse_seq {
 		$part_success = @values;
 	    }
 	    else {
-		my $value = parse_line($self, $arg, $parser, @evaled) 
+		my $value;
+		$value = parse_line($self, $arg, $parser, @evaled) 
 		    if $parser;
 		if(not defined $value) {
 		    $value = $part->{default};
