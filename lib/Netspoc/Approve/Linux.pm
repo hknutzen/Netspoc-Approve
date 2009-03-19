@@ -83,7 +83,9 @@ sub analyze_args {
     my $counter = 0;
 
     for my $line (@$lines) {
-	$counter++;	
+	$counter++;
+	next if $line =~ /^#/;
+	next if $line =~ /^\s*$/;
 	my @args = split(' ', $line);
 
 	# Remember current line number, set parse position.
@@ -97,30 +99,13 @@ sub analyze_args {
     }
     return($config);
 }
-
-# # Comment
-# *filter
-# :INPUT ACCEPT [68024:74200042]
-# :FORWARD ACCEPT [0:0]
-# :OUTPUT ACCEPT [54724:5982979]
-# -A INPUT -s 10.1.2.3 -j ACCEPT 
-# COMMIT
-# # Comment
-sub analyze_iptables {
-    my($self, $lines) = @_;
-    my $table;
-    for my $line (@$lines) {
-	next if $line =~ /^#/;
-	next if $line =~ /^\s*$/;
-    }
-}
-    
+   
 # Parse output of "ip route show".
 # Output is like single "ip route add ..." commands 
 # without the prefix "ip route add".
-sub get_parsed_config_from_device {
-    my ($self) = @_;
-    my $lines = $self->get_cmd_output('ip route show');
+sub parse_routes {
+    my ($self, $lines, $result) = @_;
+
     my $parse_route = $self->get_parse_info->{'ip route'};
     my $parser = $parse_route->{parse};
 
@@ -137,7 +122,101 @@ sub get_parsed_config_from_device {
 	$entry->{orig} = $arg->{orig};
 	push(@routes, $entry); 
     }
-    my $config = { $store => \@routes };
+    $result->{$store} = \@routes;
+}
+
+# # Comment
+# *filter
+# :INPUT ACCEPT [68024:74200042]
+# :FORWARD ACCEPT [0:0]
+# :OUTPUT ACCEPT [54724:5982979]
+# -A INPUT -s 10.1.2.3 -j ACCEPT 
+# COMMIT
+# # Comment
+sub parse_iptables {
+    my($self, $lines, $result) = @_;
+    my %tables;
+    my $table;
+    my $chain;
+    my $args = analyze_args($lines);
+    for my $arg (@$args) {
+	my $cmd = get_token($arg);
+	if($cmd eq 'COMMIT') {
+	    ;
+	}
+	elsif($cmd =~ /^\*(.+)$/) {
+	    $table = $1;
+	    $tables{$table} and 
+		err_at_line($arg, 'Multiple occurences of $line');
+	    $chain = {};
+	    $tables{$table}->{chain} = $chain;
+	}
+	elsif($cmd =~ /^:(.+)$/) {
+	    my $name = $1;
+	    my $policy = get_token($arg);
+	    if(not $policy eq '-') {
+		$tables{$table}->{default_policy}->{$name} = $policy;
+	    }
+	}
+	elsif($cmd eq '-A') {
+	    my $name = get_token($arg);
+	    my $rule;
+
+	    # Store rule as hash.
+	    # Only simple key / value pairs and "! --syn" allowed.
+	    if($table eq 'filter') {
+		$rule = {};
+		while(my $key = check_token($arg)) {
+		    if($key eq '!') {
+			if(check_regex('--syn', $arg)) {
+			    ;
+			}
+			else {
+			    get_regex('--tcp-flags', $arg);
+			    get_regex('FIN,SYN,RST,ACK', $arg);
+			    get_regex('SYN', $arg);
+			}
+			$rule->{nosyn} = 1;
+			next;
+		    }
+		    $key =~ /^-/ or 
+			err_at_line($arg, 'Expected option starting with "-"');
+		    my $value;
+		    if($key eq '-s' || $key eq '-d') {
+			my($base, $mask) = get_ip_prefix($arg);
+			$value = [ $base, $mask ];
+		    }
+		    else {
+			$value = get_token($arg);
+		    }
+		    $rule->{$key} = $value;
+		}
+	    }
+
+	    # Store rule as string.
+	    else {
+		$rule = get_to_eol($arg);
+	    }		
+	    push @{ $chain->{name} }, $rule;
+
+	}
+	else {
+	    err_at_line($arg, 'Syntax error');
+	}
+    }
+    $result->{IPTABLES} = \%tables;
+}
+ 
+sub get_parsed_config_from_device {
+    my ($self) = @_;
+    my $config = {};    
+
+    my $route_lines = $self->get_cmd_output('ip route show');
+    $self->parse_routes($route_lines, $config);
+
+    my $iptables_lines = $self->get_cmd_output('iptables-save');
+    $self->parse_iptables($iptables_lines, $config);
+    
     $self->postprocess_device_config($config);
     return $config;
 }
