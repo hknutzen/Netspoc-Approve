@@ -282,7 +282,7 @@ sub get_ip_pair {
     return($ip1, $ip2);
 }
 
-# <ip>[/<prefix>] | default
+# <ip>[/<prefix>] | <ip>/<mask> | default
 sub get_ip_prefix {
     my($arg) = @_;
     my $pair = get_token($arg);
@@ -294,11 +294,19 @@ sub get_ip_prefix {
 	my($addr, $prefix) = split(m'/', $pair, 2);
 	$base = quad2int($addr);
 	defined $base or err_at_line($arg, "Expected IP: $addr");
-	$mask = 0xffffffff;
 	if(defined $prefix) {
-	    $prefix =~ /^\d+$/ and $prefix <= 32 or
-		err_at_line($arg, "Expected IP prefix: $prefix");
-	    $mask = 2**32 - 2**(32 - $prefix);
+	    if($prefix =~ /^\d+$/) {
+		$prefix <= 32 or
+		    err_at_line($arg, "Expected IP prefix: $prefix");
+		$mask = 2**32 - 2**(32 - $prefix);
+	    }
+	    else {
+		$mask = quad2int($prefix);
+		defined $mask or err_at_line($arg, "Expected IP mask: $mask");
+	    }
+	}
+	else {
+	    $mask = 0xffffffff;
 	}
     }
     return($base, $mask);
