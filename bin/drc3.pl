@@ -165,7 +165,6 @@ my ($type, @ip) =
 					    $name, $opts{N} || $opts{F1});
 
 $type or die "Can't get type from spoc file\n";
-@ip > 0 or die "Can't get IP from spoc file\n";
 
 # Get class from type.
 my $class = $type2class{$type}
@@ -173,7 +172,6 @@ or die "Can't find class for spoc type '$type'\n";
 
 my $job = $class->new(
     NAME          => $name,
-    IP            => shift(@ip),
     OPTS          => \%opts,
     GLOBAL_CONFIG => $global_config,
 );
@@ -302,6 +300,9 @@ if (defined $job->{OPTS}->{PING_ONLY}) {
     mypr "\n";
     exit $ex;
 }
+
+@ip > 0 or die "Can't get IP from spoc file\n";
+$job->{IP} = shift(@ip);
 
 if (!$job->{OPTS}->{NOREACH}) {
     if (!$job->check_device()) {
