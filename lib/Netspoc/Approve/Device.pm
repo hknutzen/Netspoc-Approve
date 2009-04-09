@@ -1613,17 +1613,17 @@ sub compare_files {
     my ($self, $path1, $path2) = @_;
     $self->adaption();
 
-    if ( $self->{OPTS}->{C} ) {
+    if (defined $self->{OPTS}->{C}) {
 	# save compare mode
 	$self->{COMPARE} = 1;
+	$self->{CMPVAL} = $self->{OPTS}->{C};
     }
     else {
 	$self->{CMD2STDOUT} = 1;
-    }
 
-    # Default compare is silent(4) mode
-    $self->{CMPVAL} = $self->{OPTS}->{C};
-    defined $self->{CMPVAL} or $self->{CMPVAL} = 4;
+	# Default compare is silent(4) mode
+	$self->{CMPVAL} = 4;
+    }
 
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
