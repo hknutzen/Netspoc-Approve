@@ -684,13 +684,24 @@ sub convert_rules {
 
 	    # Ignore internal keys not starting with '-'.
 	    next if $key !~ /^-/;
+
 	    my $value = $rule->{$key};
+
+	    # Ignore match option for standard protocols.
+	    if($key eq '-m') {
+		my $proto = $rule->{-p} || '';
+		$value eq $proto or
+		    err_msg "Unsupported key/value '-m $value'",
+		    " in chain '$chain->{name}' of iptables";
+		next;
+	    }
+
 	    if(my $spec = $iptables2intern{$key}) {
 		my $conv_key = $spec->[0];
 		$converted->{$conv_key} = $value;
 	    }
 	    else {
-		err_msg "Key $key not supported in chain '$chain->{name}# of iptables";
+		err_msg "Key $key not supported in chain '$chain->{name}' of iptables";
 	    }
 	}
 	for my $spec (values %iptables2intern) {
