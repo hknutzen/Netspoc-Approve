@@ -582,7 +582,7 @@ sub add_prefix_suffix_info {
 	    $hash = $hash->{$word};
 	}
 	if(my $subcmd = $parse_info->{$key}->{subcmd}) {
-	    add_prefix_suffix_info($subcmd);
+	    $self->add_prefix_suffix_info($subcmd);
 	}
     }
     $parse_info->{_prefix} = $result if keys %$result;
