@@ -389,7 +389,17 @@ sub icmp_code {
 
 sub rule_code {
     my($rule) = @_;
-    my ($mode, $type, $src, $dst) = @{$rule}{qw(MODE TYPE SRC DST)};
+    my ($mode, $type, $src, $dst, $log) = @{$rule}{qw(MODE TYPE SRC DST LOG)};
+
+    # Single log line has been merged with following deny or permit line.
+    # Now split it again.
+    my $logline = '';
+    if($log) {
+	if(my $level = $rule->{LOG_LEVEL}) {
+	    $logline = '--log-level $level ';
+	}
+	$logline .= '-j LOG\n';
+    }
     my @result;
     push @result, "-s " . prefix_code($src) if $src->{BASE} != 0;
     push @result, "-d " . prefix_code($dst) if $dst->{BASE} != 0;
@@ -413,7 +423,7 @@ sub rule_code {
 	push @result, "-p $type";
     }
     push @result, "-j " . mode_code($mode) if $mode;
-    return join(' ', @result);
+    return $logline . join(' ', @result);
 }
 	
 
@@ -632,9 +642,9 @@ sub expand_chain {
     for(my $i = 0; $i < @$rules; $i++) {
 	my $rule = $rules->[$i];
 
-	# We only accept the goto flag '-g' as equivalent to '-j'
-	# if all following rules of the same chain are disjoint to current rule.
-	if($rule->{-g}) {
+	# We only accept the goto flag '-g' as equivalent to '-j' if
+	# all following rules of the same chain are disjoint to current rule.
+	if($rule->{'-g'}) {
 	    for (my $j = $i+1; $j < @$rules; $j++) {
 		my $next = $rules->[$j];
 		disjoint($rule, $next) or
@@ -643,8 +653,33 @@ sub expand_chain {
 	    }
 	}
 
-	my $target = $rule->{-j} || $rule->{-g} or err_msg "Missing target in rule";
+	my $target = $rule->{'-j'} || $rule->{'-g'} or 
+	    err_msg "Missing target in rule";
 
+	# Merge LOG target with following rule, because acl_equal doesn't
+	# support rules without terminating target.
+	if($target eq 'LOG') {
+	    my $level = delete $rule->{'--log-level'};
+	    for my $key (keys %$rule) {
+		next if $key !~ /^-/;
+		next if $key eq '-j';
+		err_msg "Unsupported '$key' in rule with '-j LOG'",
+		"\n $rule->{orig}";
+	    }
+	    my $next = $rules->[$i+1];
+	    for my $key (keys %$next) {
+		next if $key !~ /^-/;
+		next if $key eq '-j';
+		err_msg "Unsupported '$key' in rule follwing '-j LOG'",
+		"\n $next->{orig}";
+	    }
+	    $next->{'--log-level'} = $level if defined $level;
+
+	    # Artificial key, used only internal.
+	    $next->{'--log'} = 1;
+	    splice(@$rules, $i, 1);	    
+	}
+	    
 	# Terminal target.
 	if(not $chains->{$target}) {
 	    push @result, $rule;
@@ -669,6 +704,8 @@ my %iptables2intern = (
     '--syn' => [ 'ESTA' ],
     '-j' => [ 'MODE' ],
     '-g' => [ 'MODE' ],
+    '--log' => [ 'LOG' ],
+    '--log-level' => [ 'LOG_LEVEL' ],
 );
 
 # Convert expanded rules to internal format used in acl_array_compare_a_in_b.
@@ -689,7 +726,7 @@ sub convert_rules {
 
 	    # Ignore match option for standard protocols.
 	    if($key eq '-m') {
-		my $proto = $rule->{-p} || '';
+		my $proto = $rule->{'-p'} || '';
 		$value eq $proto or
 		    err_msg "Unsupported key/value '-m $value'",
 		    " in chain '$chain->{name}' of iptables";
@@ -880,8 +917,8 @@ sub process_iptables {
 	    # Only check builtin chains.
 	    next if not $conf_chain->{POLICY};
 	    my $spoc_chain = $spoc_chains->{$cname};
-	    my $conf_rules = $conf_chain->{RULES};
-	    my $spoc_rules = $spoc_chain->{RULES};
+	    my $conf_rules = $conf_chain->{RULES} || [];
+	    my $spoc_rules = $spoc_chain->{RULES} || [];
 	    my $conf_count = @$conf_rules;
 	    my $spoc_count = @$spoc_rules;
 	    if($conf_count != $spoc_count) {
@@ -894,8 +931,9 @@ sub process_iptables {
 		if(my($c_target, $s_target) = compare_rules($conf_rules->[$i],
 							    $spoc_rules->[$i]))
 		{
-		    if(my $c_chain = $conf_chains->{$c_target}) {
-			my $s_chain = $spoc_chains->{$s_target};
+		    my $c_chain = $conf_chains->{$c_target};
+		    my $s_chain = $spoc_chains->{$s_target};
+		    if($c_chain and $s_chain) {
 			my $context = "targets called by chain '$cname'";
 			$self->compare_chains($c_chain, $s_chain, $context) or
 			    $changed = 1;
