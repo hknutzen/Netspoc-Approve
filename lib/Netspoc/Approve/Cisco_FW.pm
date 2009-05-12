@@ -21,11 +21,140 @@ use warnings;
 use IO::Socket ();
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
+use Data::Dumper;
+
+
+# Global variables.
+my %connected;
+my %transfered2orig;
+my %acl_transfered_as;
+my %acl_needed;
+my %acl_need_transfer;
+my %acl_need_remove;
+my %new_name;
+my %attr_with_value = (
+		       'banner'                    => 1,
+		       'vpn-filter'                => 1,
+		       'address-pools'             => 1,
+		       'split-tunnel-network-list' => 1,
+		       );
+
+my %tunnel_group_ipsec = (
+			  'isakmp'           => 1,
+			  'peer-id-validate' => 1,
+			  'trust-point'      => 1,
+			  );
+
+my %define_object = (
+		     TUNNEL_GROUP => {
+			 prefix  => 'tunnel-group',
+			 postfix => 'type remote-access',
+		     },
+		     GROUP_POLICY => {
+			 prefix  => 'group-policy',
+			 postfix => 'internal',
+		     },
+		     USERNAME => {
+			 prefix  => 'username',
+			 postfix => 'nopassword',
+		     },
+		     );
+
+my %conf_mode_entry = (
+		       TUNNEL_GROUP => {
+			   prefix  => 'tunnel-group',
+			   postfix => 'general-attributes',
+		       },
+		       TUNNEL_GROUP_IPSEC => {
+			   prefix  => 'tunnel-group',
+			   postfix => 'ipsec-attributes',
+		       },
+		       GROUP_POLICY => {
+			   prefix  => 'group-policy',
+			   postfix => 'attributes',
+		       },
+		       OBJECT_GROUP => {
+			   prefix  => 'object-group',
+			   postfix => '',
+		       },
+		       CA_CERT_MAP => {
+			   prefix  => 'crypto ca certificate map',
+			   postfix => '10',
+		       },
+		       USERNAME => {
+			   prefix  => 'username',
+			   postfix => 'attributes',
+		       },
+		       DEFAULT_GROUP => {
+			   prefix  => 'tunnel-group-map default-group',
+			   postfix => '',
+		       },
+		       );
+
+my %attr2cmd = (
+		# username
+		VPN_FRAMED_IP_ADDRESS     => 'vpn-framed-ip-address',
+		VPN_FILTER                => 'vpn-filter value',
+		VPN_GROUP_POLICY          => 'vpn-group-policy',
+		SERVICE_TYPE              => 'service-type',
+		# group-policy
+		BANNER	                  => 'banner value',
+		SPLIT_TUNNEL_POLICY       => 'split-tunnel-policy',
+		SPLIT_TUNNEL_NETWORK_LIST => 'split-tunnel-network-list value',
+		VPN_IDLE_TIMEOUT          => 'vpn-idle-timeout value',
+		ADDRESS_POOL              => 'address-pools value',
+		VPN_FILTER                => 'vpn-filter value',
+		PFS	                  => 'pfs',
+		# tunnel-group
+		CERTIFICATE_FROM	  => 'username-from-certificate',
+		AUTHZ_SERVER_GROUP        => 'authorization-server-group',
+		AUTHEN_SERVER_GROUP       => 'authentication-server-group',
+		AUTHZ_REQUIRED            => 'authorization-required',
+		DEFAULT_GROUP_POLICY      => 'default-group-policy',
+		# tunnel-group-map
+		TUNNEL_GROUP_MAP	  => 'tunnel-group-map',
+		# tunnel-group ipsec-attributes
+		PEER_ID_VALIDATE          => 'peer-id-validate',
+		CHAIN                     => 'chain',
+		TRUST_POINT               => 'trust-point',
+		ISAKMP                    => 'isakmp ikev1-user-authentication',
+		# crypto ca certificates
+		IDENTIFIER                => 'subject-name attr',
+		# ip local pool
+		IP_LOCAL_POOL             => 'ip local pool',
+		);
+
+my %parse2attr = (
+		  USERNAME => {
+		      GROUP_POLICY => 'VPN_GROUP_POLICY',
+		      ACCESS       => {
+			  'vpn_filter'   => 'VPN_FILTER',
+		      }
+		  },
+		  GROUP_POLICY => {
+		      POOL   => 'ADDRESS_POOL',
+		      ACCESS => {
+			  'split_tunnel' => 'SPLIT_TUNNEL_NETWORK_LIST',
+			  'vpn_filter'   => 'VPN_FILTER',
+		      }
+		  },
+		  TUNNEL_GROUP => {
+		      GROUP_POLICY => 'DEFAULT_GROUP_POLICY',
+		  },
+		  );
+		      
+		      
+
+
 
 sub get_parse_info {
     my ($self) = @_;
+    my $null = {
+	'BASE' => 0,
+	'MASK' => 0
+	};
     { 
-
+	
 #  global [(<ext_if_name>)] <nat_id>
 #         {<global_ip>[-<global_ip>] [netmask <global_mask>]} | interface
 #
@@ -197,48 +326,67 @@ sub get_parse_info {
 		   ['seq',
 		    { parse => qr/remark/ },
 		    { parse => \&skip } ],
-		   ['seq',
-		    { parse => qr/extended/, default => 1 },
-		    { store => 'MODE', parse => qr/permit|deny/ },
-		    ['or',
-		     ['seq',
-		      { parse => qr/object-group/ },
-		      { error => '"object-group" as proto is unsupported' } ],
-		     ['seq',
-		      { store => 'TYPE', parse => qr/ip/ },
-		      { store => 'SRC', parse => 'parse_address' },
-		      { store => 'DST', parse => 'parse_address' } ],,
-		     ['seq',
-		      { store => 'TYPE', parse => qr/udp|tcp/ },
-		      { store => 'SRC', parse => 'parse_address' },
-		      { store => 'SRC_PORT', 
-			parse => 'parse_port_spec', params => ['$TYPE'] },
-		      { store => 'DST', parse => 'parse_address' },
-		      { store => 'DST_PORT', 
-			parse => 'parse_port_spec', params => ['$TYPE'] } ],
-		     ['seq',
-		      { store => 'TYPE', parse => qr/icmp/ },
-		      { store => 'SRC', parse => 'parse_address' },
-		      { store => 'DST', parse => 'parse_address' },
-		      { store => 'SPEC', parse => 'parse_icmp_spec' }, ],
-		     ['seq',
-		      { store => 'TYPE', parse => \&get_token },
-		      { store => 'TYPE' ,
-			parse => 'normalize_proto', params => [ '$TYPE' ] },
-		      { store => 'SRC', parse => 'parse_address' },
-		      { store => 'DST', parse => 'parse_address' } ]],
+		   
+		   ['or', # standard or extended access-list
 		    ['seq',
-		     { store => 'LOG', parse => qr/log/ },
+		     { store => 'ACL_TYPE', parse => qr/standard/ },
+		     { store => 'MODE', parse => qr/permit|deny/ },
+		     { store => 'DST',  parse => 'parse_address' },
+		     { store => 'SRC',  parse => \&skip, default => $null },
+		     { store => 'TYPE', parse => \&skip, default => 'ip'  },
+		     ],
+		    ['seq',
+		     { store => 'ACL_TYPE',
+		       parse => qr/extended/, default => 'extended' },
+		     { store => 'MODE', parse => qr/permit|deny/ },
 		     ['or',
-		      { store => 'LOG_MODE', parse => qr/disable|default/ },
 		      ['seq',
-		       { store => 'LOG_LEVEL', 
-			 parse => \&check_int, default => 6 },
+		       { parse => qr/object-group/ },
+		       { error => '"object-group" as proto is unsupported' } ],
+		      ['seq',
+		       { store => 'TYPE', parse => qr/ip/ },
+		       { store => 'SRC', parse => 'parse_address' },
+		       { store => 'DST', parse => 'parse_address' } ],,
+		      ['seq',
+		       { store => 'TYPE', parse => qr/udp|tcp/ },
+		       { store => 'SRC', parse => 'parse_address' },
+		       { store => 'SRC_PORT', 
+			 parse => 'parse_port_spec', params => ['$TYPE'] },
+		       { store => 'DST', parse => 'parse_address' },
+		       { store => 'DST_PORT', 
+			 parse => 'parse_port_spec', params => ['$TYPE'] } ],
+		      ['seq',
+		       { store => 'TYPE', parse => qr/icmp/ },
+		       { store => 'SRC', parse => 'parse_address' },
+		       { store => 'DST', parse => 'parse_address' },
+		       { store => 'SPEC', parse => 'parse_icmp_spec' }, ],
+		      ['seq',
+		       { store => 'TYPE', parse => \&get_token },
+		       { store => 'TYPE' ,
+			 parse => 'normalize_proto', params => [ '$TYPE' ] },
+		       { store => 'SRC', parse => 'parse_address' },
+		       { store => 'DST', parse => 'parse_address' } ]],
+		     ['seq',
+		      { store => 'LOG', parse => qr/log/ },
+		      ['or',
+		       { store => 'LOG_MODE', parse => qr/disable|default/ },
 		       ['seq',
-			{ parse => qr/interval/ },
-			{ store => 'LOG_INTERVAL', 
-			  parse => \&check_int } ]]]]]]]]
-	},
+			{ store => 'LOG_LEVEL', 
+			  parse => \&check_int, default => 6 },
+			['seq',
+			 { parse => qr/interval/ },
+			 { store => 'LOG_INTERVAL', 
+			   parse => \&check_int }
+			 ]
+			]
+		       ]
+		      ]
+		     ]
+		    ]
+		   ]
+		  ]
+		 ],
+	     },
 
 # crypto map map-name seq-num match address acl_name
 # ignore 
@@ -664,6 +812,33 @@ sub postprocess_config {
         }
     }
     mypr meself(1)
+      . ": USERS found: "
+      . scalar(keys %{ $p->{USERNAME} }) . "\n";
+
+    mypr meself(1)
+      . ": GROUP POLICIES found: "
+      . scalar(keys %{ $p->{GROUP_POLICY} }) . "\n";
+
+    mypr meself(1)
+      . ": TUNNEL GROUPS found: "
+      . scalar(keys %{ $p->{TUNNEL_GROUP} }) . "\n";
+
+    mypr meself(1)
+      . ": TUNNEL GROUP MAPS found: "
+      . scalar(keys %{ $p->{TUNNEL_GROUP_MAP} }) . "\n";
+
+    if ( $p->{TUNNEL_GROUP_MAP}->{DEFAULT_GROUP} ) {
+	mypr meself(1)
+	    . ": DEFAULT TUNNEL GROUP: "
+	    . $p->{TUNNEL_GROUP_MAP}->{DEFAULT_GROUP} . "\n";
+    }
+
+    mypr meself(1)
+      . ": CERTIFICATE MAPS found: "
+      . scalar(keys %{ $p->{CA_CERT_MAP} }) . "\n";
+#    print Dumper( $p->{CA_CERT_MAP} ), "\n";
+
+    mypr meself(1)
       . ": CRYPTO MAPS found: "
       . scalar(keys %{ $p->{CRYPTO}->{MAP} }) . "\n";
 
@@ -682,6 +857,16 @@ sub postprocess_config {
             $c_acl_counter++;
         }
         elsif ($p->{is_filter_acl}->{$acl_name}) {
+            mypr meself(1)
+              . ": $acl_name "
+              . scalar @{ $p->{ACCESS_LIST}->{$acl_name} } . "\n";
+        }
+        elsif ($p->{is_vpn_filter_acl}->{$acl_name}) {
+            mypr meself(1)
+              . ": $acl_name "
+              . scalar @{ $p->{ACCESS_LIST}->{$acl_name} } . "\n";
+        }
+        elsif ($p->{is_split_tunnel_acl}->{$acl_name}) {
             mypr meself(1)
               . ": $acl_name "
               . scalar @{ $p->{ACCESS_LIST}->{$acl_name} } . "\n";
@@ -771,27 +956,17 @@ sub transfer_lines {
     return $change;
 }
 
-sub transfer () {
-    my ($self, $conf, $spoc_conf) = @_;
+sub acl_removal_cmd {
+    my ( $self, $acl_name ) = @_;
+    return unless $acl_name;
+    return "no access-list $acl_name";
+}
 
-    $self->process_routing($conf, $spoc_conf) or return 0;
+sub generate_names_for_transfer {
+    my ( $conf, $spoc, $structure ) = @_;
 
-    #
-    # *** access-lists ***
-    #
-    my $get_acl_names_and_objects = sub {
-        my ($intf)  = @_;
-        my $sa_name = $spoc_conf->{IF}->{$intf}->{ACCESS};
-        my $spocacl = $spoc_conf->{ACCESS}->{$sa_name};
-        my $ca_name = $conf->{IF}->{$intf}->{ACCESS} || '';
-        my $confacl = $ca_name ? $conf->{ACCESS}->{$ca_name} : '';
-        return ($confacl, $spocacl, $ca_name, $sa_name);
-    };
-
-    # generate new names for transfer
-    #
-    # possible names are (per name convention):  <spoc-name>-DRC-<index>
-    #
+    # Generate new names for transfer.
+    # New names are:  <spoc-name>-DRC-<index>
     my $generate_names_for_transfer = sub {
         my ($obj_id, $objects) = @_;
         my $new_id_prefix = "$obj_id-DRC-";
@@ -802,228 +977,1150 @@ sub transfer () {
         return "$new_id_prefix$new_id_index";
     };
 
-    my %acl_need_transfer;
-    my %group_need_transfer;
+    for my $parse_name ( keys %{$structure} ) {
+	next if $parse_name eq 'USERNAME';
+	# Generate new names for object $object.
+	for my $object ( keys %{ $spoc->{$parse_name} } ) {
+	    $new_name{$object} =
+		$generate_names_for_transfer->( $object,
+						$conf->{$parse_name} );
+	}
+    }
+}
 
-    my $mark_for_transfer;
-    $mark_for_transfer = sub {
-        my ($acl_name) = @_;
-	return if $acl_need_transfer{$acl_name};
-	$acl_need_transfer{$acl_name} = 1;
-        mypr "marked acl $acl_name for transfer\n";
-        for my $gid (keys %{ $spoc_conf->{acl2group}->{$acl_name} }) {
-            unless ($group_need_transfer{$gid}) {
-                $group_need_transfer{$gid} = 1;
-                print "marked group $gid for transfer\n";
-            }
-            for my $name (keys %{ $spoc_conf->{group2acl}->{$gid} }) {
-                &$mark_for_transfer($name);
-            }
-        }
-    };
+sub equalize_attributes {
+    my ( $self, $conf_value, $spoc_value,
+	 $parse_name, $structure ) = @_;
 
-    my %acl_need_remove;
-    my %group_need_remove;
+    my $modified;
+    my $parse = $structure->{$parse_name};
+    if ( not ( $structure && $parse_name ) ) {
+	errpr "structure or parse_name not defined! \n";
+    }
 
-    unless ($spoc_conf->{IF}) {
-        warnpr " no interfaces specified - leaving access-lists untouched\n";
+    #mypr "CHECK DEV:$conf_value->{name} \t SPOC:$spoc_value->{name} \n";
+
+    # Equalize "normal" (normal=non-next) attributes.
+    for my $attr ( @{$parse->{attributes}} ) {
+	#mypr "Check attribute $attr ... \n";
+	my $spoc_attr = $spoc_value->{$attr};
+	my $conf_attr = $conf_value->{$attr};
+	if ( $spoc_attr  &&  $conf_attr ) { 
+	    # Attribute present on both.
+	    if ( $spoc_attr ne $conf_attr ) {
+#		mypr " < " . $conf_value->{name} . " > " .
+#		    " --> ATTR:$attr  DEV:$conf_attr  SPOC:$spoc_attr \n";
+		$modified = 1;
+		$spoc_value->{change_attr}->{$attr} = $spoc_attr;
+	    }		    
+	}
+	elsif ( $spoc_attr  &&  ! $conf_attr ) {
+	    #mypr "Attribute $attr present only in netspoc. \n";
+	    $modified = 1;
+	    $spoc_value->{change_attr}->{$attr} = $spoc_attr;
+	}
+	elsif ( ! $spoc_attr  &&  $conf_attr ) {
+	    #mypr "Attribute $attr present only on device. \n";
+	    $modified = 1;
+	    $conf_value->{remove_attr}->{$attr} = $conf_attr;
+	}
+	else {
+	    #warnpr "Attribute '$attr' not on device and not in Netspoc! \n";
+	}
+    }
+
+    # Equalize next-attributes.
+    for my $next_key ( @{$parse->{next}} ) {
+	my $next_attr_name  = $next_key->{attr_name};
+	my $next_parse_name = $next_key->{parse_name};
+	my $conf_next = $conf_value->{$next_attr_name};
+	my $spoc_next = $spoc_value->{$next_attr_name};
+	if ( $conf_next && !$spoc_next ) {
+	    $modified = 1;
+	    $conf_value->{remove_attr}->{$next_attr_name} =
+		$conf_next;
+	}
+    }
+    return $modified;
+}
+
+sub make_equal {
+    my ( $self, $conf, $spoc, $parse_name, $conf_name,
+	 $spoc_name, $structure ) = @_;
+
+    return undef unless ( $spoc_name  ||  $conf_name );
+
+#    mypr "\nMAKE EQUAL( $parse_name ) => CONF:$conf_name, " .
+#	"SPOC:$spoc_name \n";
+
+    my $modified;
+    my $conf_value = object_for_name( $conf, $parse_name,
+				      $conf_name, 'no_err' );
+    my $spoc_value = object_for_name( $spoc, $parse_name,
+				      $spoc_name, 'no_err' );
+
+    my $spoc_name_is_acl;
+    if ( is_acl( $spoc, $spoc_name )  &&
+	 $parse_name eq 'ACCESS' ) {
+	$spoc_name_is_acl = 1;
+    }	
+
+    # If object already has been tranfered before, just
+    # return the name of the transfered object.
+    if ( $spoc_name_is_acl ) {
+	if ( $acl_need_transfer{$spoc_name} ) {
+	    return new_name_for( $spoc_name );
+	}
     }
     else {
-        mypr "processing access-lists\n";
-	$self->{CHANGE}->{ACL} = 0;
-        for my $intf (keys %{ $spoc_conf->{IF} }) {
-            $conf->{IF}->{$intf} or
-                errpr 
-		"netspoc configured interface '$intf' not found on device\n";
-	}
-
-        # detect diffs
-        if ($self->{COMPARE}) {
-            for my $intf (keys %{ $spoc_conf->{IF} }) {
-                mypr "interface $intf\n";
-                my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
-                  &$get_acl_names_and_objects($intf);
-
-                if ($confacl_name && $confacl) {
-                    $self->acl_equal($confacl, $spocacl, 
-				     $confacl_name, $spocacl_name, 
-				     "interface $intf")
-                        or $self->{CHANGE}->{ACL} = 1;
-                }
-                else {
-
-                    $self->{CHANGE}->{ACL} = 1;
-                    mypr "#### OOPS:  $spocacl_name at interface $intf:\n";
-                    mypr "#### OOPS:  no corresponding acl on device\n";
-                }
-                mypr "-------------------------------------------------\n";
-            }
-        }
-        else {
-
-            # mark objects to transfer
-            for my $intf (keys %{ $spoc_conf->{IF} }) {
-                mypr "interface $intf\n";
-                my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
-                  &$get_acl_names_and_objects($intf);
-                if ($acl_need_transfer{$spocacl_name}) {
-                    mypr " ...already marked for transfer\n";
-                    next;
-                }
-                if (!$confacl) {
-                    warnpr "interface $intf no acl on device - new acl has ",
-                      scalar @{ $spoc_conf->{ACCESS}->{$spocacl_name} },
-                      " entries\n";
-                    $self->{CHANGE}->{ACL} = 1;
-                    &$mark_for_transfer($spocacl_name);
-                }
-                elsif (not $self->acl_equal($confacl, $spocacl, 
-					    $confacl_name, $spocacl_name, 
-					    "interface $intf"))
-                {
-
-                    # Either there is no acl on $intf or the acl differs.
-                    # Mark groups and interfaces recursive for transfer 
-		    # of spocacls
-                    $self->{CHANGE}->{ACL} = 1;
-                    &$mark_for_transfer($spocacl_name);
-                }
-                elsif ($self->{FORCE_TRANSFER}) {
-                    warnpr "Interface $intf: transfer of ACL forced!\n";
-                    $self->{CHANGE}->{ACL} = 1;
-                    &$mark_for_transfer($spocacl_name);
-                }
-                mypr "-------------------------------------------------\n";
-            }
-
-            # Mark acls for removal.
-            for my $intf (keys %{ $spoc_conf->{IF} }) {
-                my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
-		    &$get_acl_names_and_objects($intf);
-                next if not $acl_need_transfer{$spocacl_name};
-		next if not $confacl;
-		$acl_need_remove{$confacl_name} and errpr "unexpected REMOVE mark\n";
-		$acl_need_remove{$confacl_name} = 1;
-		mypr "marked acl $confacl_name for remove\n";
-		for my $gid (keys %{ $conf->{acl2group}->{$confacl_name} }) {
-
-		    # Mark group as candidate for removal.
-		    $group_need_remove{$gid} = 1;
-		}
-            }
-
-	    # Only remove group if all ACLs that reference
-	    # this group are renewed by netspoc.
-	    for my $gid (keys %group_need_remove) {
-		for my $confacl_name (keys %{ $conf->{group2acl}->{$gid} }) {
-		    if(not $acl_need_remove{$confacl_name}) {
-			$group_need_remove{$gid} = undef;
-			last;
-		    }
-		}
-		if($group_need_remove{$gid}) {
-		    mypr "marked group $gid for remove\n";
-		}
+	if ( $spoc_value ) {
+	    if ( $spoc_value->{transfer} ) {
+		my $new_name = new_name_for( $spoc_name );
+		return $new_name;
 	    }
+	}
+    }
 
-            # Generate names for transfer.
-	    my %new_group_id;
-	    my %new_acl_name;
-            for my $obj_id (keys %{ $spoc_conf->{OBJECT_GROUP} }) {
-                next if not $group_need_transfer{$obj_id};
-                $new_group_id{$obj_id} =
-                  $generate_names_for_transfer->($obj_id, $conf->{OBJECT_GROUP});
-            }
-            for my $obj_id (keys %{ $spoc_conf->{ACCESS_LIST} }) {
-                next if not $acl_need_transfer{$obj_id};
-		$new_acl_name{$obj_id} =
-                  $generate_names_for_transfer->($obj_id, $conf->{ACCESS_LIST});
-            }
+    if ( $conf_value  &&  $spoc_value ) {
+	# On both, compare attributes.
+	if ( $spoc_name_is_acl ) {
+	    # Compare acl using acl_equal.
+	    if ( $self->acl_equal( $conf_value, $spoc_value,
+				   $conf_name, $spoc_name, $parse_name ) )
+	    {
+		# Acls that do not have attribute "needed"
+		# will be removed from device later.
+		$acl_needed{$conf_name} = 1;
+	    }
+	    else {
+		$modified = 1;
+		$acl_need_transfer{$spoc_name} = 1;
+	    }
+	}
+	else {
+	    $conf_value->{needed} = 1;
+	    # String-compare and mark changed attributes.
+	    $modified = $self->equalize_attributes( $conf_value, $spoc_value,
+						    $parse_name, $structure );
+	    $spoc_value->{name_on_dev} = $conf_name;
+	}
+    }
+    elsif ( $conf_value  &&  !$spoc_value ) {
+	# On dev but not on spoc.
+#	mypr "$parse_name => $conf_name on dev but not on spoc. \n";
+	mark_for_remove( $conf, $conf_name, $conf_value );
+    }
+    elsif ( !$conf_value  &&  $spoc_value ) {
+	# On spoc but not on dev.
+#	mypr "$parse_name => $spoc_name on spoc but not on dev. \n";
+	mark_for_transfer( $spoc, $spoc_name, $spoc_value );
+    }
+    else {
+	if ( $conf_name ) {
+	    warnpr "Referenced $parse_name -> $conf_name " .
+		"not found on device! \n";
+	}
+    }
 
-            $self->enter_conf_mode;
+    if ( my $parse = $structure->{$parse_name} ) {
+	# See if we have to continue recursively.
+	if ( my $next = $parse->{next} ) {
+	    for my $next_key ( @$next ) {
+		my $next_attr_name  = $next_key->{attr_name};
+		my $next_parse_name = $next_key->{parse_name};
+		my $conf_next;
+		$conf_next = $conf_value->{$next_attr_name} if $conf_value;
+		my $spoc_next;
+		$spoc_next = $spoc_value->{$next_attr_name} if $spoc_value;
+		
+		my $new_conf_next =
+		    $self->make_equal( $conf, $spoc, $next_parse_name,
+				       $conf_next, $spoc_next,
+				       $structure );
 
-            # Transfer groups.
-            mypr "transfer object-groups to device\n";
-            for my $obj_id (keys %{ $spoc_conf->{OBJECT_GROUP} }) {
-		my $group = $spoc_conf->{OBJECT_GROUP}->{$obj_id};
-                next if not $group_need_transfer{$obj_id};
-		my $new_id = $new_group_id{$obj_id};
-		my $cmd = "object-group $group->{TYPE} $new_id";
-                mypr " $cmd\n";
-		$self->cmd($cmd);
-		map({ $self->cmd($_->{orig}) } @{ $group->{NETWORK_OBJECT} });
-		$self->cmd('exit');
-            }
-
-            # Transfer ACLs.
-            mypr "transfer access-lists to device\n";
-            for my $obj_id (keys %{ $spoc_conf->{ACCESS_LIST} }) {
-                next if not $acl_need_transfer{$obj_id};
-                my $new_id = $new_acl_name{$obj_id};
-                mypr "access-list $new_id\n";
-                for my $ace (@{ $spoc_conf->{ACCESS_LIST}->{$obj_id} }) {
-		    my $cmd = $ace->{orig};
-		    for my $where (qw(SRC DST)) {
-			if (my $gid = $ace->{$where}->{OBJECT_GROUP}) {
-			    my $new_gid = $new_group_id{$gid};
-			    $cmd =~ 
-				s/object-group $gid(?!\S)/object-group $new_gid/;
+		# If an object is transfered, a new name is
+		# generated for that object (exception:USERNAME).
+		# If there is a superior object,
+		# the corresponding attribute in that superior object
+		# has to be altered, so that it carries the name of the
+		# transfered object.
+		my $spoc_next_is_acl;
+		if ( $spoc_next ) {
+		    if ( is_acl( $spoc, $spoc_next ) &&
+			 $next_parse_name eq 'ACCESS' ) {
+			$spoc_next_is_acl = 1;
+		    }
+		    if ( my $next_obj =
+			 $spoc->{$next_parse_name}->{$spoc_next} ) {
+			if ( $spoc_next_is_acl ) {
+			    if ( $acl_need_transfer{$spoc_next} ) {
+				$spoc_value->{change_attr}->{$next_attr_name} =
+				    new_name_for( $spoc_next );
+			    }
+			}
+			elsif ( $next_obj->{transfer} ) {
+			    $spoc_value->{change_attr}->{$next_attr_name} =
+				new_name_for( $spoc_next );
 			}
 		    }
-		    $cmd = "access-list $new_id " . $cmd;
-                    $self->cmd($cmd);
-                }
-                mypr "\n";
+		}
 
-                # Assign list to interface.
-                my $intf = $spoc_conf->{ACCESS_GROUP}->{$obj_id}->{IF_NAME};
-                mypr "access-group $new_id in interface $intf\n";
-                $self->cmd("access-group $new_id in interface $intf");
-            }
+		if ( $new_conf_next ) {
+		    if ( ! $conf_next ||
+			 ( $conf_next ne $new_conf_next ) ) {
 
-            # Remove ACLs.
-	    # Do it first, because otherwise group remove would not work.
-            mypr "remove spare acls from device\n";
-            for my $acl_name (keys %{ $conf->{ACCESS_LIST} }) {
-                if (    $acl_need_remove{$acl_name}
-		    or (    not $conf->{is_filter_acl}->{$acl_name}
-		        and not $conf->{is_crypto_acl}->{$acl_name}))
-                {
-		    my $cmd = ($self->{VERSION} >= 7.0) 
-  			    ? "clear configure access-list $acl_name"
-			    : "no access-list $acl_name";
-		    mypr " $cmd\n";
-                        $self->cmd($cmd);
-                }
-            }
+			$transfered2orig{$new_conf_next} = $spoc_next;
 
-            # Remove groups.
-            mypr "remove spare object-groups from device\n";
-            for my $gid (keys %{ $conf->{OBJECT_GROUP} }) {
-                if (   $group_need_remove{$gid}
-		    or not $conf->{group2acl}->{$gid})
-                {
-		    my $type = $conf->{OBJECT_GROUP}->{$gid}->{TYPE};
-		    my $cmd = "no object-group $type $gid";
-                    mypr " $cmd\n";
-                    $self->cmd($cmd);
-                }
-            }
-            $self->leave_conf_mode;
-        }
+			if ( $spoc_value ) {
+
+			    if ( $spoc_next_is_acl ) {
+				my $acl_type = $spoc->{is_vpn_filter_acl} ?
+				    'vpn_filter'  :  'split_tunnel';
+				my $types2attr =
+				    $parse2attr{$parse_name}->{$next_parse_name};
+				my $attr = $types2attr->{$acl_type};
+
+				$spoc_value->{change_attr}->{$attr} =
+				    $new_conf_next;
+			    }
+			    else {
+				my $attr =
+				    $parse2attr{$parse_name}->{$next_parse_name};
+
+				$spoc_value->{change_attr}->{$attr} =
+				    $new_conf_next;
+			    }
+			}
+			else {
+			    die "spoc-value undefined!";
+			}		    
+		    }
+		}
+	    }
+	}
+    }
+    
+    if ( $modified ) {
+	if ( $structure->{$parse_name}->{copy_on_modify} ) {
+	    if ( $new_name{$spoc_name} ) {
+		return $new_name{$spoc_name};
+	    }
+	    else {
+		errpr "New name needed for transfer of $conf_name! \n";
+	    }
+	}
+    }
+    
+    # Standard return value ...
+    return $conf_name;
+}
+
+sub unify_anchors {
+    my ( $self, $conf, $spoc, $structure ) = @_;
+
+    for my $key ( keys %$structure ) {
+        my $value = $structure->{$key};
+        next if not $value->{anchor};
+#	mypr "\n\nProcessing anchor $key ... \n";
+        my $conf_anchor = $conf->{$key};
+        my $spoc_anchor = $spoc->{$key};
+	my %seen;
+
+	# Iterate over anchors on device.
+        for my $conf_key ( keys %$conf_anchor ) {
+	    $seen{$conf_key} = 1;
+	    my $new_conf = 
+		$self->make_equal( $conf, $spoc, $key,
+				   $conf_key, $conf_key,
+				   $structure );
+	    if ( not $conf_key eq $new_conf ) {
+		errpr "Anchors known so far are made equal by " .
+		    "changing their attributes, not by transfer. " .
+		    "(Anchor:$conf_key) \n";
+	    }
+	}
+	# Iterate over anchors in netspoc (without those already
+	# processed iterating over anchors on device).
+        for my $spoc_key ( keys %$spoc_anchor ) {
+	    next if $seen{$spoc_key};
+	    my $new_spoc = 
+		$self->make_equal( $conf, $spoc, $key,
+				   $spoc_key, $spoc_key,
+				   $structure );
+	    if ( not $spoc_key eq $new_spoc ) {
+		errpr "Anchors known so far are made equal by " .
+		    "changing their attributes, not by transfer. " .
+		    "(Anchor:$spoc_key) \n";
+	    }
+	}
+    }
+}
+
+sub change_modified_attributes {
+    my ( $self, $spoc, $parse_name,
+	 $spoc_name, $structure ) = @_;
+
+    my $spoc_value =
+	object_for_name( $spoc, $parse_name,
+			 $spoc_name );
+
+    if ( my $parse = $structure->{$parse_name} ) {
+	# Change or remove attributes marked accordingly.
+	# Skip objects that are always transfered (acls, pools).
+	if ( ! $parse->{copy_on_modify} ) {
+	    my $attr;
+	    if ( $attr = $spoc_value->{change_attr} ) {
+		$self->change_attributes( $parse_name, $spoc_name,
+					  $spoc_value, $attr );
+	    }
+	}
+
+	# Enter recursion ...
+	if ( my $next = $parse->{next} ) {
+	    for my $next_key ( @$next ) {
+		my $next_attr_name  = $next_key->{attr_name};
+		my $next_parse_name = $next_key->{parse_name};
+		if ( my $spoc_next = $spoc_value->{$next_attr_name} ) {
+		    $self->change_modified_attributes( $spoc, $next_parse_name,
+						       $spoc_next, $structure );
+		}
+	    }
+	}
+    }
+}
+
+#
+# Recursively transfer marked objects.
+#
+sub transfer1 {
+    my ( $self, $spoc, $parse_name, $spoc_name, $structure ) = @_;
+
+    #mypr "PROCESS $spoc_name ... \n"; 
+    my $spoc_value = object_for_name( $spoc, $parse_name,
+				      $spoc_name, 'no_err' );
+
+    if ( not $spoc_value ) {
+	if ( my $original = $transfered2orig{$spoc_name} ) {
+	    $spoc_name = $original;
+	    $spoc_value = object_for_name( $spoc, $parse_name,
+					   $original );
+	}
     }
 
-    # STATIC, GLOBAL, NAT
-    for my $type (qw(STATIC GLOBAL NAT)) {
-	mypr " === processing $type ===\n";
-	$self->{CHANGE}->{$type} = 0;
-	$self->transfer_lines($spoc_conf->{$type}, $conf->{$type}) and 
-	    $self->{CHANGE}->{$type} = 1;
+    if ( my $parse = $structure->{$parse_name} ) {
+	if ( my $next = $parse->{next} ) {
+	    for my $next_key ( @$next ) {
+		my $next_attr_name  = $next_key->{attr_name};
+		my $next_parse_name = $next_key->{parse_name};
+		if ( my $spoc_next = $spoc_value->{$next_attr_name} ) {
+		    $self->transfer1( $spoc, $next_parse_name,
+				      $spoc_next, $structure );
+		}
+	    }
+	}
+
+	# Do actual transfer after recursion so
+	# that we start with the leaves.
+
+	my $method = $parse->{transfer};
+	if ( is_acl( $spoc, $spoc_name ) ) {
+	    if ( $acl_need_transfer{$spoc_name} ) {
+		if ( my $transfered_as = $acl_transfered_as{$spoc_name} ) {
+		    #mypr "$spoc_name ALREADY TRANSFERED AS $transfered_as! \n";
+		}
+		else {
+		    $self->$method( $spoc, $structure,
+				    $parse_name, $spoc_name );
+		    $acl_transfered_as{$spoc_name} =
+			new_name_for( $spoc_name );
+		}
+	    }
+	}
+	elsif ( $spoc_value->{transfer} ) {
+	    if ( my $transfered_as = $spoc_value->{transfered_as} ) {
+		#mypr "$spoc_name ALREADY TRANSFERED AS $transfered_as! \n";
+	    }
+	    else {
+		$self->$method( $spoc, $structure,
+				$parse_name, $spoc_name );
+		$spoc_value->{transfered_as} = $new_name{$spoc_name};
+	    }
+	}
+	
+    }
+}
+
+#
+# Entry point for tree traversal (starting with
+# the anchors) in order to transfer,
+# remove or modify marked objects.
+#
+sub traverse_netspoc_tree {
+    my ( $self, $spoc, $structure ) = @_;
+
+    mypr "\n##### Transfer objects to device ##### \n\n";
+
+    # Transfer items ...
+    for my $key ( keys %$structure ) {
+        my $value = $structure->{$key};
+        next if not $value->{anchor};
+
+	#mypr "\nITERATING over netspoc-anchor $key ... \n";
+        my $spoc_anchor = $spoc->{$key};
+
+	# Iterate over anchors in netspoc.
+        for my $spoc_key ( keys %$spoc_anchor ) {
+	    $self->transfer1( $spoc, $key,
+			      $spoc_key, $structure );
+	}
     }
 
-    if (not $self->{COMPARE}) {
-        if (grep { $_ } values %{ $self->{CHANGE} })
-        {
+    # Change attributes of items ...
+    mypr "\n";
+    for my $key ( keys %$structure ) {
+        my $value = $structure->{$key};
+        next if not $value->{anchor};
+
+        my $spoc_value = $spoc->{$key};
+
+	# Iterate over objects on device.
+        for my $spoc_key ( keys %$spoc_value ) {
+	    $self->change_modified_attributes( $spoc, $key,
+			   $spoc_key, $structure );
+	}
+    }
+}
+
+sub remove_unneeded_on_device {
+    my ( $self, $conf, $spoc, $structure ) = @_;
+    
+    # Caution: the order is significant in this array!
+    my @parse_names = qw( USERNAME CA_CERT_MAP TUNNEL_GROUP GROUP_POLICY 
+			  ACCESS IP_LOCAL_POOL
+			  );
+
+    mypr "\n##### Remove unneeded objects from device ##### \n\n";
+	
+    for my $parse_name ( @parse_names ) {
+	my $parse = $structure->{$parse_name};
+      OBJECT:
+	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
+
+	    my $object = object_for_name( $conf, $parse_name,
+					  $obj_name );
+
+	    # Do not remove users that have their own explicit
+	    # password (e.g. 'netspoc'-user used to access device).
+	    next OBJECT if ( $parse_name eq 'USERNAME'  &&
+			     not $object->{NOPASSWORD} );
+	    # Remove unneeded objects from device.
+	    if ( not object_needed( $conf, $obj_name, $object ) ) {
+		my $method = $parse->{remove};
+		$self->$method( $conf, $structure,
+				$parse_name, $obj_name );
+	    }
+	    # Remove attributes marked for deletion.
+	    if ( ! $parse->{copy_on_modify} ) {
+		if ( my $attr = $object->{remove_attr} ) {
+		    $self->remove_attributes( $parse_name,
+					      $obj_name, $attr );
+		}
+	    }
+	}
+    }
+    mypr "\n";
+}
+
+sub remove_spare_objects_on_device {
+    my ( $self, $conf, $structure ) = @_;
+
+    my @parse_names = qw( USERNAME CA_CERT_MAP TUNNEL_GROUP GROUP_POLICY 
+			  ACCESS IP_LOCAL_POOL OBJECT_GROUP 
+			  );
+    
+    mypr "\n##### Remove SPARE objects from device ##### \n\n";
+
+    for my $parse_name ( @parse_names ) {
+	my $parse = $structure->{$parse_name};
+      OBJECT:
+	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
+	    
+	    my $object = object_for_name( $conf, $parse_name,
+					  $obj_name );
+	    
+	    # Remove spare objects from device.
+	    if ( not $connected{$obj_name} ) {
+		# So we do not try to remove the object
+		# again later. (This is a hack and should be
+		# done in a more consistent way! -->TODO)
+		if ( $parse_name eq 'ACCESS' ) {
+		    $acl_needed{$obj_name} = 1;
+		}
+		else {
+		    $object->{needed} = 1;
+		}
+		# Leave crypto-acls on device!
+		if ( $parse_name eq 'ACCESS'  &&
+		     $conf->{is_crypto_acl}->{$obj_name} ) {
+		    #mypr "LEAVE CRYPTO-ACL $obj_name on DEV!\n";
+		    next OBJECT;
+		}
+		# Remove object ...
+		my $method = $parse->{remove};
+		$self->$method( $conf, $structure,
+				$parse_name, $obj_name );
+	    }
+	}
+    }
+    mypr "\n";
+}    
+
+sub mark_connected {
+    my ( $self, $conf, $parse_name, $conf_name, $structure ) = @_;
+
+#    mypr "MARK $conf_name AS CONNECTED ... \n"; 
+    my $conf_value = object_for_name( $conf, $parse_name,
+				      $conf_name, 'no_err' );
+    return unless $conf_value;
+
+    $connected{$conf_name} = 1;
+
+    if ( my $parse = $structure->{$parse_name} ) {
+	if ( my $next = $parse->{next} ) {
+	    for my $next_key ( @$next ) {
+		my $next_attr_name  = $next_key->{attr_name};
+		my $next_parse_name = $next_key->{parse_name};
+		if ( my $conf_next = $conf_value->{$next_attr_name} ) {
+		    $self->mark_connected( $conf, $next_parse_name,
+					   $conf_next, $structure );
+		}
+	    }
+	}
+    }
+}
+
+#
+sub mark_connected_objects {
+    my ( $self, $conf, $structure ) = @_;
+
+    # Transfer items ...
+    for my $key ( keys %$structure ) {
+        my $value = $structure->{$key};
+        next if not $value->{anchor};
+
+        my $conf_anchor = $conf->{$key};
+
+	# Iterate over anchors in conf.
+        for my $conf_key ( keys %$conf_anchor ) {
+	    $self->mark_connected( $conf, $key,
+				   $conf_key, $structure );
+	}
+    }
+}
+
+sub change_attributes {
+    my ( $self, $parse_name,
+	 $spoc_name, $spoc_value, $attributes ) = @_;
+    my @cmds;
+
+    return if ( $parse_name eq 'CERT_ANCHOR' ||
+		$parse_name eq 'IF'    );
+
+    mypr "### CHANGE ATTRIBUTES of  $parse_name -> $spoc_name \n";
+    if ( my $name = $spoc_value->{name_on_dev} ) {
+	$spoc_name = $name; 
+    }
+    elsif ( $spoc_value->{transfer} ) {
+	if ( my $new_name = $new_name{$spoc_name} ) {
+	    $spoc_name = $new_name;
+	}
+    }
+
+    # In case of ip-local-pools changed attributes means
+    # the pool present on device needs to be overwritten
+    # with new values in one line, because pools do not have
+    # sub-command-attributes.
+    if ( $parse_name eq 'IP_LOCAL_POOL' ) {
+	my $from = int2quad( $spoc_value->{RANGE_FROM} );
+	my $to   = int2quad( $spoc_value->{RANGE_TO}   );
+	my $mask = int2quad( $spoc_value->{MASK}    );
+	push @cmds, "ip local pool $spoc_name $from-$to mask $mask";
+    }
+    else {
+	if ( not $parse_name eq 'DEFAULT_GROUP' ) {
+	    push @cmds, item_conf_mode_cmd( $parse_name, $spoc_name );
+	}
+	
+	my $value_string;
+	for my $attr ( keys %{$attributes}  ) {
+	    my $value = $attributes->{$attr};
+	    $value_string = $attr_with_value{$attr}  ?  'value'  :  '';
+	    my $attr_cmd = $attr2cmd{$attr};
+	    if ( ! $attr_cmd ) {
+		errpr "Command not found for attribute $attr! \n";
+	    }
+	    if ( $parse_name eq 'CA_CERT_MAP' ) {
+		$attr_cmd .= ' ' . $spoc_name . ' 10 ';
+	    }
+	    elsif ( $parse_name eq 'DEFAULT_GROUP' ) {
+		$attr_cmd .= " default-group ";
+	    }
+	    push @cmds, "$attr_cmd $value_string $value";
+	}
+    }
+    map { mypr " $_\n"; } @cmds;
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub remove_attributes {
+    my ( $self, $parse_name,
+	 $item_name, $attributes ) = @_;
+
+    mypr " ### remove attributes for $item_name! \n";
+    my @cmds;
+    push @cmds, item_conf_mode_cmd( $parse_name, $item_name );
+
+    my $value_string;
+    for my $attr ( keys %{$attributes} ) {
+	my $value = $attributes->{$attr};
+	$value_string = $attr_with_value{$attr}  ?  'value'  :  '';
+	my $attr_cmd = $attr2cmd{$attr};
+	push @cmds, "no $attr_cmd $value_string $value";
+    }
+    map { mypr " $_\n"; } @cmds;
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub transfer_interface {
+    my ( $self, $spoc, $structure,
+	 $parse_name, $intf ) = @_;
+    errpr "transfer_interface $intf: interfaces MUST be same " .
+	"on device and in netspoc!\n";
+}
+
+sub remove_interface {
+    my ( $self, $conf, $structure,
+	 $parse_name, $intf ) = @_;
+    errpr "remove_interface $intf: interfaces MUST be same " .
+	"on device and in netspoc!\n";
+}
+
+sub transfer_ca_cert_map {
+    my ( $self, $spoc, $structure,
+	 $parse_name, $cert_map ) = @_;
+
+    my $new_cert_map = new_name_for( $cert_map );
+    mypr "### transfer ca-cert-map $cert_map to device as " .
+	"$new_cert_map \n";
+    
+    my $object = object_for_name( $spoc, $parse_name, $cert_map );
+    my @cmds;
+    push @cmds, item_conf_mode_cmd( $parse_name, $new_cert_map );
+    for my $attr ( @{$structure->{$parse_name}->{attributes}} ) {
+	my $attr_cmd = cmd_for_attribute( $attr );
+	push @cmds, $attr_cmd . ' ' . $object->{$attr};
+    }
+
+    # Create tunnel-group-map that connects certificate-map
+    # to tunnel-group.
+    if ( my $tunnel_group = $object->{TUNNEL_GROUP_MAP} ) {
+	my $name = $new_name{$tunnel_group}  ?
+	    $new_name{$tunnel_group}  :  $tunnel_group;
+	push @cmds, "tunnel-group-map $new_cert_map 10 $name";
+    }
+    else {
+	errpr "Missing tunnel-group in tunnel-group-map for " .
+	    "certificate $cert_map! \n";
+    }
+    map { mypr " $_\n"; } @cmds;
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub remove_ca_cert_map {
+    my ( $self, $conf, $structure,
+	 $parse_name, $cert_map ) = @_;
+
+    mypr "### remove ca-cert-map $cert_map from device \n";
+    my $object = object_for_name( $conf, $parse_name, $cert_map );
+
+    my $cmd = "clear configure crypto ca certificate map $cert_map";
+    mypr " $cmd \n";
+    $self->cmd( $cmd );
+}
+
+sub transfer_default_group {
+    my ( $self, $spoc, $structure,
+	 $parse_name, $default ) = @_;
+
+    my $object = $spoc->{$parse_name}->{$default};
+    my $new_default_group = new_name_for( $object->{TUNNEL_GROUP_MAP} );
+    mypr "### transfer default-group to device " .
+	"as $new_default_group \n";
+
+    my $cmd = "tunnel-group-map default-group $new_default_group";
+    mypr " $cmd \n";
+    $self->cmd( $cmd );
+}
+
+sub remove_default_group {
+    my ( $self, $conf, $structure,
+	 $parse_name, $default ) = @_;
+
+    mypr "### remove default-group $default from device \n";
+
+    my $object = $conf->{$parse_name}->{$default};
+    my @cmds;
+    push @cmds, "no " . $object->{orig};
+    map { mypr " $_\n"; } @cmds;
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub transfer_user {
+    my ( $self, $spoc, $structure,
+	 $parse_name, $username ) = @_;
+
+    mypr "### transfer username $username to device \n";
+
+    my $user = $spoc->{$parse_name}->{$username};
+    errpr "No user-object found for $username!" unless $user;
+
+    my @cmds;
+    push @cmds, define_item_cmd( $parse_name, $username );
+    push @cmds, item_conf_mode_cmd( $parse_name, $username );
+    push @cmds, add_attribute_cmds( $structure, $parse_name,
+				    $user, 'attributes' );
+
+    map { mypr " $_\n"; } @cmds;
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub remove_user {
+    my ( $self, $conf, $structure,
+	 $parse_name, $username ) = @_;
+
+    mypr "### remove username $username from device \n";
+
+    my @cmds;
+    my $cmd = "clear configure username $username";
+    mypr " $cmd \n";
+    $self->cmd( $cmd );
+}
+
+sub transfer_tunnel_group {
+    my ( $self, $spoc, $structure,
+	 $parse_name, $tg_name ) = @_;
+
+    my $new_tg = new_name_for( $tg_name );
+    mypr "### transfer tunnel-group $tg_name to " .
+	"device as $new_tg \n";
+
+    my $tunnel_group = $spoc->{$parse_name}->{$tg_name};
+    errpr "No tunnel-group-object found for $tg_name!"
+	unless $tunnel_group;
+
+    my @cmds;
+    push @cmds, define_item_cmd( $parse_name, $new_tg );
+    push @cmds, item_conf_mode_cmd( $parse_name, $new_tg );
+    push @cmds, add_attribute_cmds( $structure, $parse_name,
+				    $tunnel_group, 'attributes' );
+    
+    if ( my $tunnel_group_ipsec =
+	 $spoc->{TUNNEL_GROUP_IPSEC}->{$tg_name} ) {
+	push @cmds, item_conf_mode_cmd( 'TUNNEL_GROUP_IPSEC', $new_tg );
+	push @cmds, add_attribute_cmds( $structure, $parse_name,
+					$tunnel_group_ipsec,
+					'ipsec_attributes' );
+    }
+    
+    map { mypr " $_\n"; } @cmds;
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub remove_tunnel_group {
+    my ( $self, $conf, $structure,
+	 $parse_name, $tg_name ) = @_;
+
+    mypr "### remove tunnel-group $tg_name from device \n";
+
+    my $object = $conf->{$parse_name}->{$tg_name};
+    my @cmds;
+    push @cmds, "clear configure tunnel-group $tg_name";
+    map { mypr " $_\n"; } @cmds;
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub transfer_group_policy {
+    my ( $self, $spoc, $structure,
+	 $parse_name, $gp_name ) = @_;
+
+    my $new_gp = new_name_for( $gp_name );
+    mypr "### transfer group-policy $gp_name to device " .
+	"as $new_gp \n";
+
+    my $group_policy = $spoc->{$parse_name}->{$gp_name};
+    errpr "No group-policy-object found for $gp_name!"
+	unless $group_policy;
+
+    my @cmds;
+    push @cmds, define_item_cmd( $parse_name, $new_gp );
+    push @cmds, item_conf_mode_cmd( $parse_name, $new_gp );
+    push @cmds, add_attribute_cmds( $structure, $parse_name,
+				    $group_policy, 'attributes' );
+    
+    map { mypr " $_\n"; } @cmds;
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub remove_group_policy {
+    my ( $self, $spoc, $structure,
+	 $parse_name, $gp_name ) = @_;
+
+    mypr "### remove group-policy $gp_name from device \n";
+    my $cmd = "clear configure group-policy $gp_name";
+    mypr " $cmd \n";
+    $self->cmd( $cmd );
+}
+
+sub transfer_ip_local_pool {
+    my ( $self, $spoc, $structure,
+	 $parse_name, $pool_name ) = @_;
+
+    my $new_pool = new_name_for( $pool_name );
+    mypr "### transfer ip local pool $pool_name to device " .
+	"as $new_pool \n";
+
+    my $pool = $spoc->{$parse_name}->{$pool_name};
+    my $cmd = $pool->{orig}; 
+    $cmd =~ s/ip local pool $pool_name(?!\S)/ip local pool $new_pool/;
+    mypr " $cmd \n";
+    $self->cmd( $cmd );
+}
+
+sub remove_ip_local_pool {
+    my ( $self, $conf, $structure,
+	 $parse_name, $pool_name ) = @_;
+
+    mypr "### remove ip local pool $pool_name from device \n";
+
+    my $pool = $conf->{$parse_name}->{$pool_name};
+    my $cmd = "no " . $pool->{orig};
+    mypr " $cmd \n";
+    $self->cmd( $cmd );
+}
+
+sub transfer_object_group {
+    my ( $self, $spoc, $parse_name,
+	 $object_group ) = @_;
+
+    mypr " ### transfer object-group $object_group to device\n";
+    my $group = object_for_name( $spoc, $parse_name, $object_group );
+    my $new_id = new_name_for( $object_group );
+    $group->{transfered_as} = $new_id;
+    $group->{needed} = 1;
+    my $cmd = "object-group $group->{TYPE} $new_id";
+    mypr " $cmd\n";
+    map( { mypr " " . $_->{orig} . "\n" } @{ $group->{NETWORK_OBJECT} } );
+    $self->cmd($cmd);
+    map( { $self->cmd( $_->{orig} ) } @{ $group->{NETWORK_OBJECT} } );
+}
+
+sub remove_object_group {
+    my ( $self, $conf, $structure,
+	 $parse_name, $object_group ) = @_;
+    
+    if ( not $conf->{group2acl}->{$object_group} ) {
+	mypr "### remove object-group $object_group from device \n";
+	
+	my $og = object_for_name( $conf, $parse_name, $object_group );
+	my $cmd = "no " . $og->{orig};
+	mypr " $cmd \n";
+	$self->cmd( $cmd );
+    }
+}
+
+sub transfer_acl {
+    my ( $self, $spoc, $structure,
+	 $parse_name, $acl ) = @_;
+
+    my $new_acl = new_name_for( $acl );
+    mypr "### transfer access-list $acl to device as $new_acl \n";
+
+    # $parse_name holds value 'ACCESS' where the expanded
+    # acls are stored. We need the unexpanded acls here which
+    # are stored under 'ACCESS_LIST'.
+    $parse_name = 'ACCESS_LIST';
+
+    my @cmds;
+    for my $ace ( @{ $spoc->{$parse_name}->{$acl} } ) {
+	my $cmd = $ace->{orig};
+	for my $where ( qw( SRC DST ) ) {
+	    if ( my $gid = $ace->{$where}->{OBJECT_GROUP} ) {
+		my $new_gid;
+		if ( my $group =
+		     object_for_name( $spoc, 'OBJECT_GROUP', $gid ) ) {
+		    if ( $group->{transfered_as} ) {
+			$new_gid = $group->{transfered_as};
+		    }
+		    else {
+			$self->transfer_object_group( $spoc, 'OBJECT_GROUP',
+						      $gid );
+			$new_gid = new_name_for( $gid );
+		    }
+		}
+		$cmd =~ 
+		    s/object-group $gid(?!\S)/object-group $new_gid/;
+		$ace->{$where}->{OBJECT_GROUP} = $new_gid;  
+	    }
+	}
+	push @cmds, "access-list $new_acl " . $cmd;
+    }
+
+
+    # If this acl is attached to an interface, create
+    # access-group connecting acl to interface.
+    if ( my $access_groups = $spoc->{ACCESS_GROUP} ) {
+	if ( my $access_group = $access_groups->{$acl} ) {
+	    push @cmds, "access-group $new_acl in interface " .
+		$access_group->{IF_NAME};
+	}
+    }
+    map { mypr " $_\n"; } @cmds;
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub remove_acl {
+    my ( $self, $conf, $structure,
+	 $parse_name, $acl ) = @_;
+
+    mypr "### remove access-list $acl from device \n";
+    my $cmd = $self->acl_removal_cmd( $acl );
+    mypr " $cmd\n";
+    $self->cmd( $cmd );
+
+    # FOO
+    # Remove object group(s) that might be referenced
+    # by this acl, but only if no other ACL references it!
+    for my $ace ( @{ $conf->{ACCESS_LIST}->{$acl} } ) {
+	my $cmd = $ace->{orig};
+	for my $where ( qw( SRC DST ) ) {
+	    if ( my $gid = $ace->{$where}->{OBJECT_GROUP} ) {
+		if ( my $some_acl =
+		     referenced_by_acl( $conf, $acl, $gid ) ) {
+		    # Object-groups not marked as "needed" will
+		    # be removed later!
+		    my $group = object_for_name( $conf, 'OBJECT_GROUP',
+						 $gid );
+		    $group->{needed} = 1;
+		}
+	    }
+	}
+    }
+}
+
+sub referenced_by_acl {
+    my ( $conf, $current_acl, $obj_group ) = @_;
+
+    my $acls = $conf->{ACCESS_LIST};
+
+  ACL:
+    for my $acl ( keys %{$acls} ) {
+	next ACL if $acl eq $current_acl;
+	for my $ace ( @{ $acls->{$acl} } ) {
+	    for my $where ( qw( SRC DST ) ) {
+		if ( my $gid = $ace->{$where}->{OBJECT_GROUP} ) {
+		    if ( $gid eq $obj_group ) {
+			return $acl;
+		    }
+		}
+	    }
+	}
+    }
+    return;
+}
+
+sub define_item_cmd {
+    my ( $parse_name, $item_name ) = @_;
+    
+    if ( $define_object{$parse_name} ) {
+	my $prefix  = $define_object{$parse_name}->{prefix};
+	my $postfix = $define_object{$parse_name}->{postfix};
+	if ( ! $prefix ) {
+	    errpr "Prefix not defined for object-definition of " .
+		"object '$item_name'! \n";
+	}
+	return "$prefix $item_name $postfix";
+    }
+    else {
+	errpr "Command for object-definition not found of " .
+	    " object $item_name! \n";
+    }
+    return;
+}
+
+sub item_conf_mode_cmd {
+    my ( $parse_name, $item_name ) = @_;
+
+    my $prefix  = $conf_mode_entry{$parse_name}->{prefix};
+    my $postfix = $conf_mode_entry{$parse_name}->{postfix};
+
+    if ( ! $prefix ) {
+	errpr "Prefix undefined for configure terminal " .
+	    "entry command of item '$item_name'! \n";
+    }
+    return "$prefix $item_name $postfix";
+}
+
+sub add_attribute_cmds {
+    my ( $structure, $parse_name,
+	 $object, $attributes ) = @_;
+
+    my @cmds;
+  ATTRIBUTE:
+    for my $attr ( @{$structure->{$parse_name}->{$attributes}} ) {
+	# Some attributes are optional.
+	next ATTRIBUTE if not $object->{$attr};
+	my $attr_cmd = cmd_for_attribute( $attr );
+	if ( ! $ attr_cmd ) {
+	    errpr "No command found for attribute $attr!\n";
+	}
+	my $name = $new_name{$object->{$attr}}  ?
+	    $new_name{$object->{$attr}}  :  $object->{$attr};
+	push @cmds, $attr_cmd . ' ' . $name;
+    }
+    return @cmds;
+}
+
+sub object_for_name {
+    my ( $c, $parse_name, $c_name, $no_err ) = @_;
+
+    return if not $c_name;
+
+    if ( $no_err && $no_err ne 'no_err' ) {
+	errpr "Illegal parameter $no_err \n";
+    }
+
+    my $c_value;
+    if ( $c_name ) {
+	if ( my $parse = $c->{$parse_name} ) {
+	    if ( exists $parse->{$c_name} ) {
+		$c_value = $parse->{$c_name};
+	    }
+	}
+    }
+    if ( ! $no_err ) {
+	if ( ! $c_value ) {
+	    errpr "No object found for $c_name \n";
+	}
+    }
+    return $c_value;
+}
+
+sub is_acl {
+    my ( $c, $object ) = @_;
+    return if not $c;
+    return if not $object;
+    return exists $c->{ACCESS_LIST}->{$object};
+}
+
+sub mark_for_transfer {
+    my ( $spoc, $name, $object ) = @_;
+
+    my $new_name = $new_name{$name};
+    if ( is_acl( $spoc, $name ) ) {
+	$acl_need_transfer{$name} = 1;
+    }
+    else {
+	$object->{transfer} = 1;
+    }
+}
+
+sub mark_for_remove {
+    my ( $conf, $name, $object ) = @_;
+
+    if ( is_acl( $conf, $name ) ) {
+	$acl_need_remove{$name} = 1;
+    }
+    else {
+	$object->{remove} = 1;
+    }
+}
+
+sub new_name_for {
+    my ( $name ) = shift;
+    if ( my $new = $new_name{$name} ) {
+	return $new;
+    }
+    else {
+	errpr "No new generated name for $name! \n";
+    }
+}
+
+sub do_compare {
+    my ( $self, $conf, $spoc ) = @_;
+    
+    my $get_acl_names_and_objects = sub {
+        my ( $param )  = @_;
+    # For an interface the next line means:
+    # $sa_name = $spoc->{IF}->{<intf_passed_as_param>}->{ACCESS};
+        my $sa_name = $spoc->{IF}->{$param}->{ACCESS};
+        my $spocacl = $spoc->{ACCESS}->{$sa_name};
+        my $ca_name = $conf->{IF}->{$param}->{ACCESS} || '';
+        my $confacl = $ca_name ? $conf->{ACCESS}->{$ca_name} : '';
+        return ( $confacl, $spocacl, $ca_name, $sa_name );
+    };
+
+    for my $entity ( keys %{ $spoc->{IF} } ) {
+	mypr "\tprocessing IF $entity \n";
+	my ($confacl, $spocacl, $confacl_name, $spocacl_name) =
+	    &$get_acl_names_and_objects( $entity );
+	
+	if ( $confacl_name && $confacl ) {
+	    $self->acl_equal( $confacl, $spocacl,
+			      $confacl_name, $spocacl_name,
+			      "IF $entity" )
+		or $self->{CHANGE}->{ACL} = 1;
+	}
+	else {
+	    
+	    $self->{CHANGE}->{ACL} = 1;
+	    mypr "#### OOPS:  $spocacl_name at IF $entity:\n";
+	    mypr "#### OOPS:  no corresponding acl on device\n";
+	}
+	mypr "-------------------------------------------------\n";
+    }
+    mypr "compare finish\n";
+}
+
+sub transfer {
+    my ( $self, $conf, $spoc, $structure ) = @_;
+
+    $structure ||= $self->define_structure();
+
+    $self->process_routing( $conf, $spoc )
+	or return 0;
+
+    # detect diffs
+    if ( $self->{COMPARE} ) {
+	$self->do_compare( $conf, $spoc );
+    }
+    else {   # Approve ...
+
+	# Fill global hash %new_name.
+	generate_names_for_transfer( $conf, $spoc, $structure );
+	
+	$self->enter_conf_mode();
+	
+	$self->unify_anchors( $conf, $spoc, $structure );
+	
+	$self->mark_connected_objects( $conf, $structure );
+	
+	$self->remove_spare_objects_on_device( $conf, $structure );
+	
+	$self->traverse_netspoc_tree( $spoc, $structure );
+	
+	$self->remove_unneeded_on_device( $conf, $spoc, $structure );
+	
+        if ( grep { $_ } values %{ $self->{CHANGE} } ) {
             mypr "saving config to flash\n";
             $self->cmd('write memory');
             mypr "...done\n";
@@ -1031,12 +2128,73 @@ sub transfer () {
         else {
             mypr "no changes to save\n";
         }
+
+	$self->leave_conf_mode();
+    }
+
+    # STATIC, GLOBAL, NAT
+    for my $type (qw(STATIC GLOBAL NAT)) {
+    mypr " === processing $type ===\n";
+    $self->{CHANGE}->{$type} = 0;
+    $self->transfer_lines($spoc->{$type}, $conf->{$type}) and
+        $self->{CHANGE}->{$type} = 1;
+    }
+
+    return 1;
+
+}
+
+sub define_structure {
+    my $self = shift;
+
+    my $structure = {
+	ACCESS => {
+	    attributes => [ qw( SRC DST TYPE ACL_TYPE MODE ) ],
+	    copy_on_modify => 1,
+	    transfer => 'transfer_acl',
+	    remove   => 'remove_acl',
+	},
+	OBJECT_GROUP => {
+	    attributes => [],
+	    transfer => 'transfer_object_group',
+	    remove   => 'remove_object_group',
+	},
+	IF => {
+	    anchor => 1,
+	    next => [ { attr_name  => 'ACCESS_GROUP',
+			parse_name => 'ACCESS',
+		    } ],
+	    attributes => [ qw( SECURITY IF_NAME ) ],
+	    transfer => 'transfer_interface',
+	    remove   => 'remove_interface',
+	},
+    };
+
+    return $structure;
+}
+
+
+
+sub cmd_for_attribute {
+    my ( $attr ) = @_;
+    my $attr_cmd = $attr2cmd{$attr};
+    if ( ! $attr_cmd ) {
+	errpr "Command not found for attribute $attr! \n";
+    }
+    return $attr_cmd;
+}
+
+sub object_needed {
+    my ( $conf, $obj_name, $object ) = @_;
+    
+    if ( is_acl( $conf, $obj_name ) ) {
+	return $acl_needed{$obj_name};
     }
     else {
-        mypr "compare finish\n";
+	return $object->{needed};
     }
-    return 1;
 }
+
 
 # Packages must return a true value;
 1;
