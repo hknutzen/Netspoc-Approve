@@ -766,6 +766,10 @@ sub convert_rules {
 # devices. Then we can reuse the code to compare ACLs.
 sub postprocess_iptables {
     my ($self, $p) = @_;
+
+    # Currently iptables must not be processed.
+    delete $p->{IPTABLES};
+
     my $tables = $p->{IPTABLES};
 
     # Convert to simpler format.
