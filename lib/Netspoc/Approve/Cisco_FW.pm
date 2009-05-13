@@ -141,11 +141,36 @@ my %parse2attr = (
 		  TUNNEL_GROUP => {
 		      GROUP_POLICY => 'DEFAULT_GROUP_POLICY',
 		  },
+		  IF => {
+		      ACCESS       => {
+			  'filter'   => 'ACCESS_GROUP',
+		      }
+		  },
 		  );
 		      
 		      
 
-
+sub type_for_acl {
+    my ( $spoc, $acl_name ) = @_;
+    
+    my $type;
+    if ( $spoc->{is_vpn_filter_acl}->{$acl_name} ) {
+	$type = 'vpn_filter';
+    }
+    elsif ( $spoc->{is_split_tunnel_acl}->{$acl_name} ) {
+	$type = 'vpn_filter';
+    }
+    elsif ( $spoc->{is_filter_acl}->{$acl_name} ) {
+	$type = 'filter';
+    }
+    elsif ( $spoc->{is_crypto_acl}->{$acl_name} ) {
+	$type = 'crypto';
+    }
+    else {
+	errpr "Unknow ACL-type for $acl_name! \n";
+    }
+    return $type;
+}    
 
 sub get_parse_info {
     my ($self) = @_;
@@ -1181,14 +1206,16 @@ sub make_equal {
 			if ( $spoc_value ) {
 
 			    if ( $spoc_next_is_acl ) {
-				my $acl_type = $spoc->{is_vpn_filter_acl} ?
-				    'vpn_filter'  :  'split_tunnel';
+				my $acl_type = type_for_acl( $spoc, $spoc_next );
 				my $types2attr =
 				    $parse2attr{$parse_name}->{$next_parse_name};
-				my $attr = $types2attr->{$acl_type};
-
-				$spoc_value->{change_attr}->{$attr} =
-				    $new_conf_next;
+				if ( my $attr = $types2attr->{$acl_type} ) {
+				    $spoc_value->{change_attr}->{$attr} =
+					$new_conf_next;
+				}
+				else {
+				    errpr "Attr undefined for $acl_type!\n";
+				}
 			    }
 			    else {
 				my $attr =
@@ -1908,7 +1935,6 @@ sub remove_acl {
     mypr " $cmd\n";
     $self->cmd( $cmd );
 
-    # FOO
     # Remove object group(s) that might be referenced
     # by this acl, but only if no other ACL references it!
     for my $ace ( @{ $conf->{ACCESS_LIST}->{$acl} } ) {
