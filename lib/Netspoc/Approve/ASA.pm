@@ -20,7 +20,7 @@ use strict;
 use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
-#use Data::Dumper;
+use Data::Dumper;
 
 
 
@@ -243,30 +243,12 @@ sub postprocess_config {
     # Propagate ip address and shutdown status from hardware interface 
     # to logical interface.
     for my $entry ( values %{ $p->{HWIF} } ) {
+	next if $entry->{SHUTDOWN};
 	if (my $name = $entry->{IF_NAME}) {
-	    $p->{IF}->{$name}->{SHUTDOWN} = $entry->{SHUTDOWN};
 	    if( my $address = $entry->{ADDRESS} ) {
 		$p->{IF}->{$name}->{BASE} = $address->{BASE};
 		$p->{IF}->{$name}->{MASK} = $address->{MASK};
 	    }
-	}
-    }
-    # Link interfaces to access lists via access-groups.
-    # (Same way certificate-maps are connected to tunnel-groups
-    #  via tunnel-group-maps.)
-    for my $access_group ( values %{$p->{ACCESS_GROUP}} ) {
-	my $if_name = $access_group->{IF_NAME};
-	if ( my $intf = $p->{IF}->{$if_name} ) {
-	    $intf->{ACCESS_GROUP} = $access_group->{name};
-	}
-	else {
-	    # Netspoc does not generate interface definitions
-	    # for PIX and ASA, so we can have access-groups
-	    # without corresponding interface.
-	    # In this case we create an "artificial" interface.
-	    $p->{IF}->{$if_name}->{name} = $if_name;
-	    $p->{IF}->{$if_name}->{ACCESS_GROUP} =
-		$access_group->{name};
 	}
     }
 
@@ -467,7 +449,7 @@ sub set_pager {
 
 sub transfer {
     my ( $self, $conf, $spoc ) = @_;
-
+    
     my $structure = $self->define_structure();
 
     $self->SUPER::transfer( $conf, $spoc, $structure );
@@ -567,7 +549,7 @@ sub define_structure {
 	    next => [ { attr_name  => 'ACCESS_GROUP',
 			parse_name => 'ACCESS',
 		    } ],
-	    attributes => [ qw( SECURITY IF_NAME ) ],
+	    attributes => [],
 	    transfer => 'transfer_interface',
 	    remove   => 'remove_interface',
 	},
