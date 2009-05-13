@@ -970,12 +970,6 @@ sub transfer_lines {
     return $change;
 }
 
-sub acl_removal_cmd {
-    my ( $self, $acl_name ) = @_;
-    return unless $acl_name;
-    return "no access-list $acl_name";
-}
-
 sub generate_names_for_transfer {
     my ( $conf, $spoc, $structure ) = @_;
 
@@ -1119,13 +1113,13 @@ sub make_equal {
     elsif ( $conf_value  &&  !$spoc_value ) {
 	# On dev but not on spoc.
 #	mypr "$parse_name => $conf_name on dev but not on spoc. \n";
-	$self->{CHANGE}->{$parse_name} = 1;
+	$self->mark_as_changed( $parse_name );
 	mark_for_remove( $conf, $conf_name, $conf_value );
     }
     elsif ( !$conf_value  &&  $spoc_value ) {
 	# On spoc but not on dev.
 #	mypr "$parse_name => $spoc_name on spoc but not on dev. \n";
-	$self->{CHANGE}->{$parse_name} = 1;
+	$self->mark_as_changed( $parse_name );
 	mark_for_transfer( $spoc, $spoc_name, $spoc_value );
     }
     else {
@@ -1214,7 +1208,7 @@ sub make_equal {
     }
     
     if ( $modified ) {
-	$self->{CHANGE}->{$parse_name} = 1;
+	$self->mark_as_changed( $parse_name );
 	if ( $structure->{$parse_name}->{copy_on_modify} ) {
 	    if ( $new_name{$spoc_name} ) {
 		return $new_name{$spoc_name};
@@ -1228,9 +1222,7 @@ sub make_equal {
 	# Create hash entry with false value, so that
 	# Device::get_change_status outputs status for
 	# unchanged object types, too.
-	if ( not exists $self->{CHANGE}->{$parse_name} ) {
-	    $self->{CHANGE}->{$parse_name} = 0;
-	}
+	$self->mark_as_unchanged( $parse_name );
     }
     
     # Standard return value ...
@@ -2104,17 +2096,6 @@ sub transfer {
 	
 	$self->remove_unneeded_on_device( $conf, $spoc, $structure );
 
-	# Only write memory on device if there
-	# have been changes.
-	if ( grep { $_ } values %{ $self->{CHANGE} } ) {
-	    mypr "saving config to flash ..... ";
-	    $self->cmd('write memory');
-	    mypr "done! \n";
-	}
-	else {
-	    mypr "no changes to save \n";
-	}
-	
 	$self->leave_conf_mode()
     }
 
@@ -2126,6 +2107,19 @@ sub transfer {
 	$self->transfer_lines( $spoc->{$type}, $conf->{$type} )
 	    and $self->{CHANGE}->{$type} = 1;
     }
+
+    if ( !$self->{COMPARE} ) {
+	# Only write memory on device if there
+	# have been changes.
+	if ( grep { $_ } values %{ $self->{CHANGE} } ) {
+	    mypr "saving config to flash ..... ";
+	    $self->cmd('write memory');
+	    mypr "done! \n";
+	}
+	else {
+	    mypr "no changes to save \n";
+	}
+    }	
 
     return 1;
 }
@@ -2179,6 +2173,37 @@ sub object_needed {
     else {
 	return $object->{needed};
     }
+}
+
+sub mark_as_changed {
+    my ( $self, $parse_name ) = @_;
+
+    return if $parse_name eq 'IF';
+    return if $parse_name eq 'CERT_ANCHOR';
+    return if $parse_name eq 'DEFAULT_GROUP';
+
+    my $name = $parse_name eq 'ACCESS' ?
+	'ACL' : $parse_name;
+    $self->{CHANGE}->{$name} = 1;
+}
+
+sub mark_as_unchanged {
+    my ( $self, $parse_name ) = @_;
+
+    return if $parse_name eq 'IF';
+    return if $parse_name eq 'CERT_ANCHOR';
+    return if $parse_name eq 'DEFAULT_GROUP';
+
+    if ( not exists $self->{CHANGE}->{$parse_name} ) {
+	my $name = $parse_name eq 'ACCESS' ? 'ACL' : $parse_name;
+	$self->{CHANGE}->{$name} = 0;
+    }
+}
+
+sub acl_removal_cmd {
+    my ( $self, $acl_name ) = @_;
+    return unless $acl_name;
+    return "no access-list $acl_name";
 }
 
 
