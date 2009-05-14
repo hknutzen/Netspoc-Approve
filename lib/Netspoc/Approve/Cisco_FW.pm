@@ -2217,9 +2217,7 @@ sub mark_as_unchanged {
 
     my $name = $parse_name eq 'ACCESS' ?
 	'ACL' : $parse_name;
-    if ( not exists $self->{CHANGE}->{$name} ) {
-	$self->{CHANGE}->{$name} = 0;
-    }
+    $self->{CHANGE}->{$name} ||= 0;
 }
 
 sub acl_removal_cmd {
