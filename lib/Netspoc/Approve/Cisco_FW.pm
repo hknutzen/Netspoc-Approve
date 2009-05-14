@@ -2220,7 +2220,8 @@ sub mark_as_unchanged {
     return if $parse_name eq 'CERT_ANCHOR';
     return if $parse_name eq 'DEFAULT_GROUP';
 
-    my $name = $parse_name eq 'ACCESS' ? 'ACL' : $parse_name;
+    my $name = $parse_name eq 'ACCESS' ?
+	'ACL' : $parse_name;
     if ( not exists $self->{CHANGE}->{$name} ) {
 	$self->{CHANGE}->{$name} = 0;
     }
