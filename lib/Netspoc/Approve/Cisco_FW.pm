@@ -2092,11 +2092,6 @@ sub new_name_for {
     }
 }
 
-sub do_compare {
-    my ( $self, $conf, $spoc ) = @_;
-
-}
-
 sub transfer {
     my ( $self, $conf, $spoc, $structure ) = @_;
 
