@@ -143,6 +143,9 @@ sub analyze_conf_lines {
 
 	my @args = split(' ', $line);
 
+	# Remember a version of unparsed line without duplicate whitespace.
+	my $orig = join(' ', @args);
+
 	# Substitute "*name" by "*" "name" and ":name" by ":" "name".
 	if($args[0] =~ /^([*:])(.*)$/) {
 	    splice(@args, 0, 1, $1, $2);
@@ -160,7 +163,7 @@ sub analyze_conf_lines {
 	# Remember the original line.
 	my $new_cmd = { line => $counter, 
 			pos  => 0, 
-			orig => $line,
+			orig => $orig,
 			args => [ $cmd, @args ], };
 
 	# Unknown command terminates current subcommand level.
@@ -399,15 +402,6 @@ sub rule_code {
     my($rule) = @_;
     my ($mode, $type, $src, $dst, $log) = @{$rule}{qw(MODE TYPE SRC DST LOG)};
 
-    # Single log line has been merged with following deny or permit line.
-    # Now split it again.
-    my $logline = '';
-    if($log) {
-	if(my $level = $rule->{LOG_LEVEL}) {
-	    $logline = '--log-level $level ';
-	}
-	$logline .= '-j LOG\n';
-    }
     my @result;
     push @result, "-s " . prefix_code($src) if $src->{BASE} != 0;
     push @result, "-d " . prefix_code($dst) if $dst->{BASE} != 0;
@@ -431,7 +425,7 @@ sub rule_code {
 	push @result, "-p $type";
     }
     push @result, "-j " . mode_code($mode) if $mode;
-    return( $logline . join(' ', @result));
+    return(join(' ', @result));
 }
 	
 
@@ -682,28 +676,39 @@ sub expand_chain {
 	my $target = $rule->{'-j'} || $rule->{'-g'} or 
 	    err_msg "Missing target in rule";
 
-	# Merge LOG target with following rule, because acl_equal doesn't
+	# Merge LOG target with next rule, because acl_equal doesn't
 	# support rules without terminating target.
 	if($target eq 'LOG') {
-	    my $level = delete $rule->{'--log-level'};
+	    my $level = $rule->{'--log-level'};
 	    for my $key (keys %$rule) {
 		next if $key !~ /^-/;
 		next if $key eq '-j';
+		next if $key eq '--log-level';
 		err_msg "Unsupported '$key' in rule with '-j LOG'",
 		"\n $rule->{orig}";
 	    }
-	    my $next = $rules->[$i+1];
-	    for my $key (keys %$next) {
+	    $i++;           
+	    my $merged = { %{$rules->[$i]} };
+	    for my $key (keys %$merged) {
 		next if $key !~ /^-/;
-		next if $key eq '-j';
+		next if $key eq '--log-level';
+		if($key eq '-j') {
+		    my $value = $merged->{$key};
+		    $value eq 'deny' or
+			err_msg "Must use target DROP in rule following '-j LOG'",
+			"\n $merged->{orig}";
+		    next;
+		}
 		err_msg "Unsupported '$key' in rule follwing '-j LOG'",
-		"\n $next->{orig}";
+		"\n $merged->{orig}";
 	    }
-	    $next->{'--log-level'} = $level if defined $level;
+
+	    $merged->{'LOG-LEVEL'} = $level if defined $level;
 
 	    # Artificial key, used only internal.
-	    $next->{'--log'} = 1;
-	    splice(@$rules, $i, 1);	    
+	    $merged->{LOG} = 1;
+	    push @result, $merged;
+	    next;
 	}
 	    
 	# Terminal target.
@@ -730,8 +735,6 @@ my %iptables2intern = (
     '--syn' => [ 'ESTA' ],
     '-j' => [ 'MODE' ],
     '-g' => [ 'MODE' ],
-    '--log' => [ 'LOG' ],
-    '--log-level' => [ 'LOG_LEVEL' ],
 );
 
 # Convert expanded rules to internal format used in acl_array_compare_a_in_b.
@@ -961,7 +964,7 @@ sub process_iptables {
 		    my $c_chain = $conf_chains->{$c_target};
 		    my $s_chain = $spoc_chains->{$s_target};
 		    if($c_chain and $s_chain) {
-			my $context = "targets called by chain '$cname'";
+			my $context = $cname;
 			$self->compare_chains($c_chain, $s_chain, $context) or
 			    $changed = 1;
 		    }
@@ -1128,6 +1131,10 @@ sub write_startup_iptables {
 sub transfer {
     my ($self, $conf, $spoc_conf) = @_;
 
+# DISABLE IPTables changes.
+# Processing is done but always is a noop.
+$conf->{IPTABLES} = $spoc_conf->{IPTABLES};
+	
     # Change running configuration of device.
     $self->process_routing($conf, $spoc_conf) or return 0;
 
