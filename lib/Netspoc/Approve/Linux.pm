@@ -464,32 +464,54 @@ my $normalize = {
 	extern => sub { $_[0] },
     },
     '--set-mark' => {
+	non_comparable => 1,
 	intern => sub { my($v) = @_; $v =~ /^0x\d*$/ ? eval($v) : $v },
 	extern => sub { $_[0] },
     },
 };	
 
 # Normalize values of iptables rules.
-# For builtin rules, the value is converted to a normalized string.
-# For user defined rules, values are stored in internal representation.
+# For builtin chains, the value is converted to a normalized string.
+# For user defined chains, values are stored in internal representation.
 # For user defined chains, only simple key / value pairs and "! --syn" are allowed.
 sub normalize {
-    my($chain) = @_;
-    my $is_user_chain = not $chain->{POLICY};
+    my($chain, $chains) = @_;
     for my $rule (@{ $chain->{RULES} }) {
-	for my $key (keys %$rule) {
-	    my $v = $rule->{$key};
-	    my $spec = $normalize->{$key};
 
-	    # Ignore match option for standard protocols.
-	    if($key eq '-m') {
-		my $proto = $rule->{'-p'} || '';
-		if(lc($v) eq lc($proto)) {
-		    delete $rule->{$key};
-		    next;
+	# Ignore match option for standard protocols.
+	if(my $v = $rule->{'-m'}) {
+	    my $proto = $rule->{'-p'} || '';
+	    if(lc($v) eq lc($proto)) {
+		delete $rule->{'-m'};
+	    }
+	}
+
+	# Check, if no target is called.
+	if(not ($rule->{'-j'} or $rule->{'-g'})) {
+	    $chain->{NON_COMPARABLE} = 1;
+	}
+
+	# Check, if a builtin target other than ACCEPT or DROP is called.
+	elsif(my $v = $rule->{'-j'}) {
+	    if(not $chains->{$v}) {
+		if(not ($v eq 'DROP' or $v eq 'ACCEPT')) {
+		    $chain->{NON_COMPARABLE} = 1;
 		}
 	    }
-
+	}
+	for my $key (keys %$rule) {
+	    next if $key !~ /^-/;
+	    my $spec = $normalize->{$key};
+	    if(not $spec) {
+		$chain->{NON_COMPARABLE} = 1;
+		next;
+	    }
+	    $chain->{NON_COMPARABLE} = 1 if $spec->{non_comparable};
+	}
+	for my $key (keys %$rule) {
+	    next if $key !~ /^-/;
+	    my $v = $rule->{$key};
+	    my $spec = $normalize->{$key};
 	    if(not $spec) {
 		next;
 	    }
@@ -503,20 +525,12 @@ sub normalize {
 		# Extract '!' and replace it by ''.
 		$negate = substr($v, 0, 1, '');
 	    }
+	    if($spec->{must_negate} xor $negate) {
+		$chain->{NON_COMPARABLE} = 1;
+	    }
 	    $v = $spec->{intern}->($v);
-	    if($is_user_chain) {
-		if($spec->{must_negate}) {
-		    $negate or 
-			err_msg("$key must be negated in user chain");
-		}
-		else {
-		    $negate and
-			err_msg("$key must not be negated in user chain");
-		}
-	    }
-	    else {
-		$v = $negate . $spec->{extern}->($v);
-	    }
+	    $rule->{intern}->{$key} = $v;
+	    $v = $negate . $spec->{extern}->($v);
 	    $rule->{$key} = $v;
 	}
     }
@@ -642,9 +656,6 @@ sub disjoint {
 	    elsif($k1 eq '-j' or $k1 eq '-g') {
 		;
 	    }
-	    elsif($k1 eq 'name' or $k1 eq 'line' or $k1 eq 'orig') {
-		;
-	    }
 	    else {
 		internal_err "Unexpected '$k1' during disjoint test";
 	    }
@@ -654,6 +665,7 @@ sub disjoint {
 }
 
 # Process all rules of current chain and flatten calls to sub-chains.
+# Mark chains which can't be flattend because of unknown attributes.
 sub expand_chain {
     my($chain, $chains) = @_;
     return $chain->{EXPANDED} if $chain->{EXPANDED};
@@ -667,7 +679,7 @@ sub expand_chain {
 	if($rule->{'-g'}) {
 	    for (my $j = $i+1; $j < @$rules; $j++) {
 		my $next = $rules->[$j];
-		disjoint($rule, $next) or
+		disjoint($rule->{intern}, $next->{intern}) or
 		    err_msg "Unsuported '-g' for rules",
 		    "\n $rule->{orig} $next->{orig}";
 	    }
@@ -676,49 +688,17 @@ sub expand_chain {
 	my $target = $rule->{'-j'} || $rule->{'-g'} or 
 	    err_msg "Missing target in rule";
 
-	# Merge LOG target with next rule, because acl_equal doesn't
-	# support rules without terminating target.
-	if($target eq 'LOG') {
-	    my $level = $rule->{'--log-level'};
-	    for my $key (keys %$rule) {
-		next if $key !~ /^-/;
-		next if $key eq '-j';
-		next if $key eq '--log-level';
-		err_msg "Unsupported '$key' in rule with '-j LOG'",
-		"\n $rule->{orig}";
-	    }
-	    $i++;           
-	    my $merged = { %{$rules->[$i]} };
-	    for my $key (keys %$merged) {
-		next if $key !~ /^-/;
-		next if $key eq '--log-level';
-		if($key eq '-j') {
-		    my $value = $merged->{$key};
-		    $value eq 'deny' or
-			err_msg "Must use target DROP in rule following '-j LOG'",
-			"\n $merged->{orig}";
-		    next;
-		}
-		err_msg "Unsupported '$key' in rule follwing '-j LOG'",
-		"\n $merged->{orig}";
-	    }
-
-	    $merged->{'LOG-LEVEL'} = $level if defined $level;
-
-	    # Artificial key, used only internal.
-	    $merged->{LOG} = 1;
-	    push @result, $merged;
-	    next;
-	}
-	    
 	# Terminal target.
 	if(not $chains->{$target}) {
-	    push @result, $rule;
+	    push @result, $rule->{intern};
 	    next;
 	}
-	my $expanded = expand_chain($chains->{$target}, $chains);
+	my $called_chain = $chains->{$target};
+	$called_chain->{NON_COMPARABLE} and
+	    err_msg "Expand: Must not call '$target' from '$chain->{name}'";
+	my $expanded = expand_chain($called_chain, $chains);
 	for my $erule (@$expanded) {
-	    push @result, intersect_rule($rule, $erule);
+	    push @result, intersect_rule($rule->{intern}, $erule);
 	}
     }
     $chain->{EXPANDED} = \@result;
@@ -758,7 +738,8 @@ sub convert_rules {
 		$converted->{$conv_key} = $value;
 	    }
 	    else {
-		err_msg "Key $key not supported in chain '$chain->{name}' of iptables";
+		err_msg "Key $key not supported in",
+		" chain '$chain->{name}' of iptables";
 	    }
 	}
 	for my $spec (values %iptables2intern) {
@@ -787,9 +768,6 @@ sub convert_rules {
 sub postprocess_iptables {
     my ($self, $p) = @_;
 
-    # Currently iptables must not be processed.
-    delete $p->{IPTABLES};
-
     my $tables = $p->{IPTABLES};
 
     # Convert to simpler format.
@@ -813,15 +791,14 @@ sub postprocess_iptables {
 
     for my $chains (values %$tables) {
 	for my $chain (values %$chains) {
-	    normalize($chain);
+	    normalize($chain, $chains);
 	}
 	for my $chain (values %$chains) {
-
-	    # Ignore toplevel chains
-	    next if $chain->{POLICY};
+	    next if $chain->{NON_COMPARABLE};
 	    expand_chain($chain, $chains);
 	}
 	for my $chain (values %$chains) {
+	    next if $chain->{NON_COMPARABLE};
 	    convert_rules($chain);
 	}
     }
@@ -879,14 +856,13 @@ sub postprocess_routes {
 sub postprocess_config {
     my ($self, $config) = @_;
     $self->postprocess_routes($config);
-    $self->postprocess_iptables($config);
+#    $self->postprocess_iptables($config);
 } 
 
-sub compare_chains {
+sub compare_chains_semantically {
     my($self, $conf_chain, $spoc_chain, $context) = @_;
     my($conf_acl, $conf_name) = @{$conf_chain}{qw(EXPANDED name)};
     my($spoc_acl, $spoc_name) = @{$spoc_chain}{qw(EXPANDED name)};
-    $self->acl_equal($conf_acl, $spoc_acl, $conf_name, $spoc_name, $context);
 }
 
 # Compare two rules.
@@ -921,7 +897,59 @@ sub compare_rules {
 	return('', '');
     }
 }	
-	
+
+# Compare two chains.
+sub chains_equal {
+    my($self, $c_chains, $s_chains, $conf_chain, $spoc_chain, $context) = @_;
+    my $c_name = $conf_chain->{name};
+    my $s_name = $spoc_chain->{name};
+    if(not($conf_chain->{NON_COMPARABLE} or $spoc_chain->{NON_COMPARABLE})) {
+	return $self->acl_equal($conf_chain->{EXPANDED},
+				$spoc_chain->{EXPANDED}, 
+				$c_name, $s_name, $context);
+    }
+    my $conf_rules = $conf_chain->{RULES} || [];
+    my $spoc_rules = $spoc_chain->{RULES} || [];
+    my $conf_count = @$conf_rules;
+    my $spoc_count = @$spoc_rules;
+    my $msg = ($c_name eq $s_name) 
+	    ? "chains '$c_name'" 
+	    : "chains '$c_name' and '$s_name";
+    if($conf_count != $spoc_count) {
+	info_msg "#### $msg of $context have different",
+	"length: $conf_count at device, $spoc_count at netspoc";
+	return 0;
+    }
+    my $equal = 1;
+    for (my $i = 0; $i < $conf_count; $i++) {
+	if(my($c_target, $s_target) = compare_rules($conf_rules->[$i],
+						    $spoc_rules->[$i]))
+	{
+	    my $c_chain = $c_chains->{$c_target};
+	    my $s_chain = $s_chains->{$s_target};
+	    if($c_chain and $s_chain) {
+		my $context = $conf_chain->{name};
+		$self->chains_equal($c_chains, $s_chains, 
+				    $c_chain, $s_chain, $context)
+		    or $equal = 0;
+	    }
+	    elsif($c_target ne $s_target) {
+		my $which = $i+1;
+		info_msg "#### Rules $which of $msg of $context",
+		" have different target '$c_target' vs. '$s_target'";
+		$equal = 0;
+	    }
+	}
+	else {
+	    my $which = $i+1;
+	    info_msg "#### Rules $which of $msg of $context",
+	    " are different";
+		$equal = 0;
+	}
+    }
+    return $equal;
+}
+
 # - Iterate over all available tables.
 # - Compare rule sets of builtin chains pairwise:
 #   - both rules are identical: ok
@@ -947,39 +975,9 @@ sub process_iptables {
 	    # Only check builtin chains.
 	    next if not $conf_chain->{POLICY};
 	    my $spoc_chain = $spoc_chains->{$cname};
-	    my $conf_rules = $conf_chain->{RULES} || [];
-	    my $spoc_rules = $spoc_chain->{RULES} || [];
-	    my $conf_count = @$conf_rules;
-	    my $spoc_count = @$spoc_rules;
-	    if($conf_count != $spoc_count) {
-		$changed = 1;
-		info_msg "#### Chain '$cname' of table '$tname' has different",
-		"length: $conf_count at device, $spoc_count at netspoc";
-		next;
-	    }
-	    for (my $i = 0; $i < $conf_count; $i++) {
-		if(my($c_target, $s_target) = compare_rules($conf_rules->[$i],
-							    $spoc_rules->[$i]))
-		{
-		    my $c_chain = $conf_chains->{$c_target};
-		    my $s_chain = $spoc_chains->{$s_target};
-		    if($c_chain and $s_chain) {
-			my $context = $cname;
-			$self->compare_chains($c_chain, $s_chain, $context) or
-			    $changed = 1;
-		    }
-		    elsif($c_target ne $s_target) {
-			$changed = 1;
-			info_msg "#### Rule $i of chain '$cname' of table '$tname'",
-			" has changed target '$c_target' vs. '$s_target'";
-		    }
-		}
-		else {
-		    $changed = 1;
-		    info_msg "#### Rule $i of chain '$cname' of table '$tname'",
-		    " has changed";
-		}
-	    }
+	    $self->chains_equal($conf_chains, $spoc_chains,
+				$conf_chain, $spoc_chain, $tname)
+		or $changed = 1;
 	}   
     }
     $self->{CHANGE}->{ACL} = $changed;
@@ -990,7 +988,7 @@ sub merge_rawdata {
     my ($self, $spoc_conf, $raw_conf) = @_;
 
     $self->merge_routing($spoc_conf, $raw_conf);
-    $self->merge_iptables($spoc_conf, $raw_conf);
+#    $self->merge_iptables($spoc_conf, $raw_conf);
 }
 
 # NoOp.
@@ -1131,41 +1129,37 @@ sub write_startup_iptables {
 sub transfer {
     my ($self, $conf, $spoc_conf) = @_;
 
-# DISABLE IPTables changes.
-# Processing is done but always is a noop.
-$conf->{IPTABLES} = $spoc_conf->{IPTABLES};
-	
     # Change running configuration of device.
     $self->process_routing($conf, $spoc_conf) or return 0;
 
     # Only compare, no changes.
-    $self->process_iptables($conf, $spoc_conf) or return 0;
+#    $self->process_iptables($conf, $spoc_conf) or return 0;
 
     if (not $self->{COMPARE}) {
 	my $tmp_file = $config->{tmp_file};
 	my $startup_file;
 
 	# Change iptables running + startup configuration of device.
-	$startup_file = $config->{device_iptables_file};    
-	$self->write_startup_iptables($spoc_conf, $tmp_file);
-        if ($self->{CHANGE}->{ACL}) {
-	    mypr "Changing iptables running config\n";
-	    $self->cmd($tmp_file);
-            mypr "Writing iptables startup config\n";  
-	    $self->cmd("mv -f $tmp_file $startup_file");
-            mypr "...done\n";
-        }
-        else {
-            mypr "No changes to save - check if iptables startup is uptodate\n";
-	    if($self->cmd_ok("cmp $tmp_file $startup_file")) {
-                mypr "Startup is uptodate\n";
-            }
-            else {
-                warnpr "Iptables startup is *NOT* uptodate - trying to fix:\n";
-		$self->cmd("mv -f $tmp_file $startup_file");
-		mypr "...done\n";
-	    }
-        }
+#	$startup_file = $config->{device_iptables_file};    
+#	$self->write_startup_iptables($spoc_conf, $tmp_file);
+#        if ($self->{CHANGE}->{ACL}) {
+#	    mypr "Changing iptables running config\n";
+#	    $self->cmd($tmp_file);
+#            mypr "Writing iptables startup config\n";  
+#	    $self->cmd("mv -f $tmp_file $startup_file");
+#            mypr "...done\n";
+#        }
+#        else {
+#            mypr "No changes to save - check if iptables startup is uptodate\n";
+#	    if($self->cmd_ok("cmp $tmp_file $startup_file")) {
+#                mypr "Startup is uptodate\n";
+#            }
+#            else {
+#                warnpr "Iptables startup is *NOT* uptodate - trying to fix:\n";
+#		$self->cmd("mv -f $tmp_file $startup_file");
+#		mypr "...done\n";
+#	    }
+#        }
 	
 	# Change routing startup configuration of device.
 	$startup_file = $config->{device_routing_file};    
