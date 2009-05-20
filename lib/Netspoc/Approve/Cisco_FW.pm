@@ -1446,6 +1446,9 @@ sub remove_unneeded_on_device {
       OBJECT:
 	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
 
+	    # Skip special default-group-policy 'DfltGrpPolicy'.
+	    next OBJECT if $obj_name eq 'DfltGrpPolicy';
+
 	    my $object = object_for_name( $conf, $parse_name,
 					  $obj_name );
 
@@ -1554,6 +1557,10 @@ sub mark_connected_objects {
 				   $conf_key, $structure );
 	}
     }
+
+    # Mark "magical" DfltGrpPolicy as being connected, so that
+    # it is not deleted.
+    $connected{'DfltGrpPolicy'} = 1;
 }
 
 sub change_attributes {
