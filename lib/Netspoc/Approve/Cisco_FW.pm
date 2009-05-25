@@ -1490,6 +1490,9 @@ sub remove_spare_objects_on_device {
 	    my $object = object_for_name( $conf, $parse_name,
 					  $obj_name );
 	    
+	    # Skip special default-group-policy 'DfltGrpPolicy'.
+	    next OBJECT if $obj_name eq 'DfltGrpPolicy';
+
 	    # Remove spare objects from device.
 	    if ( not $connected{$obj_name} ) {
 		# So we do not try to remove the object
@@ -1557,10 +1560,6 @@ sub mark_connected_objects {
 				   $conf_key, $structure );
 	}
     }
-
-    # Mark "magical" DfltGrpPolicy as being connected, so that
-    # it is not deleted.
-    $connected{'DfltGrpPolicy'} = 1;
 }
 
 sub change_attributes {
