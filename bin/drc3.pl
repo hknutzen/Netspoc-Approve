@@ -273,6 +273,9 @@ if (my $p1 = $opts{P1}) {
     exit $exit;
 }
 
+@ip > 0 or die "Can't get IP from spoc file\n";
+$job->{IP} = shift(@ip);
+
 # Check reachability
 if (defined $job->{OPTS}->{PING_ONLY}) {
     mypr "\n";
@@ -300,9 +303,6 @@ if (defined $job->{OPTS}->{PING_ONLY}) {
     mypr "\n";
     exit $ex;
 }
-
-@ip > 0 or die "Can't get IP from spoc file\n";
-$job->{IP} = shift(@ip);
 
 if (!$job->{OPTS}->{NOREACH}) {
     if (!$job->check_device()) {
