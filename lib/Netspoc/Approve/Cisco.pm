@@ -259,42 +259,45 @@ sub normalize_proto {
 }
 
 # Rawdata processing
+# Rawdata processing
 sub merge_acls {
-    my ($self, $spoc_conf, $raw_conf, $extra) = @_;
-    for my $intf (keys %{ $raw_conf->{IF} }) {
-	mypr " interface: $intf\n";
-	my $ep_name;
-	my $sp_name;
-        unless ($ep_name = $raw_conf->{IF}->{$intf}->{ACCESS}) {
-            mypr " - no acl in raw data -\n";
-            next;
-        }
+    my ( $self, $spoc, $raw, $extra ) = @_;
 
-        # There is a raw acl for this interface.
-        $spoc_conf->{IF}->{$intf} or 
-	    errpr "rawdata: $intf not found in spocfile\n";
-        unless ($sp_name = $spoc_conf->{IF}->{$intf}->{ACCESS}) {
-            warnpr "rawdata: no spocacl for interface: $intf\n";
-            next;
-        }
+  RAW_INTERFACE:
+    for my $intf_name ( keys %{ $raw->{IF} } ) {
+	mypr " interface: $intf_name \n";
+	my $intf = $raw->{IF}->{$intf_name};
 
-        # There is a corresponding acl in spocfile.
-        unless ($raw_conf->{ACCESS}->{$ep_name}) {
-            errpr "rawdata: no matching raw acl found for name $ep_name" .
-		" in interface definition\n";
-            exit -1;
-        }
-        my $rawacl  = $raw_conf->{ACCESS}->{$ep_name};
-        my $spocacl = $spoc_conf->{ACCESS}->{$sp_name};
-
-	# Prepend raw acl.
-	unshift(@{$spoc_conf->{ACCESS}->{$sp_name}}, @$rawacl);
-
-	# Additionally prepend to original acl having object_groups.
-	if($extra) {
-	    unshift(@{$spoc_conf->{$extra}->{$sp_name}}, @$rawacl);
+	if ( ! $spoc->{IF}->{$intf_name} ) {
+	    warnpr "Interface $intf_name referenced in raw does " .
+		"not exist in Netspoc! \n";
 	}
-	mypr "   entries prepended: " . scalar @{$rawacl} . "\n";
+
+	# Merge acls for possibly existing access-group
+	# of this interface.
+	my $acl_name;
+	my @in_and_out = qw( ACCESS_GROUP_IN ACCESS_GROUP_OUT );
+	for my $access_group ( @in_and_out ) {
+	    if ( $acl_name = $intf->{$access_group} ) {
+		if ( my $raw_acl = $raw->{ACCESS}->{$acl_name} ) {
+		    # Prepend expanded raw acl.
+		    unshift @{$spoc->{ACCESS}->{$acl_name}}, @{$raw_acl};
+		    mypr "   $access_group entries prepended: "
+			. scalar @{$raw_acl} . "\n";
+		    # Prepend unexpanded raw acl.
+		    my $ue_raw_acl = $raw->{ACCESS_LIST}->{$acl_name};
+		    unshift @{$spoc->{ACCESS_LIST}->{$acl_name}}, @{$ue_raw_acl};
+
+		    # Create $access_group in $spoc if not present.
+		    if ( !$spoc->{$access_group}->{$acl_name} ) {
+			$spoc->{$access_group}->{$acl_name} =
+			    $raw->{$access_group}->{$acl_name};
+			$spoc->{IF}->{$intf_name}->{$access_group} =
+			    $acl_name;
+		    }
+		}
+	    }
+	}
     }
 }
 
