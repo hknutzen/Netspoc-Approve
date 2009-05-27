@@ -21,7 +21,6 @@ use warnings;
 use IO::Socket ();
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
-use Data::Dumper;
 
 
 # Global variables.
@@ -143,8 +142,9 @@ my %parse2attr = (
 		  },
 		  IF => {
 		      ACCESS       => {
-			  'filter'   => 'ACCESS_GROUP',
-		      }
+			  'in_filter'    => 'ACCESS_GROUP_IN',
+			  'out_filter'   => 'ACCESS_GROUP_OUT',
+		      },
 		  },
 		  );
 		      
@@ -160,8 +160,11 @@ sub type_for_acl {
     elsif ( $spoc->{is_split_tunnel_acl}->{$acl_name} ) {
 	$type = 'vpn_filter';
     }
+    elsif ( $spoc->{is_out_filter_acl}->{$acl_name} ) {
+	$type = 'out_filter';
+    }
     elsif ( $spoc->{is_filter_acl}->{$acl_name} ) {
-	$type = 'filter';
+	$type = 'in_filter';
     }
     elsif ( $spoc->{is_crypto_acl}->{$acl_name} ) {
 	$type = 'crypto';
@@ -291,7 +294,10 @@ sub get_parse_info {
 	    store =>'ACCESS_GROUP',
 	    named => 1,
 	    parse => ['seq',
-		      { parse => qr/in/ },
+		      ['or',
+		      { store => 'TYPE', parse => qr/out/ },
+		      { store => 'TYPE', parse => qr/in/ },
+		       ],
 		      { parse => qr/interface/ },
 		      { store => 'IF_NAME', parse => \&get_token } ],
 	},
@@ -460,12 +466,30 @@ sub postprocess_config {
     #  via tunnel-group-maps.)
     for my $access_group ( values %{$p->{ACCESS_GROUP}} ) {
 	my $acl_name = $access_group->{name};
+	my $is_out_acl = $access_group->{TYPE} eq 'out' ?
+	    '1' : '0';
+	# Mark as filter-acl or as outgoing-filter-acl.
         if ( $p->{ACCESS_LIST}->{$acl_name} ) {
-	    $p->{is_filter_acl}->{$acl_name} = 1;
+	    if ( $is_out_acl ) {
+		$p->{is_out_filter_acl}->{$acl_name} = 1;
+	    }
+	    else {
+		$p->{is_filter_acl}->{$acl_name} = 1;
+	    }
 	}
+
+	# Create in- or out-access-group on interface.
+	# Create artificial interface if necessary.
 	my $if_name  = $access_group->{IF_NAME};
 	if ( my $intf = $p->{IF}->{$if_name} ) {
-	    $intf->{ACCESS_GROUP} = $acl_name;
+	    if ( $is_out_acl ) {
+		$p->{ACCESS_GROUP_OUT}->{$acl_name} = $access_group;
+		$intf->{ACCESS_GROUP_OUT} = $acl_name;
+	    }
+	    else {
+		$p->{ACCESS_GROUP_IN}->{$acl_name} = $access_group;
+		$intf->{ACCESS_GROUP_IN} = $acl_name;
+	    }
 	}
 	else {
 	    # Netspoc does not generate interface definitions
@@ -473,10 +497,20 @@ sub postprocess_config {
 	    # without corresponding interface.
 	    # In this case we create an "artificial" interface.
 	    $p->{IF}->{$if_name}->{name} = $if_name;
-	    $p->{IF}->{$if_name}->{ACCESS_GROUP} =
-		$acl_name;
+	    if ( $is_out_acl ) {
+		$p->{ACCESS_GROUP_OUT}->{$acl_name} = $access_group;
+		$p->{IF}->{$if_name}->{ACCESS_GROUP_OUT} =
+		    $acl_name;
+	    }
+	    else {
+		$p->{ACCESS_GROUP_IN}->{$acl_name} = $access_group;
+		$p->{IF}->{$if_name}->{ACCESS_GROUP_IN} =
+		    $acl_name;
+	    }
 	}
     }
+    # We don't need "ACCESS_GROUP" anymore ...
+    delete $p->{ACCESS_GROUP};
 
     for my $if (sort keys %{ $p->{IF} }) {
 	my $entry = $p->{IF}->{$if};
@@ -532,7 +566,6 @@ sub postprocess_config {
     mypr meself(1)
       . ": CERTIFICATE MAPS found: "
       . scalar(keys %{ $p->{CA_CERT_MAP} }) . "\n";
-#    print Dumper( $p->{CA_CERT_MAP} ), "\n";
 
     mypr meself(1)
       . ": CRYPTO MAPS found: "
@@ -553,6 +586,11 @@ sub postprocess_config {
             $c_acl_counter++;
         }
         elsif ($p->{is_filter_acl}->{$acl_name}) {
+            mypr meself(1)
+              . ": $acl_name "
+              . scalar @{ $p->{ACCESS_LIST}->{$acl_name} } . "\n";
+        }
+        elsif ($p->{is_out_filter_acl}->{$acl_name}) {
             mypr meself(1)
               . ": $acl_name "
               . scalar @{ $p->{ACCESS_LIST}->{$acl_name} } . "\n";
@@ -1922,9 +1960,17 @@ sub transfer_acl {
 
     # If this acl is attached to an interface, create
     # access-group connecting acl to interface.
-    if ( my $access_groups = $spoc->{ACCESS_GROUP} ) {
+    if ( my $access_groups = $spoc->{ACCESS_GROUP_IN} ) {
 	if ( my $access_group = $access_groups->{$acl} ) {
 	    push @cmds, "access-group $new_acl in interface " .
+		$access_group->{IF_NAME};
+	}
+    }
+    # If this acl is an outgoing-acl and attached to an interface,
+    # create access-group connecting acl to interface.
+    if ( my $access_groups = $spoc->{ACCESS_GROUP_OUT} ) {
+	if ( my $access_group = $access_groups->{$acl} ) {
+	    push @cmds, "access-group $new_acl out interface " .
 		$access_group->{IF_NAME};
 	}
     }
@@ -2062,7 +2108,7 @@ sub is_acl {
     my ( $c, $object ) = @_;
     return if not $c;
     return if not $object;
-    return exists $c->{ACCESS_LIST}->{$object};
+    return exists $c->{ACCESS}->{$object};
 }
 
 sub mark_for_transfer {
@@ -2168,9 +2214,11 @@ sub define_structure {
 	},
 	IF => {
 	    anchor => 1,
-	    next => [ { attr_name  => 'ACCESS_GROUP',
-			parse_name => 'ACCESS',
-		    } ],
+	    next => [ { attr_name  => 'ACCESS_GROUP_IN',
+			parse_name => 'ACCESS', },
+		      { attr_name  => 'ACCESS_GROUP_OUT',
+			parse_name => 'ACCESS', },
+		      ],
 	    attributes => [],
 	    transfer => 'transfer_interface',
 	    remove   => 'remove_interface',
