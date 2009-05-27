@@ -353,9 +353,9 @@ sub get_parse_info {
 		  ['or',
 
 		   # ignore 'access-list <name> compiled'
-		   { parse => qr/compiled/ },
+		   { store => 'COMPILED', parse => qr/compiled/ },
 		   ['seq',
-		    { parse => qr/remark/ },
+		    { store => 'REMARK', parse => qr/remark/ },
 		    { parse => \&skip } ],
 		   
 		   ['or', # standard or extended access-list
@@ -450,14 +450,19 @@ sub postprocess_config {
     for my $acl_name (keys %{ $p->{ACCESS_LIST} }) {
         my %seen_acl;
         for my $entry (@{ $p->{ACCESS_LIST}->{$acl_name} }) {
-            my $e_acl = $self->expand_acl_entry($entry, $p, $acl_name);
-	    push @{$p->{ACCESS}->{$acl_name}},@$e_acl;
-
 	    # Remove 'access-list <name>' from original input line.
 	    # 1. to get shorter output during ACL compare.
 	    # 2. we merge different names from raw files and need to add
 	    #    a new name during approve anyway.
-	    $entry->{orig} =~ s/^access-list\s+\S+\s+(extended\s+)?//;
+	    $entry->{orig} =~ s/^access-list\s+\S+\s+(extended|standard)?//;
+
+	    # Don't expand remark-acls and compiled-acls.
+	    # This way, they will be transfered or removed,
+	    # but not compared.
+	    next if ( $entry->{COMPILED} || $entry->{REMARK} );
+
+            my $e_acl = $self->expand_acl_entry($entry, $p, $acl_name);
+	    push @{$p->{ACCESS}->{$acl_name}},@$e_acl;
         }
     }
 
@@ -1954,7 +1959,8 @@ sub transfer_acl {
 		$ace->{$where}->{OBJECT_GROUP} = $new_gid;  
 	    }
 	}
-	push @cmds, "access-list $new_acl " . $cmd;
+	my $type = $ace->{ACL_TYPE}  ||  '';
+	push @cmds, "access-list $new_acl $type $cmd";
     }
 
 
