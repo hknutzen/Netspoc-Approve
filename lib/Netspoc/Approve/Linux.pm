@@ -10,6 +10,7 @@ package Netspoc::Approve::Linux;
 '$Id$' =~ / (.+),v (.+?) /;
 
 my $id = "$1 $2";
+my $handle_iptables = 0;
 
 use strict;
 use warnings;
@@ -400,7 +401,7 @@ sub icmp_code {
 
 sub rule_code {
     my($rule) = @_;
-    my ($mode, $type, $src, $dst, $log) = @{$rule}{qw(MODE TYPE SRC DST LOG)};
+    my ($mode, $type, $src, $dst, $log) = @{$rule}{qw(MODE TYPE SRC DST)};
 
     my @result;
     push @result, "-s " . prefix_code($src) if $src->{BASE} != 0;
@@ -463,9 +464,16 @@ my $normalize = {
 	intern => sub { uc $_[0] },
 	extern => sub { $_[0] },
     },
+    '--state' => {
+	non_comparable => 1,
+
+	# RELATED,ESTABLISHED -> ESTABLISHED,RELATED
+	intern => sub { join(',', sort(split(/,/, $_[0]))) },
+	extern => sub { $_[0] },
+    },
     '--set-mark' => {
 	non_comparable => 1,
-	intern => sub { my($v) = @_; $v =~ /^0x\d*$/ ? eval($v) : $v },
+	intern => sub { my($v) = @_; $v =~ /^0x\d*$/i ? eval($v) : $v },
 	extern => sub { $_[0] },
     },
 };	
@@ -492,8 +500,10 @@ sub normalize {
 	}
 
 	# Check, if a builtin target other than ACCEPT or DROP is called.
+	# Rule with LOG isn't checked, because it is ignored later.
 	elsif(my $v = $rule->{'-j'}) {
 	    if(not $chains->{$v}) {
+		next if $v eq 'LOG';
 		if(not ($v eq 'DROP' or $v eq 'ACCEPT')) {
 		    $chain->{NON_COMPARABLE} = 1;
 		}
@@ -688,6 +698,9 @@ sub expand_chain {
 	my $target = $rule->{'-j'} || $rule->{'-g'} or 
 	    err_msg "Missing target in rule";
 
+	# Ignore LOG target; it can't be compared currently.
+	next if $target eq 'LOG';
+
 	# Terminal target.
 	if(not $chains->{$target}) {
 	    push @result, $rule->{intern};
@@ -856,7 +869,7 @@ sub postprocess_routes {
 sub postprocess_config {
     my ($self, $config) = @_;
     $self->postprocess_routes($config);
-#    $self->postprocess_iptables($config);
+    $self->postprocess_iptables($config) if $handle_iptables;
 } 
 
 sub compare_chains_semantically {
@@ -903,11 +916,15 @@ sub chains_equal {
     my($self, $c_chains, $s_chains, $conf_chain, $spoc_chain, $context) = @_;
     my $c_name = $conf_chain->{name};
     my $s_name = $spoc_chain->{name};
+
+    # Compare semantically
     if(not($conf_chain->{NON_COMPARABLE} or $spoc_chain->{NON_COMPARABLE})) {
 	return $self->acl_equal($conf_chain->{EXPANDED},
 				$spoc_chain->{EXPANDED}, 
 				$c_name, $s_name, $context);
     }
+
+    # Compare textually
     my $conf_rules = $conf_chain->{RULES} || [];
     my $spoc_rules = $spoc_chain->{RULES} || [];
     my $conf_count = @$conf_rules;
@@ -915,6 +932,7 @@ sub chains_equal {
     my $msg = ($c_name eq $s_name) 
 	    ? "chains '$c_name'" 
 	    : "chains '$c_name' and '$s_name";
+    info_msg "Comparing $msg textually";
     if($conf_count != $spoc_count) {
 	info_msg "#### $msg of $context have different",
 	"length: $conf_count at device, $spoc_count at netspoc";
@@ -942,9 +960,8 @@ sub chains_equal {
 	}
 	else {
 	    my $which = $i+1;
-	    info_msg "#### Rules $which of $msg of $context",
-	    " are different";
-		$equal = 0;
+	    info_msg "#### Rules $which of $msg of $context are different";
+	    $equal = 0;
 	}
     }
     return $equal;
@@ -962,19 +979,24 @@ sub process_iptables {
     my $changed = 0;
     for my $tname (keys %$conf_tables) {
 	info_msg "Comparing table '$tname'";
-	if(not $spoc_tables->{$tname}) {
+	my $conf_chains = $conf_tables->{$tname};
+	my $spoc_chains = $spoc_tables->{$tname};
+	if(not $spoc_chains) {
 	  $changed = 1;
 	  info_msg "#### Extra table on device: $tname";
 	  next;
 	}
-	my $conf_chains = $conf_tables->{$tname};
-	my $spoc_chains = $spoc_tables->{$tname};
 	for my $cname (keys %$conf_chains) {
 	    my $conf_chain = $conf_chains->{$cname};
 
 	    # Only check builtin chains.
 	    next if not $conf_chain->{POLICY};
 	    my $spoc_chain = $spoc_chains->{$cname};
+	    if(not $spoc_chain) {
+		$changed = 1;
+		info_msg "#### Extra chain on device: $cname";
+		next;
+	    }
 	    $self->chains_equal($conf_chains, $spoc_chains,
 				$conf_chain, $spoc_chain, $tname)
 		or $changed = 1;
@@ -988,7 +1010,7 @@ sub merge_rawdata {
     my ($self, $spoc_conf, $raw_conf) = @_;
 
     $self->merge_routing($spoc_conf, $raw_conf);
-#    $self->merge_iptables($spoc_conf, $raw_conf);
+    $self->merge_iptables($spoc_conf, $raw_conf) if $handle_iptables;
 }
 
 # NoOp.
@@ -1133,34 +1155,38 @@ sub transfer {
     $self->process_routing($conf, $spoc_conf) or return 0;
 
     # Only compare, no changes.
-#    $self->process_iptables($conf, $spoc_conf) or return 0;
+    if($handle_iptables) {
+	$self->process_iptables($conf, $spoc_conf) or return 0;
+    }
 
     if (not $self->{COMPARE}) {
 	my $tmp_file = $config->{tmp_file};
 	my $startup_file;
 
-	# Change iptables running + startup configuration of device.
-#	$startup_file = $config->{device_iptables_file};    
-#	$self->write_startup_iptables($spoc_conf, $tmp_file);
-#        if ($self->{CHANGE}->{ACL}) {
-#	    mypr "Changing iptables running config\n";
-#	    $self->cmd($tmp_file);
-#            mypr "Writing iptables startup config\n";  
-#	    $self->cmd("mv -f $tmp_file $startup_file");
-#            mypr "...done\n";
-#        }
-#        else {
-#            mypr "No changes to save - check if iptables startup is uptodate\n";
-#	    if($self->cmd_ok("cmp $tmp_file $startup_file")) {
-#                mypr "Startup is uptodate\n";
-#            }
-#            else {
-#                warnpr "Iptables startup is *NOT* uptodate - trying to fix:\n";
-#		$self->cmd("mv -f $tmp_file $startup_file");
-#		mypr "...done\n";
-#	    }
-#        }
-	
+	if($handle_iptables) {
+	    # Change iptables running + startup configuration of device.
+	    $startup_file = $config->{device_iptables_file};    
+	    $self->write_startup_iptables($spoc_conf, $tmp_file);
+	    if ($self->{CHANGE}->{ACL}) {
+		mypr "Changing iptables running config\n";
+		$self->cmd($tmp_file);
+		mypr "Writing iptables startup config\n";  
+		$self->cmd("mv -f $tmp_file $startup_file");
+		mypr "...done\n";
+	    }
+	    else {
+		mypr "No changes to save - check if iptables startup is uptodate\n";
+		if($self->cmd_ok("cmp $tmp_file $startup_file")) {
+		    mypr "Startup is uptodate\n";
+		}
+		else {
+		    warnpr "Iptables startup is *NOT* uptodate - trying to fix:\n";
+		    $self->cmd("mv -f $tmp_file $startup_file");
+		    mypr "...done\n";
+		}
+	    }
+	}
+
 	# Change routing startup configuration of device.
 	$startup_file = $config->{device_routing_file};    
 	$self->write_startup_routing($spoc_conf, $tmp_file);
