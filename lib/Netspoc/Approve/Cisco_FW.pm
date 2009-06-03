@@ -1959,8 +1959,12 @@ sub transfer_acl {
 		$ace->{$where}->{OBJECT_GROUP} = $new_gid;  
 	    }
 	}
-	my $type = $ace->{ACL_TYPE}  ||  '';
-	push @cmds, "access-list $new_acl $type $cmd";
+
+	# Don't print 'extended'
+	# - it is the default for ASA,
+	# - it is not supported by PIX.
+	my $type = $ace->{ACL_TYPE} eq 'extended' ? '' : "$ace->{ACL_TYPE} ";
+	push @cmds, "access-list $new_acl $type$cmd";
     }
 
 
