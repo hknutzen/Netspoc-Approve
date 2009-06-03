@@ -266,34 +266,43 @@ sub merge_acls {
   RAW_INTERFACE:
     for my $intf_name ( keys %{ $raw->{IF} } ) {
 	mypr " interface: $intf_name \n";
-	my $intf = $raw->{IF}->{$intf_name};
+	my $raw_intf = $raw->{IF}->{$intf_name};
+	my $spoc_intf = $spoc->{IF}->{$intf_name};
 
-	if ( ! $spoc->{IF}->{$intf_name} ) {
+	if ( ! $spoc_intf ) {
 	    warnpr "Interface $intf_name referenced in raw does " .
 		"not exist in Netspoc! \n";
+	    $spoc_intf = $spoc->{IF}->{$intf_name} = { name => $intf_name };
 	}
 
-	# Merge acls for possibly existing access-group
-	# of this interface.
-	my $acl_name;
-	my @in_and_out = qw( ACCESS_GROUP_IN ACCESS_GROUP_OUT );
-	for my $access_group ( @in_and_out ) {
-	    if ( $acl_name = $intf->{$access_group} ) {
-		if ( my $raw_acl = $raw->{ACCESS}->{$acl_name} ) {
+	# Merge acls for possibly existing access-group of this interface.
+	for my $direction ( qw( IN OUT ) ) {
+	    my $access_group = "ACCESS_GROUP_$direction";
+	    if ( my $raw_name = $raw_intf->{$access_group} ) {
+		if ( my $raw_acl = $raw->{ACCESS}->{$raw_name} ) {
+
+		    my $spoc_name = $spoc_intf->{$access_group};
+		    if( ! $spoc_name ) {
+			$spoc_name = $spoc_intf->{$access_group} = 
+			    $intf_name . '_' . lc($direction);
+		    }
+
 		    # Prepend expanded raw acl.
-		    unshift @{$spoc->{ACCESS}->{$acl_name}}, @{$raw_acl};
+		    unshift @{$spoc->{ACCESS}->{$spoc_name}}, @{$raw_acl};
 		    mypr "   $access_group entries prepended: "
 			. scalar @{$raw_acl} . "\n";
+
 		    # Prepend unexpanded raw acl.
-		    my $ue_raw_acl = $raw->{ACCESS_LIST}->{$acl_name};
-		    unshift @{$spoc->{ACCESS_LIST}->{$acl_name}}, @{$ue_raw_acl};
+		    if($extra) {
+			my $ue_raw_acl = $raw->{$extra}->{$raw_name};
+			unshift @{$spoc->{$extra}->{$spoc_name}}, @{$ue_raw_acl};
+		    }
 
 		    # Create $access_group in $spoc if not present.
-		    if ( !$spoc->{$access_group}->{$acl_name} ) {
-			$spoc->{$access_group}->{$acl_name} =
-			    $raw->{$access_group}->{$acl_name};
-			$spoc->{IF}->{$intf_name}->{$access_group} =
-			    $acl_name;
+		    if ( !$spoc->{$access_group}->{$spoc_name} ) {
+			$spoc->{$access_group}->{$spoc_name} =
+			{ name => $spoc_name, IF_NAME => $intf_name };
+			$spoc->{IF}->{$intf_name}->{$access_group} = $spoc_name;
 		    }
 		}
 	    }
