@@ -198,7 +198,7 @@ sub get_parse_info {
 		store => 'SPLIT_TUNNEL_NETWORK_LIST',
 		parse => \&get_token,
 	    },
-	    'vpn-idle-timeout value' => {
+	    'vpn-idle-timeout' => {
 		store => 'VPN_IDLE_TIMEOUT',
 		parse => \&get_token,
 	    },
