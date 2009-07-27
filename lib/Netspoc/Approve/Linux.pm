@@ -437,6 +437,10 @@ my $normalize = {
 	intern => \&mode2intern,
 	extern => \&mode_code,
     },
+    '-g' => {
+	intern => \&mode2intern,
+	extern => \&mode_code,
+    },
     '-s' => {
 	intern => \&prefix2intern,
 	extern => \&prefix_code,
@@ -463,7 +467,7 @@ my $normalize = {
 	extern => \&icmp_code,
     },
     '-p' => {
-	intern => sub { uc $_[0] },
+	intern => sub { my($v) = @_; $v = lc $v; $v =~ s/^vrrp$/112/; $v;},
 	extern => sub { $_[0] },
     },
     '--state' => {
@@ -692,8 +696,8 @@ sub expand_chain {
 	    for (my $j = $i+1; $j < @$rules; $j++) {
 		my $next = $rules->[$j];
 		disjoint($rule->{intern}, $next->{intern}) or
-		    err_msg "Unsuported '-g' for rules",
-		    "\n $rule->{orig} $next->{orig}";
+		    err_msg "Unsupported '-g' for rules",
+		    "\n '$rule->{orig}', '$next->{orig}'";
 	    }
 	}
 
