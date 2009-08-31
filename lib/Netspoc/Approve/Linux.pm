@@ -1072,11 +1072,10 @@ sub cmd_check_error($$) {
     if(@$lines) {
 	my $valid = $valid_cmd_output{$cmd};
 	if(not(@$lines == 1 and $valid and $lines->[0] eq $valid)) {
-	    errpr_info "$cmd failed\n";
+	    errpr "$cmd failed\n";
 	    for my $line (@$lines) {
-		errpr_info "+++ $line\n";
+		errpr "$line\n";
 	    }
-	    errpr "+++\n";
 	}
     }
     elsif(not $self->status_ok) {
