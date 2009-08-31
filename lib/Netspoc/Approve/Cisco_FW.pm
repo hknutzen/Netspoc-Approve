@@ -693,54 +693,66 @@ sub attr_eq( $$$ ) {
 }
 
 ##############################################################
-# issue command
-##############################################################
+my @known_status =
+    (
+     # for write memory
+     qr/\[OK\]/,
+     # identity nat
+     qr/will be identity translated for outbound/,
+     # identity nat
+     qr/nat 0 0.0.0.0 will be non-translated/,
+     # PAT
+     qr/Global \d+\.\d+\.\d+\.\d+ will be Port Address Translated/,
+     # global (xxx) interface
+     # PIX: "xxx interface address added to PAT pool"
+     # ASA: "INFO: xxx interface address added to PAT pool"
+     qr/interface address added to PAT pool/,
+      );
+
+my @known_warning = 
+    (
+     # overlapping statics from netspoc
+     qr/overlapped\/redundant/,
+     # overlapping statics with global from netspoc
+     qr/static overlaps/,
+     # route warnings
+     qr/Route already exists/,
+     # object-group warnings
+     qr/Adding obj \([^()]+\) to grp \([^()]+\) failed; object already exists/,
+     # ace warnings
+     qr/ACE not added[.] Possible duplicate entry/,
+     );
+
 sub cmd_check_error($$) {
     my ($self, $out) = @_;
 
-    # do ERROR if unexpected line appears
-    if (my($msg) = $$out =~ /\n(.+)$/s) {
-        #### hack start ###
-        ($msg =~ /\[OK\]/m) and return 1;    ### for write memory
-        ($msg =~ /will be identity translated for outbound/)
-          and return 1;                       # identity nat
-        ($msg =~ /nat 0 0.0.0.0 will be non-translated/)
-          and return 1;                       # identity nat
-        ($msg =~ /Global \d+\.\d+\.\d+\.\d+ will be Port Address Translated/)
-          and return 1;                       # PAT
+    my @lines = split(/\n/, $out);
 
-	# global (xxx) interface
-	# PIX: xxx interface address added to PAT pool
-	# ASA: INFO: xxx interface address added to PAT pool
-	$msg =~ /interface address added to PAT pool/
-	    and return 1;
+    # First line is echo of command; ignore it.
+    my $echo = shift(@lines);
 
-        if ($msg =~ /(
-		      # overlapping statics from netspoc
-		      overlapped\/redundant |
-		      # overlapping statics with global from netspoc
-		      static[ ]overlaps |
-		      # route warnings
-		      Route[ ]already[ ]exists |
-		      # object-group warnings
-		      Adding[ ]obj[ ]\([^()]+\)[ ]to[ ]grp[ ]\([^()]+\)[ ]failed;[ ]object[ ]already[ ]exists |
-		      # ace warnings
-		      ACE[ ]not[ ]added[.][ ]Possible[ ]duplicate[ ]entry)/x) {
-            my @pre = split(/\n/, $msg);
-            for my $line (@pre) {
+    # Check unexpected lines:
+    # - known status messages
+    # - known warning messages
+    # - unknown messages, handled as error messages.
+    my $is_ok = 1;
+  LINE:
+    for my $line (@lines) {
+	for my $regex (@known_status) {
+	    if($line =~ $regex) {
+		next LINE;
+	    }
+	}
+	for my $regex (@known_warning) {
+	    if($line =~ $regex) {
                 warnpr $line, "\n";
-            }
-            return 1;
-        }
-        ### hack end ###
-        my @pre = split(/\n/, $msg);
-        for my $line (@pre) {
-            errpr_info "+++ ", $line, "\n";
-        }
-        errpr "+++\n";
-        return 0;
+		next LINE;
+	    }
+	}
+	errpr "$line\n";
+	$is_ok = 0;
     }
-    return 1;
+    return $is_ok;
 }
 
 #
