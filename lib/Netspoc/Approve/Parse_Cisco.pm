@@ -155,7 +155,14 @@ sub get_paren_token {
     my $token = get_token($arg);
     my($inside) = ($token =~ /^\((.*)\)$/) or 
 	err_at_line($arg, 'Expected parenthesized value(s)');
-    return(split(/,/, $inside));
+    if(wantarray) {
+	split(/,/, $inside);
+    }
+    else {
+	my($result, @rest) = split(/,/, $inside);
+	@rest and err_at_line($arg, 'Expected exactly one parenthesized value');
+	$result;
+    }
 }
 
 # Like bulitin function 'ne', but has additional argument $arg and 
