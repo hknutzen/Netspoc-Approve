@@ -140,6 +140,7 @@ our %PORT_Trans_TCP = (
     'pptp'              => 1723,	# from PIX 6.3 docu
     'smtp'              => 25,
     'sqlnet'            => 1521,
+    'rsh'		=> 514,		# ASA 8.0, duplicate of 'cmd'
     'ssh'               => 22,
     'sunrpc'            => 111,
     'tacacs'            => 49,
