@@ -24,28 +24,15 @@ use File::Basename;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
-  warnpr check_warn meself quad2int int2quad writestatu
+  warnpr check_warn meself quad2int int2quad writestatus
   formatstatus getstatus getfullstatus updatestatus
-  open_status expect_error 
-  $eol $ts $tc
-  %ICMP_Trans %IP_Trans %PORT_Trans_TCP %PORT_Trans_UDP
-  %Re_IP_Trans %PORT_Re_Trans_TCP %PORT_Re_Trans_UDP %ICMP_Re_Trans
-  
+  open_status 
+  %ICMP_Trans %IP_Trans %PORT_Trans_TCP %PORT_Trans_UDP  
 );
 
 ############################################################
 # --- parsing ---
 ############################################################
-
-# eol
-our $eol = qr/\s*(\n|\r|\Z)/;
-
-# token (cluster) separator  {};, are currently *not* in use
-#                            - is needed for pix global command
-our $ts = qr/(?=[\s{};,-]|\Z|\n)/;
-
-# token (word) charakter class
-our $tc = qr/[\w\:-]/;
 
 # Following lists are subject of permanent adaption from pix and ios devices.
 # Not all numbers have names on cisco devices
@@ -203,17 +190,6 @@ our %PORT_Trans_UDP = (
     'www'           => 80,
     'xdmcp'         => 177
 );
-
-our %Re_IP_Trans       = reverse %IP_Trans;
-our %PORT_Re_Trans_TCP = reverse %PORT_Trans_TCP;
-our %PORT_Re_Trans_UDP = reverse %PORT_Trans_UDP;
-
-our %ICMP_Re_Trans = ();
-
-for my $message (keys %ICMP_Trans) {
-    $ICMP_Re_Trans{ $ICMP_Trans{$message}->{type} }
-      ->{ $ICMP_Trans{$message}->{code} } = $message;
-}
 
 my %statfields = (
     DEVICENAME  => 0,
