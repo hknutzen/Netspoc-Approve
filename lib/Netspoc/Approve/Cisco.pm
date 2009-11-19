@@ -259,9 +259,8 @@ sub normalize_proto {
 }
 
 # Rawdata processing
-# Rawdata processing
 sub merge_acls {
-    my ( $self, $spoc, $raw, $extra ) = @_;
+    my ( $self, $spoc, $raw ) = @_;
 
   RAW_INTERFACE:
     for my $intf_name ( keys %{ $raw->{IF} } ) {
@@ -279,7 +278,7 @@ sub merge_acls {
 	for my $direction ( qw( IN OUT ) ) {
 	    my $access_group = "ACCESS_GROUP_$direction";
 	    if ( my $raw_name = $raw_intf->{$access_group} ) {
-		if ( my $raw_acl = $raw->{ACCESS}->{$raw_name} ) {
+		if ( my $raw_acl = $raw->{ACCESS_LIST}->{$raw_name} ) {
 
 		    my $spoc_name = $spoc_intf->{$access_group};
 		    if( ! $spoc_name ) {
@@ -287,16 +286,18 @@ sub merge_acls {
 			    $intf_name . '_' . lc($direction);
 		    }
 
-		    # Prepend expanded raw acl.
-		    unshift @{$spoc->{ACCESS}->{$spoc_name}}, @{$raw_acl};
-		    mypr "   $access_group entries prepended: "
-			. scalar @{$raw_acl} . "\n";
-
-		    # Prepend unexpanded raw acl.
-		    if($extra) {
-			my $ue_raw_acl = $raw->{$extra}->{$raw_name};
-			unshift @{$spoc->{$extra}->{$spoc_name}}, @{$ue_raw_acl};
+		    # Create access-list in $spoc if not present.
+		    if( ! $spoc->{ACCESS_LIST}->{$spoc_name} ) {
+			$spoc->{ACCESS_LIST}->{$spoc_name} = { name => $spoc_name,
+							       entries => [] };
 		    }
+
+		    # Prepend raw acl.
+		    my $raw_entries = $raw_acl->{entries};
+		    unshift(@{$spoc->{ACCESS_LIST}->{$spoc_name}->{entries}}, 
+			    @$raw_entries);
+		    mypr "   $access_group entries prepended: "
+			. scalar @$raw_entries . "\n";
 
 		    # Create $access_group in $spoc if not present.
 		    if ( !$spoc->{$access_group}->{$spoc_name} ) {
