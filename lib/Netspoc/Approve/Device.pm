@@ -794,7 +794,7 @@ sub merge_routing {
     for my $re (@{ $raw_conf->{ROUTING} }) {
 	push @{ $spoc_conf->{ROUTING} }, $re;
     }
-    mypr " attached routing entries: "
+    mypr "RAW: attached routing entries: "
 	. scalar @{ $raw_conf->{ROUTING} } . "\n";
 }
 
@@ -822,105 +822,68 @@ sub process_routing {
     my ($self, $conf, $spoc_conf) = @_;
     my $spoc_routing = $spoc_conf->{ROUTING};
     my $conf_routing = $conf->{ROUTING};
-    if ($spoc_routing) {
-        if (not $conf_routing) {
-            if (not $conf->{OSPF}) {
-                errpr "ERROR: no routing entries found on device\n";
-            }
-            else {
-                mypr "no routing entries found on device - but OSPF found...\n";
-
-                # generate empty routing config for device:
-                $conf_routing = $conf->{ROUTING} = [];
-            }
-        }
-	$self->{CHANGE}->{ROUTE} = 0;
-        my $counter;
-        mypr "==== compare routing information ====\n";
-        mypr " routing entries on device:    ", scalar @$conf_routing, "\n";
-        mypr " routing entries from netspoc: ", scalar @$spoc_routing, "\n";
-        for my $c (@$conf_routing) {
-            for my $s (@$spoc_routing) {
-                if ($self->route_line_a_eq_b($c, $s)) {
-                    $c->{DELETE} = $s->{DELETE} = 1;
-                    last;
-                }
-            }
-        }
-        unless ($self->{COMPARE}) {
-
-            #
-            # *** SCHEDULE RELOAD ***
-            #
-            # TODO: check if 10 minutes are OK
-            #
-            $self->schedule_reload(10);
-
-            # Transfer to device.
-            $self->enter_conf_mode;
-            mypr "transfer routing entries to device:\n";
-            $counter = 0;
-	    
-	    # Add routes with long mask first.
-	    # If we switch the default route, this ensures, that we have the
-	    # new routes available before deleting the old default route.
-            for my $r ( sort {$b->{MASK} <=> $a->{MASK}} 
-			@{ $spoc_conf->{ROUTING} }) {
-                ($r->{DELETE}) and next;
-                $counter++;
-		
-		# PIX and ASA don't allow two routes to identical destination.
-		# Remove old route immediatly before adding the new one.
-		for my $c (@$conf_routing) {
-		    next if $c->{DELETE};
-		    if($self->route_line_destination_a_eq_b($r, $c)){
-			$self->cmd($self->route_del($c));
-			$c->{DELETE} = 1; # Must not delete again.
-		    }
-		}
-                $self->cmd($self->route_add($r));
-            }
-            mypr " $counter\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-            mypr "deleting non matching routing entries from device\n";
-            $counter = 0;
-            for my $r (@$conf_routing) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                $self->cmd($self->route_del($r));
-            }
-            mypr " $counter\n";
-            $self->leave_conf_mode;
-            $counter and $self->{CHANGE}->{ROUTE} = 1;
-            $self->cancel_reload();
-        }
-        else {
-
-            # show compare results
-            mypr "additional routing entries from spoc:\n";
-            $counter = 0;
-            for my $r (@$spoc_routing) {
-                ($r->{DELETE}) and next;
-                $counter++;
-                mypr $self->route_add($r), "\n";
-            }
-            mypr "total: ", $counter, "\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-            mypr "non matching routing entries on device:\n";
-            $counter = 0;
-            for my $r (@$conf_routing) {
-                $r->{DELETE} and next;
-                $counter++;
-                mypr $self->route_del($r), "\n";
-            }
-            mypr "total: ", $counter, "\n";
-            ($counter) and $self->{CHANGE}->{ROUTE} = 1;
-        }
-        mypr "==== done ====\n";
-    }
-    else {
+    if (not $spoc_routing) {
         mypr "no routing entries specified - leaving routes untouched\n";
+	return;
     }
+    if (not $conf_routing) {
+	if (not $conf->{OSPF}) {
+	    errpr "ERROR: no routing entries found on device\n";
+	}
+	else {
+	    mypr "no routing entries found on device - but OSPF found...\n";
+
+	    # generate empty routing config for device:
+	    $conf_routing = $conf->{ROUTING} = [];
+	}
+    }
+    $self->{CHANGE}->{ROUTE} = 0;
+    for my $c (@$conf_routing) {
+	for my $s (@$spoc_routing) {
+	    if ($self->route_line_a_eq_b($c, $s)) {
+		$c->{DELETE} = $s->{DELETE} = 1;
+		last;
+	    }
+	}
+    }
+
+    #
+    # *** SCHEDULE RELOAD ***
+    #
+    # TODO: check if 10 minutes are OK
+    #
+    $self->{COMPARE} or $self->schedule_reload(10);
+
+    $self->enter_conf_mode;
+    mypr "### Transfer routing entries to device:\n";
+
+    # Add routes with long mask first.
+    # If we switch the default route, this ensures, that we have the
+    # new routes available before deleting the old default route.
+    for my $r ( sort {$b->{MASK} <=> $a->{MASK}} 
+		@{ $spoc_conf->{ROUTING} }) {
+	($r->{DELETE}) and next;
+	$self->{CHANGE}->{ROUTE} = 1;
+
+	# PIX and ASA don't allow two routes to identical destination.
+	# Remove old route immediatly before adding the new one.
+	for my $c (@$conf_routing) {
+	    next if $c->{DELETE};
+	    if($self->route_line_destination_a_eq_b($r, $c)){
+		$self->cmd($self->route_del($c));
+		$c->{DELETE} = 1; # Must not delete again.
+	    }
+	}
+	$self->cmd($self->route_add($r));
+    }
+    mypr "### Deleting non matching routing entries from device\n";
+    for my $r (@$conf_routing) {
+	($r->{DELETE}) and next;
+	$self->{CHANGE}->{ROUTE} = 1;
+	$self->cmd($self->route_del($r));
+    }
+    $self->leave_conf_mode;
+    $self->{COMPARE} or $self->cancel_reload();
 }
 
 #################################################
@@ -1467,19 +1430,28 @@ sub issue_cmd {
     return($con->{RESULT});
 }
 
+# Send command to device or
+# print to STDOUT if in compare mode.
 sub cmd {
     my ($self, $cmd) = @_;
 
-    if ( $self->{CMD2STDOUT} ) {
+    if ( $self->{COMPARE} ) {
 	mypr "$cmd\n";
     }
     else {
-	my $result = $self->issue_cmd($cmd);
-	
-	# check for  errors
-	# argument is ref to prematch from issue_cmd
-	$self->cmd_check_error(\$result->{BEFORE}) or exit -1;
+	$self->device_cmd($cmd);
     }
+}
+
+# Send command to device, regardless of compare mode.
+sub device_cmd {
+    my ($self, $cmd) = @_;
+
+    my $result = $self->issue_cmd($cmd);
+	
+    # check for errors
+    # argument is ref to prematch from issue_cmd
+    $self->cmd_check_error(\$result->{BEFORE}) or exit -1;
 }
 
 sub shcmd {
@@ -1613,17 +1585,10 @@ sub compare_files {
     my ($self, $path1, $path2) = @_;
     $self->adaption();
 
-    if (defined $self->{OPTS}->{C}) {
-	# save compare mode
-	$self->{COMPARE} = 1;
-	$self->{CMPVAL} = $self->{OPTS}->{C};
-    }
-    else {
-	$self->{CMD2STDOUT} = 1;
+    $self->{COMPARE} = 1;
 
-	# Default compare is silent(4) mode
-	$self->{CMPVAL} = 4;
-    }
+    # Default compare is silent(4) mode
+    $self->{CMPVAL} = (defined $self->{OPTS}->{C}) ? $self->{OPTS}->{C} : 4;
 
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
