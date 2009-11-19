@@ -680,7 +680,7 @@ sub prepare {
     my ($self) = @_;
     my $name = $self->SUPER::prepare();
 
-    $self->cmd('term len 0');
+    $self->device_cmd('term len 0');
     my $output = $self->shcmd('sh ver');
     $output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/i
       or errpr "Could not identify version number from 'sh ver'\n";
@@ -690,7 +690,7 @@ sub prepare {
     $self->{HARDWARE} = $1;
 
     # max. term width is 511 for pix 512 for ios
-    $self->cmd('term width 512');
+    $self->device_cmd('term width 512');
     unless ($self->{COMPARE}) {
         $self->cmd('conf t');
         $self->cmd('no logging console');
@@ -887,10 +887,10 @@ sub schedule_reload ( $$ ) {
     if ($out =~ /ave/) {
 
         # someone has fiddled with the router ;)
-        $self->cmd('n');
+        $self->device_cmd('n');
     }
     $self->{ENAPROMPT} = $psave;
-    $self->cmd('');
+    $self->device_cmd('');
     $self->{RELOAD_SCHEDULED} = 1;
     mypr "reload scheduled\n";
 }
@@ -907,7 +907,7 @@ sub cancel_reload ( $ ) {
         my $tt  = $con->{TIMEOUT};
         $con->{TIMEOUT} = 2 * $tt;
         mypr "(timeout temporary set from $tt sec to $con->{TIMEOUT} sec)\n";
-        $self->cmd('reload cancel');
+        $self->device_cmd('reload cancel');
         $con->{TIMEOUT} = $tt;
 
         # we have to wait for the
