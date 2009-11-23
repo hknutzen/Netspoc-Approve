@@ -1010,7 +1010,6 @@ sub process_iptables {
 	}   
     }
     $self->{CHANGE}->{ACL} = $changed;
-    return 1;
 }
 
 sub merge_rawdata {
@@ -1183,11 +1182,11 @@ sub transfer {
     my ($self, $conf, $spoc_conf) = @_;
 
     # Change running configuration of device.
-    $self->process_routing($conf, $spoc_conf) or return 0;
+    $self->process_routing($conf, $spoc_conf);
 
     # Only compare, no changes.
     if($handle_iptables) {
-	$self->process_iptables($conf, $spoc_conf) or return 0;
+	$self->process_iptables($conf, $spoc_conf);
     }
 
     if (not $self->{COMPARE}) {
