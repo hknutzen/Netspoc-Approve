@@ -289,12 +289,12 @@ sub merge_acls {
 		    # Create access-list in $spoc if not present.
 		    if( ! $spoc->{ACCESS_LIST}->{$spoc_name} ) {
 			$spoc->{ACCESS_LIST}->{$spoc_name} = { name => $spoc_name,
-							       entries => [] };
+							       LIST => [] };
 		    }
 
 		    # Prepend raw acl.
-		    my $raw_entries = $raw_acl->{entries};
-		    unshift(@{$spoc->{ACCESS_LIST}->{$spoc_name}->{entries}}, 
+		    my $raw_entries = $raw_acl->{LIST};
+		    unshift(@{$spoc->{ACCESS_LIST}->{$spoc_name}->{LIST}}, 
 			    @$raw_entries);
 		    mypr "   $access_group entries prepended: "
 			. scalar @$raw_entries . "\n";
