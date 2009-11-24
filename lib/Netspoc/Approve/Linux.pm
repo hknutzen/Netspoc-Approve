@@ -480,7 +480,14 @@ my $normalize = {
     },
     '--set-mark' => {
 	non_comparable => 1,
-	intern => sub { my($v) = @_; $v =~ /^0x\d*$/i ? eval($v) : $v },
+	intern => sub { my($v) = @_;
+
+			# Ignore default mask.
+			$v =~ s(\/0xffffffff$)()i;
+
+			# Convert from hex to decimal.
+			$v =~ /^0x\d*$/i ? eval($v) : $v 
+			},
 	extern => sub { $_[0] },
     },
 };	
@@ -516,6 +523,15 @@ sub normalize {
 		}
 	    }
 	}
+
+	# --set-xmark is equivalent to --set-mark for default mask /0xffffffff
+	if(my $v = $rule->{'--set-xmark'}) {
+	    if($v !~ m'/' || $v =~ m'/0xffffffff$'i) {
+		delete $rule->{'--set-xmark'};
+		$rule->{'--set-mark'} = $v;
+	    }
+	}
+
 	for my $key (keys %$rule) {
 	    next if $key !~ /^-/;
 	    my $spec = $normalize->{$key};
