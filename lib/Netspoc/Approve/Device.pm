@@ -1436,7 +1436,7 @@ sub cmd {
     my ($self, $cmd) = @_;
 
     if ( $self->{COMPARE} ) {
-	mypr "$cmd\n";
+	mypr "> $cmd\n";
     }
     else {
 	$self->device_cmd($cmd);
