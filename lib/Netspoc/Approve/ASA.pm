@@ -279,7 +279,7 @@ sub postprocess_config {
 	    $id = lc( $id );
 	    $cert->{IDENTIFIER} = $id;
 	    $p->{CERT_ANCHOR}->{$id}->{CA_CERT_MAP} = $cert->{name};
-	    $p->{CERT_ANCHOR}->{$id}->{name} = $cert->{name} . ' ' . $id;
+	    $p->{CERT_ANCHOR}->{$id}->{name} = $id;
 	}
     }
 
@@ -433,17 +433,16 @@ sub postprocess_config {
 }
 
 
-# This is different for PIX and ASA, so we have this sub in both
+# This is different for PIX and ASA, so we have this method in both
 # modules Cisco_FW.pm and here. Inheritance is your friend :-) .
 sub acl_removal_cmd {
     my ( $self, $acl_name ) = @_;
-    return unless $acl_name;
     return "clear configure access-list $acl_name";
 }
 
 sub set_pager {
     my ($self) = @_;
-    $self->cmd('terminal pager 0');
+    $self->device_cmd('terminal pager 0');
 }
 
 
@@ -492,7 +491,7 @@ sub define_structure {
 			parse_name => 'GROUP_POLICY',
 		    },
 		      { attr_name  => 'VPN_FILTER',
-			parse_name => 'ACCESS',
+			parse_name => 'ACCESS_LIST',
 		    } ],
 	    attributes => [ qw( VPN_FRAMED_IP_ADDRESS
 				SERVICE_TYPE ) ],
@@ -513,10 +512,10 @@ sub define_structure {
 
 	GROUP_POLICY => {
 	    next => [ {	attr_name  => 'VPN_FILTER',
-			parse_name => 'ACCESS',
+			parse_name => 'ACCESS_LIST',
 		    },
 		      { attr_name  => 'SPLIT_TUNNEL_NETWORK_LIST',
-			parse_name => 'ACCESS',
+			parse_name => 'ACCESS_LIST',
 		    },
 		      { attr_name  => 'ADDRESS_POOL',
 			parse_name => 'IP_LOCAL_POOL',
@@ -529,33 +528,14 @@ sub define_structure {
 	
 	IP_LOCAL_POOL => {
 	    attributes => [ qw( RANGE_FROM RANGE_TO MASK ) ],
-	    #copy_on_modify => 1,
 	    transfer => 'transfer_ip_local_pool',
 	    remove   => 'remove_ip_local_pool',
 	},
-	ACCESS => {
-	    attributes => [ qw( SRC DST TYPE ACL_TYPE MODE ) ],
-	    copy_on_modify => 1,
-	    transfer => 'transfer_acl',
-	    remove   => 'remove_acl',
-	},
-	OBJECT_GROUP => {
-	    attributes => [],
-	    transfer => 'transfer_object_group',
-	    remove   => 'remove_object_group',
-	},
-	IF => {
-	    anchor => 1,
-	    next => [ { attr_name  => 'ACCESS_GROUP_IN',
-			parse_name => 'ACCESS', },
-		      { attr_name  => 'ACCESS_GROUP_OUT',
-			parse_name => 'ACCESS', },
-		      ],
-	    attributes => [],
-	    transfer => 'transfer_interface',
-	    remove   => 'remove_interface',
-	},
     };
+    my $super = $self->SUPER::define_structure();
+    for my $k (%$super) {
+	$structure->{$k} = $super->{$k};
+    }
 
     return $structure;
 }
