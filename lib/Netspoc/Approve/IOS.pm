@@ -123,7 +123,7 @@ sub get_parse_info {
 		       { store => 'PERMANENT', parse => qr/permanent/, },],],
 	},
 	'ip access-list extended' => {
-	    store =>  'ACCESS',
+	    store =>  'ACCESS_LIST',
 	    named => 1,
 	    subcmd => {
 
@@ -327,10 +327,6 @@ sub parse_access_list {
 sub postprocess_config( $$ ) {
     my ($self, $p) = @_;
 
-    for my $entry (values %{ $p->{ACCESS} }) {
-	$entry = $entry->{LIST};
-    }
-	
     mypr meself(0) . "*** begin ***\n";
     my $crypto_map_found   = 0;
     my $ezvpn_client_found = 0;
@@ -383,7 +379,7 @@ sub postprocess_config( $$ ) {
                 mypr "  seq: $sequ\n";
                 if (my $acl_name = $entry->{MATCH_ADDRESS}) {
                     mypr "   match-address: $acl_name\n";
-                    if (my $acl = $p->{ACCESS}->{$acl_name}) {
+                    if (my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
 
                         # bind match address to crypto map
                         $entry->{MATCH_ACL} = $acl;
@@ -399,7 +395,7 @@ sub postprocess_config( $$ ) {
                 }
                 if (my $acl_name = $entry->{ACCESS_GROUP_IN}) {
                     mypr "   access-group:  $acl_name\n";
-                    if ( my $acl = $p->{ACCESS}->{$acl_name}) {
+                    if ( my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
 
                         # bind access group to crypto map
                         $entry->{FILTER_ACL} = $acl;
@@ -445,7 +441,7 @@ sub postprocess_config( $$ ) {
             # checking for traffic match acl
             if (my $acl_name = $entry->{ACL}) {
                 mypr "  match-acl: $acl_name\n";
-                if (my $acl = $p->{ACCESS}->{$acl_name}) {
+                if (my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
 
                     # bind match address to crypto map
                     $entry->{MATCH_ACL} = $acl
@@ -964,12 +960,12 @@ sub compare_interface_acls {
         my $sa_name = $intf->{ACCESS_GROUP_IN};
         my $ca_name;
         if (my $ca_name = $conf_intf->{ACCESS_GROUP_IN}) {
-            if ($conf->{ACCESS}->{$ca_name}) {
+            if ($conf->{ACCESS_LIST}->{$ca_name}) {
                 mypr "interface $name - spoc: $sa_name, actual: $ca_name\n";
 		if (not 
 		    $self->acl_equal(
-			$conf->{ACCESS}->{$ca_name},
-			$spoc_conf->{ACCESS}->{$sa_name},
+			$conf->{ACCESS_LIST}->{$ca_name}->{LIST},
+			$spoc_conf->{ACCESS_LIST}->{$sa_name}->{LIST},
 			$ca_name, $sa_name, "interface $name"
 		    )
 		    )
@@ -1073,7 +1069,8 @@ sub process_interface_acls ( $$$ ) {
         $self->cancel_reload();
 
         # hopefully this is not critical!
-        $self->append_acl_entries($aclname, $spoc_conf->{ACCESS}->{$spocacl});
+        $self->append_acl_entries($aclname, 
+				  $spoc_conf->{ACCESS_LIST}->{$spocacl}->{LIST});
 
         #
         # *** SCHEDULE RELOAD ***
@@ -1095,7 +1092,7 @@ sub process_interface_acls ( $$$ ) {
         # delete old ACL (if present)
         #
         $self->cmd('configure terminal');
-        if ($confacl && exists $conf->{ACCESS}->{$confacl}) {
+        if ($confacl && exists $conf->{ACCESS_LIST}->{$confacl}) {
             mypr "no ip access-list extended $confacl\n";
             $self->cmd("no ip access-list extended $confacl");
         }
@@ -1236,11 +1233,12 @@ sub crypto_struct_equal( $$$$$ ) {
                     # is subject of change by netspoc
                     if (my $spoc_acl = $spoc->{$key}) {
                         unless (
-                            $self->acl_equal(
-                                $conf->{FILTER_ACL},  $spoc->{FILTER_ACL},
-                                $conf_acl, $spoc_acl, $key
-                            )
-                          )
+				$self->acl_equal(
+						 $conf->{FILTER_ACL}->{LIST},  
+						 $spoc->{FILTER_ACL}->{LIST},
+						 $conf_acl, $spoc_acl, $key
+						 )
+				)
                         {
 
                             # $context holds sequence number of map
@@ -1262,11 +1260,12 @@ sub crypto_struct_equal( $$$$$ ) {
 
                         # Parser already checked that match address is present.
                         unless (
-                            $self->acl_equal(
-                                $conf->{MATCH_ACL},  $spoc->{MATCH_ACL},
-                                $conf->{$key}, $spoc->{$key}, $key
-                            )
-                          )
+				$self->acl_equal(
+						 $conf->{MATCH_ACL}->{LIST},  
+						 $spoc->{MATCH_ACL}->{LIST},
+						 $conf->{$key}, $spoc->{$key}, $key
+						 )
+				)
                         {
                             $equal = 0;
                         }
@@ -1330,7 +1329,7 @@ sub crypto_processing( $$$ ) {
     }
     else {
         mypr " +++ no crypto definitions in spocfile - skipping\n";
-        return 1;
+        return;
     }
     $self->{CHANGE}->{CRYPTO} = 0;
     if (my $spoc_isakmp = $spoc->{CRYPTO}->{ISAKMP}) {
@@ -1445,7 +1444,7 @@ sub crypto_processing( $$$ ) {
                         $self->cmd("no ip access-list extended $new_acl_name");
                         $self->cmd('end');
                         $self->append_acl_entries($new_acl_name,
-                            $spoc->{ACCESS}->{$spoc_acl_name});
+                            $spoc->{ACCESS_LIST}->{$spoc_acl_name}->{LIST});
 
                         #
                         # assign new acl to interfaces
@@ -1477,7 +1476,7 @@ sub crypto_processing( $$$ ) {
             $self->schedule_reload(3);
             for my $name (keys %surplus_acls) {
                 $self->cmd('configure terminal');
-                if ($name and exists $conf->{ACCESS}->{$name}) {
+                if ($name and exists $conf->{ACCESS_LIST}->{$name}) {
 		    my $cmd =  "no ip access-list extended $name";
 		    mypr "$cmd\n";
                     $self->cmd($cmd);
@@ -1519,7 +1518,6 @@ sub crypto_processing( $$$ ) {
     mypr "====                       ====\n";
     mypr "==== end crypto processing ====\n";
     mypr "====                       ====\n";
-    return 1;
 }
 ###############################
 #
@@ -1532,8 +1530,8 @@ sub transfer() {
 
     # *** BEGIN TRANSFER ***
     $self->generic_interface_acl_processing($conf, $spoc_conf) or return 0;
-    $self->crypto_processing($conf, $spoc_conf) or return 0;
-    $self->process_routing($conf, $spoc_conf) or return 0;
+    $self->crypto_processing($conf, $spoc_conf);
+    $self->process_routing($conf, $spoc_conf);
 
     #
     # *** CLEANUP
