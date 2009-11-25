@@ -252,6 +252,23 @@ sub postprocess_config {
 	}
     }
 
+    # For tunnel-groups that only have ipsec-attributes, create
+    # a tunnel-group with the same name.
+    # Copy ipsec-attributes to tunnel-group.
+    my $tunnel_groups = $p->{TUNNEL_GROUP} ||= {};
+    for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
+	my $tg_ipsec = $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
+	if ( ! $tunnel_groups->{$tg_ipsec_name} ) {
+	    $tunnel_groups->{$tg_ipsec_name} = { name => $tg_ipsec_name };
+	}
+      ATTRIBUTE:
+	for my $attr ( keys %{$tg_ipsec} ) {
+	    next ATTRIBUTE if $attr =~ /^(name|orig|line)$/;
+	    my $value = $tg_ipsec->{$attr};
+	    $tunnel_groups->{$tg_ipsec_name}->{$attr} = $value;
+	}
+    }
+
     # TUNNEL_GROUP_MAP
     # - copy as attribute to CA_CERT_MAP
     # - for default-group copy to artificial DEFAULT_GROUP
@@ -295,23 +312,6 @@ sub postprocess_config {
 	    }
 	    $p->{CERT_ANCHOR}->{$id} = { CA_CERT_MAP => $cert->{name},
 					 name => $id };
-	}
-    }
-
-    # For tunnel-groups that only have ipsec-attributes, create
-    # a tunnel-group with the same name.
-    # Copy ipsec-attributes to tunnel-group.
-    my $tunnel_groups = $p->{TUNNEL_GROUP};
-    for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
-	my $tg_ipsec = $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
-	if ( ! $tunnel_groups->{$tg_ipsec_name} ) {
-	    $tunnel_groups->{$tg_ipsec_name} = { name => $tg_ipsec_name };
-	}
-      ATTRIBUTE:
-	for my $attr ( keys %{$tg_ipsec} ) {
-	    next ATTRIBUTE if $attr =~ /^(name|orig|line)$/;
-	    my $value = $tg_ipsec->{$attr};
-	    $tunnel_groups->{$tg_ipsec_name}->{$attr} = $value;
 	}
     }
 
@@ -377,14 +377,6 @@ sub postprocess_config {
 			warnpr "Missing group-policy for " .
 			    "tunnel-group $tg_name! \n";
 		    }
-		}
-	    }
-	    else {
-		if ( $cert_name eq 'DefaultCertificateMap' ) {
-		    mypr "How to handle DefaultCertificateMap ???\n";
-		}
-		else {
-		    warnpr "Missing tunnel-group-map for certificate $cert_name!\n";
 		}
 	    }
 	}
