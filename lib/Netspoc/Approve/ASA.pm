@@ -115,7 +115,7 @@ sub get_parse_info {
 		     ],
 		   [ 'seq',
 		     { parse => qr/default-group/  },
-		     { store => 'DEFAULT_GROUP', parse => \&get_token },
+		     { store => 'TUNNEL_GROUP', parse => \&get_token },
 		     { store => 'name',
 		       parse => sub { return "DEFAULT"; } },
 		     ],
@@ -259,13 +259,22 @@ sub postprocess_config {
     for my $tgm ( values %{$p->{TUNNEL_GROUP_MAP}} ) {
 	my $tgm_name = $tgm->{name};
 	if ( $tgm_name eq 'DEFAULT' ) {
-	    $p->{DEFAULT_GROUP}->{default}->{name} = 
-		$tgm->{DEFAULT_GROUP};
-	    $p->{DEFAULT_GROUP}->{default}->{TUNNEL_GROUP_MAP} =
-		$tgm->{DEFAULT_GROUP};
+	    $p->{DEFAULT_GROUP}->{default} = { name => 'default',
+					       TUNNEL_GROUP => 
+						   $tgm->{TUNNEL_GROUP},
+					       };
 	}
-	if ( my $cert = $p->{CA_CERT_MAP}->{$tgm_name} ) {
-	    $cert->{TUNNEL_GROUP_MAP} = $tgm->{TUNNEL_GROUP};
+	else {
+	    if ( my $cert = $p->{CA_CERT_MAP}->{$tgm_name} ) {
+		$cert->{TUNNEL_GROUP} = $tgm->{TUNNEL_GROUP};
+	    }
+	    else {
+		errpr "'$tgm->{orig}' references unknown ca cert map '$tgm_name'\n";
+	    }
+	}
+	my $tg_name = $tgm->{TUNNEL_GROUP};
+	if(not $p->{TUNNEL_GROUP}->{$tg_name}) {
+	    errpr "'$tgm->{orig}' references unknown tunnel-group $tg_name\n";
 	}
     }
 
@@ -278,8 +287,14 @@ sub postprocess_config {
 	if ( my $id = $cert->{IDENTIFIER} ) {
 	    $id = lc( $id );
 	    $cert->{IDENTIFIER} = $id;
-	    $p->{CERT_ANCHOR}->{$id}->{CA_CERT_MAP} = $cert->{name};
-	    $p->{CERT_ANCHOR}->{$id}->{name} = $id;
+	    if(my $old_cert = $p->{CERT_ANCHOR}->{$id}) {
+		my $old_name = $old_cert->{name};
+		my $new_name = $cert->{name};
+		errpr "Two ca cert map items use" .
+		    " identical subject-name: '$old_name', '$new_name'\n";
+	    }
+	    $p->{CERT_ANCHOR}->{$id} = { CA_CERT_MAP => $cert->{name},
+					 name => $id };
 	}
     }
 
@@ -290,13 +305,13 @@ sub postprocess_config {
     for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
 	my $tg_ipsec = $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
 	if ( ! $tunnel_groups->{$tg_ipsec_name} ) {
-	    $tunnel_groups->{$tg_ipsec_name}->{name} = $tg_ipsec_name;
+	    $tunnel_groups->{$tg_ipsec_name} = { name => $tg_ipsec_name };
 	}
       ATTRIBUTE:
 	for my $attr ( keys %{$tg_ipsec} ) {
 	    next ATTRIBUTE if $attr =~ /^(name|orig|line)$/;
 	    my $value = $tg_ipsec->{$attr};
-	    $p->{TUNNEL_GROUP}->{$tg_ipsec_name}->{$attr} = $value;
+	    $tunnel_groups->{$tg_ipsec_name}->{$attr} = $value;
 	}
     }
 
@@ -331,57 +346,30 @@ sub postprocess_config {
 		     $group_policy->{SPLIT_TUNNEL_NETWORK_LIST} ) {
 		    $p->{is_split_tunnel_acl}->{$acl_name} = $group_policy;
 		}
-		else {
-#		    warnpr "No ACL found for group-policy " .
-#			$group_policy->{name} . " of user " .
-#			$user->{name} . "! \n";
-		}
 	    }
 	    else {
-		warnpr "group-policy $gp_name of user " .  $user->{name} .
-		    " not found! \n";
+		warnpr "group-policy $gp_name of user $user->{name} not found!\n";
 	    }
 	}
 	else {
-	    warnpr "User $user->{name} has no group-policy defined! \n";
+	    warnpr "User $user->{name} has no group-policy defined!\n";
 	}
     }
 
     # From certificate over tunnel-group-map over tunnel-group
     # over group-policy to ACL.
     for my $cert ( values %{$p->{CA_CERT_MAP}} ) {
-#	print "------------------------------------------------\n";
 	my $cert_name = $cert->{name};
 	if ( my $tgm = $p->{TUNNEL_GROUP_MAP}->{$cert_name} ) {
 	    my $tgm_name = $tgm->{name};
-#	    print "Found tunnel-group-map $tgm_name for cert $cert_name!\n";
 	    if ( my $tg = $p->{TUNNEL_GROUP}->{$tgm->{TUNNEL_GROUP}} ) {
 		my $tg_name = $tg->{name};
-#		print "Found tunnel-group $tg_name for " .
-#		    "tunnel-group-map $tgm_name!\n";
 		if ( my $tg2gp = $tg->{DEFAULT_GROUP_POLICY} ) {
-		    if ( my $gp =
-			 $p->{GROUP_POLICY}->{$tg2gp} ) {
-			my $gp_name = $gp->{name};
-#		    print "Found group-policy $gp_name for " .
-#			"tunnel-group $tg_name!\n";
-			
-			# Remember gp->tg->tgm->cert for later reference
-			$p->{$gp_name}->{$tg_name}->{$tgm_name}->{$cert_name}= 1;
-			
-			# Remember cert->tgm->tg->gp for later reference
-			$p->{$cert_name}->{$tgm_name}->{$tg_name}->{$gp_name}= 1;
-			
-			# Mark vpn-filter-ACLS of group policy.
+		    if ( my $gp = $p->{GROUP_POLICY}->{$tg2gp} ) {
 			if ( my $acl = $gp->{VPN_FILTER} ) {
-#			print "Mark GROUP-ACL $acl as vpn-filter-acl\n";
 			    $p->{is_vpn_filter_acl}->{$acl}  = 1;
 			}
-			
-			# Mark split-tunnel-acls of group-policy.
 			if ( my $acl = $gp->{SPLIT_TUNNEL_NETWORK_LIST} ) {
-#			print "Mark GROUP-ACL $acl of group $gp_name " .
-#			    "as split-tunnel-acl\n";
 			    $p->{is_split_tunnel_acl}->{$acl} = 1;
 			}
 		    }
@@ -390,22 +378,19 @@ sub postprocess_config {
 			    "tunnel-group $tg_name! \n";
 		    }
 		}
-		else {
-		    warnpr "Missing tunnel-group for " .
-			"tunnel-group-map $tgm_name! \n";
-		}
 	    }
 	    else {
 		if ( $cert_name eq 'DefaultCertificateMap' ) {
-		    print "How to handle DefaultCertificateMap ???\n";
+		    mypr "How to handle DefaultCertificateMap ???\n";
 		}
 		else {
-		    warnpr "Missing tunnel-group-map for " .
-			"certificate $cert_name! \n";
+		    warnpr "Missing tunnel-group-map for certificate $cert_name!\n";
 		}
 	    }
 	}
-	
+	else {
+	    warnpr "No tunnel-group-map references ca cert map $cert_name\n";
+	}
     } # end of for $cert ...
 
     # Match ip local pool to group-policy.
@@ -459,7 +444,7 @@ sub define_structure {
 	},
 	
 	CA_CERT_MAP => { 
-	    next => [ { attr_name  => 'TUNNEL_GROUP_MAP',
+	    next => [ { attr_name  => 'TUNNEL_GROUP',
 			parse_name => 'TUNNEL_GROUP',
 		    } ],
 	    attributes => [ qw( IDENTIFIER ) ],
@@ -469,7 +454,7 @@ sub define_structure {
 	
 	DEFAULT_GROUP => {
 	    anchor => 1,
-	    next => [ { attr_name  => 'TUNNEL_GROUP_MAP',
+	    next => [ { attr_name  => 'TUNNEL_GROUP',
 			parse_name => 'TUNNEL_GROUP',
 		    } ],
 	    transfer => 'transfer_default_group',
