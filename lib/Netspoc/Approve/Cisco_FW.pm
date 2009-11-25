@@ -480,8 +480,8 @@ sub postprocess_config {
     mypr "TUNNEL GROUPS found: " . scalar(keys %{ $p->{TUNNEL_GROUP} }) . "\n";
     mypr "TUNNEL GROUP MAPS found: " . scalar(keys %{ $p->{TUNNEL_GROUP_MAP} }) . "\n";
 
-    if ( $p->{TUNNEL_GROUP_MAP}->{DEFAULT_GROUP} ) {
-	mypr "DEFAULT TUNNEL GROUP: $p->{TUNNEL_GROUP_MAP}->{DEFAULT_GROUP}\n";
+    if ( my $tgm = $p->{TUNNEL_GROUP_MAP}->{DEFAULT} ) {
+	mypr "DEFAULT TUNNEL GROUP: $tgm->{TUNNEL_GROUP}\n";
     }
 
     mypr "CERTIFICATE MAPS found: " . scalar(keys %{ $p->{CA_CERT_MAP} }) . "\n";
@@ -1685,7 +1685,7 @@ sub transfer_ca_cert_map {
 
     # Create tunnel-group-map that connects certificate-map
     # to tunnel-group.
-    if(my $tunnel_group_name = $object->{TUNNEL_GROUP_MAP}) {
+    if(my $tunnel_group_name = $object->{TUNNEL_GROUP}) {
 	my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
 	my $name = $tunnel_group->{new_name};
 	push @cmds, "tunnel-group-map $new_cert_map 10 $name";
@@ -1714,9 +1714,9 @@ sub transfer_default_group {
 	 $parse_name, $default ) = @_;
 
     my $object = $spoc->{$parse_name}->{$default};
-    my $tunnel_group_name = $object->{TUNNEL_GROUP_MAP};
+    my $tunnel_group_name = $object->{TUNNEL_GROUP};
     my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
-    my $new_default_group = $object->{TUNNEL_GROUP_MAP}->{new_name};
+    my $new_default_group = $object->{TUNNEL_GROUP}->{new_name};
     mypr "### transfer default-group to device as $new_default_group \n";
 
     my $cmd = "tunnel-group-map default-group $new_default_group";
