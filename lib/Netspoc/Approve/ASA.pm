@@ -319,8 +319,6 @@ sub postprocess_config {
 	if ( my $acl = $user->{VPN_FILTER} ) {
 	    #print "Mark USER-ACL $acl as vpn-filter-acl\n";
 	    $p->{is_vpn_filter_acl}->{$acl} = 1;
-	    $p->{user2acl}->{$user->{name}}->{$acl} = 1;
-	    $p->{acl2user}->{$acl}->{$user->{name}} = 1;
 	}
 	else {
 	    warnpr "No vpn-filter defined for user $user->{name}! \n";
@@ -332,8 +330,6 @@ sub postprocess_config {
 		if ( my $acl_name =
 		     $group_policy->{SPLIT_TUNNEL_NETWORK_LIST} ) {
 		    $p->{is_split_tunnel_acl}->{$acl_name} = $group_policy;
-		    $p->{user2gp}->{$user->{name}}->{$gp_name} = 1;
-		    $p->{gp2user}->{$gp_name}->{$user->{name}} = 1;
 		}
 		else {
 #		    warnpr "No ACL found for group-policy " .
@@ -369,7 +365,6 @@ sub postprocess_config {
 			my $gp_name = $gp->{name};
 #		    print "Found group-policy $gp_name for " .
 #			"tunnel-group $tg_name!\n";
-			$p->{cert2gp}->{$cert_name}->{$gp_name} = 1;
 			
 			# Remember gp->tg->tgm->cert for later reference
 			$p->{$gp_name}->{$tg_name}->{$tgm_name}->{$cert_name}= 1;
@@ -381,8 +376,6 @@ sub postprocess_config {
 			if ( my $acl = $gp->{VPN_FILTER} ) {
 #			print "Mark GROUP-ACL $acl as vpn-filter-acl\n";
 			    $p->{is_vpn_filter_acl}->{$acl}  = 1;
-			    $p->{gp2acl}->{$gp_name}->{$acl} = 1;
-			    $p->{acl2gp}->{$acl}->{$gp_name} = 1;
 			}
 			
 			# Mark split-tunnel-acls of group-policy.
@@ -390,8 +383,6 @@ sub postprocess_config {
 #			print "Mark GROUP-ACL $acl of group $gp_name " .
 #			    "as split-tunnel-acl\n";
 			    $p->{is_split_tunnel_acl}->{$acl} = 1;
-			    $p->{gp2acl}->{$gp_name}->{$acl}  = 1;
-			    $p->{acl2gp}->{$acl}->{$gp_name}  = 1;
 			}
 		    }
 		    else {
