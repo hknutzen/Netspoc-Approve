@@ -393,18 +393,6 @@ sub postprocess_config {
 	}
     } # end of for $cert ...
 
-    # Match ip local pool to group-policy.
-    for my $pool_name ( keys %{$p->{IP_LOCAL_POOL}} ) {
-	for my $gp ( values %{$p->{GROUP_POLICY}} ) {
-	    if ( my $adr_pool = $gp->{ADDRESS_POOL} ) {
-		if ( $adr_pool eq $pool_name ) {
-		    $p->{pool2gp}->{$pool_name}->{$gp->{name}} = 1;
-		    last;
-		}
-	    }
-	}
-    }
-
     $self->SUPER::postprocess_config($p);
 }
 
