@@ -258,14 +258,10 @@ sub postprocess_config {
     my $tunnel_groups = $p->{TUNNEL_GROUP} ||= {};
     for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
 	my $tg_ipsec = $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
-	if ( ! $tunnel_groups->{$tg_ipsec_name} ) {
-	    $tunnel_groups->{$tg_ipsec_name} = { name => $tg_ipsec_name };
-	}
-      ATTRIBUTE:
+	my $tg = 
+	    $tunnel_groups->{$tg_ipsec_name} ||= { name => $tg_ipsec_name };
 	for my $attr ( keys %{$tg_ipsec} ) {
-	    next ATTRIBUTE if $attr =~ /^(name|orig|line)$/;
-	    my $value = $tg_ipsec->{$attr};
-	    $tunnel_groups->{$tg_ipsec_name}->{$attr} = $value;
+	    $tg->{$attr} = $tg_ipsec->{$attr} if $attr !~ /^(name|orig|line)$/;
 	}
     }
 
@@ -291,9 +287,17 @@ sub postprocess_config {
 	}
 	my $tg_name = $tgm->{TUNNEL_GROUP};
 	if(not $p->{TUNNEL_GROUP}->{$tg_name}) {
-	    errpr "'$tgm->{orig}' references unknown tunnel-group $tg_name\n";
+	    if($tg_name =~ /^(?:DefaultL2LGroup)$/) {
+		$tunnel_groups->{$tg_name} ||= { name => $tg_name };
+	    }
+	    else {
+		errpr "'$tgm->{orig}' references unknown tunnel-group $tg_name\n";
+	    }
 	}
     }
+
+    # Not needed any longer.
+    delete $p->{TUNNEL_GROUP_MAP};
 
     # Create artificial certificate-anchor CERT_ANCHOR,
     # IDENTIFIER as name, corresponding CA_CERT_MAP
@@ -324,66 +328,13 @@ sub postprocess_config {
     # Make 'internal'-property of a group-policy an
     # attribute of corresponding group-policy.
     for my $gp_internal ( keys %{$p->{GROUP_POLICY_INTERNAL}} ) {
-	$p->{GROUP_POLICY}->{$gp_internal}->{INTERNAL} = 1;
-    }
-    
-    # Mark known acl types (vpn-filter, split-tunnel).
-    for my $user ( values %{ $p->{USERNAME} } ) {
-
-	# Mark vpn-filter-acls.
-	if ( my $acl = $user->{VPN_FILTER} ) {
-	    #print "Mark USER-ACL $acl as vpn-filter-acl\n";
-	    $p->{is_vpn_filter_acl}->{$acl} = 1;
-	}
-	else {
-	    warnpr "No vpn-filter defined for user $user->{name}! \n";
-	}
-	
-	# Mark split-tunnel-acls.
-	if ( my $gp_name = $user->{VPN_GROUP_POLICY} ) {
-	    if ( my $group_policy = $p->{GROUP_POLICY}->{$gp_name} ) {
-		if ( my $acl_name =
-		     $group_policy->{SPLIT_TUNNEL_NETWORK_LIST} ) {
-		    $p->{is_split_tunnel_acl}->{$acl_name} = $group_policy;
-		}
-	    }
-	    else {
-		warnpr "group-policy $gp_name of user $user->{name} not found!\n";
-	    }
-	}
-	else {
-	    warnpr "User $user->{name} has no group-policy defined!\n";
-	}
+	my $gp = 
+	    $p->{GROUP_POLICY}->{$gp_internal} ||= { name => $gp_internal };
+	$gp->{INTERNAL} = 1;
     }
 
-    # From certificate over tunnel-group-map over tunnel-group
-    # over group-policy to ACL.
-    for my $cert ( values %{$p->{CA_CERT_MAP}} ) {
-	my $cert_name = $cert->{name};
-	if ( my $tgm = $p->{TUNNEL_GROUP_MAP}->{$cert_name} ) {
-	    my $tgm_name = $tgm->{name};
-	    if ( my $tg = $p->{TUNNEL_GROUP}->{$tgm->{TUNNEL_GROUP}} ) {
-		my $tg_name = $tg->{name};
-		if ( my $tg2gp = $tg->{DEFAULT_GROUP_POLICY} ) {
-		    if ( my $gp = $p->{GROUP_POLICY}->{$tg2gp} ) {
-			if ( my $acl = $gp->{VPN_FILTER} ) {
-			    $p->{is_vpn_filter_acl}->{$acl}  = 1;
-			}
-			if ( my $acl = $gp->{SPLIT_TUNNEL_NETWORK_LIST} ) {
-			    $p->{is_split_tunnel_acl}->{$acl} = 1;
-			}
-		    }
-		    else {
-			warnpr "Missing group-policy for " .
-			    "tunnel-group $tg_name! \n";
-		    }
-		}
-	    }
-	}
-	else {
-	    warnpr "No tunnel-group-map references ca cert map $cert_name\n";
-	}
-    } # end of for $cert ...
+    # Not needed any longer.
+    delete $p->{GROUP_POLICY_INTERNAL};
 
     $self->SUPER::postprocess_config($p);
 }
