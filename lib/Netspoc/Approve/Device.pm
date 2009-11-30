@@ -475,14 +475,14 @@ sub load_spocfile($$) {
 
     # read (spoc) config
     if ($path eq "STDIN") {
-        (open(NET, "<&STDIN")) or die "could not dup STDIN\n$!\n";
-        @result = <NET>;
-        close(NET);
+        (open(SPOC, "<&STDIN")) or die "could not dup STDIN\n$!\n";
+        @result = <SPOC>;
+        close(SPOC);
     }
     elsif (-f $path) {
-        (open(NET, $path)) or die "could not open spocfile: $path\n$!\n";
-        @result = <NET>;
-        close(NET);
+        (open(SPOC, $path)) or die "could not open spocfile: $path\n$!\n";
+        @result = <SPOC>;
+        close(SPOC);
     }
     elsif (-f "${path}.gz") {
         mypr "decompressing config file...";
@@ -493,8 +493,8 @@ sub load_spocfile($$) {
     else {
         die "spocfile \'$path\' not found!\n";
     }
-    mypr "config file ($path) for  ", $self->{NAME}, " has ", scalar @result,
-      " lines\n";
+    my $count = @result;
+    mypr "### Read config file $path with $count lines\n";
     return \@result;
 }
 
@@ -503,22 +503,22 @@ sub load_raw($$) {
     my @result;
     return \@result if not $path;
     if (-f $path) {
-        open(EPI, "<$path") or die "could not open rawdata: $path\n$!\n";
-        @result = <EPI>;
-        close EPI;
-        mypr "rawdata file ($path) for ", $self->{NAME}, " has ",
-          scalar @result, " lines\n";
+        open(RAW, "<$path") or die "could not open rawdata: $path\n$!\n";
+        @result = <RAW>;
+        close RAW;
     }
-    elsif (-f "${path}.gz") {
+    elsif ($path .= '.gz' && -f $path) {
         mypr "decompressing raw file...";
-        @result = `gunzip -c "${path}.gz"`;
-        $? and die "error running gunzip\n";
+        @result = `gunzip -c $path`;
+        $? and die "error running gunzip -c $path\n";
         mypr "done.\n";
     }
     else {
         @result = ();
         mypr "no rawdata found...\n";
     }
+    my $count = @result;
+    mypr "### Read rawdata file $path with $count lines\n" if $count;
     return \@result;
 }
 
@@ -535,9 +535,8 @@ sub load_spoc {
 sub get_parsed_config_from_device {
     my ($self) = @_;
     my $device_lines = $self->get_config_from_device();
-    mypr "Parse device config\n";
+    mypr "### Parsing device config\n";
     my $conf  = $self->parse_config($device_lines);
-    mypr "... done parsing config\n";
     return($conf);
 }
 
@@ -745,9 +744,24 @@ sub parse_config1 {
 	    push(@{ $dest->{$key} }, $value);
 	}
 	else {
-	    defined $dest->{$key} and
-		err_at_line($arg, 'Multiple occurences of command not allowed');
-	    $dest->{$key} = $value;
+	    if(my $old = $dest->{$key}) {
+		if($cmd_info->{merge}) {
+		    for my $key (keys %$value) {
+			next if $key =~ /(?:name|line|orig)/;
+			if(defined $old->{$key}) {
+			    err_at_line($arg, "Duplicate '$key' while merging");
+			}
+			$old->{$key} = $value->{$key};
+		    }
+		}
+		else {
+		    err_at_line($arg, 
+				'Multiple occurences of command not allowed');
+		}
+	    }
+	    else {
+		$dest->{$key} = $value;
+	    }
 	}
     }
     return($result);
