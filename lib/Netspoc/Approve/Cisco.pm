@@ -262,7 +262,6 @@ sub normalize_proto {
 sub merge_acls {
     my ( $self, $spoc, $raw ) = @_;
 
-  RAW_INTERFACE:
     for my $intf_name ( keys %{ $raw->{IF} } ) {
 	mypr " interface: $intf_name \n";
 	my $raw_intf = $raw->{IF}->{$intf_name};
@@ -270,7 +269,7 @@ sub merge_acls {
 
 	if ( ! $spoc_intf ) {
 	    warnpr "Interface $intf_name referenced in raw does " .
-		"not exist in Netspoc! \n";
+		"not exist in Netspoc.\n";
 	    $spoc_intf = $spoc->{IF}->{$intf_name} = { name => $intf_name };
 	}
 
@@ -278,36 +277,30 @@ sub merge_acls {
 	for my $direction ( qw( IN OUT ) ) {
 	    my $access_group = "ACCESS_GROUP_$direction";
 	    if ( my $raw_name = $raw_intf->{$access_group} ) {
-		if ( my $raw_acl = $raw->{ACCESS_LIST}->{$raw_name} ) {
+		my $raw_acl = $raw->{ACCESS_LIST}->{$raw_name};
 
-		    my $spoc_name = $spoc_intf->{$access_group};
-		    if( ! $spoc_name ) {
-			$spoc_name = $spoc_intf->{$access_group} = 
-			    $intf_name . '_' . lc($direction);
-		    }
-
-		    # Create access-list in $spoc if not present.
-		    if( ! $spoc->{ACCESS_LIST}->{$spoc_name} ) {
-			$spoc->{ACCESS_LIST}->{$spoc_name} = { name => $spoc_name,
-							       LIST => [] };
-		    }
+		if(my $spoc_name = $spoc_intf->{$access_group}) {
 
 		    # Prepend raw acl.
 		    my $raw_entries = $raw_acl->{LIST};
 		    unshift(@{$spoc->{ACCESS_LIST}->{$spoc_name}->{LIST}}, 
 			    @$raw_entries);
-		    mypr "   $access_group entries prepended: "
-			. scalar @$raw_entries . "\n";
-
-		    # Create $access_group in $spoc if not present.
-		    if ( !$spoc->{$access_group}->{$spoc_name} ) {
-			$spoc->{$access_group}->{$spoc_name} =
-			{ name => $spoc_name, IF_NAME => $intf_name };
-			$spoc->{IF}->{$intf_name}->{$access_group} = $spoc_name;
-		    }
+		    my $count = @$raw_entries;
+		    mypr "  Prepended $count entries to $access_group.\n";
 		}
+		else {
+
+		    # Copy raw acl.
+		    $spoc->{ACCESS_LIST}->{$raw_name} and
+			errpr "Name clash for '$raw_name' of ACCESS_LIST" .
+			" from raw\n";
+		    $spoc->{ACCESS_LIST}->{$raw_name} = $raw_acl;
+		    $spoc_intf->{$access_group} = $spoc_name;
+		}
+		$raw_acl->{merged} = 1;
 	    }
 	}
+	$raw_intf->{merged} = 1;
     }
 }
 
