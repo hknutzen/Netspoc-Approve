@@ -1579,7 +1579,7 @@ sub change_attributes {
     my ( $self, $parse_name, $spoc_name, $spoc_value, $attributes ) = @_;
     my @cmds;
 
-    return if ( $parse_name =~ /^(CERT_ANCHOR|IF|CA_CERT_MAP)/);
+    return if ( $parse_name =~ /^(CERT_ANCHOR|CA_CERT_MAP)/);
     return if ( $spoc_value->{change_done} );
 
     mypr "### CHANGE ATTRIBUTES of $parse_name -> $spoc_name \n";
@@ -1599,6 +1599,13 @@ sub change_attributes {
 	my $to   = int2quad( $spoc_value->{RANGE_TO}   );
 	my $mask = int2quad( $spoc_value->{MASK}    );
 	push @cmds, "ip local pool $spoc_name $from-$to mask $mask";
+    }
+    elsif( $parse_name eq 'IF' ) {
+	for my $attr ( keys %{$attributes} ) {
+	    my $value = $attributes->{$attr};
+	    my $direction = $attr =~ /_IN/ ? 'in' : 'out';
+	    push @cmds, "access-group $value $direction interface $spoc_name";
+	}
     }
     else {
 	my $prefix;
@@ -1927,24 +1934,6 @@ sub transfer_acl {
 	    }
 	}
 	push @cmds, $cmd;
-    }
-
-
-    # If this acl is attached to an interface, create
-    # access-group connecting acl to interface.
-    if ( my $access_groups = $spoc->{ACCESS_GROUP_IN} ) {
-	if ( my $access_group = $access_groups->{$acl_name} ) {
-	    push @cmds, "access-group $new_name in interface " .
-		$access_group->{IF_NAME};
-	}
-    }
-    # If this acl is an outgoing-acl and attached to an interface,
-    # create access-group connecting acl to interface.
-    if ( my $access_groups = $spoc->{ACCESS_GROUP_OUT} ) {
-	if ( my $access_group = $access_groups->{$acl_name} ) {
-	    push @cmds, "access-group $new_name out interface " .
-		$access_group->{IF_NAME};
-	}
     }
     map { $self->cmd( $_ ) } @cmds;
 }
