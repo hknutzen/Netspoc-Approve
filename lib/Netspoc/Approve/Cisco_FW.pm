@@ -1620,7 +1620,7 @@ sub change_attributes {
 	    }
 	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if(not $attr_no_value{$attr}) {
-		my $value = $spoc_value->{$attr};
+		my $value = $attributes->{$attr};
 		$attr_cmd = "$attr_cmd $value";
 	    }
 	    push @cmds, $attr_cmd;
