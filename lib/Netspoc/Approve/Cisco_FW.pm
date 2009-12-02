@@ -115,7 +115,7 @@ my %attr2cmd =
 	 MATCH_ADDRESS		  => 'match address',
 	 NAT_T_DISABLE		  => 'set nat-t-disable',
 	 PEER			  => 'set peer',
-	 PFS 			  => 'set pfs ',
+	 PFS 			  => 'set pfs',
 	 REVERSE_ROUTE		  => 'set reverse-route',
 	 SA_LIFETIME_SEC	  => 'set security-association lifetime seconds',
 	 SA_LIFETIME_KB		  => 'set security-association lifetime kilobytes',
@@ -126,8 +126,8 @@ my %attr2cmd =
 
 my %attr_no_value = (
 		     # crypto map
-		     NAT_T_DISABLE		  => 1,
-		     REVERSE_ROUTE		  => 1,
+		     NAT_T_DISABLE => 1,
+		     REVERSE_ROUTE => 1,
 		     );
 		      
 
@@ -433,7 +433,7 @@ sub get_parse_info {
 			   ['seq',
 			    { parse => qr/pfs/ },
 			    { store => 'PFS', parse => \&check_token, 
-			      default => '' } ],
+			      default => 'group2' } ],
 			   { store => 'REVERSE_ROUTE', parse => qr/reverse-route/ },
 			   ['seq',
 			    { parse => qr/security-association/ },
