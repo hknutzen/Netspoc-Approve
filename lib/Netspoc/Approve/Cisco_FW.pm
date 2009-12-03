@@ -129,6 +129,13 @@ my %attr_no_value = (
 		     NAT_T_DISABLE => 1,
 		     REVERSE_ROUTE => 1,
 		     );
+
+my %attr_need_remove = (
+			# GROUP_POLICY
+			BANNER => 1,
+			# CRYPTO_MAP_SEQ
+			PEER => 1,
+			);
 		      
 
 sub get_parse_info {
@@ -378,7 +385,7 @@ sub get_parse_info {
 # crypto map map-name seq-num match address acl_name
 # crypto map map-name seq-num ipsec-isakmp dynamic WORD
 # crypto map map-name seq-num set nat-t-disable
-# crypto map map-name seq-num set peer {Hostname|A.B.C.D}  ##+
+# crypto map map-name seq-num set peer {Hostname|A.B.C.D}+
 # crypto map map-name seq-num set pfs [group1|group2|group5|group7]
 # crypto map map-name seq-num set reverse-route
 # crypto map map-name seq-num set security-association lifetime {kilobytes|seconds} N
@@ -429,7 +436,7 @@ sub get_parse_info {
 			   { store => 'NAT_T_DISABLE', parse => qr/nat-t-disable/ },
 			   ['seq',
 			    { parse => qr/peer/ },
-			    { store => 'PEER', parse => \&get_token } ],
+			    { store => 'PEER', parse => \&get_to_eol } ],
 			   ['seq',
 			    { parse => qr/pfs/ },
 			    { store => 'PFS', parse => \&check_token, 
@@ -1624,6 +1631,9 @@ sub change_attributes {
 	    }
 	    elsif ( $parse_name eq 'DEFAULT_GROUP' ) {
 		$attr_cmd .= " default-group ";
+	    }
+	    if($attr_need_remove{$attr}) {
+		push @cmds, "no $attr_cmd";
 	    }
 	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if(not $attr_no_value{$attr}) {
