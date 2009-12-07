@@ -1632,10 +1632,10 @@ sub change_attributes {
 	    elsif ( $parse_name eq 'DEFAULT_GROUP' ) {
 		$attr_cmd .= " default-group ";
 	    }
+	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if($attr_need_remove{$attr}) {
 		push @cmds, "no $attr_cmd";
 	    }
-	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if(not $attr_no_value{$attr}) {
 		my $value = $attributes->{$attr};
 		$attr_cmd = "$attr_cmd $value";
