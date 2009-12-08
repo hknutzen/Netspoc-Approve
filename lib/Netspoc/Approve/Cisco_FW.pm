@@ -133,6 +133,7 @@ my %attr_no_value = (
 my %attr_need_remove = (
 			# GROUP_POLICY
 			BANNER => 1,
+			VPN_TUNNEL_PROTOCOL => 1,
 			# CRYPTO_MAP_SEQ
 			PEER => 1,
 			);
@@ -853,8 +854,7 @@ sub generate_names_for_transfer {
     };
 
     for my $parse_name ( keys %{$structure} ) {
-	next if $parse_name =~ 
-	    /^(USERNAME|CERT_ANCHOR|CRYPTO_MAP|CRYPTO_MAP_SEQ|DEFAULT_GROUP)$/;
+	next if $structure->{anchor};
 	my $hash = $spoc->{$parse_name};
 	for my $name ( keys %$hash ) {
 	    if ($parse_name eq 'TUNNEL_GROUP' && $name eq 'DefaultL2LGroup') {
@@ -1470,9 +1470,6 @@ sub remove_unneeded_on_device {
       OBJECT:
 	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
 
-	    # Skip special default-group-policy 'DfltGrpPolicy'.
-	    next OBJECT if $obj_name eq 'DfltGrpPolicy';
-
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 
 	    # Do not remove users that have their own explicit
@@ -1513,9 +1510,6 @@ sub remove_spare_objects_on_device {
       OBJECT:
 	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
 	    
-	    # Skip special default-group-policy 'DfltGrpPolicy'.
-	    next OBJECT if $obj_name eq 'DfltGrpPolicy';
-
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 	    
 	    # Remove spare objects from device.
