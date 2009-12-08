@@ -202,12 +202,24 @@ sub get_parse_info {
 		store => 'VPN_IDLE_TIMEOUT',
 		parse => \&get_token,
 	    },
+	    'vpn-tunnel-protocol' => {
+		store => 'VPN_TUNNEL_PROTOCOL',
+		parse => \&get_to_eol,
+	    },
 	    'address-pools value' => {
 		store => 'ADDRESS_POOL',
 		parse => \&get_token,
 	    },
 	    'vpn-filter value' => {
 		store => 'VPN_FILTER',
+		parse => \&get_token,
+	    },
+	    'nem' => {
+		store => 'NEM',
+		parse => \&get_token,
+	    },
+	    'password-storage' => {
+		store => 'PASSWORD_STORAGE',
 		parse => \&get_token,
 	    },
 	    'pfs' => {
@@ -336,6 +348,13 @@ sub postprocess_config {
     # Not needed any longer.
     delete $p->{GROUP_POLICY_INTERNAL};
 
+    # 'DfltGrpPolicy' must not be removed, even if not referenced.
+    my $dflt_gp = 'DfltGrpPolicy';
+    if($p->{GROUP_POLICY}->{$dflt_gp}) {
+	$p->{GROUP_POLICY_ANCHOR}->{$dflt_gp} = { name => $dflt_gp,
+						  GROUP_POLICY => $dflt_gp };
+    }
+
     $self->SUPER::postprocess_config($p);
 }
 
@@ -400,10 +419,9 @@ sub define_structure {
 		      { attr_name  => 'VPN_FILTER',
 			parse_name => 'ACCESS_LIST',
 		    } ],
-	    attributes => [ qw( VPN_FRAMED_IP_ADDRESS
-				SERVICE_TYPE ) ],
-	    transfer    => 'transfer_user',
-	    remove      => 'remove_user',
+	    attributes => [ qw( VPN_FRAMED_IP_ADDRESS SERVICE_TYPE ) ],
+	    transfer   => 'transfer_user',
+	    remove     => 'remove_user',
 	},
 	
 	TUNNEL_GROUP => {
@@ -411,12 +429,12 @@ sub define_structure {
 			parse_name => 'GROUP_POLICY',
 		    } ],
 	    attributes => [ qw( CERTIFICATE_FROM AUTHZ_REQUIRED
-				AUTHZ_SERVER_GROUP AUTHEN_SERVER_GROUP) ],
+				AUTHZ_SERVER_GROUP AUTHEN_SERVER_GROUP ) ],
 	    ipsec_attributes => [ qw( ISAKMP PEER_ID_VALIDATE TRUST_POINT ) ],
 	    transfer => 'transfer_tunnel_group',
 	    remove   => 'remove_tunnel_group',
 	},
-
+		
 	GROUP_POLICY => {
 	    next => [ {	attr_name  => 'VPN_FILTER',
 			parse_name => 'ACCESS_LIST',
@@ -427,11 +445,18 @@ sub define_structure {
 		      { attr_name  => 'ADDRESS_POOL',
 			parse_name => 'IP_LOCAL_POOL',
 		    } ],
-	    attributes => [ qw( BANNER SPLIT_TUNNEL_POLICY
-			       VPN_IDLE_TIMEOUT PFS ) ],
+	    attributes => [qw( BANNER SPLIT_TUNNEL_POLICY VPN_IDLE_TIMEOUT 
+			       VPN_TUNNEL_PROTOCOL NEM PASSWORD_STORAGE PFS)],
 	    transfer => 'transfer_group_policy',
 	    remove   => 'remove_group_policy',
-	    },
+	},
+
+	GROUP_POLICY_ANCHOR => {
+	    anchor => 1,
+	    next => [ { attr_name => 'GROUP_POLICY',
+			parse_name => 'GROUP_POLICY',
+		    } ],
+	},
 	
 	IP_LOCAL_POOL => {
 	    attributes => [ qw( RANGE_FROM RANGE_TO MASK ) ],
