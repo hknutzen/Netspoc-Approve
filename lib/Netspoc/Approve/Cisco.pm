@@ -295,7 +295,7 @@ sub merge_acls {
 			errpr "Name clash for '$raw_name' of ACCESS_LIST" .
 			" from raw\n";
 		    $spoc->{ACCESS_LIST}->{$raw_name} = $raw_acl;
-		    $spoc_intf->{$access_group} = $spoc_name;
+		    $spoc_intf->{$access_group} = $raw_name;
 		}
 		$raw_acl->{merged} = 1;
 	    }
