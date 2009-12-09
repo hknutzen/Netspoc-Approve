@@ -835,22 +835,12 @@ sub route_line_destination_a_eq_b {
 sub process_routing {
     my ($self, $conf, $spoc_conf) = @_;
     my $spoc_routing = $spoc_conf->{ROUTING};
-    my $conf_routing = $conf->{ROUTING};
+    my $conf_routing = $conf->{ROUTING} ||= [];
     if (not $spoc_routing) {
         mypr "no routing entries specified - leaving routes untouched\n";
 	return;
     }
-    if (not $conf_routing) {
-	if (not $conf->{OSPF}) {
-	    errpr "ERROR: no routing entries found on device\n";
-	}
-	else {
-	    mypr "no routing entries found on device - but OSPF found...\n";
 
-	    # generate empty routing config for device:
-	    $conf_routing = $conf->{ROUTING} = [];
-	}
-    }
     $self->{CHANGE}->{ROUTE} = 0;
     for my $c (@$conf_routing) {
 	for my $s (@$spoc_routing) {
@@ -861,22 +851,13 @@ sub process_routing {
 	}
     }
 
-    #
-    # *** SCHEDULE RELOAD ***
-    #
-    # TODO: check if 10 minutes are OK
-    #
-    $self->{COMPARE} or $self->schedule_reload(10);
-
-    $self->enter_conf_mode;
-    mypr "### Transfer routing entries to device:\n";
+    my @cmds;
 
     # Add routes with long mask first.
     # If we switch the default route, this ensures, that we have the
     # new routes available before deleting the old default route.
-    for my $r ( sort {$b->{MASK} <=> $a->{MASK}} 
-		@{ $spoc_conf->{ROUTING} }) {
-	($r->{DELETE}) and next;
+    for my $r ( sort {$b->{MASK} <=> $a->{MASK}} @{ $spoc_conf->{ROUTING} }) {
+	next if $r->{DELETE};
 	$self->{CHANGE}->{ROUTE} = 1;
 
 	# PIX and ASA don't allow two routes to identical destination.
@@ -884,20 +865,25 @@ sub process_routing {
 	for my $c (@$conf_routing) {
 	    next if $c->{DELETE};
 	    if($self->route_line_destination_a_eq_b($r, $c)){
-		$self->cmd($self->route_del($c));
+		push(@cmds, $self->route_del($c));
 		$c->{DELETE} = 1; # Must not delete again.
 	    }
 	}
-	$self->cmd($self->route_add($r));
+	push(@cmds, $self->route_add($r));
     }
-    mypr "### Deleting non matching routing entries from device\n";
     for my $r (@$conf_routing) {
-	($r->{DELETE}) and next;
+	next if $r->{DELETE};
 	$self->{CHANGE}->{ROUTE} = 1;
-	$self->cmd($self->route_del($r));
+	push(@cmds, $self->route_del($r));
     }
-    $self->leave_conf_mode;
-    $self->{COMPARE} or $self->cancel_reload();
+    if(@cmds) {
+	mypr "### Change routing entries on device\n";
+	$self->{COMPARE} or $self->schedule_reload(10);
+	$self->enter_conf_mode;
+	map { $self->cmd($_); } @cmds;
+	$self->leave_conf_mode;
+	$self->{COMPARE} or $self->cancel_reload();
+    }
 }
 
 #################################################
