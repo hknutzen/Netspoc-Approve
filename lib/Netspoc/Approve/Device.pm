@@ -425,7 +425,7 @@ sub get_aaa_password {
     return ($user, $pass);
 }
 
-# Read name and IP addresses from header of spoc file.
+# Read type and IP addresses from header of spoc file.
 sub get_spoc_data {
     my ($self, $global_config, $name, $codepath) = @_;
 
