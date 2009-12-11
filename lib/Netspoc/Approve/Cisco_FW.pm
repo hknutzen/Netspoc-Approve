@@ -854,16 +854,12 @@ sub generate_names_for_transfer {
     };
 
     for my $parse_name ( keys %{$structure} ) {
-	next if $structure->{anchor};
+	next if $structure->{$parse_name}->{anchor};
 	my $hash = $spoc->{$parse_name};
 	for my $name ( keys %$hash ) {
-	    if ($parse_name eq 'TUNNEL_GROUP' && $name eq 'DefaultL2LGroup') {
-		$hash->{$name}->{new_name} = $name;
-	    }
-	    else {
-		$hash->{$name}->{new_name} =
-		    $generate_names_for_transfer->( $name, $conf->{$parse_name} );
-	    }
+	    next if ($parse_name eq 'TUNNEL_GROUP' && $name eq 'DefaultL2LGroup');
+	    $hash->{$name}->{new_name} =
+		$generate_names_for_transfer->( $name, $conf->{$parse_name} );
 	}
     }
 }
