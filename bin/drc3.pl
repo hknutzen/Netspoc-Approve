@@ -162,7 +162,7 @@ $name and not @_ or &usage;
 # In this case we get an empty type and no IP.
 my ($type, @ip) = 
     Netspoc::Approve::Device->get_spoc_data($global_config, 
-					    $name, $opts{N} || $opts{F1});
+					    $name, $opts{N} || $opts{F2});
 
 $type or die "Can't get type from spoc file\n";
 
