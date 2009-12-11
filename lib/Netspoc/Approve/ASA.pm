@@ -251,18 +251,19 @@ sub postprocess_config {
 	errpr "Please disable 'nat-control'";
     }
 
-    # Link hardware interface with logical interface.
     # Propagate ip address and shutdown status from hardware interface 
     # to logical interface.
     for my $entry ( values %{ $p->{HWIF} } ) {
-	next if $entry->{SHUTDOWN};
 	if (my $name = $entry->{IF_NAME}) {
+	    my $intf = $p->{IF}->{$name} = { name => $name };
 	    if( my $address = $entry->{ADDRESS} ) {
-		$p->{IF}->{$name}->{BASE} = $address->{BASE};
-		$p->{IF}->{$name}->{MASK} = $address->{MASK};
+		$intf->{BASE} = $address->{BASE};
+		$intf->{MASK} = $address->{MASK};
 	    }
+	    $intf->{SHUTDOWN} = $entry->{SHUTDOWN};
 	}
     }
+    delete $p->{HWIF};
 
     # For tunnel-groups that only have ipsec-attributes, create
     # a tunnel-group with the same name.
