@@ -120,7 +120,7 @@ group-policy VPN-group-DRC-0 internal
 group-policy VPN-group-DRC-0 attributes
 banner value Willkommen!
 split-tunnel-policy tunnelspecified
-vpn-idle-timeout value 60
+vpn-idle-timeout 60
 access-list vpn-filter-DRC-0 extended permit ip host 10.1.1.67 10.2.42.0 255.255.255.224
 access-list vpn-filter-DRC-0 extended deny ip any any
 username jon.doe@token.example.com nopassword
