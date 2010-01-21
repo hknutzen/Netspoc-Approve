@@ -563,7 +563,7 @@ my @known_warning =
 sub cmd_check_error($$) {
     my ($self, $out) = @_;
 
-    my @lines = split(/\n/, $out);
+    my @lines = split(/\n/, $$out);
 
     # First line is echo of command; ignore it.
     my $echo = shift(@lines);
