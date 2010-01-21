@@ -171,7 +171,7 @@ group-policy VPN-group-DRC-0 internal
 group-policy VPN-group-DRC-0 attributes
 banner value Willkommen beim Zugang per VPN
 split-tunnel-policy tunnelspecified
-vpn-idle-timeout value 60
+vpn-idle-timeout 60
 tunnel-group VPN-tunnel-DRC-0 type remote-access
 tunnel-group VPN-tunnel-DRC-0 general-attributes
 tunnel-group VPN-tunnel-DRC-0 ipsec-attributes
