@@ -558,6 +558,8 @@ my @known_warning =
      qr/Adding obj \([^()]+\) to grp \([^()]+\) failed; object already exists/,
      # ace warnings
      qr/ACE not added[.] Possible duplicate entry/,
+     # general warnings
+     qr/^WARNING:/,
      );
 
 sub cmd_check_error($$) {
