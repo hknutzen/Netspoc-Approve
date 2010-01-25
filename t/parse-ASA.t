@@ -103,6 +103,7 @@ access-list vpn-filter extended deny ip any any
 group-policy VPN-group internal
 group-policy VPN-group attributes
  banner value Willkommen!
+ dns-server 10.1.2.3 10.44.55.66
  split-tunnel-network-list value split-tunnel
  split-tunnel-policy tunnelspecified
  vpn-idle-timeout 60
@@ -119,6 +120,7 @@ access-list split-tunnel-DRC-0 standard permit 10.2.42.0 255.255.255.224
 group-policy VPN-group-DRC-0 internal
 group-policy VPN-group-DRC-0 attributes
 banner value Willkommen!
+dns-server 10.1.2.3 10.44.55.66
 split-tunnel-policy tunnelspecified
 vpn-idle-timeout 60
 access-list vpn-filter-DRC-0 extended permit ip host 10.1.1.67 10.2.42.0 255.255.255.224
