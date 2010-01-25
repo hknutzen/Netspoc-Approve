@@ -533,7 +533,11 @@ sub parse_address {
 my @known_status =
     (
      # for write memory
-     qr/\[OK\]/,
+     qr/^Building configuration/,
+     qr/^Cryptochecksum:/,
+     qr/^\d+ bytes copied in /,
+     qr/^ *$/, # empty line
+     qr/^\[OK\]/,
      # identity nat
      qr/will be identity translated for outbound/,
      # identity nat
