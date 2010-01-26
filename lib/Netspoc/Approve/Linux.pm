@@ -255,13 +255,6 @@ sub parse_rule {
 }
 
 # Helper functions.
-# Convert string to internal representation and vice versa.
-
-sub internal_err( @ ) {
-    my ($package, $file, $line, $sub) = caller 1;
-    die "Internal error in $sub: ", @_, "\n";
-}
-
 sub debug {
     print(STDERR "@_\n");
 }
@@ -274,6 +267,7 @@ sub info_msg {
     print("@_\n");
 }
 
+# Convert string to internal representation and vice versa.
 sub mode2intern {
     my($token) = @_;
     if($token eq 'ACCEPT') {
