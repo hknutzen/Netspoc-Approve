@@ -24,7 +24,7 @@ use File::Basename;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
-  warnpr check_warn meself quad2int int2quad writestatus
+  warnpr check_warn meself internal_err quad2int int2quad writestatus
   formatstatus getstatus getfullstatus updatestatus
   open_status 
   %ICMP_Trans %IP_Trans %PORT_Trans_TCP %PORT_Trans_UDP  
@@ -265,6 +265,11 @@ sub warnpr {
 
 sub check_warn() {
     return $warn;
+}
+
+sub internal_err( @ ) {
+    my ($package, $file, $line, $sub) = caller 1;
+    die "Internal error in $sub:\n ", @_, "\n";
 }
 
 sub writestatus ( $ ) {
