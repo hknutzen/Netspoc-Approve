@@ -75,31 +75,16 @@ my %conf_mode_entry = (
 my %attr2cmd = 
     (
      USERNAME => {
-	 VPN_FRAMED_IP_ADDRESS     => 'vpn-framed-ip-address',
 	 VPN_FILTER                => 'vpn-filter value',
 	 VPN_GROUP_POLICY          => 'vpn-group-policy',
-	 SERVICE_TYPE              => 'service-type',
      },
      GROUP_POLICY => {
-	 BANNER	                   => 'banner value',
-	 SPLIT_TUNNEL_POLICY       => 'split-tunnel-policy',
 	 SPLIT_TUNNEL_NETWORK_LIST => 'split-tunnel-network-list value',
-	 VPN_IDLE_TIMEOUT          => 'vpn-idle-timeout',
 	 ADDRESS_POOL              => 'address-pools value',
 	 VPN_FILTER                => 'vpn-filter value',
-	 PFS	                   => 'pfs',
      },
      TUNNEL_GROUP => {
-	 CERTIFICATE_FROM	   => 'username-from-certificate',
-	 AUTHZ_SERVER_GROUP        => 'authorization-server-group',
-	 AUTHEN_SERVER_GROUP       => 'authentication-server-group',
-	 AUTHZ_REQUIRED            => 'authorization-required',
 	 DEFAULT_GROUP_POLICY      => 'default-group-policy',
-	 # Key of TUNNEL_GROUP_IPSEC 
-	 PEER_ID_VALIDATE          => 'peer-id-validate',
-	 CHAIN                     => 'chain',
-	 TRUST_POINT               => 'trust-point',
-	 ISAKMP                    => 'isakmp ikev1-user-authentication',
      },
      DEFAULT_GROUP => {
 	 TUNNEL_GROUP		  => 'tunnel-group-map',
@@ -132,8 +117,8 @@ my %attr_no_value = (
 
 my %attr_need_remove = (
 			# GROUP_POLICY
-			BANNER => 1,
-			VPN_TUNNEL_PROTOCOL => 1,
+			banner => 1,
+			'vpn-tunnel-protocol' => 1,
 			# CRYPTO_MAP_SEQ
 			PEER => 1,
 			);
@@ -886,13 +871,40 @@ sub equalize_attributes {
 	my $spoc_attr = $spoc_value->{$attr};
 	my $conf_attr = $conf_value->{$attr};
 	if ( $spoc_attr  &&  $conf_attr ) { 
+
 	    # Attribute present on both.
-	    if ( $spoc_attr ne $conf_attr ) {
+	    # Value is either a scalar which can be compared directly
+	    # or a hash, which is compared pairwise.
+	    if (ref $spoc_attr) {
+		my %seen;
+		for my $cmd (keys %$spoc_attr) {
+		    my $new = $spoc_attr->{$cmd};
+		    if (my $conf_args = $conf_attr->{$cmd}) {
+			$seen{$cmd} = 1;
+			if ($new ne $conf_args) {
+			    $modified = 1;
+			    $spoc_value->{change_attr}->{$attr}->{$cmd} = $new;
+			}
+		    }
+		    else {
+			$spoc_value->{change_attr}->{$attr}->{$cmd} = $new;
+		    }
+			
+		}
+		for my $cmd (keys %$conf_attr) {
+		    next if $seen{$cmd};
+		    my $args = $spoc_attr->{$cmd};
+		    $conf_value->{remove_attr}->{$attr}->{$cmd} = $args;
+		}
+	    }
+	    else {
+		if ( $spoc_attr ne $conf_attr ) {
 #		mypr " < " . $conf_value->{name} . " > " .
 #		    " --> ATTR:$attr  DEV:$conf_attr  SPOC:$spoc_attr \n";
-		$modified = 1;
-		$spoc_value->{change_attr}->{$attr} = $spoc_attr;
-	    }		    
+		    $modified = 1;
+		    $spoc_value->{change_attr}->{$attr} = $spoc_attr;
+		}
+	    }
 	}
 	elsif ( $spoc_attr  &&  ! $conf_attr ) {
 	    #mypr "Attribute $attr present only in netspoc. \n";
@@ -1324,7 +1336,7 @@ sub change_modified_attributes {
 
     if ( my $parse = $structure->{$parse_name} ) {
 
-	# Change or remove attributes marked accordingly.
+	# Change attributes marked accordingly.
 	if ( my $attr = $spoc_value->{change_attr} ) {
 	    $self->change_attributes( $parse_name, $spoc_name,
 				      $spoc_value, $attr );
@@ -1461,7 +1473,8 @@ sub remove_unneeded_on_device {
     my ( $self, $conf, $structure ) = @_;
     
     # Caution: the order is significant in this array!
-    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP TUNNEL_GROUP 
+    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
+			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP 
 			  GROUP_POLICY ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
 			  );
 
@@ -1501,7 +1514,8 @@ sub remove_spare_objects_on_device {
     # Don't add OBJECT_GROUP, because currently they are not 
     # marked as connected.
     # Spare object groups will be removed later by remove_unneeded_on_device.
-    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP TUNNEL_GROUP  
+    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
+			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP  
 			  GROUP_POLICY ACCESS_LIST IP_LOCAL_POOL
 			  );
     
@@ -1621,22 +1635,38 @@ sub change_attributes {
 	}
 	
 	for my $attr ( keys %{$attributes} ) {
-	    my $attr_cmd = $attr2cmd{$parse_name}->{$attr};
-	    if ( ! $attr_cmd ) {
-		errpr "Command not found for attribute $parse_name:$attr\n";
+	    my $value = $attributes->{$attr};
+
+	    # A hash of attributes, read unchanged from device.
+	    if(ref $value) {
+		for my $cmd (sort keys %$value) {
+		    my $args = $value->{$cmd};
+		    push @cmds, "no $cmd" if $attr_need_remove{$cmd};
+		    my $new_cmd = $cmd;
+		    $new_cmd .= " $args" if $args;
+		    push @cmds, $new_cmd;
+		}
 	    }
-	    elsif ( $parse_name eq 'DEFAULT_GROUP' ) {
-		$attr_cmd .= " default-group ";
+
+	    # Single attributes which need to be converted 
+	    # back to device syntax.
+	    else {
+		my $attr_cmd = $attr2cmd{$parse_name}->{$attr};
+		if ( ! $attr_cmd ) {
+		    errpr "Command not found for attribute $parse_name:$attr\n";
+		}
+		elsif ( $parse_name eq 'DEFAULT_GROUP' ) {
+		    $attr_cmd .= " default-group ";
+		}
+		$attr_cmd = "$prefix $attr_cmd" if($prefix);
+		if($attr_need_remove{$attr}) {
+		    push @cmds, "no $attr_cmd";
+		}
+		if(not $attr_no_value{$attr}) {
+		    $attr_cmd = "$attr_cmd $value";
+		}
+		push @cmds, $attr_cmd;
 	    }
-	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
-	    if($attr_need_remove{$attr}) {
-		push @cmds, "no $attr_cmd";
-	    }
-	    if(not $attr_no_value{$attr}) {
-		my $value = $attributes->{$attr};
-		$attr_cmd = "$attr_cmd $value";
-	    }
-	    push @cmds, $attr_cmd;
 	}
     }
     map { $self->cmd( $_ ) } @cmds;
@@ -1659,12 +1689,24 @@ sub remove_attributes {
 
     for my $attr ( keys %{$attributes} ) {
 	my $value = $attributes->{$attr};
-	my $attr_cmd = $attr2cmd{$parse_name}->{$attr};
-	$attr_cmd = "$prefix $attr_cmd" if($prefix);
-	if(not $attr_no_value{$attr}) {
-	    $attr_cmd = "$attr_cmd $value";
+
+	# A hash of attributes, read unchanged from device.
+	if(ref $value) {
+	    for my $cmd (sort keys %$value) {
+		my $args = $value->{$cmd};
+		my $new_cmd = $cmd;
+		$new_cmd = "$new_cmd value" if ($args && $args =~ /^value/);
+		push @cmds, "no $new_cmd";
+	    }
 	}
-	push @cmds, "no $attr_cmd";
+	else {
+	    my $attr_cmd = $attr2cmd{$parse_name}->{$attr};
+	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
+	    if(not $attr_no_value{$attr}) {
+		$attr_cmd = "$attr_cmd $value";
+	    }
+	    push @cmds, "no $attr_cmd";
+	}
     }
     map { $self->cmd( $_ ) } @cmds;
 }
@@ -1794,43 +1836,33 @@ sub remove_user {
 }
 
 sub transfer_tunnel_group {
-    my ( $self, $spoc, $structure,
-	 $parse_name, $tg_name ) = @_;
+    my ( $self, $spoc, $structure, $parse_name, $tg_name ) = @_;
 
-    my $tunnel_group = $spoc->{$parse_name}->{$tg_name};
+    my $tunnel_group = $spoc->{$parse_name}->{$tg_name} or
+	errpr "No $parse_name found for $tg_name!";
     my $new_tg = $tunnel_group->{new_name};
-    mypr "### transfer tunnel-group $tg_name to " .
-	"device as $new_tg \n";
-
-    errpr "No tunnel-group-object found for $tg_name!"
-	unless $tunnel_group;
+    mypr "### transfer $parse_name $tg_name to device as $new_tg\n";
 
     my @cmds;
-    push @cmds, define_item_cmd( $parse_name, $new_tg );
+    if (not $parse_name eq 'TUNNEL_GROUP_IPSEC') {
+	push @cmds, define_item_cmd($parse_name, $new_tg);
+    }
     push @cmds, item_conf_mode_cmd( $parse_name, $new_tg );
     push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $tunnel_group, 'attributes' );
-    
-    if ( my $tunnel_group_ipsec =
-	 $spoc->{TUNNEL_GROUP_IPSEC}->{$tg_name} ) {
-	push @cmds, item_conf_mode_cmd( 'TUNNEL_GROUP_IPSEC', $new_tg );
-	push @cmds, add_attribute_cmds( $structure, $parse_name,
-					$tunnel_group_ipsec,
-					'ipsec_attributes' );
-    }
-    
     map { $self->cmd( $_ ) } @cmds;
 }
 
 sub remove_tunnel_group {
     my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
-
     mypr "### remove tunnel-group $tg_name from device \n";
+    $self->cmd("no tunnel-group $tg_name");
+}
 
-    my $object = $conf->{$parse_name}->{$tg_name};
-    my @cmds;
-    push @cmds, "clear configure tunnel-group $tg_name";
-    map { $self->cmd( $_ ) } @cmds;
+sub remove_tunnel_group_ipsec {
+    my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
+    mypr "### remove tunnel-group $tg_name from device \n";
+    $self->cmd("no tunnel-group $tg_name ipsec-attributes");
 }
 
 sub transfer_group_policy {
@@ -1945,8 +1977,7 @@ sub transfer_acl {
 }
 
 sub remove_acl {
-    my ( $self, $conf, $structure,
-	 $parse_name, $acl ) = @_;
+    my ( $self, $conf, $structure, $parse_name, $acl ) = @_;
 
     mypr "### remove access-list $acl from device \n";
     my $cmd = $self->acl_removal_cmd( $acl );
@@ -1955,33 +1986,18 @@ sub remove_acl {
 
 sub define_item_cmd {
     my ( $parse_name, $item_name ) = @_;
-    
-    if ( $define_object{$parse_name} ) {
-	my $prefix  = $define_object{$parse_name}->{prefix};
-	my $postfix = $define_object{$parse_name}->{postfix};
-	if ( ! $prefix ) {
-	    errpr "Prefix not defined for object-definition of " .
-		"object '$item_name'! \n";
-	}
-	return "$prefix $item_name $postfix";
-    }
-    else {
-	errpr "Command for object-definition not found of " .
-	    " object $item_name! \n";
-    }
-    return;
+    my $def = $define_object{$parse_name} or
+	internal_err("No definition for $parse_name $item_name");
+    my $prefix = $def->{prefix} or
+	internal_err("No prefix for $parse_name $item_name");
+    return "$prefix $item_name $def->{postfix}";
 }
 
 sub item_conf_mode_cmd {
     my ( $parse_name, $item_name ) = @_;
-
-    my $prefix  = $conf_mode_entry{$parse_name}->{prefix};
+    my $prefix  = $conf_mode_entry{$parse_name}->{prefix} or
+	internal_err("No prefix for $parse_name $item_name");
     my $postfix = $conf_mode_entry{$parse_name}->{postfix};
-
-    if ( ! $prefix ) {
-	errpr "Prefix undefined for configure terminal " .
-	    "entry command of item '$item_name'! \n";
-    }
     return "$prefix $item_name $postfix";
 }
 
@@ -1996,15 +2012,25 @@ sub add_attribute_cmds {
     }
   ATTRIBUTE:
     for my $attr ( @{$structure->{$parse_name}->{$attributes}} ) {
-	# Some attributes are optional.
-	next ATTRIBUTE if not $object->{$attr};
-	my $attr_cmd = cmd_for_attribute( $parse_name, $attr );
-	$attr_cmd = "$prefix $attr_cmd" if($prefix);
-	if(not $attr_no_value{$attr}) {
-	    my $value = $object->{$attr};
-	    $attr_cmd = "$attr_cmd $value";
+	my $value = $object->{$attr};
+	if (ref $value) {
+	    for my $cmd (sort keys %$value) {
+		my $args = $value->{$cmd};
+		my $new_cmd = $cmd;
+		$new_cmd .= " $args" if $args;
+		push @cmds, $new_cmd;
+	    }
 	}
-	push @cmds, $attr_cmd;
+	else {
+	    # Some attributes are optional.
+	    next ATTRIBUTE if not $value;
+	    my $attr_cmd = cmd_for_attribute( $parse_name, $attr );
+	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
+	    if(not $attr_no_value{$attr}) {
+		$attr_cmd = "$attr_cmd $value";
+	    }
+	    push @cmds, $attr_cmd;
+	}
     }
     return @cmds;
 }
