@@ -59,48 +59,32 @@ sub get_parse_info {
 	store => 'TUNNEL_GROUP',
 	named => 1,
 	subcmd => {
-	    'username-from-certificate' => {
-		store => 'CERTIFICATE_FROM',
-		parse => \&get_token,
-	    },
-	    'authorization-server-group' => {
-		store => 'AUTHZ_SERVER_GROUP',
-		parse => \&get_token,
-	    },
-	    'authentication-server-group' => {
-		store => 'AUTHEN_SERVER_GROUP',
-		parse => \&get_token,
-	    },
-	    'authorization-required' => {
-		store => 'AUTHZ_REQUIRED',
-		parse => sub { return ' '; },
-	    },
 	    'default-group-policy' => {
 		store => 'DEFAULT_GROUP_POLICY',
 		parse => \&get_token,
 	    },
+
+	    # '_any' is special word, which matches any token.
+	    # '_cmd' is replaced by current command name.
+	    _any => {
+		store => ['ATTRIBUTES', '_cmd'],
+		parse => \&get_to_eol,
+	    }
 	}
+
     };
 
     $info->{'tunnel-group +ipsec-attributes'} = {
 	store => 'TUNNEL_GROUP_IPSEC',
 	named => 1,
-	subcmd => {
-	    'peer-id-validate' => {
-		store => 'PEER_ID_VALIDATE',
-		parse => \&get_token,
-	    },
-	    'chain' => {
-		store => 'CHAIN',
-	    },
-	    'trust-point' => {
-		store => 'TRUST_POINT',
-		parse => \&get_token,
-	    },
-	    'isakmp ikev1-user-authentication' => {
-		store => 'ISAKMP',
-		parse => \&get_token,
-	    },
+ 	subcmd => {
+
+	    # '_any' is special word, which matches any token.
+	    # '_cmd' is replaced by current command name.
+	    _any => {
+		store => ['ATTRIBUTES', '_cmd'],
+		parse => \&get_to_eol,
+	    }
 	}
     };
 
@@ -157,10 +141,6 @@ sub get_parse_info {
 	store => 'USERNAME',
 	named => 1,
 	subcmd => {
-	    'vpn-framed-ip-address' => {
-		store => 'VPN_FRAMED_IP_ADDRESS',
-		parse => \&get_to_eol,
-	    },
 	    'vpn-filter value' => {
 		store => 'VPN_FILTER',
 		parse => \&get_token,
@@ -169,10 +149,13 @@ sub get_parse_info {
 		store => 'VPN_GROUP_POLICY',
 		parse => \&get_token,
 	    },
-	    'service-type' => {
-		store => 'SERVICE_TYPE',
-		parse => \&get_token,
-	    },
+
+	    # '_any' is special word, which matches any token.
+	    # '_cmd' is replaced by current command name.
+	    _any => {
+		store => ['ATTRIBUTES', '_cmd'],
+		parse => \&get_to_eol,
+	    }
 	}
     };
 
@@ -186,46 +169,25 @@ sub get_parse_info {
 	store => 'GROUP_POLICY',
 	named => 1,
 	subcmd => {
-	    'banner value' => {
-		store => 'BANNER',
-		parse => \&get_to_eol,
-	    },
-	    'split-tunnel-policy' => {
-		store => 'SPLIT_TUNNEL_POLICY',
+	    'vpn-filter value' => {
+		store => 'VPN_FILTER',
 		parse => \&get_token,
 	    },
 	    'split-tunnel-network-list value' => {
 		store => 'SPLIT_TUNNEL_NETWORK_LIST',
 		parse => \&get_token,
 	    },
-	    'vpn-idle-timeout' => {
-		store => 'VPN_IDLE_TIMEOUT',
-		parse => \&get_token,
-	    },
-	    'vpn-tunnel-protocol' => {
-		store => 'VPN_TUNNEL_PROTOCOL',
-		parse => \&get_to_eol,
-	    },
 	    'address-pools value' => {
 		store => 'ADDRESS_POOL',
 		parse => \&get_token,
 	    },
-	    'vpn-filter value' => {
-		store => 'VPN_FILTER',
-		parse => \&get_token,
-	    },
-	    'nem' => {
-		store => 'NEM',
-		parse => \&get_token,
-	    },
-	    'password-storage' => {
-		store => 'PASSWORD_STORAGE',
-		parse => \&get_token,
-	    },
-	    'pfs' => {
-		store => 'PFS',
-		parse => \&get_token,
-	    },
+
+	    # '_any' is special word, which matches any token.
+	    # '_cmd' is replaced by current command name.
+	    _any => {
+		store => ['ATTRIBUTES', '_cmd'],
+		parse => \&get_to_eol,
+	    }
 	}
     };
 
@@ -267,15 +229,9 @@ sub postprocess_config {
 
     # For tunnel-groups that only have ipsec-attributes, create
     # a tunnel-group with the same name.
-    # Copy ipsec-attributes to tunnel-group.
     my $tunnel_groups = $p->{TUNNEL_GROUP} ||= {};
     for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
-	my $tg_ipsec = $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
-	my $tg = 
-	    $tunnel_groups->{$tg_ipsec_name} ||= { name => $tg_ipsec_name };
-	for my $attr ( keys %{$tg_ipsec} ) {
-	    $tg->{$attr} = $tg_ipsec->{$attr} if $attr !~ /^(name|orig|line)$/;
-	}
+	$p->{TUNNEL_GROUP}->{$tg_ipsec_name} ||= { name => $tg_ipsec_name };
     }
 
     # TUNNEL_GROUP_MAP
@@ -284,24 +240,25 @@ sub postprocess_config {
     # - create artificial name: "default"
     for my $tgm ( values %{$p->{TUNNEL_GROUP_MAP}} ) {
 	my $tgm_name = $tgm->{name};
-	if ( $tgm_name eq 'DEFAULT' ) {
-	    $p->{DEFAULT_GROUP}->{default} = { name => 'default',
-					       TUNNEL_GROUP => 
-						   $tgm->{TUNNEL_GROUP},
-					       };
+	my $tg_name = $tgm->{TUNNEL_GROUP};
+	my $tg_ipsec = $p->{TUNNEL_GROUP_IPSEC}->{$tg_name};
+	if ($tgm_name eq 'DEFAULT') {
+	    my $default = { name => 'default', TUNNEL_GROUP => $tg_name, };
+	    $default->{TUNNEL_GROUP_IPSEC} = $tg_name if $tg_ipsec;
+	    $p->{DEFAULT_GROUP}->{default} = $default;
 	}
 	else {
 	    if ( my $cert = $p->{CA_CERT_MAP}->{$tgm_name} ) {
-		$cert->{TUNNEL_GROUP} = $tgm->{TUNNEL_GROUP};
+		$cert->{TUNNEL_GROUP} = $tg_name;
+		$cert->{TUNNEL_GROUP_IPSEC} = $tg_name if $tg_ipsec;
 	    }
 	    else {
 		errpr "'$tgm->{orig}' references unknown ca cert map '$tgm_name'\n";
 	    }
 	}
-	my $tg_name = $tgm->{TUNNEL_GROUP};
-	if(not $p->{TUNNEL_GROUP}->{$tg_name}) {
+	if (not $p->{TUNNEL_GROUP}->{$tg_name}) {
 	    if($tg_name =~ /^(?:DefaultL2LGroup)$/) {
-		$tunnel_groups->{$tg_name} ||= { name => $tg_name };
+		$p->{TUNNEL_GROUP}->{$tg_name} ||= { name => $tg_name };
 	    }
 	    else {
 		errpr "'$tgm->{orig}' references unknown tunnel-group $tg_name\n";
@@ -396,8 +353,10 @@ sub define_structure {
 	
 	CA_CERT_MAP => { 
 	    next => [ { attr_name  => 'TUNNEL_GROUP',
-			parse_name => 'TUNNEL_GROUP',
-		    } ],
+			parse_name => 'TUNNEL_GROUP', },
+		      { attr_name  => 'TUNNEL_GROUP_IPSEC',
+			parse_name => 'TUNNEL_GROUP_IPSEC', }
+		      ],
 	    attributes => [ qw( IDENTIFIER ) ],
 	    transfer    => 'transfer_ca_cert_map',
 	    remove      => 'remove_ca_cert_map',
@@ -406,8 +365,10 @@ sub define_structure {
 	DEFAULT_GROUP => {
 	    anchor => 1,
 	    next => [ { attr_name  => 'TUNNEL_GROUP',
-			parse_name => 'TUNNEL_GROUP',
-		    } ],
+			parse_name => 'TUNNEL_GROUP', },
+		      { attr_name  => 'TUNNEL_GROUP_IPSEC',
+			parse_name => 'TUNNEL_GROUP_IPSEC', }
+		      ],
 	    transfer => 'transfer_default_group',
 	    remove   => 'remove_default_group',
 	},
@@ -420,7 +381,7 @@ sub define_structure {
 		      { attr_name  => 'VPN_FILTER',
 			parse_name => 'ACCESS_LIST',
 		    } ],
-	    attributes => [ qw( VPN_FRAMED_IP_ADDRESS SERVICE_TYPE ) ],
+	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer   => 'transfer_user',
 	    remove     => 'remove_user',
 	},
@@ -429,11 +390,16 @@ sub define_structure {
 	    next => [ { attr_name  => 'DEFAULT_GROUP_POLICY',
 			parse_name => 'GROUP_POLICY',
 		    } ],
-	    attributes => [ qw( CERTIFICATE_FROM AUTHZ_REQUIRED
-				AUTHZ_SERVER_GROUP AUTHEN_SERVER_GROUP ) ],
-	    ipsec_attributes => [ qw( ISAKMP PEER_ID_VALIDATE TRUST_POINT ) ],
+	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer => 'transfer_tunnel_group',
 	    remove   => 'remove_tunnel_group',
+	},
+	
+	TUNNEL_GROUP_IPSEC => {
+	    next => [],
+	    attributes => [ qw( ATTRIBUTES ) ],
+	    transfer => 'transfer_tunnel_group',
+	    remove   => 'remove_tunnel_group_ipsec',
 	},
 		
 	GROUP_POLICY => {
@@ -446,8 +412,7 @@ sub define_structure {
 		      { attr_name  => 'ADDRESS_POOL',
 			parse_name => 'IP_LOCAL_POOL',
 		    } ],
-	    attributes => [qw( BANNER SPLIT_TUNNEL_POLICY VPN_IDLE_TIMEOUT 
-			       VPN_TUNNEL_PROTOCOL NEM PASSWORD_STORAGE PFS)],
+	    attributes => [qw( ATTRIBUTES )],
 	    transfer => 'transfer_group_policy',
 	    remove   => 'remove_group_policy',
 	},
