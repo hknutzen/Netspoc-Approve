@@ -183,7 +183,7 @@ sub skip {
 # Collect remaining arguments.
 sub get_to_eol {
     my($arg) = @_;
-    my $string;
+    my $string = '';
     while ( defined( my $token = check_token($arg) ) ) {
 	$string .= $token . ' ';
     }
