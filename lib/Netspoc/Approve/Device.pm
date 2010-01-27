@@ -685,7 +685,7 @@ sub parse_config1 {
     my $result = {};
     for my $arg (@$config) {
 	my $cmd = get_token($arg);
-        my $cmd_info = $parse_info->{$cmd} or 
+        my $cmd_info = $parse_info->{$cmd} || $parse_info->{_any} or 
 	    err_at_line($arg, "internal: parsed unexpected cmd: $cmd");
 	if(my $msg = $cmd_info->{error}) {
 	    err_at_line($arg, $msg);
@@ -734,9 +734,11 @@ sub parse_config1 {
 	}
 	else {
 	    $key = pop @extra_keys;
+	    $key = $cmd if $key eq '_cmd';
 	}
 	my $dest = $result;
 	for my $x (@extra_keys) {
+	    $x = $cmd if $x eq '_cmd';
 	    $dest->{$x} ||= {};
 	    $dest = $dest->{$x};
 	}
