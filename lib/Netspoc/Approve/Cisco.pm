@@ -111,24 +111,14 @@ sub analyze_conf_lines {
 		$cmd .= ' ' . $prefix;
 	    }
 	}
-	if(my $suffix_hash = $parse_info->{_suffix}->{$cmd}) {
+	if (my $suffix_hash = $parse_info->{_suffix}->{$cmd}) {
 	    my $last_arg = $args[-1];
 	    if($suffix_hash->{$last_arg}) {
 		pop(@args);
 		$cmd .= ' +' . $last_arg;
 	    }
 	}
-
-	# Ignore unknown command.
-	# Prepare to ignore subcommands as well.
-	if(not $parse_info->{$cmd}) {
-	    push @stack, [ $config, $parse_info, $level ];
-	    $config = undef;
-	    $parse_info = undef;
-	    $level++;
-	    $first_subcmd = 1;
-	}
-	else {
+	if (my $cmd_info = ($parse_info->{$cmd} || $parse_info->{_any}) ) {
 
 	    # Remember current line number, set parse position.
 	    # Remember a version of the unparsed line without duplicate 
@@ -138,19 +128,29 @@ sub analyze_conf_lines {
 			    orig => join(' ', $cmd, @args),
 			    args => [ $cmd, @args ], };
 	    push(@$config, $new_cmd);
-	    if(my $subcmd = $parse_info->{$cmd}->{subcmd}) {
+	    if (my $subcmd = $cmd_info->{subcmd}) {
 		push @stack, [ $config, $parse_info, $level ];
+		$level++;
+		$parse_info = $subcmd;
 		$config = [];
 		$new_cmd->{subcmd} = $config;
-		$parse_info = $subcmd;
-		$level++;
 		$first_subcmd = 1;
 	    }
-	    if($parse_info->{$cmd}->{banner}) {
+	    elsif ($cmd_info->{banner}) {
 		$new_cmd->{lines} = [];
 		$in_banner = $new_cmd;
 	    }
 		
+	}
+
+	# Ignore unknown command.
+	# Prepare to ignore subcommands as well.
+	else {
+	    push @stack, [ $config, $parse_info, $level ];
+	    $config = undef;
+	    $parse_info = undef;
+	    $level++;
+	    $first_subcmd = 1;
 	}
     }
     while($level--) {
