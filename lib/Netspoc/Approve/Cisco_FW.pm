@@ -521,7 +521,7 @@ my @known_status =
      qr/^Building configuration/,
      qr/^Cryptochecksum:/,
      qr/^\d+ bytes copied in /,
-     qr/^ *$/, # empty line
+     qr/^\s*$/, # empty line
      qr/^\[OK\]/,
      # identity nat
      qr/will be identity translated for outbound/,
