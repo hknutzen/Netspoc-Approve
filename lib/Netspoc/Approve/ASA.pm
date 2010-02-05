@@ -81,6 +81,10 @@ sub get_parse_info {
 
 	    # '_any' is special word, which matches any token.
 	    # '_cmd' is replaced by current command name.
+	    'isakmp _any' => {
+		store => ['ATTRIBUTES', '_cmd'],
+		parse => \&get_to_eol,
+	    },
 	    _any => {
 		store => ['ATTRIBUTES', '_cmd'],
 		parse => \&get_to_eol,
