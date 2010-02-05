@@ -580,6 +580,9 @@ sub add_prefix_suffix_info {
 	    $hash->{$word} ||= {};
 	    $hash = $hash->{$word};
 	}
+	if (@split && $split[0] eq '_any') {
+	    $hash->{_any} = 1;
+	}
 	if(my $subcmd = $parse_info->{$key}->{subcmd}) {
 	    $self->add_prefix_suffix_info($subcmd);
 	}
