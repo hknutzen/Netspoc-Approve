@@ -104,10 +104,12 @@ sub analyze_conf_lines {
 	$first_subcmd = 0;
 	my @args;
 	(my $cmd, @args) = split(' ', $rest);
+	my $prefix_any;
 	if(my $prefix_info = $parse_info->{_prefix}) {
 	    my $prefix = $cmd;
 	    while($prefix_info = $prefix_info->{$prefix}) {
 		$prefix = shift(@args);
+		$prefix_any = $prefix_info->{_any} ? "$cmd _any" : undef;
 		$cmd .= ' ' . $prefix;
 	    }
 	}
@@ -116,9 +118,13 @@ sub analyze_conf_lines {
 	    if($suffix_hash->{$last_arg}) {
 		pop(@args);
 		$cmd .= ' +' . $last_arg;
+		$prefix_any .= ' +' . $last_arg if $prefix_any;
 	    }
 	}
-	if (my $cmd_info = ($parse_info->{$cmd} || $parse_info->{_any}) ) {
+	if (my $cmd_info = ($parse_info->{$cmd} || 
+			    $parse_info->{_any} || 
+			    $prefix_any && $parse_info->{$prefix_any}) )
+	{
 
 	    # Remember current line number, set parse position.
 	    # Remember a version of the unparsed line without duplicate 
