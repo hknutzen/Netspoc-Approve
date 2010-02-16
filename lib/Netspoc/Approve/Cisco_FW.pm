@@ -302,9 +302,10 @@ sub get_parse_info {
 		  ['or',
 
 		   # ignore 'access-list <name> compiled'
-		   { store => 'COMPILED', parse => qr/compiled/ },
+		   # ignore 'access-list <name> remark ...'
+		   { parse => qr/compiled/ },
 		   ['seq',
-		    { store => 'REMARK', parse => qr/remark/ },
+		    { parse => qr/remark/ },
 		    { parse => \&skip } ],
 		   
 		   ['or', # standard or extended access-list
