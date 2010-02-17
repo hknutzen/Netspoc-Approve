@@ -426,6 +426,8 @@ sub define_structure {
 	    next => [ { attr_name => 'GROUP_POLICY',
 			parse_name => 'GROUP_POLICY',
 		    } ],
+	    transfer => sub {},
+	    remove   => sub {},
 	},
 	
 	IP_LOCAL_POOL => {
