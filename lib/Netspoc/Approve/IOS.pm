@@ -506,6 +506,7 @@ sub merge_rawdata {
 sub cmd_check_error($$) {
     my ($self, $out) = @_;
 
+    # IOS error messages start with "%".
     if ($$out =~ /^\s*%\s*/m) {
         #### hack start ###
         if ($$out =~ /Delete failed. NV generation of acl in progress/) {
@@ -878,11 +879,10 @@ sub schedule_reload ( $$ ) {
     $self->{ENAPROMPT} = qr/\[yes\/no\]:|\[confirm\]/;
     my $out = $self->shcmd("reload in $minutes");
 
-    #$tel->buffer_empty;
-    $self->{ENAPROMPT} = qr/\[confirm\]/;
     if ($out =~ /ave/) {
+	$self->{ENAPROMPT} = qr/\[confirm\]/;
 
-        # someone has fiddled with the router ;)
+        # Someone has fiddled with the router.
         $self->device_cmd('n');
     }
     $self->{ENAPROMPT} = $psave;
@@ -903,24 +903,24 @@ sub cancel_reload ( $ ) {
         my $tt  = $con->{TIMEOUT};
         $con->{TIMEOUT} = 2 * $tt;
         mypr "(timeout temporary set from $tt sec to $con->{TIMEOUT} sec)\n";
-        $self->device_cmd('reload cancel');
-        $con->{TIMEOUT} = $tt;
 
-        # we have to wait for the
-
+        # wait for the
         # ***
         # *** --- SHUTDOWN ABORTED ---
         # ***
+	my $psave = $self->{ENAPROMPT};
+	$self->{ENAPROMPT} = qr/--- SHUTDOWN ABORTED ---/;
+        $self->device_cmd('reload cancel');
+        $con->{TIMEOUT} = $tt;
+	$self->{ENAPROMPT} = $psave;
 
-        # lines, hopefully
-        unless ($con->con_wait("--- SHUTDOWN ABORTED ---", $con->{TIMEOUT})) {
-            warnpr "*** --- SHUTDOWN ABORTED --- $con->{RESULT}->{ERROR}\n";
-        }
-        unless ($con->con_wait(qr/\*\*\*/, $con->{TIMEOUT})) {
-            warnpr "***  $con->{RESULT}->{ERROR}\n";
-        }
-
-        # really no reload scheduled?
+	# Newer IOS versions give an additional prompt after printing 
+	# the "ABORTED" message
+	$con->{TIMEOUT} = 1;
+	$con->con_wait($psave);
+        $con->{TIMEOUT} = $tt;
+	
+        # Check, if "reload cancel" succeeded.
         my $out = $self->shcmd('sh reload');
         unless ($out =~ /No reload is scheduled/) {
             warnpr "could not cancel reload\n";
