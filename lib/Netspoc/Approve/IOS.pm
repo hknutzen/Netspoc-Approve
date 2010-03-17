@@ -65,7 +65,7 @@ sub get_parse_info {
 			 { store => 'MASK', parse => \&check_ip, } ]] },
 	    'ip address +secondary' =>  { parse => \&skip },	# ignore
 	    'ip unnumbered' => {
-		store => ['ADDRESS', 'DYNAMIC'], default => 'unnumbered', },
+		store => ['ADDRESS', 'UNNUMBERED'], parse => \&get_token, },
 	    'shutdown' => { 
 		store => 'SHUTDOWN', default => 1, },
 	    'ip access-group +in' => {
@@ -559,6 +559,9 @@ sub checkinterfaces($$) {
                 elsif (my $dynamic = $addr->{DYNAMIC}) {
                     mypr "$name ip: $dynamic\n";
                 }
+                elsif (my $intf = $addr->{UNNUMBERED}) {
+                    mypr "$name ip: unnumbered $intf\n";
+                }
             }
             else {
                 warnpr
@@ -576,8 +579,11 @@ sub checkinterfaces($$) {
                   . int2quad($base) . " detected!\n";
             }
             elsif (my $dynamic = $addr->{DYNAMIC}) {
-                warnpr "unknown interface $name with ip: $dynamic\n";
+                warnpr "unknown interface $name ip: $dynamic\n";
             }
+	    elsif (my $intf = $addr->{UNNUMBERED}) {
+		warnpr "unknown interface $name ip: unnumbered $intf\n";
+	    }
             next;
         }
 
