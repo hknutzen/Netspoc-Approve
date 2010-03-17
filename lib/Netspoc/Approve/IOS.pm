@@ -1351,6 +1351,7 @@ sub crypto_processing( $$$ ) {
             }
             else {
                 warnpr "severe diffs in crypto isakmp detected!\n";
+		$self->{CHANGE}->{CRYPTO} = 1;
             }
         }
         else {
@@ -1398,6 +1399,7 @@ sub crypto_processing( $$$ ) {
             {
                 errpr
                   "severe diffs in crypto map detected - leaving crypto untouched\n";
+		$self->{CHANGE}->{CRYPTO} = 1;
                 next;
             }
             mypr " --- end compare crypto maps---\n";
@@ -1513,6 +1515,7 @@ sub crypto_processing( $$$ ) {
             }
             else {
                 warnpr "severe diffs in crypto ipsec detected!\n";
+		$self->{CHANGE}->{CRYPTO} = 1;
             }
         }
         else {
