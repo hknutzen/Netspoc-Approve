@@ -604,7 +604,7 @@ sub checkinterfaces($$) {
         # no 'switchport mode' entry in access mode  for WIC Switch-Modules
         #
         if ($self->{HARDWARE} =~ 
-	    /^cisco *(831|836|1721|1712|1812|2801|2811|2821)$/i) 
+	    /^cisco *(831|836|892|1721|1712|1812|2801|2811|2821)$/i) 
 	{
 
             # vlan1 checking only necessary for *real* switches due to
