@@ -191,6 +191,8 @@ sub get_parse_info {
 		    store => 'AUTHENTICATION', parse => \&get_token, },
 		'encryption' => {
 		    store => 'ENCRYPTION', parse => \&get_token, },
+		'encr' => {
+		    store => 'ENCRYPTION', parse => \&get_token, },
 		'hash' => {
 		    store => 'HASH', parse => \&get_token, },
 		'group' => {
@@ -374,6 +376,8 @@ sub postprocess_config( $$ ) {
             my $cm = $p->{CRYPTO}->{MAP}->{$cm_name};
             mypr " found crypto map '$cm_name' (instances:" 
 		. scalar @$cm . ")\n";
+	    $cm = [ sort { $a->{SEQU} <=> $b->{SEQU} } @$cm ];
+	    $p->{CRYPTO}->{MAP}->{$cm_name} = $cm;
             for my $entry (@$cm) {
                 my $sequ = $entry->{SEQU};
                 mypr "  seq: $sequ\n";
@@ -408,7 +412,12 @@ sub postprocess_config( $$ ) {
                 if (my $acl_name = $entry->{ACCESS_GROUP_OUT}) {
                     warnpr "Crypto: outgoing filter-acl '$acl_name' found\n";
                 }
-                $entry->{PEER} or errpr "Crypto: no peer found\n";
+		if (my $peers = $entry->{PEER}) {
+		    $entry->{PEER} = [ sort { $a <=> $b } @$peers ];
+		}
+		else {
+		    errpr "Crypto: no peer found\n";
+		}
                 if (my $trans_name = $entry->{TRANSFORM}) {
                     if (my $trans = 
 			$p->{CRYPTO}->{IPSEC}->{TRANSFORM}->{$trans_name})
@@ -471,7 +480,12 @@ sub postprocess_config( $$ ) {
                 errpr "Crypto: virtual-interface missing for ez_name\n";
                 return 0;
             }
-            $entry->{PEER} or errpr "Crypto: no peer found\n";
+	    if (my $peers = $entry->{PEER}) {
+		$entry->{PEER} = [ sort { $a <=> $b } @$peers ];
+	    }
+	    else {
+		errpr "Crypto: no peer found\n";
+	    }
         }
     }
     mypr meself(0) . "*** end ***\n";
@@ -1201,11 +1215,6 @@ sub crypto_struct_equal( $$$$$ ) {
                 my $equal         = 1;
                 my $upper_context = $context;
                 for (my $i = 0 ; $i < scalar @$conf ; $i++) {
-                    if ($upper_context eq "INSTANCES") {
-
-                        # this MUSTbe the sequence number from DEVICE!!!!
-                        $context = $spoc->[$i]->{SEQU};
-                    }
                     unless (
                         $self->crypto_struct_equal(
                             $conf->[$i], $spoc->[$i], $context, $changes, $ident
@@ -1269,15 +1278,17 @@ sub crypto_struct_equal( $$$$$ ) {
 				$self->acl_equal(
 						 $conf->{MATCH_ACL}->{LIST},  
 						 $spoc->{MATCH_ACL}->{LIST},
-						 $conf->{$key}, $spoc->{$key}, $key
+						 $conf->{$key}, 
+						 $spoc->{$key}, $key
 						 )
 				)
                         {
                             $equal = 0;
                         }
                     }
-                    elsif ($key eq "name" or $key eq 'orig' or
-			   $key eq 'FILTER_ACL' or $key eq 'MATCH_ACL')
+                    elsif ($key eq 'name' or $key eq 'orig' or $key eq 'line' or
+			   $key eq 'FILTER_ACL' or $key eq 'MATCH_ACL' or
+			   $key eq 'SEQU' or $key eq 'TRANSFORM')
                     {
 
                         # do not check this !
@@ -1393,7 +1404,7 @@ sub crypto_processing( $$$ ) {
                 $self->crypto_struct_equal(
                     $conf->{CRYPTO}->{MAP}->{$conf_map_name},
                     $spoc->{CRYPTO}->{MAP}->{$spoc_map_name},
-                    'INSTANCES', $changes, ''
+                    $context, $changes, ''
                 )
               )
             {
