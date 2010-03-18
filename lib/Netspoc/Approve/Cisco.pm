@@ -425,6 +425,17 @@ sub login_enable {
     return 1;
 }
 
+# All active interfaces on device must be known by Netspoc.
+sub checkinterfaces {
+    my ($self, $conf, $spoc) = @_;
+    for my $intf (sort keys %{ $conf->{IF} }) {
+        next if ($conf->{IF}->{$intf}->{SHUTDOWN});
+        if (not $spoc->{IF}->{$intf}) {
+            warnpr "Interface $intf on device is not known by Netspoc.\n";
+        }
+    }
+}
+
 # Packages must return a true value;
 1;
 
