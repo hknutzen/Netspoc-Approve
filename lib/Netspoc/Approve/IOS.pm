@@ -272,7 +272,7 @@ sub get_parse_info {
     $result;
 }
 
-sub dev_cor ($$) {
+sub dev_cor {
     my ($self, $addr) = @_;
     return ~$addr & 0xffffffff;
 }
@@ -326,7 +326,7 @@ sub parse_access_list {
 }
 
 # checking, binding  and info printing of parsed crypto config
-sub postprocess_config( $$ ) {
+sub postprocess_config {
     my ($self, $p) = @_;
 
     mypr meself(0) . "*** begin ***\n";
@@ -492,7 +492,7 @@ sub postprocess_config( $$ ) {
     return 1;
 }
 
-sub get_config_from_device( $ ) {
+sub get_config_from_device {
     my ($self) = @_;
     my $cmd = 'sh run';
     my $output = $self->shcmd($cmd);
@@ -507,17 +507,17 @@ sub get_config_from_device( $ ) {
 # rawdata processing
 ##############################################################
 sub merge_rawdata {
-    my ($self, $spoc_conf, $raw_conf) = @_;
+    my ($self, $spoc, $raw_conf) = @_;
 
-    $self->merge_routing($spoc_conf, $raw_conf);
-    $self->merge_acls($spoc_conf, $raw_conf);
+    $self->merge_routing($spoc, $raw_conf);
+    $self->merge_acls($spoc, $raw_conf);
 }
 
 
 ##############################################################
 # issue command
 ##############################################################
-sub cmd_check_error($$) {
+sub cmd_check_error {
     my ($self, $out) = @_;
 
     # IOS error messages start with "%".
@@ -549,138 +549,27 @@ sub cmd_check_error($$) {
     return 1;
 }
 
-#
-#    *** some checking ***
-#
-sub checkinterfaces($$) {
-    my ($self, $devconf, $spocconf) = @_;
-    mypr " === check for unknown or missconfigured interfaces at device ===\n";
-    my $ports_in_vlan_1 = 0;
-    my $check_vlan1     = 1;
-    for my $intf (values %{ $devconf->{IF} }) {
+sub checkinterfaces {
+    my ($self, $conf, $spoc) = @_;
+
+    # Some interfaces must be ignored.
+    # Mark them as 'shutdown', which is handled by the superclass.
+    for my $intf (values %{ $conf->{IF} }) {
 	my $name = $intf->{name};
-        next if ($intf->{SHUTDOWN});
-        next if ($name eq 'Null0');
-        next
-          if (  $intf->{SWITCHPORT}
+        if ($name eq 'Null0' 
+	    or $name =~ /^Loopback\d+$/ 
+	    or
+	    $intf->{SWITCHPORT}
             and $intf->{SWITCHPORT}->{MODE}
-            and $intf->{SWITCHPORT}->{MODE} eq "trunk");
-        if (my $spoc_intf = $spocconf->{IF}->{$name}) {
-            if (my $addr = $intf->{ADDRESS}) {
-                if (my $base = $addr->{BASE}) {
-                    mypr "$name ip: " . int2quad($base) . "\n";
-                }
-                elsif (my $dynamic = $addr->{DYNAMIC}) {
-                    mypr "$name ip: $dynamic\n";
-                }
-                elsif (my $intf = $addr->{UNNUMBERED}) {
-                    mypr "$name ip: unnumbered $intf\n";
-                }
-            }
-            else {
-                warnpr
-                  "$name: no address found at netspoc configured interface\n";
-            }
-            next;
-        }
-
-        #
-        # interface name *not* known by netspoc!
-        #
-        if (my $addr = $intf->{ADDRESS}) {
-            if (my $base = $addr->{BASE}) {
-                warnpr "unknown interface $name with ip: "
-                  . int2quad($base) . " detected!\n";
-            }
-            elsif (my $dynamic = $addr->{DYNAMIC}) {
-                warnpr "unknown interface $name ip: $dynamic\n";
-            }
-	    elsif (my $intf = $addr->{UNNUMBERED}) {
-		warnpr "unknown interface $name ip: unnumbered $intf\n";
-	    }
-            next;
-        }
-
-        # check known harmless interfaces
-        if ($name =~ /^(BRI|Loopback|Vlan|ATM)\d+$/) {
-            mypr "$name without ip detected - OK\n";
-            next;
-        }
-
-        # the interface has to be bound to a vlan!
-        if (not $intf->{SWITCHPORT}) {
-
-            # Ethernet without vlan def located in vlan1 as default!
-            push @{ $intf->{SWITCHPORT}->{ACCESS_VLAN} }, 1;
-            mypr "$name assigned to vlan1 for further checks\n";
-        }
-        my $switchportconf = $intf->{SWITCHPORT};
-	my $mode = $switchportconf->{MODE};
-	my $access_vlan = $switchportconf->{ACCESS_VLAN};
-
-        # Some IOS routers have switchport modules with slightly different config:
-        #
-        # no 'nonegotiate' command
-        # no 'switchport mode' entry in access mode  for WIC Switch-Modules
-        #
-        if ($self->{HARDWARE} =~ 
-	    /^cisco *(831|836|892|1721|1712|1812|2801|2811|2821)$/i) 
+            and $intf->{SWITCHPORT}->{MODE} eq "trunk") 
 	{
-
-            # vlan1 checking only necessary for *real* switches due to
-            # conventions in dataport silan
-            $check_vlan1 = 0;
-        }
-        else {
-            if (not $mode) {
-                errpr "missing switchport mode config at interface $name\n";
-            }
-            elsif ( $mode ne "access" and $mode ne "trunk") {
-                errpr "$name wrong switchport mode: $mode\n";
-                errpr " only 'access' and 'trunk' allowed\n";
-            }
-            else {
-                mypr "$name switchport mode: $mode\n";
-            }
-            if (!$switchportconf->{NONEGOTIATE}) {
-                errpr "missing 'switchport nonegotiate' at interface $name\n";
-            }
-        }
-
-        # ok now check if switchport config is well shaped
-        #
-        # TODO: check trunks
-        #
-        if ($mode and $mode eq "access" or $access_vlan) {
-            if (not $access_vlan) {
-                $ports_in_vlan_1++;
-            }
-            elsif (@$access_vlan  > 1) {
-                errpr "$name: member of more than one vlan ("
-                  . scalar @$access_vlan. ") - forbidden!\n";
-            }
-            for my $vlan (@$access_vlan) {
-                if ($vlan eq 99) {
-                    errpr "active interface $name at vlan 99 - forbidden!\n";
-                }
-                if ($vlan eq 1) {
-                    $ports_in_vlan_1++;
-                }
-            }
-        }
+	    $intf->{SHUTDOWN} = 1;
+	}
     }
-    if ($ports_in_vlan_1 > 1 and $check_vlan1) {
-        for my $name (keys %{ $devconf->{IF} }) {
-            if ($name =~ /vlan1\Z/i) {
-                errpr
-                  "Admin Vlan(1) has $ports_in_vlan_1 switchports - only 1 allowed\n";
-            }
-        }
-    }
-    mypr " === done ===\n";
+    $self->SUPER::checkinterfaces($conf, $spoc);
 }
 
-sub check_firewall ( $$ ) {
+sub check_firewall {
     my ($self, $conf) = @_;
     for my $interface (values %{ $conf->{IF} }) {
         if (exists $interface->{INSPECT}) {
@@ -735,7 +624,7 @@ sub prepare {
 
 # *** small helpers (ios) ***
 
-sub write_mem( $$$ ) {
+sub write_mem {
     my ($self, $retries, $seconds) = @_;
     mypr "writing config to nvram\n";
     my $output;
@@ -766,7 +655,7 @@ sub write_mem( $$$ ) {
     }
 }
 
-sub compare_ram_with_nvram( $ ) {
+sub compare_ram_with_nvram {
     my ($self) = @_;
 
     # *** FETCH CONFIGS ***
@@ -892,7 +781,7 @@ sub compare_ram_with_nvram( $ ) {
     return 1;
 }
 
-sub schedule_reload ( $$ ) {
+sub schedule_reload {
     my ($self, $minutes) = @_;
     mypr "schedule reload in $minutes minutes\n";
     my $psave = $self->{ENAPROMPT};
@@ -911,7 +800,7 @@ sub schedule_reload ( $$ ) {
     mypr "reload scheduled\n";
 }
 
-sub cancel_reload ( $ ) {
+sub cancel_reload {
     my ($self) = @_;
     if (exists $self->{RELOAD_SCHEDULED}
         and $self->{RELOAD_SCHEDULED} == 1)
@@ -956,10 +845,10 @@ sub cancel_reload ( $ ) {
 # and check for textual identical acls
 #
 sub compare_interface_acls {
-    my ($self, $conf, $spoc_conf) = @_;
+    my ($self, $conf, $spoc) = @_;
 
     mypr "===== compare (incoming) acls =====\n";
-    for my $intf (values %{ $spoc_conf->{IF} }) {
+    for my $intf (values %{ $spoc->{IF} }) {
 	my $name = $intf->{name};
         unless ($intf->{ACCESS_GROUP_IN}) {
             warnpr "no spoc-acl for interface $name\n";
@@ -985,7 +874,7 @@ sub compare_interface_acls {
 		if (not 
 		    $self->acl_equal(
 			$conf->{ACCESS_LIST}->{$ca_name}->{LIST},
-			$spoc_conf->{ACCESS_LIST}->{$sa_name}->{LIST},
+			$spoc->{ACCESS_LIST}->{$sa_name}->{LIST},
 			$ca_name, $sa_name, "interface $name"
 		    )
 		    )
@@ -1008,7 +897,7 @@ sub compare_interface_acls {
     mypr "===== done ====\n";
 }
 
-sub append_acl_entries( $$$ ) {
+sub append_acl_entries {
     my ($self, $name, $entries) = @_;
     $self->cmd('configure terminal');
     $self->cmd("ip access-list extended $name");
@@ -1026,8 +915,8 @@ sub append_acl_entries( $$$ ) {
 #
 # *** access-lists processing ***
 #
-sub process_interface_acls ( $$$ ) {
-    my ($self, $conf, $spoc_conf) = @_;
+sub process_interface_acls  {
+    my ($self, $conf, $spoc) = @_;
     mypr "======================================================\n";
     mypr "establish new acls for device\n";
     mypr "======================================================\n";
@@ -1041,7 +930,7 @@ sub process_interface_acls ( $$$ ) {
     # because the spoc-name may change unexpected drc.pl scans for "-DRC-x" to
     # identify spoc-related acls
     #
-    for my $intf (values %{ $spoc_conf->{IF} }) {
+    for my $intf (values %{ $spoc->{IF} }) {
 	my $name = $intf->{name};
         $intf->{ACCESS_GROUP_IN} and $intf->{TRANSFER} or next;
         my $confacl =  $conf->{IF}->{$name}->{ACCESS_GROUP_IN} || '';
@@ -1090,7 +979,7 @@ sub process_interface_acls ( $$$ ) {
 
         # hopefully this is not critical!
         $self->append_acl_entries($aclname, 
-				  $spoc_conf->{ACCESS_LIST}->{$spocacl}->{LIST});
+				  $spoc->{ACCESS_LIST}->{$spocacl}->{LIST});
 
         #
         # *** SCHEDULE RELOAD ***
@@ -1125,11 +1014,11 @@ sub process_interface_acls ( $$$ ) {
     mypr "======================================================\n";
 }
 
-sub generic_interface_acl_processing ( $$$ ) {
-    my ($self, $conf, $spoc_conf) = @_;
+sub generic_interface_acl_processing {
+    my ($self, $conf, $spoc) = @_;
 
     # check if anything to do
-    unless ($spoc_conf->{IF}) {
+    unless ($spoc->{IF}) {
         warnpr "no interfaces specified - leaving access-lists untouched\n";
         return 1;
     }
@@ -1143,12 +1032,12 @@ sub generic_interface_acl_processing ( $$$ ) {
         }
     }
     $self->{CHANGE}->{ACL} = 0;
-    $self->compare_interface_acls($conf, $spoc_conf) or return 0;
+    $self->compare_interface_acls($conf, $spoc) or return 0;
 
     # check which spocacls really have to be transfered
     if ($self->{COMPARE}) {
-        for my $if (keys %{ $spoc_conf->{IF} }) {
-            if ($spoc_conf->{IF}->{$if}->{TRANSFER}) {
+        for my $if (keys %{ $spoc->{IF} }) {
+            if ($spoc->{IF}->{$if}->{TRANSFER}) {
                 $self->{CHANGE}->{ACL} = 1;
                 last;
             }
@@ -1158,7 +1047,7 @@ sub generic_interface_acl_processing ( $$$ ) {
     else {
 
 	# transfer
-	$self->process_interface_acls($conf, $spoc_conf) or return 0;
+	$self->process_interface_acls($conf, $spoc) or return 0;
     }
 }
 
@@ -1177,9 +1066,8 @@ sub generic_interface_acl_processing ( $$$ ) {
 # because the spoc-name may change unexpected drc.pl scans for "-DRC-x" to
 # identify spoc-related acls
 #
-sub crypto_struct_equal( $$$$$ );
 
-sub crypto_struct_equal( $$$$$ ) {
+sub crypto_struct_equal {
     my ($self, $conf, $spoc, $context, $changes, $ident) = @_;
     $ident = " $ident";
 
@@ -1332,7 +1220,7 @@ sub crypto_struct_equal( $$$$$ ) {
     return 0;
 }
 
-sub crypto_processing( $$$ ) {
+sub crypto_processing {
     my ($self, $conf, $spoc) = @_;
     my $context = {};
     my $changes = {};
@@ -1545,13 +1433,13 @@ sub crypto_processing( $$$ ) {
 #
 ###############################
 
-sub transfer() {
-    my ($self, $conf, $spoc_conf) = @_;
+sub transfer {
+    my ($self, $conf, $spoc) = @_;
 
     # *** BEGIN TRANSFER ***
-    $self->generic_interface_acl_processing($conf, $spoc_conf) or return 0;
-    $self->crypto_processing($conf, $spoc_conf);
-    $self->process_routing($conf, $spoc_conf);
+    $self->generic_interface_acl_processing($conf, $spoc) or return 0;
+    $self->crypto_processing($conf, $spoc);
+    $self->process_routing($conf, $spoc);
 
     #
     # *** CLEANUP
