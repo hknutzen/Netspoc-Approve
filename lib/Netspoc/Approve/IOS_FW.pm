@@ -27,7 +27,7 @@ sub check_firewall ( $$ ) {
     mypr "check for CBAC at ios firewall...\n";
     my $cbac_ok = 1;
     for my $intf (keys %{$conf->{IF}}){
-	next if($conf->{IF}->{$intf}->{SHUTDOWN} == 1);
+	next if($conf->{IF}->{$intf}->{SHUTDOWN});
 	mypr "   $intf";
 	if(exists $conf->{IF}->{$intf}->{SWITCHPORT}){
 	    mypr " - is a switchport - OK\n";
