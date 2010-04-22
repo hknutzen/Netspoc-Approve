@@ -72,7 +72,7 @@ sub get_parse_info {
 		store => 'ACCESS_GROUP_IN', parse => \&get_token, },
 	    'ip access-group +out' => {
 		store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
-	    'ip inspect' => { 
+	    'ip inspect +in' => { 
 		store => 'INSPECT', parse => \&get_token, },
 	    'crypto map' => {
 		store => 'CRYPTO_MAP', parse => \&get_token, },
