@@ -119,10 +119,7 @@ sub smart_transfer_acl( $$$$$ ){
 	}
     }
     if($junk){
-	if($self->{PRINT_STATUS}){
-	    $self->updatestatus('APP_STATUS',"***SMART $aclname: removing junk ***");
-	}
-	#
+
 	# *** SCHEDULE RELOAD ***
 	#
 	# TODO: check if 10 minutes are OK
@@ -178,10 +175,7 @@ sub smart_transfer_acl( $$$$$ ){
 	splice @spoc,0,$match;
 	scalar @spoc or scalar @remove or next;
 	$round++;
-	if($self->{PRINT_STATUS}){
-	    $self->updatestatus('APP_STATUS',"***SMART $aclname: Round $round ***");
-	}
-	#
+
 	# *** SCHEDULE RELOAD ***
 	#
 	# TODO: check if 10 minutes are OK
@@ -230,47 +224,38 @@ sub smart_transfer_acl( $$$$$ ){
 	mypr "SMART: remove confacl\n";
 	$self->remove_acl_entries($aclname,\@remove);
     }
+    $self->cancel_reload();
     mypr "SMART: done\n";
-    if($self->{PRINT_STATUS}){
-	$self->updatestatus('APP_STATUS',"***SMART: done ***");
-    }
 }
 
 sub process_interface_acls( $$$ ){
-    my ($self,$conf,$pspoc) = @_;
+    my ($self, $conf, $spoc) = @_;
     mypr "======================================================\n";
     mypr "SMART: establish new acls for device\n";
     mypr "======================================================\n";
-    #
+
     # possible acl-names are (per name convention):
     #
     # <spoc-name>-DRC-0
     # <spoc-name>-DRC-1
-    #
-    # because the spoc-name may change unexpected drc.pl scans for "-DRC-x" to
-    # identify spoc-related acls
-    # 
-    for my $if (keys %{$$pspoc{IF}}){
-	(exists($$pspoc{IF}->{$if}->{ACCESS}) and $$pspoc{IF}->{$if}->{TRANSFER} eq "YES") or next;
-	my $spocacl = $$pspoc{IF}->{$if}->{ACCESS};
-	my $aclname;
+    for my $intf (values %{$spoc->{IF}}){
+	my $name = $intf->{name};
+	$intf->{TRANSFER} or next;
 	$self->{CHANGE}->{ACL} = 1;
-	if(exists $$conf{IF}->{$if}->{ACCESS}){
-	    my $confacl=$$conf{IF}->{$if}->{ACCESS};
-	    $confacl !~ /\S+-DRC(-[01])?/ and warnpr "unexpected acl-name $confacl at interface $if\n";
-	    $aclname = $confacl;
-	    #
-	    # if we migrate from old firewall code we may have 
-	    # some 'remark DRC' lines - prepend them to confacl
-	    #
-	    $self->smart_transfer_acl($if,$aclname,$$pspoc{ACCESS}->{$spocacl},$$conf{ACCESS}->{$confacl});
+	my $spocacl = $intf->{ACCESS};
+	my $confacl = $conf->{IF}->{$name}->{ACCESS};
+	if($confacl){
+	    my $aclname = $confacl;
+	    $self->smart_transfer_acl($name,
+				      $aclname,
+				      $spoc->{ACCESS}->{$spocacl},
+				      $conf->{ACCESS}->{$confacl});
 	}
 	else{
-	    warnpr "no access-list configured at interface $if\n";
-	    $aclname = "$spocacl-DRC";
-	    #
+	    warnpr "no access-list configured at interface $name\n";
+	    my $aclname = "$spocacl-DRC";
+
 	    # begin transfer
-	    #
 	    mypr "create *new* acl $aclname on device\n";
 	    #
 	    # maybe there is an old acl with $aclname:
@@ -278,47 +263,43 @@ sub process_interface_acls( $$$ ){
 	    # new entries are only appended - bad
 	    #
 	    $self->cmd('configure terminal');
-	    #mypr "no ip access-list extended $aclname\n";
 	    $self->cmd("no ip access-list extended $aclname");
 	    $self->cmd('end');
-	    $self->append_acl_entries($aclname,$$pspoc{ACCESS}->{$spocacl});
-	    #
+	    $self->append_acl_entries($aclname, $spoc->{ACCESS}->{$spocacl});
+
 	    # *** SCHEDULE RELOAD ***
-	    #
 	    # TODO: check if 10 minutes are OK
-	    #
 	    $self->schedule_reload(10);
-	    #
-	    # assign new acl to interfaces
-	    #
+
+	    # Assign new acl to interface.
 	    mypr "assign new acl:\n";
 	    $self->cmd('configure terminal');
-	    mypr " interface $if\n";
-	    $self->cmd("interface $if");
+	    mypr " interface $name\n";
+	    $self->cmd("interface $name");
 	    mypr " ip access-group $aclname in\n";
 	    $self->cmd("ip access-group $aclname in");
 	    $self->cmd('end');
-	    mypr "---\n";
+	    $self->cancel_reload();
 	}
     }
-    #
+
     # Check if new config == spocacl (if necessary)
-    #
-    for my $if (keys %{$$pspoc{IF}}){
-	(exists($$pspoc{IF}->{$if}->{ACCESS}) and $$pspoc{IF}->{$if}->{TRANSFER} eq "YES") or next;
+    if($self->{CHANGE}->{ACL}) {
 	mypr "SMART: *** check for successfull acl change ***\n";
-	my $new_conf;
-	# mark this as running config
-	$new_conf->{RUNNING} = 1;
 	my $lines = $self->get_config_from_device();
-	$self->parse_device($new_conf, $lines) or 
-	    die "could not get router config\n";
-	# be verbose, because mismatch is fatal
-	$self->compare_interface_acls($new_conf, $pspoc, 1); 
-	for my $intf (keys %{$$pspoc{IF}}){
-	    if($$pspoc{IF}->{$intf}->{TRANSFER} eq 'YES'){
-		errpr "acl change at interface \'$intf\' not complete\n";
-		for my $ace (@{$pspoc->{ACCESS}->{$$pspoc{IF}->{$intf}->{ACCESS}}}){
+	my $new_conf  = $self->parse_config($lines);
+
+	# Reset TRANSFER status.
+	for my $intf (values %{$spoc->{IF}}){
+	    delete $intf->{TRANSFER};
+	}
+	$self->compare_interface_acls($new_conf, $spoc, 1); 
+
+	# Be verbose, because mismatch is fatal.
+	for my $intf (values %{$spoc->{IF}}){
+	    if($intf->{TRANSFER}){
+		errpr "acl change at interface '$intf->{name}' not complete\n";
+		for my $ace (@{$spoc->{ACCESS}->{$intf->{ACCESS}}}){
 		    mypr "- $ace->{orig}\n";
 		}
 	    }
