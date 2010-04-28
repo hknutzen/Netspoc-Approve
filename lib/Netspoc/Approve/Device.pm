@@ -1400,9 +1400,7 @@ sub adaption {
 
     $self->{telnet_timeout} = $self->{OPTS}->{t} || 300;
     $self->{telnet_logs}    = $self->{OPTS}->{L} || undef;
-
-    $self->{FORCE_TRANSFER}           = $self->{OPTS}->{F};
-    $self->{PRINT_STATUS}             = $self->{OPTS}->{S};
+    $self->{FORCE_TRANSFER} = $self->{OPTS}->{F};
 }
 
 sub con_setup {
