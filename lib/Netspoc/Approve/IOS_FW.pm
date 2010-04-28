@@ -242,14 +242,14 @@ sub process_interface_acls( $$$ ){
 	my $name = $intf->{name};
 	$intf->{TRANSFER} or next;
 	$self->{CHANGE}->{ACL} = 1;
-	my $spocacl = $intf->{ACCESS};
-	my $confacl = $conf->{IF}->{$name}->{ACCESS};
+	my $spocacl = $intf->{ACCESS_GROUP_IN};
+	my $confacl = $conf->{IF}->{$name}->{ACCESS_GROUP_IN};
 	if($confacl){
 	    my $aclname = $confacl;
 	    $self->smart_transfer_acl($name,
 				      $aclname,
-				      $spoc->{ACCESS}->{$spocacl},
-				      $conf->{ACCESS}->{$confacl});
+				      $spoc->{ACCESS_LIST}->{$spocacl}->{LIST},
+				      $conf->{ACCESS_LIST}->{$confacl}->{LIST});
 	}
 	else{
 	    warnpr "no access-list configured at interface $name\n";
@@ -265,7 +265,8 @@ sub process_interface_acls( $$$ ){
 	    $self->cmd('configure terminal');
 	    $self->cmd("no ip access-list extended $aclname");
 	    $self->cmd('end');
-	    $self->append_acl_entries($aclname, $spoc->{ACCESS}->{$spocacl});
+	    $self->append_acl_entries($aclname, 
+				      $spoc->{ACCESS_LIST}->{$spocacl}->{LIST});
 
 	    # *** SCHEDULE RELOAD ***
 	    # TODO: check if 10 minutes are OK
@@ -298,8 +299,9 @@ sub process_interface_acls( $$$ ){
 	# Be verbose, because mismatch is fatal.
 	for my $intf (values %{$spoc->{IF}}){
 	    if($intf->{TRANSFER}){
+		my $spocacl = $intf->{ACCESS_GROUP_IN};
 		errpr "acl change at interface '$intf->{name}' not complete\n";
-		for my $ace (@{$spoc->{ACCESS}->{$intf->{ACCESS}}}){
+		for my $ace (@{$spoc->{ACCESS_LIST}->{$spocacl}->{LIST}}){
 		    mypr "- $ace->{orig}\n";
 		}
 	    }
