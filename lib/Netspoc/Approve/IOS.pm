@@ -1020,19 +1020,18 @@ sub generic_interface_acl_processing {
     # check if anything to do
     unless ($spoc->{IF}) {
         warnpr "no interfaces specified - leaving access-lists untouched\n";
-        return 1;
+        return;
     }
 
     # check for outgoing ACLS
     for my $intf (values %{ $conf->{IF} }) {
         if (my $acl = $intf->{ACCESS_GROUP_OUT} and not $intf->{SHUTDOWN})
         {
-            warnpr
-              "interface $intf->{name}: outgoing acl $acl detected\n";
+            warnpr "interface $intf->{name}: outgoing acl $acl detected\n";
         }
     }
     $self->{CHANGE}->{ACL} = 0;
-    $self->compare_interface_acls($conf, $spoc) or return 0;
+    $self->compare_interface_acls($conf, $spoc);
 
     # check which spocacls really have to be transfered
     if ($self->{COMPARE}) {
@@ -1042,12 +1041,11 @@ sub generic_interface_acl_processing {
                 last;
             }
         }
-        return 1;
     }
-    else {
 
-	# transfer
-	$self->process_interface_acls($conf, $spoc) or return 0;
+    # transfer
+    else {
+	$self->process_interface_acls($conf, $spoc);
     }
 }
 
