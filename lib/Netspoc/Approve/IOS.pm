@@ -1435,7 +1435,7 @@ sub transfer {
     my ($self, $conf, $spoc) = @_;
 
     # *** BEGIN TRANSFER ***
-    $self->generic_interface_acl_processing($conf, $spoc) or return 0;
+    $self->generic_interface_acl_processing($conf, $spoc);
     $self->crypto_processing($conf, $spoc);
     $self->process_routing($conf, $spoc);
 
