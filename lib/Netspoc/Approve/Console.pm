@@ -114,15 +114,8 @@ sub con_wait {
     my ( $CON, $prompt) = @_;
     my $timeout = $CON->{TIMEOUT};
     delete $CON->{RESULT};
-    my @result;
-    if ( defined $CON->{PAGER} ) {
-        @result =
-          $CON->{EXPECT}
-          ->expect( $timeout, '-re', $prompt, '-re', $CON->{PAGER} );
-    }
-    else {
-        @result = $CON->{EXPECT}->expect( $timeout, '-re', $prompt );
-    }
+    my @result = $CON->{EXPECT}->expect( $timeout, '-re', $prompt );
+
     $CON->{RESULT}->{ERROR}   = $result[1];
     $CON->{RESULT}->{MPPOS}   = $result[0];
     $CON->{RESULT}->{MATCH}   = $result[2];
@@ -138,15 +131,6 @@ sub con_issue_cmd {
 
     $CON->{EXPECT}->send( $cmd );
     $CON->con_wait( $prompt ) or return 0;
-    if ( defined $CON->{PAGER} ) {
-        my $bbuffer = '';
-        while ( $CON->{RESULT}->{MATCH} =~ $CON->{PAGER} ) {
-            $bbuffer = $bbuffer . $CON->{RESULT}->{BEFORE};
-            $CON->{EXPECT}->send( $CON->{PAGER_KEY} );
-            $CON->con_wait( $prompt ) or return 0;
-        }
-        $CON->{RESULT}->{BEFORE} = $bbuffer . $CON->{RESULT}->{BEFORE};
-    }
     return 1;
 }
 
