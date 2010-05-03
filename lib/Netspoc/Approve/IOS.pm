@@ -1401,24 +1401,21 @@ sub transfer {
     else {
         if (grep { $_ } values %{ $self->{CHANGE} }) {
 
-            # check config size
-            mypr "re-read config\n";
-	    my $result = $self->issue_cmd('show running');
-            $self->cmd_check_error(\$result->{BEFORE}) or 
-		errpr "Possible Problem with config size:"
-		. " config was NOT written!\n";
-
-            # save config
+            # Save config.
             mypr "ok\n";
             $self->write_mem(5, 3);    # 5 retries, 3 seconds intervall
+
+	    # Check if write to startup config succeeded.
+            if (not $self->compare_ram_with_nvram()) {
+ 		errpr "Problem with config size:"
+		    . " startup config was written but is not correct!\n";
+	    }
         }
         else {
             mypr "no changes to save - check if startup is uptodate:\n";
 
-            #
-            # Handle past problems with write mem
-            # compare running with startup config
-            #
+            # Handle recent problems with write mem.
+            # Compare running with startup config
             if ($self->compare_ram_with_nvram()) {
                 mypr "Startup is uptodate\n";
             }
