@@ -277,54 +277,6 @@ sub dev_cor {
     return ~$addr & 0xffffffff;
 }
 
-# remark ...
-# permit|deny (a.b.c.d [a.b.c.d] | any) [log]
-sub parse_simple_acl_entry {
-    my ($self, $arg) = @_;
-    my $result;
-
-    if(check_regex('remark', $arg)) {
-	$result->{REMARK} = get_token($arg);
-    }
-    else {
-	$result->{MODE} = get_regex('permit|deny', $arg);
-	my($base, $mask);
-	if(defined($base = check_ip($arg))) {
-	    if(defined($mask = check_ip($arg))) {
-		$mask = $self->dev_cor($mask);
-	    }
-	    else {
-		$mask = 0xffffffff;
-	    }
-	}
-	else {
-	    get_regex('any', $arg);
-	    $base = $mask = 0;
-	}
-	$result->{SRC} = { BASE => $base, MASK => $mask };
-	if(my $log = check_regex('log', $arg)) {
-	    $result->{LOG} = $log;
-	}
-	$result->{TYPE} = 'ip';
-	$result->{DST} = { BASE => 0, MASK => 0 };
-    }
-    return $result;
-}
-
-# Only used if called by method 'check_acl'.
-sub parse_access_list {
-    my ($self, $arg) = @_;
-    my $result;
-    my $name = get_int($arg);
-    if (100 <= $name && $name < 200) {
-	$result = $self->parse_acl_entry($arg);
-    }
-    elsif (0 < $name && $name < 100) {
-	$result = $self->parse_simple_acl_entry($arg);
-    }
-    return $result, $name, 'push';
-}
-
 # checking, binding  and info printing of parsed crypto config
 sub postprocess_config {
     my ($self, $p) = @_;
@@ -335,6 +287,12 @@ sub postprocess_config {
     my %map_used;
     my %ezvpn_used;
     for my $intf (values %{ $p->{IF} }) {
+
+	# Check for outgoing ACL.
+        if (my $acl = $intf->{ACCESS_GROUP_OUT} and not $intf->{SHUTDOWN}) {
+            warnpr "interface $intf->{name}: outgoing acl $acl detected\n";
+        }
+
         if (my $imap = $intf->{CRYPTO_MAP}) {
             $crypto_map_found = 1;
             if (my $map = $p->{CRYPTO}->{MAP}->{$imap}) {
@@ -344,7 +302,6 @@ sub postprocess_config {
             else {
                 errpr "No definition found for crypto map '$imap' at"
 		    . " interface '$intf->{name}'\n";
-                return 0;
             }
         }
         elsif ($intf->{EZVPN}) {
@@ -358,14 +315,12 @@ sub postprocess_config {
             else {
                 errpr "No definition for ezvpn client '$ezvpn' at"
 		    . " interface '$intf->{name}' found\n";
-                return 0;
             }
         }
     }
     if ($crypto_map_found and $ezvpn_client_found) {
         errpr
           "ezvpn and crypto map at interfaces found - only one of them allowed\n";
-        return 0;
     }
     if ($crypto_map_found) {
         for my $cm_name (keys %{ $p->{CRYPTO}->{MAP} }) {
@@ -390,12 +345,10 @@ sub postprocess_config {
                     }
                     else {
                         errpr "Crypto: ACL $acl_name does not exist!\n";
-                        return 0;
                     }
                 }
                 else {
                     errpr "Crypto: no match-address entry found\n";
-                    return 0;
                 }
                 if (my $acl_name = $entry->{ACCESS_GROUP_IN}) {
                     mypr "   access-group:  $acl_name\n";
@@ -406,7 +359,6 @@ sub postprocess_config {
                     }
                     else {
                         errpr "Crypto: ACL $acl_name does not exist!\n";
-                        return 0;
                     }
                 }
                 if (my $acl_name = $entry->{ACCESS_GROUP_OUT}) {
@@ -430,7 +382,6 @@ sub postprocess_config {
                     else {
                         errpr
                           "Crypto: transform set $trans_name does not exist!\n";
-                        return 0;
                     }
                 }
             }
@@ -457,12 +408,10 @@ sub postprocess_config {
                 }
                 else {
                     errpr "Crypto: ACL $acl_name does not exist!\n";
-                    return 0;
                 }
             }
             else {
                 errpr "Crypto: no match-acl entry found\n";
-                return 0;
             }
 
             # checking for virtual interface
@@ -473,12 +422,10 @@ sub postprocess_config {
                 }
                 else {
                     errpr "Crypto: virtual-interface $intf not found\n";
-                    return 0;
                 }
             }
             else {
                 errpr "Crypto: virtual-interface missing for ez_name\n";
-                return 0;
             }
 	    if (my $peers = $entry->{PEER}) {
 		$entry->{PEER} = [ sort { $a <=> $b } @$peers ];
@@ -489,7 +436,6 @@ sub postprocess_config {
         }
     }
     mypr meself(0) . "*** end ***\n";
-    return 1;
 }
 
 sub get_config_from_device {
@@ -595,7 +541,7 @@ sub prepare {
       or die "could not identify Hardware Info $output\n";
     $self->{HARDWARE} = $1;
 
-    # max. term width is 511 for pix 512 for ios
+    # max. term width is 511 for pix, 512 for ios
     $self->device_cmd('term width 512');
     unless ($self->{COMPARE}) {
         $self->cmd('conf t');
@@ -783,6 +729,7 @@ sub compare_ram_with_nvram {
 
 sub schedule_reload {
     my ($self, $minutes) = @_;
+    return if $self->{COMPARE};
     mypr "schedule reload in $minutes minutes\n";
     my $psave = $self->{ENAPROMPT};
     $self->{ENAPROMPT} = qr/\[yes\/no\]:|\[confirm\]/;
@@ -802,8 +749,8 @@ sub schedule_reload {
 
 sub cancel_reload {
     my ($self) = @_;
-    if (exists $self->{RELOAD_SCHEDULED}
-        and $self->{RELOAD_SCHEDULED} == 1)
+    return if $self->{COMPARE};
+    if ($self->{RELOAD_SCHEDULED})
     {
         mypr "cancel reload ";
 
@@ -840,218 +787,212 @@ sub cancel_reload {
     }
 }
 
-#
-# check for existence of (spoc)interface on device
-# and check for textual identical acls
-#
-sub compare_interface_acls {
-    my ($self, $conf, $spoc) = @_;
-
-    mypr "===== compare (incoming) acls =====\n";
-    for my $intf (values %{ $spoc->{IF} }) {
-	my $name = $intf->{name};
-        unless ($intf->{ACCESS_GROUP_IN}) {
-            warnpr "no spoc-acl for interface $name\n";
-            next;
-        }
-
-        # there *is* an access-list
-        my $conf_intf = $conf->{IF}->{$name};
-	if(not $conf_intf) {
-            errpr "interface not found on device: $name\n";
-            next;
-        }
-        if ($self->{FORCE_TRANSFER}) {
-            $intf->{TRANSFER} = 1;
-            warnpr "Interface $name: transfer of ACL forced!\n";
-            next;
-        }
-        my $sa_name = $intf->{ACCESS_GROUP_IN};
-        my $ca_name;
-        if (my $ca_name = $conf_intf->{ACCESS_GROUP_IN}) {
-            if ($conf->{ACCESS_LIST}->{$ca_name}) {
-                mypr "interface $name - spoc: $sa_name, actual: $ca_name\n";
-		if (not 
-		    $self->acl_equal(
-			$conf->{ACCESS_LIST}->{$ca_name}->{LIST},
-			$spoc->{ACCESS_LIST}->{$sa_name}->{LIST},
-			$ca_name, $sa_name, "interface $name"
-		    )
-		    )
-		{
-		    $intf->{TRANSFER} = 1;
-		}
-            }
-            else {
-                $intf->{TRANSFER} = 1;
-                warnpr "acl $ca_name does not exist on device!\n";
-                next;
-            }
-        }
-        else {
-            $intf->{TRANSFER} = 1;
-            warnpr "no incoming acl found at interface $name\n";
-            next;
-        }
+# Build textual representation from ACL entry for use with Algorithm::Diff.
+sub acl_entry2key {
+    my ($e) = @_;
+    my @r;
+    push(@r, $e->{MODE});
+    for my $where (qw(SRC DST)) {
+	my $what = $e->{$where};
+	push(@r, "$what->{BASE}/$what->{MASK}");
     }
-    mypr "===== done ====\n";
+    push @r, $e->{TYPE};
+    if ($e->{TYPE} eq 'icmp') {
+        my $s = $e->{SPEC};
+	for my $where (qw(TYPE CODE)) {
+	    my $v = $s->{TYPE};
+	    push(@r, defined $v ? $v : '-');
+	}
+    }
+    elsif ($e->{TYPE} eq 'tcp' or $e->{TYPE} eq 'udp') {
+	for my $where (qw(SRC_PORT DST_PORT)) {
+	    my $port = $e->{$where};
+	    push(@r, "$port->{LOW}:$port->{HIGH}");
+	}
+	push(@r, 'established') if $e->{ESTA};
+    }
+    if($e->{LOG}) {
+	push(@r, 'log');
+	push(@r, $e->{LOG_MODE}) if $e->{LOG_MODE};
+	push(@r, $e->{LOG_LEVEL}) if $e->{LOG_LEVEL};
+	push(@r, "interval $e->{LOG_INTERVAL}") if $e->{LOG_INTERVAL};
+    }
+    return join(' ', @r);
+}
+
+# Incrementally convert an ACL on device to the new ACL from netspoc.
+sub equalize_acl {
+    my($self, $conf_acl, $spoc_acl) = @_;
+    my $conf_entries = $conf_acl->{LIST};
+    my $spoc_entries = $spoc_acl->{LIST};
+
+    my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
+				     { keyGen => \&acl_entry2key } );
+
+    # Check differences in detail.
+    # Change ACL on device in 3 passes:
+    # 1. Add new ACL entries
+    #    which are not already present on device.
+    #    Remember other entries which can't be added, 
+    #    because duplicate entries have not been deleted yet.
+    # 2. Delete old ACL entries
+    # 3. Add new ACL entries left over from first pass.
+
+    # Find ACL entries from netspoc, which are already on device
+    # at some other position and will be deleted later on device.
+
+    # Hash for finding duplicates.
+    my %dupl;
+
+    # Collect entries 
+    # - without duplicates, which can be added immediately,
+    # - to be deleted on device,
+    # - to be added, after lines have been deleted on device.
+    my (@add, @delete, @add_later);
+
+    # Add new line numbers to ACL entries read from device.
+    for (my $i = 0; $i < @$conf_entries; $i++) {
+	$conf_entries->[$i]->{cisco_line} = 10000 + $i * 10000;
+    }
+    while($diff->Next()) {
+
+	# Process to be deleted entries.
+	if ($diff->Diff() & 1) {
+	    for my $conf_entry ($diff->Items(1)) {
+		my $key = acl_entry2key($conf_entry);
+		$dupl{$key} and internal_err "Duplicate ACL entry on device";
+		$dupl{$key} = $conf_entry;
+		push @delete, $conf_entry;
+	    }
+	}
+
+	# Process to be added entries.
+	if ($diff->Diff() & 2) {
+	    my $conf_next = $diff->Min(1);
+	    my $line = $conf_entries->[$conf_next]->{cisco_line} - 9999;
+	    for my $spoc_entry ($diff->Items(2)) {
+		$spoc_entry->{cisco_line} = $line++;
+		my $key = acl_entry2key($spoc_entry);
+		if ($dupl{$key}) {
+		    push @add_later, $spoc_entry;
+		}
+		else {
+		    push @add, $spoc_entry;
+		}
+	    }
+	}
+    }
+    
+    return if not (@add || @delete || @add_later);
+
+    my $acl_name = $conf_acl->{name};
+
+    if (@$conf_entries >= 10000) {
+	errpr "Can't handle device ACL $acl_name with 10000 or more entries\n";
+    }
+    if (@$spoc_entries >= 10000) {
+	my $spoc_name = $spoc_acl->{name};
+	errpr "Can't handle netspoc ACL $spoc_name with 10000 or more entries\n";
+    }
+
+    $self->{CHANGE}->{ACL} = 1;
+    $self->schedule_reload(10);
+    $self->cmd('configure terminal');
+
+    # Add same line numbers as above to ACL entries on device.
+    $self->cmd("ip access-list resequence $acl_name 10000 10000");
+    $self->cmd("ip access-list extended $acl_name");
+
+    # 1. Add lines from netspoc which have no duplicates on device.
+    for my $spoc_entry (@add) {
+	my $line = $spoc_entry->{cisco_line};
+	my $cmd .= "$line  $spoc_entry->{orig}";
+	$self->cmd($cmd);
+    }
+
+    # 2. Delete lines on device.
+    for my $conf_entry (@delete) {
+	my $line = $conf_entry->{cisco_line};
+	$self->cmd("no $line");
+    }
+
+    # 3. Add remaining lines from netspoc
+    for my $spoc_entry (@add_later) {
+	my $line = $spoc_entry->{cisco_line};
+	my $cmd .= "$line  $spoc_entry->{orig}";
+	$self->cmd($cmd);
+    }
+    $self->cmd('exit');
+    $self->cmd("ip access-list resequence $acl_name 10 10");
+    $self->cmd('end');
+    $self->cancel_reload();
 }
 
 sub append_acl_entries {
     my ($self, $name, $entries) = @_;
     $self->cmd('configure terminal');
     $self->cmd("ip access-list extended $name");
-    my $counter = 0;
     for my $c (@$entries) {
         my $acl = $c->{orig};
         $self->cmd($acl);
-        $counter++;
-        mypr " $counter";
     }
-    mypr "\n";
     $self->cmd('end');
 }
 
-#
-# *** access-lists processing ***
-#
-sub process_interface_acls  {
+sub process_interface_acls( $$$ ){
     my ($self, $conf, $spoc) = @_;
     mypr "======================================================\n";
-    mypr "establish new acls for device\n";
+    mypr "SMART: establish new acls for device\n";
     mypr "======================================================\n";
 
-    #
-    # possible acl-names are (per name convention):
-    #
-    # <spoc-name>-DRC-0
-    # <spoc-name>-DRC-1
-    #
-    # because the spoc-name may change unexpected drc.pl scans for "-DRC-x" to
-    # identify spoc-related acls
-    #
-    for my $intf (values %{ $spoc->{IF} }) {
-	my $name = $intf->{name};
-        $intf->{ACCESS_GROUP_IN} and $intf->{TRANSFER} or next;
-        my $confacl =  $conf->{IF}->{$name}->{ACCESS_GROUP_IN} || '';
-
-        # check acl-names
-        my $aclindex;
-        if ($confacl =~ /\S+-DRC-([01])/) {
-
-            # active acls matches name convention
-            $aclindex = (not $1) * 1;
-        }
-        else {
-            if ($confacl) {
-                warnpr "unexpected acl-name $confacl at interface $name\n";
-            }
-            else {
-                warnpr "no acl found at interface $name\n";
-            }
-            $aclindex = 0;
-        }
-
-        # generate *new* access-list entries
-        my $spocacl = $intf->{ACCESS_GROUP_IN};
-        my $aclname = "$spocacl-DRC-$aclindex";
-        $self->{CHANGE}->{ACL} = 1;
-
-        #
-        # *** SCHEDULE RELOAD ***
-        #
-        $self->schedule_reload(5);
-
-        #
-        # begin transfer
-        #
-        mypr "create *new* acl $aclname on device\n";
-
-        #
-        # maybe there is an old acl with $aclname:
-        # first remove old entries because acl should be empty - otherwise
-        # new entries are only appended - bad
-        #
-        $self->cmd('configure terminal');
-        $self->cmd("no ip access-list extended $aclname");
-        $self->cmd('end');
-        $self->cancel_reload();
-
-        # hopefully this is not critical!
-        $self->append_acl_entries($aclname, 
-				  $spoc->{ACCESS_LIST}->{$spocacl}->{LIST});
-
-        #
-        # *** SCHEDULE RELOAD ***
-        #
-        $self->schedule_reload(5);
-
-        #
-        # assign new acl to interfaces
-        #
-        mypr "assign new acl:\n";
-        $self->cmd('configure terminal');
-        mypr " interface $name\n";
-        $self->cmd("interface $name");
-        mypr " ip access-group $aclname in\n";
-        $self->cmd("ip access-group $aclname in");
-        $self->cmd('end');
-
-        #
-        # delete old ACL (if present)
-        #
-        $self->cmd('configure terminal');
-        if ($confacl && exists $conf->{ACCESS_LIST}->{$confacl}) {
-            mypr "no ip access-list extended $confacl\n";
-            $self->cmd("no ip access-list extended $confacl");
-        }
-        $self->cmd('end');
-        $self->cancel_reload();
-        mypr "---\n";
-    }
-    mypr "======================================================\n";
-    mypr "done\n";
-    mypr "======================================================\n";
-}
-
-sub generic_interface_acl_processing {
-    my ($self, $conf, $spoc) = @_;
-
-    # check if anything to do
-    unless ($spoc->{IF}) {
-        warnpr "no interfaces specified - leaving access-lists untouched\n";
-        return;
-    }
-
-    # check for outgoing ACLS
-    for my $intf (values %{ $conf->{IF} }) {
-        if (my $acl = $intf->{ACCESS_GROUP_OUT} and not $intf->{SHUTDOWN})
-        {
-            warnpr "interface $intf->{name}: outgoing acl $acl detected\n";
-        }
-    }
     $self->{CHANGE}->{ACL} = 0;
-    $self->compare_interface_acls($conf, $spoc);
+    for my $intf (values %{$spoc->{IF}}){
+	my $name = $intf->{name};
+        my $conf_intf = $conf->{IF}->{$name}
+	   or errpr "interface not found on device: $name\n";
+	my $confacl_name = $conf_intf->{ACCESS_GROUP_IN} || '';
+	my $spocacl_name = $intf->{ACCESS_GROUP_IN};
+	my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
+	my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
+	if($confacl_name and $conf_acl){
+	    $self->equalize_acl($conf_acl, $spoc_acl);
+	}
+	else {
+	    $self->{CHANGE}->{ACL} = 1;
+	    warnpr "no access-list configured at interface $name\n";
+	    my $aclname = "$spocacl_name-DRC";
 
-    # check which spocacls really have to be transfered
-    if ($self->{COMPARE}) {
-        for my $if (keys %{ $spoc->{IF} }) {
-            if ($spoc->{IF}->{$if}->{TRANSFER}) {
-                $self->{CHANGE}->{ACL} = 1;
-                last;
-            }
-        }
+	    # begin transfer
+	    mypr "create *new* acl $aclname on device\n";
+	    #
+	    # maybe there is an old acl with $aclname:
+	    # first remove old entries because acl should be empty - otherwise
+	    # new entries are only appended - bad
+	    #
+	    $self->cmd('configure terminal');
+	    $self->cmd("no ip access-list extended $aclname");
+	    $self->cmd('end');
+	    $self->append_acl_entries($aclname, $spoc_acl->{LIST});
+
+	    # Assign new acl to interface.
+	    mypr "assign new acl:\n";
+	    $self->schedule_reload(5);
+	    $self->cmd('configure terminal');
+	    $self->cmd("interface $name");
+	    $self->cmd("ip access-group $aclname in");
+	    $self->cmd('end');
+	    $self->cancel_reload();
+	}
     }
 
-    # transfer
-    else {
-	$self->process_interface_acls($conf, $spoc);
-    }
+    mypr "======================================================\n";
+    mypr "SMART: done\n";
+    mypr "======================================================\n";
 }
 
 ###############################
 #
-# BEGIN crypto processing
+# Crypto processing
 #
 ###############################
 
@@ -1364,7 +1305,7 @@ sub crypto_processing {
                         $self->cancel_reload();
                         mypr "---\n";
 
-                        #new acl established - old one should be removed:
+                        # New acl established - old one should be removed:
                         $surplus_acls{$conf_acl_name} = 1;
                     }
                 }
@@ -1376,8 +1317,6 @@ sub crypto_processing {
         unless ($self->{COMPARE}) {
             mypr " --- begin remove surplus acls ---\n";
 
-            # *** SCHEDULE RELOAD ***
-            # TODO: check if 3 minutes are OK
             $self->schedule_reload(3);
             for my $name (keys %surplus_acls) {
                 $self->cmd('configure terminal');
@@ -1393,10 +1332,10 @@ sub crypto_processing {
         }
     }
     elsif (exists $spoc->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}) {
-        ##################################################
-        # in ezvpn mode we grant that the tunnel is terminatet at some
-        # virtual interface. this interface holds an ACL
-        # the ACL is checked by standard ACL code
+
+        # In ezvpn mode we grant that the tunnel is terminated at some
+        # virtual interface. This interface holds an ACL.
+        # The ACL is checked by standard ACL code
         ##################################################
         mypr " --- begin compare crypto ezvpn ---\n";
         if (exists $conf->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}) {
@@ -1435,7 +1374,7 @@ sub transfer {
     my ($self, $conf, $spoc) = @_;
 
     # *** BEGIN TRANSFER ***
-    $self->generic_interface_acl_processing($conf, $spoc);
+    $self->process_interface_acls($conf, $spoc);
     $self->crypto_processing($conf, $spoc);
     $self->process_routing($conf, $spoc);
 
@@ -1460,7 +1399,6 @@ sub transfer {
         }
     }
     else {
-        $self->cancel_reload();
         if (grep { $_ } values %{ $self->{CHANGE} }) {
 
             # check config size
@@ -1478,8 +1416,8 @@ sub transfer {
             mypr "no changes to save - check if startup is uptodate:\n";
 
             #
-            # Handle past problems with write mem compare
-            # running  with startup config
+            # Handle past problems with write mem
+            # compare running with startup config
             #
             if ($self->compare_ram_with_nvram()) {
                 mypr "Startup is uptodate\n";
