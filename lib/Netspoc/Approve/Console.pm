@@ -35,7 +35,7 @@ sub new {
 
 
 sub new_console ($$$$) {
-    my ( $class, $nob, $name, $logfile, $startup_message ) = @_;
+    my ($class, $nob, $name, $logfile, $startup_message) = @_;
     if ( exists $nob->{CONSOLE}->{$name} ) {
         die "console \'$name\' already created\n";
     }
@@ -80,7 +80,7 @@ sub new_console ($$$$) {
 }
 
 sub shutdown_console ($$) {
-    my ( $CON, $shutdown_message ) = @_;
+    my ($CON, $shutdown_message) = @_;
     if ( exists $CON->{LOG} ) {
         my $fh = $CON->{LOG};
         print $fh "\n";
@@ -111,7 +111,7 @@ sub shutdown_console ($$) {
 #    handle.
 
 sub con_wait {
-    my ( $CON, $prompt) = @_;
+    my ($CON, $prompt) = @_;
     my $timeout = $CON->{TIMEOUT};
     delete $CON->{RESULT};
     my @result = $CON->{EXPECT}->expect( $timeout, '-re', $prompt );
@@ -121,23 +121,25 @@ sub con_wait {
     $CON->{RESULT}->{MATCH}   = $result[2];
     $CON->{RESULT}->{BEFORE}  = $result[3];
     $CON->{RESULT}->{AFTER}   = $result[4];
-    defined $CON->{RESULT}->{ERROR} and return 0;
-    return 1;
+    return not defined $CON->{RESULT}->{ERROR};
 }
 
 sub con_issue_cmd {
-    my ( $CON, $cmd, $prompt ) = @_;
-    $CON->{RESULT}->{CMD} = $cmd;
-
-    $CON->{EXPECT}->send( $cmd );
-    $CON->con_wait( $prompt ) or return 0;
-    return 1;
+    my ($CON, $cmd, $prompt) = @_;
+    $CON->con_send_cmd($cmd);
+    return $CON->con_wait( $prompt );
 }
 
 sub con_cmd {
-    my ( $CON, $cmd ) = @_;
+    my ($CON, $cmd) = @_;
     my $prompt = $CON->{PROMPT};
     return $CON->con_issue_cmd( $cmd, $prompt );
+}
+
+sub con_send_cmd {
+    my ($CON, $cmd) = @_;
+    $CON->{RESULT}->{CMD} = $cmd;
+    $CON->{EXPECT}->send( $cmd );
 }
 
 sub con_error {
@@ -161,9 +163,6 @@ sub con_dump( $ ) {
     my $CON = shift;
     mypr "$CON->{RESULT}->{BEFORE}$CON->{RESULT}->{MATCH}";
 }
-1;
 
-
-
-# Modules must return a true value!
+# Modules must return a true value.
 1;
