@@ -459,40 +459,41 @@ sub merge_rawdata {
     $self->merge_acls($spoc, $raw_conf);
 }
 
+my %known_status = 
+    (
+     'configure terminal' => [ qr/^Enter configuration commands/, ],
+     );
 
-##############################################################
-# issue command
-##############################################################
-sub cmd_check_error {
-    my ($self, $out) = @_;
+my %known_warning = 
+(
+ );
 
-    # IOS error messages start with "%".
-    if ($$out =~ /^\s*%\s*/m) {
-        #### hack start ###
-        if ($$out =~ /Delete failed. NV generation of acl in progress/) {
-            ### probably slow acl proccessing
-            my @pre = split(/\n/, $$out);
-            for my $line (@pre) {
+sub cmd_check_error($$) {
+    my ($self, $cmd, $lines) = @_;
+
+    # Check unexpected lines:
+    # - known status messages
+    # - known warning messages
+    # - unknown messages, handled as error messages.
+    my @err_lines;
+  LINE:
+    for my $line (@$lines) {
+	for my $regex (@{ $known_status{$cmd} }) {
+	    if($line =~ $regex) {
+		next LINE;
+	    }
+	}
+	for my $regex (@{ $known_warning{$cmd} }) {
+	    if($line =~ $regex) {
                 warnpr $line, "\n";
-            }
-            return 1;
-        }
-        ### hack end ###
-        my @pre = split(/\n/, $$out);
-        errpr_info "+++ ", $pre[0], "\n";
-        for (my $i = 0 ; $i < @pre ; $i++) {
-            if ($pre[$i] =~ /%/) {
-                if ($pre[$i] =~ /'\^'/) {
-                    errpr_info "+++ ", $pre[ $i - 2 ], "\n";
-                    errpr_info "+++ ", $pre[ $i - 1 ], "\n";
-                }
-                errpr_info "+++ ", $pre[$i], "\n";
-            }
-        }
-        errpr "+++\n";
-        return 0;
+		next LINE;
+	    }
+	}
+	push @err_lines, "$cmd: $line\n";
     }
-    return 1;
+    for my $err_line (@err_lines) {
+	errpr $err_line;
+    }
 }
 
 sub checkinterfaces {
@@ -544,7 +545,7 @@ sub prepare {
     # max. term width is 511 for pix, 512 for ios
     $self->device_cmd('term width 512');
     unless ($self->{COMPARE}) {
-        $self->cmd('conf t');
+        $self->cmd('configure terminal');
         $self->cmd('no logging console');
         mypr "console logging is now disabled!\n";
 
@@ -568,30 +569,34 @@ sub prepare {
 # *** ios transfer ***
 #######################################################
 
-# *** small helpers (ios) ***
+# Output of "write mem":
+# Building configuration...
+# Compressed configuration from 22772 bytes to 7054 bytes[OK]
+#
+# Building configuration...
+# [OK]
 
 sub write_mem {
     my ($self, $retries, $seconds) = @_;
     mypr "writing config to nvram\n";
-    my $output;
-    my $written = 0;
-    my $tries   = 0;
-    while (not $written) {
-        $output = $self->shcmd('write memory');
-        $tries++;
-        if ($output =~ /Building configuration/) {
-            mypr "seems ok\n";
-            $written = 1;
+    $retries++;
+    while ($retries--) {
+        my $lines = $self->get_cmd_output('write memory');
+	if ($lines->[0] =~ /^Building configuration/) {
+	    if ($lines->[1] =~ /\[OK\]/) {
+		mypr "seems ok\n";
+	    }
+	    else {
+		errpr "'write mem' failed. Config may be truncated!\n";
+	    }
         }
-        elsif ($output =~ /startup-config file open failed/i) {
-            if ($tries > $retries) {
-                errpr
-                  "startup-config file open failed $tries times - giving up\n";
+        elsif (grep { $_ =~ /startup-config file open failed/i } @$lines) {
+            if (not $retries) {
+                errpr "startup-config file open failed - giving up\n";
             }
             else {
-                warnpr
-                  "startup-config file open failed $tries times - sleeping "
-                  . "$seconds seconds then trying again\n";
+                warnpr "startup-config file open failed - sleeping "
+		    . "$seconds seconds then trying again\n";
                 sleep $seconds;
             }
         }
@@ -732,17 +737,18 @@ sub schedule_reload {
     return if $self->{COMPARE};
     mypr "schedule reload in $minutes minutes\n";
     my $psave = $self->{ENAPROMPT};
-    $self->{ENAPROMPT} = qr/\[yes\/no\]:|\[confirm\]/;
+    $self->{ENAPROMPT} = qr/\[yes\/no\]:\ |\[confirm\]/;
     my $out = $self->shcmd("reload in $minutes");
 
-    if ($out =~ /ave/) {
+    # System configuration has been modified. Save? [yes/no]: 
+    if ($out =~ /save/i) {
 	$self->{ENAPROMPT} = qr/\[confirm\]/;
 
         # Someone has fiddled with the router.
-        $self->device_cmd('n');
+        $self->issue_cmd('n');
     }
     $self->{ENAPROMPT} = $psave;
-    $self->device_cmd('');
+    $self->issue_cmd('');
     $self->{RELOAD_SCHEDULED} = 1;
     mypr "reload scheduled\n";
 }
@@ -766,7 +772,7 @@ sub cancel_reload {
         # ***
 	my $psave = $self->{ENAPROMPT};
 	$self->{ENAPROMPT} = qr/--- SHUTDOWN ABORTED ---/;
-        $self->device_cmd('reload cancel');
+        $self->shcmd('reload cancel');
         $con->{TIMEOUT} = $tt;
 	$self->{ENAPROMPT} = $psave;
 
@@ -830,19 +836,22 @@ sub equalize_acl {
 				     { keyGen => \&acl_entry2key } );
 
     # Check differences in detail.
-    # Change ACL on device in 3 passes:
+    # Change ACL on device in 2 passes:
     # 1. Add new ACL entries
     #    which are not already present on device.
     #    Remember other entries which can't be added, 
-    #    because duplicate entries have not been deleted yet.
+    #    because same entry has not been deleted yet.
     # 2. Delete old ACL entries
-    # 3. Add new ACL entries left over from first pass.
+    #  a) If same entry will be added at other position
+    #     transfer delete and add command in one packet to device,
+    #     to prevent accidental lock out from device.
+    #  b) Simply delete, if entry isn't used any longer.
 
-    # Find ACL entries from netspoc, which are already on device
-    # at some other position and will be deleted later on device.
-
-    # Hash for finding duplicates.
+    # Hash for finding duplicates when comparing old and new entries.
     my %dupl;
+
+    # Mapping from to be deleted conf entry to to be added spoc entry.
+    my %add_later;
 
     # Collect entries 
     # - without duplicates, which can be added immediately,
@@ -850,9 +859,12 @@ sub equalize_acl {
     # - to be added, after lines have been deleted on device.
     my (@add, @delete, @add_later);
 
+    # Cisco lines of ACL entries.
+    my %cisco_line;
+
     # Add new line numbers to ACL entries read from device.
     for (my $i = 0; $i < @$conf_entries; $i++) {
-	$conf_entries->[$i]->{cisco_line} = 10000 + $i * 10000;
+	$cisco_line{$conf_entries->[$i]} = 10000 + $i * 10000;
     }
     while($diff->Next()) {
 
@@ -869,12 +881,12 @@ sub equalize_acl {
 	# Process to be added entries.
 	if ($diff->Diff() & 2) {
 	    my $conf_next = $diff->Min(1);
-	    my $line = $conf_entries->[$conf_next]->{cisco_line} - 9999;
+	    my $line = $cisco_line{$conf_entries->[$conf_next]} - 9999;
 	    for my $spoc_entry ($diff->Items(2)) {
-		$spoc_entry->{cisco_line} = $line++;
+		$cisco_line{$spoc_entry} = $line++;
 		my $key = acl_entry2key($spoc_entry);
-		if ($dupl{$key}) {
-		    push @add_later, $spoc_entry;
+		if (my $conf_entry = $dupl{$key}) {
+		    $add_later{$conf_entry} = $spoc_entry;
 		}
 		else {
 		    push @add, $spoc_entry;
@@ -883,7 +895,7 @@ sub equalize_acl {
 	}
     }
     
-    return if not (@add || @delete || @add_later);
+    return if not (@add || @delete);
 
     my $acl_name = $conf_acl->{name};
 
@@ -905,23 +917,25 @@ sub equalize_acl {
 
     # 1. Add lines from netspoc which have no duplicates on device.
     for my $spoc_entry (@add) {
-	my $line = $spoc_entry->{cisco_line};
-	my $cmd .= "$line  $spoc_entry->{orig}";
+	my $line = $cisco_line{$spoc_entry};
+	my $cmd  = "$line $spoc_entry->{orig}";
 	$self->cmd($cmd);
     }
 
-    # 2. Delete lines on device.
+    # 2. Delete lines on device and add same line again if needed.
     for my $conf_entry (@delete) {
-	my $line = $conf_entry->{cisco_line};
-	$self->cmd("no $line");
+	my $line = $cisco_line{$conf_entry};
+	my $cmd1 = "no $line";
+	if (my $spoc_entry = $add_later{$conf_entry}) {
+	    my $line2 = $cisco_line{$spoc_entry};
+	    my $cmd2  = "$line2 $spoc_entry->{orig}";
+	    $self->two_cmd($cmd1, $cmd2);
+	}
+	else {
+	    $self->cmd($cmd1);
+	}
     }
 
-    # 3. Add remaining lines from netspoc
-    for my $spoc_entry (@add_later) {
-	my $line = $spoc_entry->{cisco_line};
-	my $cmd .= "$line  $spoc_entry->{orig}";
-	$self->cmd($cmd);
-    }
     $self->cmd('exit');
     $self->cmd("ip access-list resequence $acl_name 10 10");
     $self->cmd('end');
