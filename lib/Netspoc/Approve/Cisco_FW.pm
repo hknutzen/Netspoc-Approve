@@ -552,21 +552,16 @@ my @known_warning =
      qr/^WARNING:/,
      );
 
-sub cmd_check_error($$) {
-    my ($self, $out) = @_;
-
-    my @lines = split(/\n/, $$out);
-
-    # First line is echo of command; ignore it.
-    my $echo = shift(@lines);
+sub cmd_check_error {
+    my ($self, $cmd, $lines) = @_;
 
     # Check unexpected lines:
     # - known status messages
     # - known warning messages
     # - unknown messages, handled as error messages.
-    my $is_ok = 1;
+    my @err_lines;
   LINE:
-    for my $line (@lines) {
+    for my $line (@$lines) {
 	for my $regex (@known_status) {
 	    if($line =~ $regex) {
 		next LINE;
@@ -578,10 +573,11 @@ sub cmd_check_error($$) {
 		next LINE;
 	    }
 	}
-	errpr "$line\n";
-	$is_ok = 0;
+	push @err_lines, "$cmd: $line\n";
     }
-    return $is_ok;
+    for my $err_line (@err_lines) {
+	errpr $err_line;
+    }
 }
 
 sub check_firewall {
