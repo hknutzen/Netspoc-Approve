@@ -842,7 +842,7 @@ sub equalize_acl {
     #    because same entry has not been deleted yet.
     # 2. Delete old ACL entries
     #  a) If same entry will be added at other position
-    #     transfer delete and add command in one packet to device,
+    #     transfer delete and add command together in one packet to device,
     #     to prevent accidental lock out from device.
     #  b) Simply delete, if entry isn't used any longer.
 
@@ -865,9 +865,9 @@ sub equalize_acl {
     for (my $i = 0; $i < @$conf_entries; $i++) {
 	$cisco_line{$conf_entries->[$i]} = 10000 + $i * 10000;
     }
-    while($diff->Next()) {
 
-	# Process to be deleted entries.
+    # 1. Process to be deleted entries.
+    while($diff->Next()) {
 	if ($diff->Diff() & 1) {
 	    for my $conf_entry ($diff->Items(1)) {
 		my $key = acl_entry2key($conf_entry);
@@ -876,8 +876,11 @@ sub equalize_acl {
 		push @delete, $conf_entry;
 	    }
 	}
+    }
 
-	# Process to be added entries.
+    # 2. Process to be added entries.
+    $diff->Reset();
+    while($diff->Next()) {
 	if ($diff->Diff() & 2) {
 	    my $conf_next = $diff->Min(1);
 	    my $line = $cisco_line{$conf_entries->[$conf_next]} - 9999;
