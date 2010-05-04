@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# parser.t
+# $id:$
 
 use strict;
 use Test::More qw(no_plan);
@@ -22,11 +22,11 @@ my($in, $device, $out);
 my $title;
 
 ############################################################
-$title = "Parse routing and simple ACL";
+$title = "Parse routing and ACL with object-groups";
 ############################################################
 $in = <<END;
 
-route outside 10.20.0.0 0.0.255.255 10.1.2.3
+route outside 10.20.0.0 255.255.0.0 10.1.2.3
 
 access-list inside_in extended deny ip any any
 access-group inside_in in interface inside
@@ -43,7 +43,7 @@ access-group outside_in in interface outside
 END
 
 $out = <<END;
-route outside 10.20.0.0 0.0.255.255 10.1.2.3
+route outside 10.20.0.0 255.255.0.0 10.1.2.3
 object-group network g0-DRC-0
 network-object 10.0.6.0 255.255.255.0
 network-object 10.0.5.0 255.255.255.0
@@ -55,7 +55,7 @@ access-list outside_in-DRC-0 extended deny ip any any
 access-group inside_in-DRC-0 in interface inside
 access-group outside_in-DRC-0 in interface outside
 END
-is_deeply(approve($empty_device, $in), $out, $title);
+is_deeply(approve('ASA', $empty_device, $in), $out, $title);
 
 ############################################################
 $title = "Parse static, global, nat";
@@ -71,7 +71,7 @@ static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
 global (outside) 1 10.48.56.5 netmask 255.255.255.255
 nat (inside) 1 10.48.48.0 255.255.248.0
 END
-is_deeply(approve($empty_device, $in), $out, $title);
+is_deeply(approve('ASA', $empty_device, $in), $out, $title);
 
 ############################################################
 $title = "Parse crypto map";
@@ -99,7 +99,7 @@ crypto map map-outside 10 set security-association lifetime kilobytes 4608000
 crypto map map-outside 10 set transform-set trans
 crypto map map-outside 10 match address crypto-acl-DRC-0
 END
-is_deeply(approve($empty_device, $in), $out, $title);
+is_deeply(approve('ASA', $empty_device, $in), $out, $title);
 
 ############################################################
 $title = "Parse username, group-policy";
@@ -143,7 +143,7 @@ vpn-filter value vpn-filter-DRC-0
 group-policy VPN-group-DRC-0 attributes
 split-tunnel-network-list value split-tunnel-DRC-0
 END
-is_deeply(approve($empty_device, $in), $out, $title);
+is_deeply(approve('ASA', $empty_device, $in), $out, $title);
 
 ############################################################
 $title = "Modify username attributes";
@@ -174,7 +174,7 @@ username jon.doe@token.example.com attributes
 no password-storage
 no vpn-simultaneous-logins
 END
-is_deeply(approve($device, $in), $out, $title);
+is_deeply(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Modify group-policy attributes";
@@ -216,7 +216,7 @@ group-policy VPN-group attributes
 no pfs
 no vpn-idle-timeout
 END
-is_deeply(approve($device, $in), $out, $title);
+is_deeply(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Parse tunnel-group, group-policy, ca cert map, pool";
@@ -275,7 +275,7 @@ address-pools value pool-DRC-0
 split-tunnel-network-list value split-tunnel-DRC-0
 vpn-filter value vpn-filter-DRC-0
 END
-is_deeply(approve($empty_device, $in), $out, $title);
+is_deeply(approve('ASA', $empty_device, $in), $out, $title);
 
 ############################################################
 $title = "Modify tunnel-group ipsec-attributes";
@@ -304,5 +304,5 @@ $out = <<'END';
 tunnel-group VPN-tunnel ipsec-attributes
 trust-point ASDM_TrustPoint5
 END
-is_deeply(approve($device, $in), $out, $title);
+is_deeply(approve('ASA', $device, $in), $out, $title);
 
