@@ -1449,12 +1449,8 @@ sub cmd {
 # Send command to device, regardless of compare mode.
 sub device_cmd {
     my ($self, $cmd) = @_;
-
-    my $result = $self->issue_cmd($cmd);
-	
-    # check for errors
-    # argument is ref to prematch from issue_cmd
-    $self->cmd_check_error(\$result->{BEFORE}) or exit -1;
+    my $lines = $self->get_cmd_output($cmd);
+    $self->cmd_check_error($cmd, $lines);
 }
 
 sub shcmd {
@@ -1472,6 +1468,35 @@ sub get_cmd_output {
     return(\@lines);
 }
 
+# Send 2 commands in one data packet to device.
+sub two_cmd {
+    my ($self, $cmd1, $cmd2) = @_;
+
+    if ( $self->{COMPARE} ) {
+	mypr "> $cmd1\\N $cmd2\n";
+    }
+    else {
+	my $con = $self->{CONSOLE};
+	$con->con_send_cmd("$cmd1\n$cmd2\n");
+	my $prompt = $self->{ENA_MODE} ? $self->{ENAPROMPT} : $self->{PROMPT};
+
+	# Read first prompt and check output of first command.
+	$con->con_wait( $prompt ) or $con->con_error();
+	my @lines1 = split(/\r?\n/, $con->{RESULT}->{BEFORE});
+	my $echo = shift(@lines1);
+	$echo eq $cmd1 or 
+	    errpr "Got unexpected echo in response to '$cmd1': '$echo'\n";
+
+	# Read second prompt and check output of second command.
+	$con->con_wait( $prompt ) or $con->con_error();
+	my @lines2 = split(/\r?\n/, $con->{RESULT}->{BEFORE});
+	$echo = shift(@lines2);
+	$echo eq $cmd2 or 
+	    errpr "Got unexpected echo in response to '$cmd2': '$echo'\n";
+
+	$self->cmd_check_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
+    }
+}
 # Return 0 if no answer.
 sub check_device {
     my ($self) = @_;
