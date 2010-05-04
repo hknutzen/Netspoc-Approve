@@ -105,7 +105,7 @@ usage: 'drc3 <option> -N <file> <device>'
  -v                   show version info
 
 END
-    exit;
+    exit -1;
 }
 
 my $global_config = Netspoc::Approve::Device->get_global_config();
@@ -224,7 +224,7 @@ if (my $p1 = $opts{P1}) {
       . $p2 . "/"
       . $global_config->{CODEPATH}
       . $name;
-    my $exit;
+    my $exit = 0;
     if ($job->lock($job->{NAME})) {
         if ($job->{OPTS}->{S}) {
             open_status($job);
@@ -260,7 +260,6 @@ if (my $p1 = $opts{P1}) {
     }
     else {
         errpr "approve in process for $job->{NAME}\n";
-        exit -1;
     }
     mypr "\n";
     mypr
@@ -269,7 +268,6 @@ if (my $p1 = $opts{P1}) {
     mypr
       "********************************************************************\n";
     mypr "\n";
-    $exit ||= 0;
     exit $exit;
 }
 
@@ -307,7 +305,6 @@ if (defined $job->{OPTS}->{PING_ONLY}) {
 if (!$job->{OPTS}->{NOREACH}) {
     if (!$job->check_device()) {
         errpr "$job->{NAME}: reachability test failed\n";
-        exit -1;
     }
 }
 else {
@@ -462,9 +459,8 @@ if (my $spoc_path = $job->{OPTS}->{N}) {
     mypr "\n";
 }
 else {
-    errpr "Invalid option\n";
+    errpr_info "Invalid option\n";
     usage();
-    exit -1;
 }
 exit;
 
