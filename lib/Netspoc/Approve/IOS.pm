@@ -277,7 +277,6 @@ sub dev_cor {
     return ~$addr & 0xffffffff;
 }
 
-# checking, binding  and info printing of parsed crypto config
 sub postprocess_config {
     my ($self, $p) = @_;
 
@@ -1202,7 +1201,7 @@ sub crypto_processing {
                 mypr "    no diffs found\n";
             }
             else {
-                warnpr "severe diffs in crypto isakmp detected!\n";
+                errpr "severe diffs in crypto isakmp detected!\n";
 		$self->{CHANGE}->{CRYPTO} = 1;
             }
         }
@@ -1364,7 +1363,7 @@ sub crypto_processing {
                 mypr "    no diffs found\n";
             }
             else {
-                warnpr "severe diffs in crypto ipsec detected!\n";
+                errpr "severe diffs in crypto ipsec detected!\n";
 		$self->{CHANGE}->{CRYPTO} = 1;
             }
         }
