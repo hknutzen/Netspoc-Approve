@@ -5,7 +5,7 @@ our @EXPORT = qw(approve);
 
 use File::Temp qw/ tempfile tempdir /;
 
-my $device_name = 'asatest';
+my $device_name = 'test';
 my $dir = tempdir(CLEANUP => 1) or die "Can't create tmpdir: $!\n";
 my $code_dir = "$dir/code";
 my $spoc_dir = "$dir/netspoc";
@@ -14,14 +14,15 @@ mkdir($code_dir) or die "Can't create $code_dir: $!\n";
 mkdir($spoc_dir) or die "Can't create $spoc_dir: $!\n";
 mkdir($raw_dir) or die "Can't create $spoc_dir: $!\n";
 
-# Header for all Netspoc input
-my $header = <<END;
+sub approve {
+    my($type, $conf, $spoc) = @_;
+
+    # Header for all Netspoc input
+    my $header = <<END;
 ! [ BEGIN router:$device_name ]
-! [ Model = ASA ]
+! [ Model = $type ]
 END
 
-sub approve {
-    my($conf, $spoc) = @_;
     $spoc = $header . $spoc;
 
     # Prepare input files.
@@ -39,7 +40,10 @@ sub approve {
 	 "perl -I lib bin/drc3.pl -F1 $conf_file -F2 $spoc_file $device_name") 
 	or die "Can't execute drc3.pl: $!\n";
     my @output = <APPROVE>;
-    close(APPROVE);
+    if (not close(APPROVE)) {
+	$! and  die "Syserr closing pipe from drc3.pl: $!\n";
+	$? == 0 || $? == 256 or die "Status from drc3.pl: $?\n";
+    }
 
     # Collect commands from output.
     my @cmds = map { m/^> (.*)/ } @output;
