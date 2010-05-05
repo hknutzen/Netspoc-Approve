@@ -1450,7 +1450,7 @@ sub cmd {
 sub device_cmd {
     my ($self, $cmd) = @_;
     my $lines = $self->get_cmd_output($cmd);
-    $self->cmd_check_error($cmd, $lines);
+    @$lines and $self->cmd_check_error($cmd, $lines);
 }
 
 sub shcmd {
