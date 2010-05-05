@@ -474,7 +474,7 @@ sub cmd_check_error($$) {
     # - known status messages
     # - known warning messages
     # - unknown messages, handled as error messages.
-    my @err_lines;
+    my $error;
   LINE:
     for my $line (@$lines) {
 	for my $regex (@{ $known_status{$cmd} }) {
@@ -488,10 +488,15 @@ sub cmd_check_error($$) {
 		next LINE;
 	    }
 	}
-	push @err_lines, "$cmd: $line\n";
+	$error = 1;
     }
-    for my $err_line (@err_lines) {
-	errpr $err_line;
+    if ($error) {
+	errpr_info "$cmd\n";
+	my $last_line = pop @$lines;
+	for my $line (@$lines) {
+	    errpr_info "$line\n";
+	}
+	errpr "$last_line\n";
     }
 }
 
