@@ -910,11 +910,16 @@ sub equalize_acl {
     }
 
     $self->{CHANGE}->{ACL} = 1;
-    $self->schedule_reload(10);
-    $self->cmd('configure terminal');
 
     # Add same line numbers as above to ACL entries on device.
+    # Do resequence before schedule reload, because it may abort
+    # if this command isn't available on old IOS version.
+    $self->cmd('configure terminal');
     $self->cmd("ip access-list resequence $acl_name 10000 10000");
+    $self->cmd('end');
+
+    $self->schedule_reload(10);
+    $self->cmd('configure terminal');
     $self->cmd("ip access-list extended $acl_name");
 
     # 1. Add lines from netspoc which have no duplicates on device.
