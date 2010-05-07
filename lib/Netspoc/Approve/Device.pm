@@ -883,11 +883,11 @@ sub process_routing {
     }
     if(@cmds) {
 	mypr "### Change routing entries on device\n";
-	$self->{COMPARE} or $self->schedule_reload(10);
+	$self->schedule_reload(5);
 	$self->enter_conf_mode;
 	map { $self->cmd($_); } @cmds;
 	$self->leave_conf_mode;
-	$self->{COMPARE} or $self->cancel_reload();
+	$self->cancel_reload();
     }
 }
 
