@@ -107,13 +107,13 @@ sub analyze_conf_lines {
 	my $prefix_any;
 	if(my $prefix_info = $parse_info->{_prefix}) {
 	    my $prefix = $cmd;
-	    while($prefix_info = $prefix_info->{$prefix}) {
+	    while(($prefix_info = $prefix_info->{$prefix}) && @args) {
 		$prefix = shift(@args);
 		$prefix_any = $prefix_info->{_any} ? "$cmd _any" : undef;
 		$cmd .= ' ' . $prefix;
 	    }
 	}
-	if (my $suffix_hash = $parse_info->{_suffix}->{$cmd}) {
+	if ((my $suffix_hash = $parse_info->{_suffix}->{$cmd}) && @args) {
 	    my $last_arg = $args[-1];
 	    if($suffix_hash->{$last_arg}) {
 		pop(@args);
