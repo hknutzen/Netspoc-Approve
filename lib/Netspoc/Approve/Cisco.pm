@@ -313,11 +313,18 @@ sub merge_acls {
 sub enter_conf_mode {
     my($self) = @_;
     $self->cmd('configure terminal');
+    $self->{CONF_MODE} = 1;
 }
 
 sub leave_conf_mode {
     my($self) = @_;
     $self->cmd('end');
+    $self->{CONF_MODE} = 0;
+}
+
+sub check_conf_mode {
+    my($self) = @_;
+    $self->{CONF_MODE};
 }
 
 sub route_add {
