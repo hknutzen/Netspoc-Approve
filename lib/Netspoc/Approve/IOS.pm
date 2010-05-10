@@ -439,13 +439,7 @@ sub postprocess_config {
 
 sub get_config_from_device {
     my ($self) = @_;
-    my $cmd = 'sh run';
-    my $output = $self->shcmd($cmd);
-    my @conf = split(/\r\n/, $output);
-    my $echo = shift(@conf);
-    $echo =~ /^\s*$cmd\s*$/ or 
-	errpr "Got unexpected echo in response to '$cmd': '$echo'\n";
-    return(\@conf);
+    $self->get_cmd_output('sh run');
 }
 
 ##############################################################
@@ -496,7 +490,7 @@ sub cmd_check_error($$) {
 	for my $line (@$lines) {
 	    errpr_info "$line\n";
 	}
-	errpr "$last_line\n";
+	$self->abort_cmd("$last_line");
     }
 }
 
@@ -549,7 +543,7 @@ sub prepare {
     # max. term width is 511 for pix, 512 for ios
     $self->device_cmd('term width 512');
     unless ($self->{COMPARE}) {
-        $self->cmd('configure terminal');
+        $self->enter_conf_mode();
         $self->cmd('no logging console');
         mypr "console logging is now disabled!\n";
 
@@ -560,7 +554,7 @@ sub prepare {
 	# Needed for default route to work as expected.
         $self->cmd('ip classless');
         mypr "ip classless is now enabled!\n";
-        $self->cmd('end');
+        $self->leave_conf_mode();
 
     }
 
@@ -737,95 +731,96 @@ sub compare_ram_with_nvram {
     return 1;
 }
 
-# A "reload in xx" command prints messages
-# - "SHUTDOWN in 00:05:00" 5 minutes before the reload
-# - "SHUTDOWN in 00:01:00" 1 minutes before the reload
-# These messages would disturb the normal command output.
-# Therefore we only support "reload in x" with 2 <= x <= 5.
 sub schedule_reload {
     my ($self, $minutes) = @_;
     return if $self->{COMPARE};
-    2 <= $minutes && $minutes <= 5 or 
-	internal_err "schedule reload only supported for 2 .. 5 minutes";
 
-    mypr "schedule reload in $minutes minutes\n";
     my $psave = $self->{ENAPROMPT};
     $self->{ENAPROMPT} = qr/\[yes\/no\]:\ |\[confirm\]/;
-    my $out = $self->shcmd("reload in $minutes");
+    my $cmd = "reload in $minutes";
+    $cmd = "do $cmd" if $self->check_conf_mode();
+    my $out = $self->shcmd($cmd);
 
     # System configuration has been modified. Save? [yes/no]: 
     if ($out =~ /save/i) {
 	$self->{ENAPROMPT} = qr/\[confirm\]/;
 
         # Leave our changes unsaved, to be sure that a reload 
-	# gets a good configuration.
-        $self->issue_cmd('n');
+	# gets last good configuration.
+        $self->shcmd('n');
     }
 
-    # Wait longer for the "ABORTED" message.
-    my $con = $self->{CONSOLE};
-    my $tt  = $con->{TIMEOUT};
-    $con->{TIMEOUT} = 2 * $tt;
-
-    # Wait for the
-    # ***
-    # *** --- SHUTDOWN in hh:mm:ss ---
-    # ***
-    $self->{ENAPROMPT} = qr/--- SHUTDOWN in \S+ ---/;
-
-    # Confirm the reload.
-    $self->issue_cmd('');
-
-    $self->{ENAPROMPT} = $psave;
+    # Confirm the reload with empty command, wait for the standard prompt.
     $self->{RELOAD_SCHEDULED} = 1;
+    $self->{ENAPROMPT} = $psave;
+    $self->shcmd('');
 
-    # We can't be sure, if a prompt is shown after the "SHUTDOWN" message.
-    $con->{TIMEOUT} = 1;
-    $con->con_wait($psave);
-    $con->{TIMEOUT} = $tt;
-    
-    # synchronize expect buffers with empty command.
-    $self->shcmd('sh reload');
+    # Banner message is handled by method "cmd" when issuing next command.
 
-    mypr "reload scheduled\n";
+    mypr "reload scheduled $minutes minutes\n";
 }
 
 sub cancel_reload {
     my ($self) = @_;
-    if ($self->{RELOAD_SCHEDULED})
-    {
-        mypr "cancel reload ";
+    return if not $self->{RELOAD_SCHEDULED};
 
-        # Wait longer for the "ABORTED" message.
-        my $con = $self->{CONSOLE};
-        my $tt  = $con->{TIMEOUT};
-        $con->{TIMEOUT} = 2 * $tt;
-        mypr "(timeout temporarily set from $tt sec to $con->{TIMEOUT} sec)\n";
+    mypr "reload cancel\n";
 
-        # Wait for the
-        # ***
-        # *** --- SHUTDOWN ABORTED ---
-        # ***
-	my $psave = $self->{ENAPROMPT};
-	$self->{ENAPROMPT} = qr/--- SHUTDOWN ABORTED ---/;
-        $self->shcmd('reload cancel');
-        $con->{TIMEOUT} = $tt;
-	$self->{ENAPROMPT} = $psave;
+    # Banner message is handled by method "cmd".
+    my $cmd = 'reload cancel';
+    $cmd = "do $cmd" if $self->check_conf_mode();
+    $self->cmd($cmd);
 
-	# Newer IOS versions give an additional prompt after printing 
-	# the "ABORTED" message
-	$con->{TIMEOUT} = 1;
-	$con->con_wait($psave);
-        $con->{TIMEOUT} = $tt;
+    # Some IOS devices give an additional prompt after  the "ABORTED" message
+    # has been printed.
+    # E.g. Cisco 3750 with 12.2(44)SE2
+    my $con = $self->{CONSOLE};
+    my $tt  = $con->{TIMEOUT};
+    $con->{TIMEOUT} = 1;
+    $con->con_wait($self->{ENAPROMPT});
+    $con->{TIMEOUT} = $tt;
 	
-        # Check, if "reload cancel" succeeded.
-        my $out = $self->shcmd('sh reload');
-        unless ($out =~ /No reload is scheduled/) {
-            warnpr "could not cancel reload\n";
-        }
-        else {
-            $self->{RELOAD_SCHEDULED} = 0;
-        }
+    # Check, if "reload cancel" succeeded.
+    my $out = $self->shcmd('sh reload');
+    unless ($out =~ /No reload is scheduled/) {
+	warnpr "could not cancel reload\n";
+    }
+    else {
+	$self->{RELOAD_SCHEDULED} = 0;
+    }
+}
+
+# If a reload is scheduled or aborted, a banner message will be inserted into 
+# the command output:
+# <three empty lines>
+# ***
+# *** --- <message> ---
+# ***
+# Known messages are:
+# Some time before the actual reload takes place:
+# - SHUTDOWN in 00:05:00
+# - SHUTDOWN in 00:01:00
+# After canceling a reload:
+# - SHUTDOWN ABORTED
+sub handle_reload_banner {
+    my ($self, $output_ref) = @_;
+
+    # Substitute banner with empty string.
+    # Find message inside banner.
+    if ($$output_ref =~ 
+	s/ 
+	(?:\r\n){3}            # first 3 empty lines
+	\x07 [*]{3}\r\n        # BELL + ***
+	[*]{3} ([^\r\n]+) \r\n # *** Message
+	[*]{3}\r\n             # ***
+	//xms) 
+    {
+	my $msg = $1;
+    
+	# Renew running reload process.
+	if ($msg =~ /SHUTDOWN in 00:01:00/) {
+	    $self->schedule_reload(2);
+	}
     }
 }
 
@@ -951,12 +946,12 @@ sub equalize_acl {
     # Add same line numbers as above to ACL entries on device.
     # Do resequence before schedule reload, because it may abort
     # if this command isn't available on old IOS version.
-    $self->cmd('configure terminal');
+    $self->enter_conf_mode();
     $self->cmd("ip access-list resequence $acl_name 10000 10000");
-    $self->cmd('end');
+    $self->leave_conf_mode();
 
     $self->schedule_reload(5);
-    $self->cmd('configure terminal');
+    $self->enter_conf_mode();
     $self->cmd("ip access-list extended $acl_name");
 
     # 1. Add lines from netspoc which have no duplicates on device.
@@ -982,19 +977,19 @@ sub equalize_acl {
 
     $self->cmd('exit');
     $self->cmd("ip access-list resequence $acl_name 10 10");
-    $self->cmd('end');
+    $self->leave_conf_mode();
     $self->cancel_reload();
 }
 
 sub append_acl_entries {
     my ($self, $name, $entries) = @_;
-    $self->cmd('configure terminal');
+    $self->enter_conf_mode();
     $self->cmd("ip access-list extended $name");
     for my $c (@$entries) {
         my $acl = $c->{orig};
         $self->cmd($acl);
     }
-    $self->cmd('end');
+    $self->leave_conf_mode();
 }
 
 sub process_interface_acls( $$$ ){
@@ -1027,18 +1022,18 @@ sub process_interface_acls( $$$ ){
 	    # first remove old entries because acl should be empty - otherwise
 	    # new entries are only appended - bad
 	    #
-	    $self->cmd('configure terminal');
+	    $self->enter_conf_mode();
 	    $self->cmd("no ip access-list extended $aclname");
-	    $self->cmd('end');
+	    $self->leave_conf_mode();
 	    $self->append_acl_entries($aclname, $spoc_acl->{LIST});
 
 	    # Assign new acl to interface.
 	    mypr "assign new acl:\n";
 	    $self->schedule_reload(5);
-	    $self->cmd('configure terminal');
+	    $self->enter_conf_mode();
 	    $self->cmd("interface $name");
 	    $self->cmd("ip access-group $aclname in");
-	    $self->cmd('end');
+	    $self->leave_conf_mode();
 	    $self->cancel_reload();
 	}
     }
@@ -1342,9 +1337,9 @@ sub crypto_processing {
                         # maybe there is an old acl with $aclname:
                         # first remove old entries because acl should be empty 
 			# - otherwise new entries are only appended - bad
-                        $self->cmd('configure terminal');
+                        $self->enter_conf_mode();
                         $self->cmd("no ip access-list extended $new_acl_name");
-                        $self->cmd('end');
+                        $self->leave_conf_mode();
                         $self->append_acl_entries($new_acl_name,
                             $spoc->{ACCESS_LIST}->{$spoc_acl_name}->{LIST});
 
@@ -1352,12 +1347,12 @@ sub crypto_processing {
                         # assign new acl to interfaces
                         #
                         mypr "assign new acl:\n";
-                        $self->cmd('configure terminal');
+                        $self->enter_conf_mode();
                         mypr " crypto map $conf_map_name $sequ\n";
                         $self->cmd("crypto map $conf_map_name $sequ");
                         mypr " set ip access-group $new_acl_name in\n";
                         $self->cmd("set ip access-group $new_acl_name in");
-                        $self->cmd('end');
+                        $self->leave_conf_mode();
                         $self->cancel_reload();
                         mypr "---\n";
 
@@ -1375,13 +1370,13 @@ sub crypto_processing {
 
             $self->schedule_reload(3);
             for my $name (keys %surplus_acls) {
-                $self->cmd('configure terminal');
+                $self->enter_conf_mode();
                 if ($name and exists $conf->{ACCESS_LIST}->{$name}) {
 		    my $cmd =  "no ip access-list extended $name";
 		    mypr "$cmd\n";
                     $self->cmd($cmd);
                 }
-                $self->cmd('end');
+                $self->leave_conf_mode();
             }
             $self->cancel_reload();
             mypr " --- done remove surplus acls ---\n";
