@@ -948,10 +948,8 @@ sub equalize_acl {
     # if this command isn't available on old IOS version.
     $self->enter_conf_mode();
     $self->cmd("ip access-list resequence $acl_name 10000 10000");
-    $self->leave_conf_mode();
 
     $self->schedule_reload(5);
-    $self->enter_conf_mode();
     $self->cmd("ip access-list extended $acl_name");
 
     # 1. Add lines from netspoc which have no duplicates on device.
@@ -976,14 +974,19 @@ sub equalize_acl {
     }
 
     $self->cmd('exit');
+    $self->cancel_reload();
     $self->cmd("ip access-list resequence $acl_name 10 10");
     $self->leave_conf_mode();
-    $self->cancel_reload();
 }
 
-sub append_acl_entries {
+sub define_acl {
     my ($self, $name, $entries) = @_;
     $self->enter_conf_mode();
+
+    # Possibly there is an old acl with $aclname:
+    # first remove old entries because acl should be empty - 
+    # otherwise new entries would be only appended.
+    $self->cmd("no ip access-list extended $name");
     $self->cmd("ip access-list extended $name");
     for my $c (@$entries) {
         my $acl = $c->{orig};
@@ -1017,15 +1020,7 @@ sub process_interface_acls( $$$ ){
 
 	    # begin transfer
 	    mypr "create *new* acl $aclname on device\n";
-	    #
-	    # maybe there is an old acl with $aclname:
-	    # first remove old entries because acl should be empty - otherwise
-	    # new entries are only appended - bad
-	    #
-	    $self->enter_conf_mode();
-	    $self->cmd("no ip access-list extended $aclname");
-	    $self->leave_conf_mode();
-	    $self->append_acl_entries($aclname, $spoc_acl->{LIST});
+	    $self->define_acl($aclname, $spoc_acl->{LIST});
 
 	    # Assign new acl to interface.
 	    mypr "assign new acl:\n";
@@ -1333,14 +1328,7 @@ sub crypto_processing {
 
                         # begin transfer
                         mypr "create *new* acl $new_acl_name on device\n";
-
-                        # maybe there is an old acl with $aclname:
-                        # first remove old entries because acl should be empty 
-			# - otherwise new entries are only appended - bad
-                        $self->enter_conf_mode();
-                        $self->cmd("no ip access-list extended $new_acl_name");
-                        $self->leave_conf_mode();
-                        $self->append_acl_entries($new_acl_name,
+                        $self->define_acl($new_acl_name,
                             $spoc->{ACCESS_LIST}->{$spoc_acl_name}->{LIST});
 
                         #
