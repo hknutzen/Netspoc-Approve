@@ -589,6 +589,7 @@ sub write_mem {
 	if ($lines->[0] =~ /^Building configuration/) {
 	    if ($lines->[1] =~ /\[OK\]/) {
 		mypr "seems ok\n";
+		last;
 	    }
 	    else {
 		errpr "'write mem' failed. Config may be truncated!\n";
@@ -736,9 +737,17 @@ sub compare_ram_with_nvram {
     return 1;
 }
 
+# A "reload in xx" command prints messages
+# - "SHUTDOWN in 00:05:00" 5 minutes before the reload
+# - "SHUTDOWN in 00:01:00" 1 minutes before the reload
+# These messages would disturb the normal command output.
+# Therefore we only support "reload in x" with 2 <= x <= 5.
 sub schedule_reload {
     my ($self, $minutes) = @_;
     return if $self->{COMPARE};
+    2 <= $minutes && $minutes <= 5 or 
+	internal_err "schedule reload only supported for 2 .. 5 minutes";
+
     mypr "schedule reload in $minutes minutes\n";
     my $psave = $self->{ENAPROMPT};
     $self->{ENAPROMPT} = qr/\[yes\/no\]:\ |\[confirm\]/;
@@ -748,29 +757,52 @@ sub schedule_reload {
     if ($out =~ /save/i) {
 	$self->{ENAPROMPT} = qr/\[confirm\]/;
 
-        # Someone has fiddled with the router.
+        # Leave our changes unsaved, to be sure that a reload 
+	# gets a good configuration.
         $self->issue_cmd('n');
     }
-    $self->{ENAPROMPT} = $psave;
+
+    # Wait longer for the "ABORTED" message.
+    my $con = $self->{CONSOLE};
+    my $tt  = $con->{TIMEOUT};
+    $con->{TIMEOUT} = 2 * $tt;
+
+    # Wait for the
+    # ***
+    # *** --- SHUTDOWN in hh:mm:ss ---
+    # ***
+    $self->{ENAPROMPT} = qr/--- SHUTDOWN in \S+ ---/;
+
+    # Confirm the reload.
     $self->issue_cmd('');
+
+    $self->{ENAPROMPT} = $psave;
     $self->{RELOAD_SCHEDULED} = 1;
+
+    # We can't be sure, if a prompt is shown after the "SHUTDOWN" message.
+    $con->{TIMEOUT} = 1;
+    $con->con_wait($psave);
+    $con->{TIMEOUT} = $tt;
+    
+    # synchronize expect buffers with empty command.
+    $self->shcmd('sh reload');
+
     mypr "reload scheduled\n";
 }
 
 sub cancel_reload {
     my ($self) = @_;
-    return if $self->{COMPARE};
     if ($self->{RELOAD_SCHEDULED})
     {
         mypr "cancel reload ";
 
-        # workaround: wait longer
+        # Wait longer for the "ABORTED" message.
         my $con = $self->{CONSOLE};
         my $tt  = $con->{TIMEOUT};
         $con->{TIMEOUT} = 2 * $tt;
-        mypr "(timeout temporary set from $tt sec to $con->{TIMEOUT} sec)\n";
+        mypr "(timeout temporarily set from $tt sec to $con->{TIMEOUT} sec)\n";
 
-        # wait for the
+        # Wait for the
         # ***
         # *** --- SHUTDOWN ABORTED ---
         # ***
@@ -923,7 +955,7 @@ sub equalize_acl {
     $self->cmd("ip access-list resequence $acl_name 10000 10000");
     $self->cmd('end');
 
-    $self->schedule_reload(10);
+    $self->schedule_reload(5);
     $self->cmd('configure terminal');
     $self->cmd("ip access-list extended $acl_name");
 
@@ -1302,9 +1334,7 @@ sub crypto_processing {
                         }
                         my $new_acl_name = "$spoc_acl_name-DRC-$aclindex";
 
-                        # *** SCHEDULE RELOAD ***
-                        # TODO: check if 10 minutes are OK
-                        $self->schedule_reload(10);
+                        $self->schedule_reload(5);
 
                         # begin transfer
                         mypr "create *new* acl $new_acl_name on device\n";
@@ -1339,7 +1369,7 @@ sub crypto_processing {
             }
         }
 
-        # Remove surplus ACLs if still present
+        # Remove surplus ACLs if still present.
         unless ($self->{COMPARE}) {
             mypr " --- begin remove surplus acls ---\n";
 
@@ -1362,7 +1392,6 @@ sub crypto_processing {
         # In ezvpn mode we grant that the tunnel is terminated at some
         # virtual interface. This interface holds an ACL.
         # The ACL is checked by standard ACL code
-        ##################################################
         mypr " --- begin compare crypto ezvpn ---\n";
         if (exists $conf->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}) {
             if (
