@@ -766,10 +766,16 @@ sub cancel_reload {
 
     mypr "reload cancel\n";
 
-    # Banner message is handled by method "cmd".
+    # Wait for the
+    # ***
+    # *** --- SHUTDOWN ABORTED ---
+    # ***
+    my $psave = $self->{ENAPROMPT};
+    $self->{ENAPROMPT} = qr/--- SHUTDOWN ABORTED ---/;
     my $cmd = 'reload cancel';
     $cmd = "do $cmd" if $self->check_conf_mode();
-    $self->cmd($cmd);
+    $self->shcmd($cmd);
+    $self->{ENAPROMPT} = $psave;
 
     # Some IOS devices give an additional prompt after  the "ABORTED" message
     # has been printed.
@@ -777,10 +783,12 @@ sub cancel_reload {
     my $con = $self->{CONSOLE};
     my $tt  = $con->{TIMEOUT};
     $con->{TIMEOUT} = 1;
-    $con->con_wait($self->{ENAPROMPT});
+    $con->con_wait($psave);
     $con->{TIMEOUT} = $tt;
-	
     $self->{RELOAD_SCHEDULED} = 0;
+
+    # synchronize expect buffers with empty command.
+    $self->shcmd('');
 }
 
 # If a reload is scheduled or aborted, a banner message will be inserted into 
@@ -793,8 +801,6 @@ sub cancel_reload {
 # Some time before the actual reload takes place:
 # - SHUTDOWN in 00:05:00
 # - SHUTDOWN in 00:01:00
-# After canceling a reload:
-# - SHUTDOWN ABORTED
 sub handle_reload_banner {
     my ($self, $output_ref) = @_;
 
@@ -809,9 +815,10 @@ sub handle_reload_banner {
 	//xmsg) 
     {
 	my $msg = $1;
+	mypr "Found banner: $msg\n";
     
 	# Renew running reload process.
-	if ($msg =~ /SHUTDOWN in 00:01:00/) {
+	if ($msg =~ /SHUTDOWN in 00:01:00/ && $self->{RELOAD_SCHEDULED}) {
 	    $self->schedule_reload(2);
 	}
     }
