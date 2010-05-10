@@ -1461,10 +1461,12 @@ sub shcmd {
 
 sub get_cmd_output {
     my ($self, $cmd) = @_;
-    my @lines = split(/\r?\n/, $self->shcmd($cmd));
+    my $out = $self->shcmd($cmd);
+    $self->handle_reload_banner(\$out) if $self->{RELOAD_SCHEDULED};
+    my @lines = split(/\r?\n/, $out);
     my $echo = shift(@lines);
     $echo eq $cmd or 
-	errpr "Got unexpected echo in response to '$cmd': '$echo'\n";
+	$self->abort_cmd("Got unexpected echo in response to '$cmd': '$echo'");
     return(\@lines);
 }
 
@@ -1478,25 +1480,38 @@ sub two_cmd {
     else {
 	my $con = $self->{CONSOLE};
 	$con->con_send_cmd("$cmd1\n$cmd2\n");
-	my $prompt = $self->{ENA_MODE} ? $self->{ENAPROMPT} : $self->{PROMPT};
+	my $prompt = $self->{ENAPROMPT};
 
 	# Read first prompt and check output of first command.
 	$con->con_wait( $prompt ) or $con->con_error();
-	my @lines1 = split(/\r?\n/, $con->{RESULT}->{BEFORE});
+	my $out = $con->{RESULT}->{BEFORE};
+	$self->handle_reload_banner(\$out) if $self->{RELOAD_SCHEDULED};
+	my @lines1 = split(/\r?\n/, $out);
 	my $echo = shift(@lines1);
 	$echo eq $cmd1 or 
-	    errpr "Got unexpected echo in response to '$cmd1': '$echo'\n";
+	    $self->abort_cmd("Got unexpected echo in response to" .
+			     " '$cmd1': '$echo'");
 
 	# Read second prompt and check output of second command.
 	$con->con_wait( $prompt ) or $con->con_error();
-	my @lines2 = split(/\r?\n/, $con->{RESULT}->{BEFORE});
+	$out = $con->{RESULT}->{BEFORE};
+	$self->handle_reload_banner(\$out) if $self->{RELOAD_SCHEDULED};
+	my @lines2 = split(/\r?\n/, $out);
 	$echo = shift(@lines2);
 	$echo eq $cmd2 or 
-	    errpr "Got unexpected echo in response to '$cmd2': '$echo'\n";
+	    $self->abort_cmd("Got unexpected echo in response to" .
+			     " '$cmd2': '$echo'");
 
 	$self->cmd_check_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
     }
 }
+
+sub abort_cmd {
+    my ($self, $msg) = @_;
+    $self->cancel_reload();
+    errpr "$msg\n";
+}
+
 # Return 0 if no answer.
 sub check_device {
     my ($self) = @_;
