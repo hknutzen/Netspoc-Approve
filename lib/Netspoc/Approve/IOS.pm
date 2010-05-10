@@ -780,14 +780,7 @@ sub cancel_reload {
     $con->con_wait($self->{ENAPROMPT});
     $con->{TIMEOUT} = $tt;
 	
-    # Check, if "reload cancel" succeeded.
-    my $out = $self->shcmd('sh reload');
-    unless ($out =~ /No reload is scheduled/) {
-	warnpr "could not cancel reload\n";
-    }
-    else {
-	$self->{RELOAD_SCHEDULED} = 0;
-    }
+    $self->{RELOAD_SCHEDULED} = 0;
 }
 
 # If a reload is scheduled or aborted, a banner message will be inserted into 
@@ -813,7 +806,7 @@ sub handle_reload_banner {
 	\x07 [*]{3}\r\n        # BELL + ***
 	[*]{3} ([^\r\n]+) \r\n # *** Message
 	[*]{3}\r\n             # ***
-	//xms) 
+	//xmsg) 
     {
 	my $msg = $1;
     
