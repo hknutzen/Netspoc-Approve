@@ -1459,14 +1459,22 @@ sub shcmd {
     return($result->{BEFORE});
 }
 
+sub cmd_check_echo {
+    my ($self, $cmd, $echo, $lines) = @_;
+    if ($echo ne $cmd) {
+	my $msg = "Got unexpected echo in response to '$cmd':\n'" .
+	    join("\n", $echo, @$lines) ."'";
+	$self->abort_cmd($msg);
+    }
+}
+
 sub get_cmd_output {
     my ($self, $cmd) = @_;
     my $out = $self->shcmd($cmd);
     $self->handle_reload_banner(\$out) if $self->{RELOAD_SCHEDULED};
     my @lines = split(/\r?\n/, $out);
     my $echo = shift(@lines);
-    $echo eq $cmd or 
-	$self->abort_cmd("Got unexpected echo in response to '$cmd': '$echo'");
+    $self->cmd_check_echo($cmd, $echo, \@lines);
     return(\@lines);
 }
 
@@ -1488,9 +1496,7 @@ sub two_cmd {
 	$self->handle_reload_banner(\$out) if $self->{RELOAD_SCHEDULED};
 	my @lines1 = split(/\r?\n/, $out);
 	my $echo = shift(@lines1);
-	$echo eq $cmd1 or 
-	    $self->abort_cmd("Got unexpected echo in response to" .
-			     " '$cmd1': '$echo'");
+	$self->cmd_check_echo($cmd1, $echo, \@lines1);
 
 	# Read second prompt and check output of second command.
 	$con->con_wait( $prompt ) or $con->con_error();
@@ -1498,9 +1504,7 @@ sub two_cmd {
 	$self->handle_reload_banner(\$out) if $self->{RELOAD_SCHEDULED};
 	my @lines2 = split(/\r?\n/, $out);
 	$echo = shift(@lines2);
-	$echo eq $cmd2 or 
-	    $self->abort_cmd("Got unexpected echo in response to" .
-			     " '$cmd2': '$echo'");
+	$self->cmd_check_echo($cmd2, $echo, \@lines2);
 
 	$self->cmd_check_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
     }
