@@ -41,13 +41,14 @@ sub analyze_conf_lines {
     my $config = [];
     my $counter = 0;
     my $in_banner = 0;
+    my $end_banner_regex;
     my $first_subcmd = 0;
 
     for my $line (@$lines) {
 	$counter++;	
 
 	if(my $cmd = $in_banner) {
-	    if($line =~ /^\^/) {
+	    if($line =~ $end_banner_regex) {
 		$in_banner = 0;
 	    }
 	    else {
@@ -142,7 +143,7 @@ sub analyze_conf_lines {
 		$new_cmd->{subcmd} = $config;
 		$first_subcmd = 1;
 	    }
-	    elsif ($cmd_info->{banner}) {
+	    elsif ($end_banner_regex = $cmd_info->{banner}) {
 		$new_cmd->{lines} = [];
 		$in_banner = $new_cmd;
 	    }
