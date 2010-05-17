@@ -207,6 +207,15 @@ sub get_parse_info {
 		   ],
     };
 
+    # We don't use the certificates, but lexical analyser needs to know
+    # that this is a multi line command.
+    $info->{'crypto ca certificate chain'} = {
+	named => 1,
+	subcmd => {
+	    'certificate' => { banner => qr/^  quit$/, parse => \&skip },
+	}
+    };
+
     return $info;
 }
 
