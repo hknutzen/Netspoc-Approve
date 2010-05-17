@@ -260,7 +260,7 @@ sub get_parse_info {
 
 	# We don't use the banner, but lexical analyser needs to know
 	# that this is a multi line command.
-	banner => { banner => 1, parse => \&skip },
+	banner => { banner => qr/^\^/, parse => \&skip },
     };
 
     # Copy 'permit' entry and substitute 'permit' by 'deny';
