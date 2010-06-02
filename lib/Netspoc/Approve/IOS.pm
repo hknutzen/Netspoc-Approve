@@ -258,9 +258,16 @@ sub get_parse_info {
 	    },
 	},
 
-	# We don't use the banner, but lexical analyser needs to know
-	# that this is a multi line command.
+	# We don't use these commands, but lexical analyser needs to know
+	# that these are multi line commands.
 	banner => { banner => qr/^\^/, parse => \&skip },
+
+	'crypto pki certificate chain' => {
+	    named => 1,
+	    subcmd => {
+		'certificate' => { banner => qr/^\s*quit$/, parse => \&skip },
+	    }
+	},
     };
 
     # Copy 'permit' entry and substitute 'permit' by 'deny';
