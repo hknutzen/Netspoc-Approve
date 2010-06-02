@@ -285,6 +285,17 @@ sub postprocess_config {
     my $ezvpn_client_found = 0;
     my %map_used;
     my %ezvpn_used;
+
+    # Set default value for subcommand 'hash' of 'crypto isakmp policy'
+    # because it isn't shown in some (all ?) IOS versions.
+    if ($p->{CRYPTO}->{ISAKMP} && 
+	(my $policies = $p->{CRYPTO}->{ISAKMP}->{POLICY})) 
+    {
+	for my $policy (values %$policies) {
+	    $policy->{HASH} ||= 'sha';
+	}
+    }
+
     for my $intf (values %{ $p->{IF} }) {
 
 	# Check for outgoing ACL.
