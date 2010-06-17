@@ -304,12 +304,6 @@ sub postprocess_config {
     }
 
     for my $intf (values %{ $p->{IF} }) {
-
-	# Check for outgoing ACL.
-        if (my $acl = $intf->{ACCESS_GROUP_OUT} and not $intf->{SHUTDOWN}) {
-            warnpr "interface $intf->{name}: outgoing acl $acl detected\n";
-        }
-
         if (my $imap = $intf->{CRYPTO_MAP}) {
             $crypto_map_found = 1;
             if (my $map = $p->{CRYPTO}->{MAP}->{$imap}) {
@@ -379,7 +373,7 @@ sub postprocess_config {
                     }
                 }
                 if (my $acl_name = $entry->{ACCESS_GROUP_OUT}) {
-                    warnpr "Crypto: outgoing filter-acl '$acl_name' found\n";
+                    warnpr "Crypto: Ignoring outgoing filter-acl '$acl_name'\n";
                 }
 		if (my $peers = $entry->{PEER}) {
 		    $entry->{PEER} = [ sort { $a <=> $b } @$peers ];
@@ -1024,30 +1018,51 @@ sub process_interface_acls( $$$ ){
 	my $name = $intf->{name};
         my $conf_intf = $conf->{IF}->{$name}
 	   or errpr "interface not found on device: $name\n";
-	my $confacl_name = $conf_intf->{ACCESS_GROUP_IN} || '';
-	my $spocacl_name = $intf->{ACCESS_GROUP_IN};
-	my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
-	my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
-	if($confacl_name and $conf_acl){
-	    $self->equalize_acl($conf_acl, $spoc_acl);
-	}
-	else {
-	    $self->{CHANGE}->{ACL} = 1;
-	    warnpr "no access-list configured at interface $name\n";
-	    my $aclname = "$spocacl_name-DRC";
+	for my $in_out (qw(IN OUT)) {
+	    my $direction = lc($in_out);
+	    my $confacl_name = $conf_intf->{"ACCESS_GROUP_$in_out"} || '';
+	    my $spocacl_name = $intf->{"ACCESS_GROUP_$in_out"} || '';
+	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
+	    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
 
-	    # begin transfer
-	    mypr "create *new* acl $aclname on device\n";
-	    $self->define_acl($aclname, $spoc_acl->{LIST});
+	    # Change ACL at device.
+	    if ($conf_acl and $spoc_acl){
+		$self->equalize_acl($conf_acl, $spoc_acl);
+	    }
 
-	    # Assign new acl to interface.
-	    mypr "assign new acl:\n";
-	    $self->schedule_reload(5);
-	    $self->enter_conf_mode();
-	    $self->cmd("interface $name");
-	    $self->cmd("ip access-group $aclname in");
-	    $self->leave_conf_mode();
-	    $self->cancel_reload();
+	    # Add ACL to device.
+	    elsif ($spoc_acl) {
+		$self->{CHANGE}->{ACL} = 1;
+		my $aclname = "$spocacl_name-DRC";
+
+		# begin transfer
+		mypr "creating ACL $aclname\n";
+		$self->define_acl($aclname, $spoc_acl->{LIST});
+
+		# Assign new acl to interface.
+		mypr "assigning new $direction ACL to interface $name\n";
+		$self->schedule_reload(5);
+		$self->enter_conf_mode();
+		$self->cmd("interface $name");
+		my $direction = lc($in_out);
+		$self->cmd("ip access-group $aclname $direction");
+		$self->leave_conf_mode();
+		$self->cancel_reload();
+	    }
+
+	    # Remove ACL from device.
+	    elsif ($conf_acl) {
+		$self->{CHANGE}->{ACL} = 1;
+		mypr "unassigning $direction ACL from interface $name\n";
+		$self->schedule_reload(5);
+		$self->enter_conf_mode();
+		$self->cmd("interface $name");
+		$self->cmd("no ip access-group $confacl_name $direction");
+		$self->cancel_reload();
+		mypr "removing ACL $confacl_name on device\n";
+		$self->cmd("no ip access-list extended $confacl_name");
+		$self->leave_conf_mode();
+	    }		
 	}
     }
 
