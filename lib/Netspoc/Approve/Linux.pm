@@ -23,7 +23,7 @@ use Netspoc::Approve::Parse_Cisco;
 my $config = {
     user => 'root',
     device_routing_file => '/etc/network/routing',
-    iptables_restore_cmd => '/usr/sbin/iptables-restore',
+    iptables_restore_cmd => '/sbin/iptables-restore',
     device_iptables_file => '/etc/network/packet-filter',
     tmp_file => '/tmp/netspoc',
     store_flash_cmd => '/usr/sbin/backup',
