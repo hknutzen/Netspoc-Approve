@@ -1077,19 +1077,9 @@ sub process_interface_acls( $$$ ){
 #
 ###############################
 
-#
-# possible names are (per name convention):
-#
-# <spoc-name>-DRC-0
-# <spoc-name>-DRC-1
-#
-# because the spoc-name may change unexpected drc.pl scans for "-DRC-x" to
-# identify spoc-related acls
-#
-
 sub crypto_struct_equal {
-    my ($self, $conf, $spoc, $context, $changes, $ident) = @_;
-    $ident = " $ident";
+    my ($self, $conf, $spoc, $changes, $indent) = @_;
+    $indent = " $indent";
 
     #print "-$conf--$spoc-\n";
     if (!ref $conf) {
@@ -1098,21 +1088,21 @@ sub crypto_struct_equal {
         }
         else {
             my $type = ref $spoc;
-            errpr "could not compare scalar $conf with type $type\n";
+            internal_err "Can't compare scalar $conf with type $type\n";
         }
-        mypr "${ident}diff $conf <=> $spoc\n";
+        mypr "${indent}diff $conf <=> $spoc\n";
         return 0;
     }
     elsif (ref $conf eq 'SCALAR') {
         if (ref $spoc eq 'SCALAR') {
-            $self->crypto_struct_equal($$conf, $$spoc, $context, $changes, $ident)
+            $self->crypto_struct_equal($$conf, $$spoc, $changes, $indent)
               and return 1;
         }
         else {
             my $type = ref $spoc;
-            errpr "could not compare scalar ref $conf with type $type\n";
+            internal_err "Can't compare scalar ref $conf with type $type\n";
         }
-        mypr "${ident}diff $conf <=> $spoc\n";
+        mypr "${indent}diff $conf <=> $spoc\n";
         return 0;
     }
     elsif (ref $conf eq 'ARRAY') {
@@ -1121,27 +1111,26 @@ sub crypto_struct_equal {
             # arrays are equal iff have same elements in same order
             if (@$conf == @$spoc) {
                 my $equal         = 1;
-                my $upper_context = $context;
                 for (my $i = 0 ; $i < scalar @$conf ; $i++) {
                     unless (
                         $self->crypto_struct_equal(
-                            $conf->[$i], $spoc->[$i], $context, $changes, $ident
+                            $conf->[$i], $spoc->[$i], $changes, $indent
                         )
                       )
                     {
-                        mypr "${ident}diff array element $i\n";
+                        mypr "${indent}diff array element $i\n";
                         $equal = 0;
                     }
                 }
                 return $equal;
             }
             else {
-                mypr "${ident}diff array lenght\n";
+                mypr "${indent}diff array lenght\n";
             }
         }
         else {
             my $type = ref $spoc;
-            errpr "could not compare array with type $type\n";
+            internal_err "Can't compare array with type $type\n";
         }
         return 0;
     }
@@ -1149,39 +1138,42 @@ sub crypto_struct_equal {
         if (ref $spoc eq 'HASH') {
             my $equal = 1;
             for my $key (keys %$conf) {
-                if ($key eq "ACCESS_GROUP_IN") {
+                if ($key =~ /^ACCESS_GROUP_(IN|OUT)$/) {
+		    my $sequ = $conf->{SEQU} or internal_err "Missing SEQU";
 		    my $conf_acl = $conf->{$key};
+		    my $spoc_acl = $spoc->{$key};
 
                     # special handling for this entry because it
                     # is subject of change by netspoc
-                    if (my $spoc_acl = $spoc->{$key}) {
-                        unless (
-				$self->acl_equal(
+                    if ($spoc_acl) {
+                        if (not $self->acl_equal(
 						 $conf->{FILTER_ACL}->{LIST},  
 						 $spoc->{FILTER_ACL}->{LIST},
 						 $conf_acl, $spoc_acl, $key
 						 )
-				)
+			    )
                         {
 
-                            # $context holds sequence number of map
-                            $changes->{$key}->{$context}->{CONF} = $conf_acl;
-                            $changes->{$key}->{$context}->{SPOC} = $spoc_acl;
+                            $changes->{$key}->{$sequ}->{CONF} = $conf_acl;
+                            $changes->{$key}->{$sequ}->{SPOC} = $spoc_acl;
 
-                            # differences in the contents of these ACLs handled elsewhere!
+                            # differences between ACLs handled elsewhere!
                             # $equal = 0;
                         }
                     }
                     else {
-                        warnpr "no crypto filter ACL found\n";
-                        $changes->{$key}->{$context}->{CONF} = $conf_acl;
-                        $changes->{$key}->{$context}->{SPOC} = '';
+                        $changes->{$key}->{$sequ}->{CONF} = $conf_acl;
                     }
                 }
+		elsif ($key =~ /^(?:name|orig|line|
+				  FILTER_ACL|MATCH_ACL|SEQU|TRANSFORM)$/x)
+		{
+		    # Do not check these artificial keys.
+		}
                 elsif (exists $spoc->{$key}) {
                     if ($key eq "MATCH_ADDRESS") {
 
-                        # Parser already checked that match address is present.
+                        # postprocess_config checked that match ACL is present.
                         unless (
 				$self->acl_equal(
 						 $conf->{MATCH_ACL}->{LIST},  
@@ -1194,34 +1186,41 @@ sub crypto_struct_equal {
                             $equal = 0;
                         }
                     }
-                    elsif ($key eq 'name' or $key eq 'orig' or $key eq 'line' or
-			   $key eq 'FILTER_ACL' or $key eq 'MATCH_ACL' or
-			   $key eq 'SEQU' or $key eq 'TRANSFORM')
-                    {
-
-                        # do not check this !
-                    }
                     else {
                         unless (
                             $self->crypto_struct_equal(
-                                $conf->{$key}, $spoc->{$key}, $context,
-                                $changes,     $ident
+                                $conf->{$key}, $spoc->{$key},
+                                $changes,     $indent
                             )
                           )
                         {
-                            mypr "${ident}diff hash element $key\n";
+                            mypr "${indent}diff hash element $key\n";
                             $equal = 0;
                         }
                     }
                 }
                 else {
-                    mypr "${ident}missing hash-key $key in device config\n";
+                    mypr "${indent}missing hash-key $key in device config\n";
                     $equal = 0;
                 }
             }
             for my $key (keys %$spoc) {
-                unless (exists $conf->{$key}) {
-                    mypr "${ident}missing hash-key $key in netspoc config\n";
+		if (exists $conf->{$key}) {
+
+		    # OK, has been compared above.
+		}
+                elsif ($key =~ /^ACCESS_GROUP_(IN|OUT)$/) {
+		    my $sequ = $conf->{SEQU} or internal_err "Missing SEQU";
+		    my $spoc_acl = $spoc->{$key};
+		    $changes->{$key}->{$sequ}->{SPOC} = $spoc_acl;
+		}
+		elsif ($key =~ /^(?:name|orig|line|
+				  FILTER_ACL|MATCH_ACL|SEQU|TRANSFORM)$/x)
+		{
+		    # Do not check these artificial keys.
+		}
+                else {
+                    mypr "${indent}missing hash-key $key in netspoc config\n";
                     $equal = 0;
                 }
             }
@@ -1229,12 +1228,12 @@ sub crypto_struct_equal {
         }
         else {
             my $type = ref $spoc;
-            errpr "could not compare hash with type $type\n";
+            internal_err "Can't compare hash with type $type\n";
         }
         return 0;
     }
     else {
-        errpr meself(0) . "unsupported type" . ref($conf) . "\n";
+        internal_err "unsupported type: " . ref($conf);
 
     }
     return 0;
@@ -1242,8 +1241,6 @@ sub crypto_struct_equal {
 
 sub crypto_processing {
     my ($self, $conf, $spoc) = @_;
-    my $context = {};
-    my $changes = {};
     mypr "====                         ====\n";
     mypr "==== begin crypto processing ====\n";
     mypr "====                         ====\n";
@@ -1259,17 +1256,18 @@ sub crypto_processing {
     $self->{CHANGE}->{CRYPTO} = 0;
     if (my $spoc_isakmp = $spoc->{CRYPTO}->{ISAKMP}) {
         mypr " --- begin compare crypto isakmp ---\n";
+	my $changes;
         if (my $conf_isakmp = $conf->{CRYPTO}->{ISAKMP}) {
             if (
                 $self->crypto_struct_equal(
-                    $conf_isakmp, $spoc_isakmp, $context, $changes, ''
+                    $conf_isakmp, $spoc_isakmp, $changes, ''
                 )
               )
             {
                 mypr "    no diffs found\n";
             }
             else {
-                errpr "severe diffs in crypto isakmp detected!\n";
+                errpr "severe diffs in crypto isakmp detected\n";
 		$self->{CHANGE}->{CRYPTO} = 1;
             }
         }
@@ -1277,17 +1275,17 @@ sub crypto_processing {
             errpr "missing isakmp config at device\n";
         }
         mypr " --- end compare crypto isakmp ---\n";
-        my %surplus_acls = ();
+    }
+    if ($spoc->{CRYPTO}->{MAP}) {
+        my %remove_acls;
 
         # Compare crypto config which is bound to interfaces.
         for my $intf (keys %{ $spoc->{IF} }) {
 
-            $context = {};
-            $changes = {};
+            my $changes = {};
             mypr " --- interface $intf ---\n";
             if ($spoc->{IF}->{$intf}->{CRYPTO_MAP}) {
                 mypr " crypto map in spocfile found\n";
-
             }
             else {
                 mypr " no crypto map in spocfile found\n";
@@ -1311,117 +1309,98 @@ sub crypto_processing {
             unless (
                 $self->crypto_struct_equal(
                     $conf->{CRYPTO}->{MAP}->{$conf_map_name},
-                    $spoc->{CRYPTO}->{MAP}->{$spoc_map_name},
-                    $context, $changes, ''
+                    $spoc->{CRYPTO}->{MAP}->{$spoc_map_name}, 
+		    $changes, ''
                 )
               )
             {
                 errpr
-                  "severe diffs in crypto map detected - leaving crypto untouched\n";
+                  "severe diffs in crypto map detected";
 		$self->{CHANGE}->{CRYPTO} = 1;
                 next;
             }
             mypr " --- end compare crypto maps---\n";
-            if (exists $changes->{ACCESS_GROUP_IN}) {
-                mypr " --- processing results ---\n";
-                $self->{CHANGE}->{CRYPTO} = 1;
-                for my $sequ (keys %{ $changes->{ACCESS_GROUP_IN} }) {
-                    mypr
-                      "Interface \'$intf\': Crypto map: \'$conf_map_name\' instance $sequ *** filter ACL changed ***\n";
-                    my $conf_acl_name =
-                      $changes->{ACCESS_GROUP_IN}->{$sequ}->{CONF};
-                    my $spoc_acl_name =
-                      $changes->{ACCESS_GROUP_IN}->{$sequ}->{SPOC};
-                    mypr
-                      " incoming device  ACL '$conf_acl_name' differs from\n";
-                    mypr " incoming netspoc ACL '$spoc_acl_name'\n";
-                    unless ($self->{COMPARE}) {
 
-                        # process crypto filter acls
-                        my $aclindex;
-                        if ($conf_acl_name =~ /\S+-DRC-([01])/) {
+	    # process crypto filter ACLs.
+	    for my $access_group (keys %$changes) {
+		$self->{CHANGE}->{CRYPTO} = 1;
+		my $inout = $access_group =~ /_IN$/ ? 'in' : 'out';
+		for my $sequ (keys %{ $changes->{$access_group} }) {
+		    mypr "Processing crypto filter changes at crypto map" .
+			" $conf_map_name $sequ\n";
+		    my $change = $changes->{$access_group}->{$sequ};
+		    my $conf_acl = $change->{CONF};
+		    my $spoc_acl = $change->{SPOC};
+		    my $aclindex;
+		    if ($conf_acl) {
+			$remove_acls{$conf_acl} = 1;
+			
+			if ($conf_acl =~ /-DRC-([01])$/) {
 
-                            # active acls matches name convention
-                            $aclindex = (not $1) * 1;
-                        }
-                        else {
-                            if ($conf_acl_name) {
-                                warnpr
-                                  "unexpected filter-acl-name $conf_acl_name at $conf_map_name $sequ\n";
-                            }
-                            else {
-                                warnpr
-                                  "no filter-acl found at $conf_map_name $sequ\n";
-                            }
-                            $aclindex = 0;
-                        }
-                        my $new_acl_name = "$spoc_acl_name-DRC-$aclindex";
+			    # Active ACL matches name convention
+			    $aclindex = (not $1) + 0;
+			}
+		    }
+		    if ($spoc_acl) {
+			$aclindex ||= 0;
+			my $new_acl = "$spoc_acl-DRC-$aclindex";
 
-                        $self->schedule_reload(5);
+			$self->schedule_reload(5);
 
-                        # begin transfer
-                        mypr "create *new* acl $new_acl_name on device\n";
-                        $self->define_acl($new_acl_name,
-                            $spoc->{ACCESS_LIST}->{$spoc_acl_name}->{LIST});
+			# begin transfer
+			mypr "Creating new ACL\n";
+			$self->define_acl($new_acl,
+					  $spoc->{ACCESS_LIST}
+					  ->{$spoc_acl}->{LIST});
 
-                        #
-                        # assign new acl to interfaces
-                        #
-                        mypr "assign new acl:\n";
-                        $self->enter_conf_mode();
-                        mypr " crypto map $conf_map_name $sequ\n";
-                        $self->cmd("crypto map $conf_map_name $sequ");
-                        mypr " set ip access-group $new_acl_name in\n";
-                        $self->cmd("set ip access-group $new_acl_name in");
-                        $self->leave_conf_mode();
-                        $self->cancel_reload();
-                        mypr "---\n";
-
-                        # New acl established - old one should be removed:
-                        $surplus_acls{$conf_acl_name} = 1;
-                    }
-                }
-                mypr " --- done processing results ---\n";
-            }
+			# assign new acl to interfaces
+			mypr "Assigning new acl\n";
+			$self->enter_conf_mode();
+			$self->cmd("crypto map $conf_map_name $sequ");
+			$self->cmd("set ip access-group $new_acl $inout");
+			$self->leave_conf_mode();
+			$self->cancel_reload();
+		    }
+		    else {
+			$self->cmd("no set ip access-group $conf_acl $inout");
+		    }
+		}
+	    }
         }
 
-        # Remove surplus ACLs if still present.
-        unless ($self->{COMPARE}) {
-            mypr " --- begin remove surplus acls ---\n";
-
-            $self->schedule_reload(3);
-            for my $name (keys %surplus_acls) {
-                $self->enter_conf_mode();
-                if ($name and exists $conf->{ACCESS_LIST}->{$name}) {
-		    my $cmd =  "no ip access-list extended $name";
-		    mypr "$cmd\n";
-                    $self->cmd($cmd);
-                }
-                $self->leave_conf_mode();
-            }
-            $self->cancel_reload();
-            mypr " --- done remove surplus acls ---\n";
-        }
+	if (keys %remove_acls) {
+	    mypr "Removing old ACLs\n";
+	
+	    $self->schedule_reload(3);
+	    $self->enter_conf_mode();
+	    for my $name (keys %remove_acls) {
+		$self->cmd("no ip access-list extended $name");
+	    }
+	    $self->leave_conf_mode();
+	    $self->cancel_reload();
+	}
     }
-    elsif (exists $spoc->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}) {
+
+    if (exists $spoc->{CRYPTO}->{IPSEC}) {
 
         # In ezvpn mode we grant that the tunnel is terminated at some
         # virtual interface. This interface holds an ACL.
         # The ACL is checked by standard ACL code
         mypr " --- begin compare crypto ezvpn ---\n";
-        if (exists $conf->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}) {
+        if (exists $conf->{CRYPTO}->{IPSEC}) {
+	    my $changes;
             if (
                 $self->crypto_struct_equal(
                     $conf->{CRYPTO}->{IPSEC},
                     $spoc->{CRYPTO}->{IPSEC},
-                    $context, $changes, ''
+                    $changes, ''
                 )
               )
             {
                 mypr "    no diffs found\n";
             }
             else {
-                errpr "severe diffs in crypto ipsec detected!\n";
+                errpr "severe diffs in crypto ipsec detected\n";
 		$self->{CHANGE}->{CRYPTO} = 1;
             }
         }
