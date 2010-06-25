@@ -35,18 +35,26 @@ END
     print(FILE $conf) or die "$!\n";
     close(FILE);
 
+    # redirect STDERR to STDOUT.
+    my $cmd = 
+	"perl -I lib bin/drc3.pl -F1 $conf_file -F2 $spoc_file $device_name" .
+	" 2>&1";
+	
     # Start file compare, get output.
-    open(APPROVE, '-|', 
-	 "perl -I lib bin/drc3.pl -F1 $conf_file -F2 $spoc_file $device_name") 
-	or die "Can't execute drc3.pl: $!\n";
+    open(APPROVE, '-|', $cmd) or die "Can't execute drc3.pl: $!\n";
     my @output = <APPROVE>;
     if (not close(APPROVE)) {
 	$! and  die "Syserr closing pipe from drc3.pl: $!\n";
-	$? == 0 || $? == 256 or die "Status from drc3.pl: $?\n";
+	my $exit_value = $? >> 8;
+
+	# 0: Success, 1: compare found diffs
+ 	$exit_value == 0 || $exit_value == 1 or 
+	    die "Status from drc3.pl: $exit_value\n";
     }
 
-    # Collect commands from output.
-    my @cmds = map { m/^> (.*)/ } @output;
+    # Collect commands and messages from output.
+    my @cmds = 
+	map { m/^> (.*)/ } grep { m/^> |^(?:ERROR|WARNING)\>\>\>/} @output;
     my %ignore = 
 	(
 	 'configure terminal' => 1,
