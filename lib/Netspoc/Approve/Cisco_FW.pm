@@ -23,6 +23,8 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
+# For debugging:
+#use Data::Dumper;
 
 # Global variables.
 
@@ -30,6 +32,10 @@ my %define_object = (
 		     TUNNEL_GROUP => {
 			 prefix  => 'tunnel-group',
 			 postfix => 'type remote-access',
+		     },
+		     TUNNEL_GROUP_IP_NAME => {
+			 prefix  => 'tunnel-group',
+			 postfix => 'type ipsec-l2l',
 		     },
 		     GROUP_POLICY => {
 			 prefix  => 'group-policy',
@@ -47,6 +53,10 @@ my %conf_mode_entry = (
 			   postfix => 'general-attributes',
 		       },
 		       TUNNEL_GROUP_IPSEC => {
+			   prefix  => 'tunnel-group',
+			   postfix => 'ipsec-attributes',
+		       },
+		       TUNNEL_GROUP_IPSEC_IP_NAME => {
 			   prefix  => 'tunnel-group',
 			   postfix => 'ipsec-attributes',
 		       },
@@ -834,7 +844,8 @@ sub generate_names_for_transfer {
 	next if $structure->{$parse_name}->{anchor};
 	my $hash = $spoc->{$parse_name};
 	for my $name ( keys %$hash ) {
-	    next if ($parse_name eq 'TUNNEL_GROUP' && $name eq 'DefaultL2LGroup');
+	    next if ($parse_name eq 'TUNNEL_GROUP'
+		     && $name eq 'DefaultL2LGroup');
 	    $hash->{$name}->{new_name} =
 		$generate_names_for_transfer->( $name, $conf->{$parse_name} );
 	}
@@ -1125,7 +1136,8 @@ sub equalize_acl {
 }
 
 sub make_equal {
-    my ( $self, $conf, $spoc, $parse_name, $conf_name, $spoc_name, $structure ) = @_;
+    my ( $self, $conf, $spoc, $parse_name, $conf_name,
+	 $spoc_name, $structure ) = @_;
 
     return undef unless ( $spoc_name  ||  $conf_name );
 
@@ -1391,7 +1403,8 @@ sub traverse_netspoc_tree {
 
     # Transfer items ...
 
-    # Process object-groups separately, because they are not linked with access-lists.
+    # Process object-groups separately, because they are
+    # not linked with access-lists.
     for my $parse_name (qw(OBJECT_GROUP)) {
 	my $spoc_hash = $spoc->{$parse_name};
 	my $parse = $structure->{$parse_name};
@@ -1403,7 +1416,8 @@ sub traverse_netspoc_tree {
 		    #mypr "$spoc_name ALREADY TRANSFERED AS $transfered_as! \n";
 		}
 		else {
-		    $self->$method( $spoc, $structure, $parse_name, $spoc_name );
+		    $self->$method( $spoc, $structure,
+				    $parse_name, $spoc_name );
 		    $spoc_value->{transfered_as} = $spoc_value->{new_name};
 		}
 	    }
@@ -1430,11 +1444,11 @@ sub traverse_netspoc_tree {
     for my $key ( keys %$structure ) {
         my $value = $structure->{$key};
         next if not $value->{anchor};
-
         my $spoc_anchor = $spoc->{$key};
 
 	# Iterate over objects on device.
         for my $spoc_name ( keys %$spoc_anchor ) {
+	    my $spoc_value = object_for_name( $spoc, $key, $spoc_name );
 	    $self->change_modified_attributes( $spoc, $key,
 			   $spoc_name, $structure );
 	}
@@ -1460,8 +1474,9 @@ sub remove_unneeded_on_device {
     
     # Caution: the order is significant in this array!
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
-			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP 
-			  GROUP_POLICY ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
+			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
+			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
+			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
 			  );
 
     mypr "\n##### Remove unneeded objects from device ##### \n";
@@ -1499,10 +1514,12 @@ sub remove_spare_objects_on_device {
 
     # Don't add OBJECT_GROUP, because currently they are not 
     # marked as connected.
-    # Spare object groups will be removed later by remove_unneeded_on_device.
+    # Spare object groups will be removed later by
+    # remove_unneeded_on_device.
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
-			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP  
-			  GROUP_POLICY ACCESS_LIST IP_LOCAL_POOL
+			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
+			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
+			  ACCESS_LIST IP_LOCAL_POOL
 			  );
     
     mypr "\n##### Remove SPARE objects from device ##### \n";
@@ -1540,8 +1557,8 @@ sub mark_connected {
 		my $next_parse_name = $next_key->{parse_name};
 		if ( my $conf_next = $object->{$next_attr_name} ) {
 		    my $next_obj = $conf->{$next_parse_name}->{$conf_next} or
-			errpr "Can't find $next_parse_name $conf_next referenced" .
-			" by $object->{name}\n";
+			errpr "Can't find $next_parse_name $conf_next " .
+			"referenced by $object->{name}\n";
 		    $self->mark_connected( $conf, $next_parse_name,
 					   $next_obj, $structure );
 		}
@@ -1718,7 +1735,8 @@ sub transfer_crypto_map_seq {
     mypr "### transfer crypto map $name_seq to device\n";
     
     my @cmds;
-    push @cmds, add_attribute_cmds( $structure, $parse_name, $object, 'attributes' );
+    push @cmds, add_attribute_cmds( $structure, $parse_name,
+				    $object, 'attributes' );
     map { $self->cmd( $_ ) } @cmds;
 }
 
@@ -1826,16 +1844,20 @@ sub transfer_tunnel_group {
 
     my $tunnel_group = $spoc->{$parse_name}->{$tg_name} or
 	errpr "No $parse_name found for $tg_name!";
-    my $new_tg = $tunnel_group->{new_name};
+    my $tg_name_is_ip = is_ip( $tg_name );
+    my $new_tg = $tg_name_is_ip ?
+	$tg_name  :  $tunnel_group->{new_name};
     mypr "### transfer $parse_name $tg_name to device as $new_tg\n";
 
     my @cmds;
-    if (not $parse_name eq 'TUNNEL_GROUP_IPSEC') {
+    if ( $parse_name !~ /TUNNEL_GROUP_IPSEC/ ) {
 	push @cmds, define_item_cmd($parse_name, $new_tg);
     }
-    push @cmds, item_conf_mode_cmd( $parse_name, $new_tg );
-    push @cmds, add_attribute_cmds( $structure, $parse_name,
+    if ( $parse_name ne 'TUNNEL_GROUP_IP_NAME' ) {
+	push @cmds, item_conf_mode_cmd( $parse_name, $new_tg );
+	push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $tunnel_group, 'attributes' );
+    }
     map { $self->cmd( $_ ) } @cmds;
 }
 
