@@ -55,6 +55,19 @@ sub get_parse_info {
 
 
     # Handle tunnel-group.
+    # 
+    $info->{'tunnel-group'} = {
+	store => 'TUNNEL_GROUP_INTERNAL',
+	named => 1,
+	parse => [ 'seq',
+		   { parse => qr/type/ },
+		   { store => 'TYPE',
+		     parse => \&get_token
+		     },
+		   ],
+    };
+
+    # Handle tunnel-group general attributes.
     $info->{'tunnel-group +general-attributes'} = {
 	store => 'TUNNEL_GROUP',
 	named => 1,
@@ -240,11 +253,35 @@ sub postprocess_config {
     }
     delete $p->{HWIF};
 
-    # For tunnel-groups that only have ipsec-attributes, create
+    # For tunnel-groups with an IP as name create new
+    # TUNNEL_GROUP_IP_NAME-object.
+    for my $tg_intern ( values %{$p->{TUNNEL_GROUP_INTERNAL}} ) {
+	my $int_name = $tg_intern->{name};
+	if ( is_ip( $int_name ) ) {
+	    $p->{TUNNEL_GROUP_IP_NAME}->{$int_name} = {
+		name => $int_name,
+		orig => $tg_intern->{orig},
+		TYPE => $tg_intern->{TYPE},
+	    };
+	}
+    }
+
+    # For tunnel-groups that only have ipsec-attributes and do
+    # not have an IP-address as name, create
     # a tunnel-group with the same name.
+    # For those that DO have an IP-address as name, create a
+    # separate TUNNEL_GROUP_IPSEC_IP_NAME-object (that is an anchor)
+    # and delete the original TUNNEL_GROUP_IPSEC-object.
     my $tunnel_groups = $p->{TUNNEL_GROUP} ||= {};
     for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
-	$p->{TUNNEL_GROUP}->{$tg_ipsec_name} ||= { name => $tg_ipsec_name };
+	if ( is_ip( $tg_ipsec_name ) ) {
+	    $p->{TUNNEL_GROUP_IPSEC_IP_NAME}->{$tg_ipsec_name} = 
+		$p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
+	    delete $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
+	}
+	else {
+	    $p->{TUNNEL_GROUP}->{$tg_ipsec_name} ||= { name => $tg_ipsec_name };
+	}
     }
 
     # TUNNEL_GROUP_MAP
@@ -355,6 +392,7 @@ sub define_structure {
     my $self = shift;
 
     my $structure = {
+	%{$self->SUPER::define_structure()},
 	CERT_ANCHOR => {
 	    anchor => 1,
 	    next => [ { attr_name  => 'CA_CERT_MAP',
@@ -408,7 +446,23 @@ sub define_structure {
 	    remove   => 'remove_tunnel_group',
 	},
 	
+	TUNNEL_GROUP_IP_NAME => {
+	    anchor => 1,
+	    next => [],
+	    attributes => [ qw( ATTRIBUTES ) ],
+	    transfer => 'transfer_tunnel_group',
+	    remove   => 'remove_tunnel_group',
+	},
+	
 	TUNNEL_GROUP_IPSEC => {
+	    next => [],
+	    attributes => [ qw( ATTRIBUTES ) ],
+	    transfer => 'transfer_tunnel_group',
+	    remove   => 'remove_tunnel_group_ipsec',
+	},
+		
+	TUNNEL_GROUP_IPSEC_IP_NAME => {
+	    anchor => 1,
 	    next => [],
 	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer => 'transfer_tunnel_group',
@@ -445,10 +499,6 @@ sub define_structure {
 	    remove   => 'remove_ip_local_pool',
 	},
     };
-    my $super = $self->SUPER::define_structure();
-    for my $k (%$super) {
-	$structure->{$k} = $super->{$k};
-    }
 
     return $structure;
 }
