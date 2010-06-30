@@ -22,7 +22,7 @@ my($in, $device, $out);
 my $title;
 
 ############################################################
-$title = "Parse routing and ACL with object-groups";
+$title = "\nParse routing and ACL with object-groups";
 ############################################################
 $in = <<END;
 
@@ -305,4 +305,44 @@ tunnel-group VPN-tunnel ipsec-attributes
 trust-point ASDM_TrustPoint5
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
+
+
+############################################################
+$title = "Add tunnel-group with IP as name";
+############################################################
+
+$in = <<'END';
+tunnel-group 193.155.130.20 type ipsec-l2l
+tunnel-group 193.155.130.20 ipsec-attributes
+ pre-shared-key *
+ peer-id-validate nocheck
+END
+
+$out = <<'END';
+tunnel-group 193.155.130.20 type ipsec-l2l
+tunnel-group 193.155.130.20 ipsec-attributes
+peer-id-validate nocheck
+pre-shared-key *
+END
+is_deeply(approve('ASA', $empty_device, $in), $out, $title);
+
+############################################################
+$title = "Delete tunnel-group";
+############################################################
+$device  = $empty_device;
+$device .= <<'END';
+tunnel-group 193.155.130.20 type ipsec-l2l
+tunnel-group 193.155.130.20 ipsec-attributes
+ pre-shared-key *
+ peer-id-validate nocheck
+END
+
+$in = <<'END';
+END
+
+$out = <<'END';
+no tunnel-group 193.155.130.20
+END
+is_deeply(approve('ASA', $device, $in), $out, $title);
+
 
