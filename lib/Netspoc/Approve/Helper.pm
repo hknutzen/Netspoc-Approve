@@ -24,7 +24,7 @@ use File::Basename;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
-  warnpr check_warn meself internal_err quad2int int2quad writestatus
+  warnpr check_warn meself internal_err quad2int int2quad is_ip writestatus
   formatstatus getstatus getfullstatus updatestatus
   open_status 
   %ICMP_Trans %IP_Trans %PORT_Trans_TCP %PORT_Trans_UDP  
@@ -404,6 +404,11 @@ sub quad2int ($) {
 
 sub int2quad ($) {
     return join('.', unpack('C4', pack("N", $_[0])));
+}
+
+sub is_ip {
+    my ( $obj ) = @_;
+    return $obj =~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 }
 
 
