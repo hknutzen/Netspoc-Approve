@@ -876,7 +876,7 @@ sub equalize_attributes {
 		my %seen;
 		for my $cmd (keys %$spoc_attr) {
 		    my $new = $spoc_attr->{$cmd};
-		    if (my $conf_args = $conf_attr->{$cmd}) {
+		    if (defined (my $conf_args = $conf_attr->{$cmd})) {
 			$seen{$cmd} = 1;
 			if ($new ne $conf_args) {
 			    $modified = 1;
