@@ -17,12 +17,12 @@ END
 # Input from Netspoc.
 # Input from device.
 # Output from approve.
-my($in, $device, $out);
+my($in, $all_in, $device, $out);
 
 my $title;
 
 ############################################################
-$title = "\nParse routing and ACL with object-groups";
+$title = "Parse routing and ACL with object-groups";
 ############################################################
 $in = <<END;
 
@@ -57,6 +57,8 @@ access-group outside_in-DRC-0 in interface outside
 END
 is_deeply(approve('ASA', $empty_device, $in), $out, $title);
 
+$all_in .= $in;
+
 ############################################################
 $title = "Parse static, global, nat";
 ############################################################
@@ -72,6 +74,8 @@ global (outside) 1 10.48.56.5 netmask 255.255.255.255
 nat (inside) 1 10.48.48.0 255.255.248.0
 END
 is_deeply(approve('ASA', $empty_device, $in), $out, $title);
+
+$all_in .= $in;
 
 ############################################################
 $title = "Parse crypto map";
@@ -100,6 +104,8 @@ crypto map map-outside 10 set transform-set trans
 crypto map map-outside 10 match address crypto-acl-DRC-0
 END
 is_deeply(approve('ASA', $empty_device, $in), $out, $title);
+
+$all_in .= $in;
 
 ############################################################
 $title = "Parse username, group-policy";
@@ -145,6 +151,8 @@ split-tunnel-network-list value split-tunnel-DRC-0
 END
 is_deeply(approve('ASA', $empty_device, $in), $out, $title);
 
+$all_in .= $in;
+
 ############################################################
 $title = "Modify username attributes";
 ############################################################
@@ -175,6 +183,9 @@ no password-storage
 no vpn-simultaneous-logins
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
+
+# username already added before, so it is not necessary
+# to append input to $all_in.
 
 ############################################################
 $title = "Modify group-policy attributes";
@@ -217,6 +228,9 @@ no pfs
 no vpn-idle-timeout
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
+
+# group-policy already added before, so it is not necessary
+# to append input to $all_in.
 
 ############################################################
 $title = "Parse tunnel-group, group-policy, ca cert map, pool";
@@ -277,6 +291,7 @@ vpn-filter value vpn-filter-DRC-0
 END
 is_deeply(approve('ASA', $empty_device, $in), $out, $title);
 
+
 ############################################################
 $title = "Modify tunnel-group ipsec-attributes";
 ############################################################
@@ -306,9 +321,14 @@ trust-point ASDM_TrustPoint5
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
 
+$all_in .= <<'END';
+tunnel-group VPN-tunnel type remote-access
+END
+
+$all_in .= $in;
 
 ############################################################
-$title = "Add tunnel-group with IP as name";
+$title = "Add tunnel-group of type ipsec-l2l (with IP as name)";
 ############################################################
 
 $in = <<'END';
@@ -325,6 +345,8 @@ peer-id-validate nocheck
 pre-shared-key *
 END
 is_deeply(approve('ASA', $empty_device, $in), $out, $title);
+
+$all_in .= $in;
 
 ############################################################
 $title = "Delete tunnel-group";
@@ -344,5 +366,25 @@ $out = <<'END';
 no tunnel-group 193.155.130.20
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
+
+
+############################################################
+# This test should always be the last test. When new tests 
+# are added and new objects are involved in that test,
+# the (relevant part of the) test-input should be appended
+# to $all_in.
+############################################################
+$title = "Test empty output for identical input";
+############################################################
+
+$out = '';
+is_deeply(approve('ASA', $all_in, $all_in), $out, $title);
+
+
+
+
+
+
+
 
 
