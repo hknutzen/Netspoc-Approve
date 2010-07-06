@@ -648,7 +648,7 @@ sub prepare {
 
             # Only warn. Otherwise the generated configure message 
 	    # triggers IDS at night.
-            warnpr "Terminal width should be 511\n";
+            errpr "Terminal width should be 511\n";
         }
         else {
             $self->device_cmd('term width 511');
