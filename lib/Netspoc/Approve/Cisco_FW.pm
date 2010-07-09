@@ -884,6 +884,7 @@ sub equalize_attributes {
 			}
 		    }
 		    else {
+			$modified = 1;
 			$spoc_value->{change_attr}->{$attr}->{$cmd} = $new;
 		    }
 			
