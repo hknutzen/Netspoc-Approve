@@ -1316,11 +1316,6 @@ sub unify_anchors {
 		$self->make_equal( $conf, $spoc, $key,
 				   $spoc_key, $spoc_key,
 				   $structure );
-	    if ( not $spoc_key eq $new_spoc ) {
-		errpr "Anchors known so far are made equal by " .
-		    "changing their attributes, not by transfer. " .
-		    "(Anchor in spoc: $key:$spoc_key) \n";
-	    }
 	}
     }
 }
@@ -1476,7 +1471,8 @@ sub remove_unneeded_on_device {
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
 			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
-			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
+			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
+			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
 
     mypr "\n##### Remove unneeded objects from device ##### \n";
@@ -1520,6 +1516,7 @@ sub remove_spare_objects_on_device {
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
 			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL
+			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
     
     mypr "\n##### Remove SPARE objects from device ##### \n";
@@ -1922,6 +1919,16 @@ sub remove_ip_local_pool {
     $self->cmd( $cmd );
 }
 
+sub transfer_no_sysopt_connection_permit_vpn {
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    $self->cmd('no sysopt connection permit-vpn');
+}
+ 
+sub remove_no_sysopt_connection_permit_vpn {
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    $self->cmd('sysopt connection permit-vpn');
+}
+    
 sub transfer_object_group {
     my ( $self, $spoc, $structure, $parse_name, $object_group ) = @_;
 
