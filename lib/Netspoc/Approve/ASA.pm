@@ -53,6 +53,10 @@ sub get_parse_info {
 	default => 1,
     };
 
+    $info->{'no sysopt connection permit-vpn'} = {
+	store => ['NO_SYSOPT_CONNECTION_PERMIT_VPN', 'name', 'value'],
+	default => 1,
+    };
 
     # Handle tunnel-group.
     # 
@@ -497,6 +501,13 @@ sub define_structure {
 	    attributes => [ qw( RANGE_FROM RANGE_TO MASK ) ],
 	    transfer => 'transfer_ip_local_pool',
 	    remove   => 'remove_ip_local_pool',
+	},
+
+	NO_SYSOPT_CONNECTION_PERMIT_VPN => {
+	    anchor => 1,
+	    attributes => [ qw( value ) ],
+	    transfer => 'transfer_no_sysopt_connection_permit_vpn',
+	    remove => 'remove_no_sysopt_connection_permit_vpn',
 	},
     };
 
