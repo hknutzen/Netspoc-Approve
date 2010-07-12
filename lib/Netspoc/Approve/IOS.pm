@@ -829,6 +829,15 @@ sub handle_reload_banner {
 	my $msg = $1;
 	mypr "Found banner: $msg\n";
     
+	# Some IOS devices give an additional prompt after  
+	# the "SHUTDOWN" message has been printed.
+	# E.g. Cisco 3750 with 12.2(44)SE2
+	my $con = $self->{CONSOLE};
+	my $tt  = $con->{TIMEOUT};
+	$con->{TIMEOUT} = 1;
+	$con->con_wait($self->{ENAPROMPT});
+	$con->{TIMEOUT} = $tt;
+
 	# Renew running reload process.
 	if ($msg =~ /SHUTDOWN in 00:01:00/ && $self->{RELOAD_SCHEDULED}) {
 	    $self->schedule_reload(2);
