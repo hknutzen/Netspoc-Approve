@@ -879,6 +879,23 @@ sub acl_entry2key {
 }
 
 # Incrementally convert an ACL on device to the new ACL from netspoc.
+# Algorithm::Diff finds ACL lines which need to be added or to be deleted.
+# But an ACL line, which is already present on device can't be added again. 
+# Therefore we have add, delete and move operations.
+# We distinguish between move_up (from bottom to top) and
+# move_down (from top to bottom).
+#
+# The move operation is implemented specially:
+# The delete and add command are transferred together in one packet 
+# to prevent accidental lock out from device.
+#
+# ACL is changed on device in 2 passes:
+# 1. Add new ACL entries and move entries upwards, top entries first.
+#  a) add new entries which are not already present on device.
+#  b) move entries upwards
+# 2. Delete old ACL entries and move entries downward, bottom entries first.
+#  a) delete entry which isn't used any longer.
+#  b) move entry downwards
 sub equalize_acl {
     my($self, $conf_acl, $spoc_acl) = @_;
     my $conf_entries = $conf_acl->{LIST};
@@ -887,29 +904,24 @@ sub equalize_acl {
     my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
 				     { keyGen => \&acl_entry2key } );
 
-    # Check differences in detail.
-    # Change ACL on device in 2 passes:
-    # 1. Add new ACL entries
-    #    which are not already present on device.
-    #    Remember other entries which can't be added, 
-    #    because same entry has not been deleted yet.
-    # 2. Delete old ACL entries
-    #  a) If same entry will be added at other position
-    #     transfer delete and add command together in one packet to device,
-    #     to prevent accidental lock out from device.
-    #  b) Simply delete, if entry isn't used any longer.
-
     # Hash for finding duplicates when comparing old and new entries.
     my %dupl;
 
-    # Mapping from to be deleted conf entry to to be added spoc entry.
-    my %add_later;
+    # ACL lines which are moved upwards. 
+    # Mapping from spoc entry to conf entry.
+    my %move_up;
+
+    # ACL lines which are moved downwards. 
+    # Mapping from conf entry to spoc entry.
+    my %move_down;
+
+    # Entry needs not to be deleted because it was moved early.
+    my %moved;
 
     # Collect entries 
-    # - without duplicates, which can be added immediately,
-    # - to be deleted on device,
-    # - to be added, after lines have been deleted on device.
-    my (@add, @delete, @add_later);
+    # - do be added on device (includes move_up)
+    # - to be deleted on device (includes move_down).
+    my (@add, @delete);
 
     # Cisco lines of ACL entries.
     my %cisco_line;
@@ -939,10 +951,25 @@ sub equalize_acl {
 	    my $line = $cisco_line{$conf_entries->[$conf_next]} - 9999;
 	    for my $spoc_entry ($diff->Items(2)) {
 		$cisco_line{$spoc_entry} = $line++;
+
+		# Find lines already present on device
 		my $key = acl_entry2key($spoc_entry);
 		if (my $conf_entry = $dupl{$key}) {
-		    $add_later{$conf_entry} = $spoc_entry;
+
+		    # Move upwards.
+		    if ($cisco_line{$spoc_entry} < $cisco_line{$conf_entry}) {
+			$move_up{$spoc_entry} = $conf_entry;
+			$moved{$conf_entry} = 1;
+			push @add, $spoc_entry;
+		    }
+
+		    # Move downwards.
+		    else {
+			$move_down{$conf_entry} = $spoc_entry;
+		    }
 		}
+
+		# Add.
 		else {
 		    push @add, $spoc_entry;
 		}
@@ -964,7 +991,8 @@ sub equalize_acl {
 
     $self->{CHANGE}->{ACL} = 1;
 
-    # Add same line numbers as above to ACL entries on device.
+    # Change line numbers of ACL entries on device to the same values 
+    # as used above.
     # Do resequence before schedule reload, because it may abort
     # if this command isn't available on old IOS version.
     $self->enter_conf_mode();
@@ -973,23 +1001,33 @@ sub equalize_acl {
     $self->schedule_reload(5);
     $self->cmd("ip access-list extended $acl_name");
 
-    # 1. Add lines from netspoc which have no duplicates on device.
+    # 1. Add lines from netspoc and move lines upwards.
     for my $spoc_entry (@add) {
 	my $line = $cisco_line{$spoc_entry};
 	my $cmd  = "$line $spoc_entry->{orig}";
-	$self->cmd($cmd);
+	if (my $conf_entry = $move_up{$spoc_entry}) {
+	    my $line1 = $cisco_line{$conf_entry};
+	    my $cmd1  = "no $line1";
+	    $self->two_cmd($cmd1, $cmd);
+	}
+	else {
+	    $self->cmd($cmd);
+	}
     }
 
-    # 2. Delete lines on device and add same line again if needed.
-    for my $conf_entry (@delete) {
+    # 2. Delete lines on device and move lines downwards.
+    # Work from bottom to top. Otherwise 
+    # - we could lock out ourselves
+    # - permit too much traffic for a short time.
+    for my $conf_entry (reverse @delete) {
 	my $line = $cisco_line{$conf_entry};
 	my $cmd1 = "no $line";
-	if (my $spoc_entry = $add_later{$conf_entry}) {
+	if (my $spoc_entry = $move_down{$conf_entry}) {
 	    my $line2 = $cisco_line{$spoc_entry};
 	    my $cmd2  = "$line2 $spoc_entry->{orig}";
 	    $self->two_cmd($cmd1, $cmd2);
 	}
-	else {
+	elsif (not $moved{$conf_entry}) {
 	    $self->cmd($cmd1);
 	}
     }
