@@ -203,10 +203,92 @@ END
 $out = <<END;
 ip access-list resequence test 10000 10000
 ip access-list extended test
-40001 permit udp host 10.0.12.3 host 10.0.1.11 eq 80
-no 30000\\N 40002 permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
-no 50000
 no 60000\\N 1 permit icmp any host 10.0.1.11 3 3
+40001 permit udp host 10.0.12.3 host 10.0.1.11 eq 80
+no 50000
+no 30000\\N 40002 permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
+exit
+ip access-list resequence test 10 10
+END
+
+is_deeply(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Change ACL, prevent lockout";
+#
+# ACL lines must be deleted in reversed order,
+# otherwise Netspoc server would be locked out.
+############################################################
+$in = <<END;
+ip access-list extended test
+ permit tcp host 10.2.3.4 host 10.3.4.5
+! Network management to interface of device
+ permit ip 10.0.11.0 0.0.0.255 host 10.9.9.1
+ deny ip any any
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$device = <<END;
+ip access-list extended test
+! Netspoc server to interface of device
+ permit ip host 10.0.11.111 host 10.9.9.1
+ deny ip any host 10.9.9.1
+ permit tcp host 10.2.3.4 host 10.3.4.5
+ deny ip any any
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+ip access-list resequence test 10000 10000
+ip access-list extended test
+30001 permit ip 10.0.11.0 0.0.0.255 host 10.9.9.1
+no 20000
+no 10000
+exit
+ip access-list resequence test 10 10
+END
+
+is_deeply(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Change ACL, prevent ephemeral permit";
+#
+# Handle moves of ACL lines differently depending on the direction.
+# Upward moves are handled together with added lines.
+# Downward moves are handled together with deleted lines.
+############################################################
+$in = <<END;
+ip access-list extended test
+ deny ip host 10.1.2.3 host 10.1.1.1
+ permit udp host 10.2.3.4 host 10.3.4.5
+ permit ip any host 10.1.1.1
+ permit tcp host 10.2.3.4 host 10.3.4.5
+ permit ip any any
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$device = <<END;
+ip access-list extended test
+ permit udp host 10.2.3.4 host 10.3.4.5
+ permit tcp host 10.2.3.4 host 10.3.4.5
+ deny ip host 10.1.2.3 host 10.1.1.1
+ permit ip any any
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+ip access-list resequence test 10000 10000
+ip access-list extended test
+no 30000\\N 1 deny ip host 10.1.2.3 host 10.1.1.1
+10001 permit ip any host 10.1.1.1
 exit
 ip access-list resequence test 10 10
 END
