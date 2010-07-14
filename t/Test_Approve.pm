@@ -36,10 +36,14 @@ END
     print(FILE $conf) or die "$!\n";
     close(FILE);
 
-    # redirect STDERR to STDOUT.
     my $cmd = 
-	"perl -I lib bin/drc3.pl -F1 $conf_file -F2 $spoc_file $device_name" .
-	" 2>&1";
+	"perl -I lib bin/drc3.pl -F1 $conf_file -F2 $spoc_file $device_name"
+
+	# redirect STDERR to STDOUT.
+	# disabled, because we can't debug tests.
+	# and because we die on error anyway.
+#	. " 2>&1"
+	;
 	
     # Start file compare, get output.
     open(APPROVE, '-|', $cmd) or die "Can't execute drc3.pl: $!\n";
