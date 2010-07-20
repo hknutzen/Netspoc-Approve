@@ -727,9 +727,10 @@ sub merge_rawdata {
     $self->merge_acls($spoc_conf, $raw_conf);
 
     #static 
-    my @std_static = ();
     if ($raw_conf->{STATIC}) {
+	my @std_static = ();
 	my @remove = ();
+	$spoc_conf->{STATIC} ||= [];
 	for my $s (@{ $raw_conf->{STATIC} }) {
 	    my $covered = 0;
 	    for (my $i = 0 ; $i < scalar @{ $spoc_conf->{STATIC} } ; $i++) {
