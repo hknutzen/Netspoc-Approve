@@ -412,17 +412,25 @@ sub get_aaa_password {
 	    or die "No AAA credential found\n";
 	mypr "User $1 from aaa credentials extracted\n";
     }
-    else {
-	print STDOUT "Running in non privileged mode an no "
-	    . "password found in database.\n";
-	print STDOUT "Password for $user?";
-	system('stty', '-echo');
-	$pass = <STDIN>;
-	system('stty', 'echo');
-	print STDOUT "  ...thank you :)\n";
-	chomp $pass;
-    }
     return ($user, $pass);
+}
+
+sub get_user_password {
+    my ($self, $user) = @_;
+    my $pass;
+
+    # Write directly to tty, because STDOUT may be redirected.
+    open(TTY, ">:unix", "/dev/tty") or die "Can't open /dev/tty: $!\n";
+    print TTY "Running in non privileged mode and no "
+	. "password found in database.\n";
+    print TTY "Password for $user?";
+    system('stty', '-echo');
+    $pass = 'LySck6t$fv'; #<STDIN>;
+    system('stty', 'echo');
+    print TTY "  ...thank you :)\n";
+    close TTY;
+    chomp $pass;
+    return ($pass);
 }
 
 # Read type and IP addresses from header of spoc file.
@@ -436,8 +444,7 @@ sub get_spoc_data {
 	$codepath :
 	"$global_config->{NETSPOC}current/$global_config->{CODEPATH}$name";
 
-    # Empty string is used for lookup of fallback class.
-    my $type = '';
+    my $type;
     my @ip;
     open(FILE, $spocfile) or return $type;
     while (my $line = <FILE>) {
