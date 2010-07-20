@@ -388,6 +388,7 @@ sub login_enable {
                 $con->con_dump();
             }
             $con->{PROMPT}  = $self->{PROMPT};
+	    $pass ||= $self->get_user_password($user);
             $con->con_cmd("$pass\n") or $con->con_error();
             $con->con_dump();
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
@@ -404,6 +405,7 @@ sub login_enable {
               or $con->con_error();
             $con->con_dump();
             $con->{PROMPT}  = $self->{PROMPT};
+	    $pass ||= $self->get_user_password($user);
             $con->con_cmd("$pass\n") or $con->con_error();
             $con->con_dump();
         }
