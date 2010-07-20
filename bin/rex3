@@ -8,41 +8,79 @@
 
 use strict;
 use warnings;
+use Getopt::Long;
 use Netspoc::Approve::Device;
+use Netspoc::Approve::Linux;
 use Netspoc::Approve::Cisco;
+use Netspoc::Approve::IOS;
+use Netspoc::Approve::IOS_FW;
+use Netspoc::Approve::ASA;
+use Netspoc::Approve::PIX;
+use Netspoc::Approve::FWSM;
+use Netspoc::Approve::Helper;
 
 sub usage {
     die <<END;
-description: rex (Remote EXecute) executes one or more command(s) at
-             specified device and prints output to STDOUT
-usage:       rex '<command>[;<command>]...' <device|IP>
+usage: rex [OPTION] 'COMMAND[;COMMAND]...' DEVICE|IP
+Execute one or more commands on device and print output to STDOUT
+
+Options:
+ -L LOGDIR          path for saving session-logs
+ -t SECONDS         timeout for session
 END
 }
+
+my $global_config = Netspoc::Approve::Device->get_global_config();
+Getopt::Long::Configure("no_ignore_case");
+
+my %opts;
+
+&GetOptions(
+    \%opts,
+    'L=s',
+    't=i',
+);
 
 my $cmd = shift or usage;
 my $host = shift or usage;
 
-my $global_config = Netspoc::Approve::Device->get_global_config();
+my %type2class = (
+    Linux  => 'Netspoc::Approve::Linux',
+    IOS    => 'Netspoc::Approve::IOS',
+    IOS_FW => 'Netspoc::Approve::IOS_FW',
+    ASA    => 'Netspoc::Approve::ASA',
+    PIX    => 'Netspoc::Approve::PIX',
+    FWSM   => 'Netspoc::Approve::FWSM',
+);
 
-# Try  to get IP address from spoc file (ignore type).
+# Try to get type and IP address from spoc file (use only first IP address).
 # This may fail if there is no spoc file or if host is an IP address.
-my ($type, @ip) = 
+my ($type, $ip) = 
     Netspoc::Approve::Device->get_spoc_data($global_config, $host);
 
-# Get password and possibly IP address of host from device DB.
+# Try to get password and possibly IP address of host from device DB.
 my $device_info =
   Netspoc::Approve::Device->get_obj_info($host, 
 					 $global_config->{DEVICEDBPATH}, 
-					 $global_config)
-    or die "Can't get password from device DB\n";
+					 $global_config);
+
+$type ||= uc($device_info->{TYPE}) || 'IOS';
+$ip ||= $device_info->{IP} || $host;
+my $name = $device_info->{NAME} || $host;
+
+# Get class from type.
+my $class = $type2class{$type}
+or die "Can't find class for spoc type '$type'\n";
 
 # Take IP address from spoc file if available otherwise from device DB.
-my $job = Netspoc::Approve::Cisco->new(
-    NAME          => $device_info->{NAME},
-    IP            => shift(@ip) || $device_info->{IP},
-    PASS          => $device_info->{PASS},
-    LOCAL_USER    => $device_info->{LOCAL_USER},
-    GLOBAL_CONFIG => $global_config,
-);
+my $job = $class->new
+    (
+     NAME          => $name,
+     OPTS          => \%opts,
+     IP            => $ip,
+     PASS          => $device_info->{PASS},
+     LOCAL_USER    => $device_info->{LOCAL_USER},
+     GLOBAL_CONFIG => $global_config,
+     );
 
 $job->remote_execute($cmd);
