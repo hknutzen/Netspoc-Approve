@@ -95,7 +95,6 @@ usage: 'drc3 <option> -N <file> <device>'
 		      4 = silent
  -S                   update Status
  -t <seconds>         timeout for telnet
- -F                   Force transfer of ACLs 
  -P1 p<policy#>       Compare netspoc generated Configs p<policy#>
  -P2 p<policy#>
  -F1 <file1>	      Compare netspoc generated Configs given by absolute paths
@@ -132,7 +131,6 @@ my %opts;
     'C=i',
     'S',
     'G=s',
-    'F',
     'M=i',
     'v',
     'Z',    	# ignored
