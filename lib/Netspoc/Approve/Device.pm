@@ -425,7 +425,7 @@ sub get_user_password {
 	. "password found in database.\n";
     print TTY "Password for $user?";
     system('stty', '-echo');
-    $pass = 'LySck6t$fv'; #<STDIN>;
+    $pass = <STDIN>;
     system('stty', 'echo');
     print TTY "  ...thank you :)\n";
     close TTY;
