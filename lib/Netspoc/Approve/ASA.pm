@@ -98,6 +98,9 @@ sub get_parse_info {
 
 	    # '_any' is special word, which matches any token.
 	    # '_cmd' is replaced by current command name.
+
+	    # isakmp ikev1-user-authentication
+	    # isakmp keepalive
 	    'isakmp _any' => {
 		store => ['ATTRIBUTES', '_cmd'],
 		parse => \&get_to_eol,
