@@ -1863,7 +1863,7 @@ sub transfer_tunnel_group {
 sub remove_tunnel_group {
     my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
     mypr "### remove tunnel-group $tg_name from device \n";
-    $self->cmd("no tunnel-group $tg_name");
+    $self->cmd("clear configure tunnel-group $tg_name");
 }
 
 sub remove_tunnel_group_ipsec {
