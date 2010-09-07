@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'NAME'          => 'Netspoc::Approve',
-    'VERSION'       => '1.021',
+    'VERSION'       => '1.022',
     'EXE_FILES'	    => [ qw(bin/drc3.pl bin/rex3) ],
     'INSTALLSCRIPT' => '/usr/local/bin',
 );
