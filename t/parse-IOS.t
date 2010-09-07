@@ -6,14 +6,6 @@ use Test::More qw(no_plan);
 use lib 't';
 use Test_Approve;
 
-# Minimal configuration of device.
-my $empty_device = <<END;
-interface Ethernet0
- ip address 10.1.1.1 255.255.255.0
-interface Ethernet1
- ip address 10.2.2.2 255.255.255.128
-END
-
 # Input from Netspoc.
 # Input from device.
 # Output from approve.
