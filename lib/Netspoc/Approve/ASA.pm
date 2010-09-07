@@ -72,7 +72,7 @@ sub get_parse_info {
     };
 
     # Handle tunnel-group general attributes.
-    $info->{'tunnel-group +general-attributes'} = {
+    $info->{'tunnel-group _skip general-attributes'} = {
 	store => 'TUNNEL_GROUP',
 	named => 1,
 	subcmd => {
@@ -91,7 +91,7 @@ sub get_parse_info {
 
     };
 
-    $info->{'tunnel-group +ipsec-attributes'} = {
+    $info->{'tunnel-group _skip ipsec-attributes'} = {
 	store => 'TUNNEL_GROUP_IPSEC',
 	named => 1,
  	subcmd => {
@@ -156,12 +156,12 @@ sub get_parse_info {
     };
 
     # Handle username.
-    $info->{'username +nopassword'} = {
+    $info->{'username _skip nopassword'} = {
 	store   => 'USERNAME_NOPASSWORD',
 	named   => 1,
 	default => 1,
     };
-    $info->{'username +attributes'} = {
+    $info->{'username _skip attributes'} = {
 	store => 'USERNAME',
 	named => 1,
 	subcmd => {
@@ -184,12 +184,12 @@ sub get_parse_info {
     };
 
     # Handle group policies.
-    $info->{'group-policy +internal'} = {
+    $info->{'group-policy _skip internal'} = {
 	store   => 'GROUP_POLICY_INTERNAL',
 	named   => 1,
 	default => 1,
     };
-    $info->{'group-policy +attributes'} = {
+    $info->{'group-policy _skip attributes'} = {
 	store => 'GROUP_POLICY',
 	named => 1,
 	subcmd => {

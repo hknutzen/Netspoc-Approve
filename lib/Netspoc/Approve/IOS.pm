@@ -23,9 +23,10 @@ use Netspoc::Approve::Parse_Cisco;
 
 # Parse info.
 # Key is a single or multi word command.
-# If the last word of a multi word command has a leading '+' 
-# it is a suffix of the command line.
-# Value is a has with attributes:
+# Argument position may be skiped using word "_skip".
+# Any argument may be added to command using word "_any".
+#
+# Value is a hash with attributes:
 # - store: name of attribute where result is stored or
 #   array of names which are used to access sub-hash: {name1}->{name2}->..
 # - named: first argument is name which is used as key when storing result
@@ -63,16 +64,16 @@ sub get_parse_info {
 			['seq',
 			 { store => 'BASE', parse => \&check_ip, },
 			 { store => 'MASK', parse => \&check_ip, } ]] },
-	    'ip address +secondary' =>  { parse => \&skip },	# ignore
+	    'ip address _skip secondary' =>  { parse => \&skip }, # ignore
 	    'ip unnumbered' => {
 		store => ['ADDRESS', 'UNNUMBERED'], parse => \&get_token, },
 	    'shutdown' => { 
 		store => 'SHUTDOWN', default => 1, },
-	    'ip access-group +in' => {
+	    'ip access-group _skip in' => {
 		store => 'ACCESS_GROUP_IN', parse => \&get_token, },
-	    'ip access-group +out' => {
+	    'ip access-group _skip out' => {
 		store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
-	    'ip inspect +in' => { 
+	    'ip inspect _skip in' => { 
 		store => 'INSPECT', parse => \&get_token, },
 	    'crypto map' => {
 		store => 'CRYPTO_MAP', parse => \&get_token, },
@@ -240,9 +241,9 @@ sub get_parse_info {
 	    subcmd => {
 		'match address' => {
 		    store => 'MATCH_ADDRESS', parse => \&get_token, },
-		'set ip access-group +in' => {
+		'set ip access-group _skip in' => {
 		    store => 'ACCESS_GROUP_IN', parse => \&get_token, },
-		'set ip access-group +out' => {
+		'set ip access-group _skip out' => {
 		    store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
 		'set peer' => {
 		    multi => 1, store => 'PEER', parse => \&get_ip, },
