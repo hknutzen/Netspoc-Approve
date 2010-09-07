@@ -19,9 +19,10 @@ sub approve {
     my($type, $conf, $spoc) = @_;
 
     # Header for all Netspoc input
+    my $comment = $type eq 'Linux' ? '#' : '!';
     my $header = <<END;
-! [ BEGIN router:$device_name ]
-! [ Model = $type ]
+$comment [ BEGIN router:$device_name ]
+$comment [ Model = $type ]
 END
 
     $spoc = $header . $spoc;
