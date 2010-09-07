@@ -131,7 +131,7 @@ sub get_parse_info {
 #        ..]
 sub analyze_conf_lines {
     my ($self, $lines, $parse_info) = @_;
-    $self->add_prefix_suffix_info($parse_info);
+    $self->add_prefix_info($parse_info);
     my @stack;
     my $config = [];
     my $counter = 0;
@@ -157,7 +157,9 @@ sub analyze_conf_lines {
 	my $cmd = shift(@args);
 	if(my $prefix_info = $parse_info->{_prefix}) {
 	    my $prefix = $cmd;
-	    while($prefix_info = $prefix_info->{$prefix}) {
+	    while($prefix_info = $prefix_info->{$prefix} and 
+		  keys %$prefix_info)
+	    {
 		$prefix = shift(@args);
 		$cmd .= ' ' . $prefix;
 	    }
@@ -176,7 +178,8 @@ sub analyze_conf_lines {
 	}
 
 	# Store only known commands.
-	if($parse_info->{$cmd}) {
+	if(my $cmd_info = $parse_info->{$cmd}) {
+	    $new_cmd->{cmd_info} = $cmd_info;
 	    push(@$config, $new_cmd);
 	    if(my $subcmd = $parse_info->{$cmd}->{subcmd}) {
 		push @stack, [ $config, $parse_info ];
@@ -1037,19 +1040,6 @@ sub checkinterfaces {
 # NoOp.
 sub check_firewall {
     my($self) = @_;
-}
-
-sub cmd {
-    my ($self, $cmd) = @_;
-    if ( $self->{CMD2STDOUT} ) {
-	mypr "$cmd\n";
-    }
-    else {
-	my $lines = $self->get_cmd_output($cmd);
-
-	# Check for unexpected command output.
-	$self->cmd_check_error($cmd, $lines);
-    }
 }
 
 sub status_ok {
