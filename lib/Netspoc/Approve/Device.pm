@@ -563,35 +563,37 @@ sub prepare_devicemode {
 
 # A command line consists of two parts: command and argument.
 # A command is either a single word or a multi word command.
-# A multi word command is put together from some prefix words 
-# and optionally from a suffix word of the command line.
+# A multi word command is put together from some words at fixed positions 
+# of the word list.
+# Examples:
+# - ip access-group NAME in
+#   coded as "ip access-group _skip in", takes first two words and 4th word.
+# - tunnel-group NAME type TYPE
+#   coded as "tunnel-group _skip type"
+# - isakmp ikev1-user-authentication|keepalive
+#   coded as "isakmp _any", takes two words, but second is unspecified.
+#   such a wildcard command may be referenced by "_cmd".
 # This function identifies 
 # - all words, which are prefix of some command.
-# - if the prefix part of a command has a suffix.
 # Known commands are read from the hash keys of $parse_info.
-# The last word is a suffix if it is marked by a leading '+'.
-sub add_prefix_suffix_info {
+sub add_prefix_info {
     my ($self, $parse_info) = @_;
     my $result = {};
-
     for my $key (keys %$parse_info) {
 	my @split = split(' ', $key);
-	if($split[-1] =~ /^\+(.*)/) {
-	    my $suffix = $1;
-	    pop @split;
-	    $parse_info->{_suffix}->{join(' ', @split)}->{$suffix} = 1;
+	if (@split > 1) {
+	    my $hash = $result;
+	    while(@split) {
+		my $word = shift(@split);
+		$hash->{$word} ||= {};
+		$hash = $hash->{$word};
+	    }
 	}
-	my $hash = $result;
-	while(@split > 1) {
-	    my $word = shift(@split);
-	    $hash->{$word} ||= {};
-	    $hash = $hash->{$word};
-	}
-	if (@split && $split[0] eq '_any') {
-	    $hash->{_any} = 1;
+	elsif ($key eq '_any') {
+	    $result->{_any} = 1;
 	}
 	if(my $subcmd = $parse_info->{$key}->{subcmd}) {
-	    $self->add_prefix_suffix_info($subcmd);
+	    $self->add_prefix_info($subcmd);
 	}
     }
     $parse_info->{_prefix} = $result if keys %$result;
@@ -695,8 +697,7 @@ sub parse_config1 {
     my $result = {};
     for my $arg (@$config) {
 	my $cmd = get_token($arg);
-        my $cmd_info = $parse_info->{$cmd} || $parse_info->{_any} or 
-	    err_at_line($arg, "internal: parsed unexpected cmd: $cmd");
+        my $cmd_info = $arg->{cmd_info};
 	if(my $msg = $cmd_info->{error}) {
 	    err_at_line($arg, $msg);
 	}
