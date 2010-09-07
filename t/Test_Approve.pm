@@ -74,14 +74,8 @@ END
 # Check whether output is as expected with given input
 # AND whether output is empty for identical input.
 sub check_parse_and_unchanged {
-    my ( $type, $in, $out, $title ) = @_;
-    my $minimal_device = <<'END';
-interface Ethernet0/0
- nameif inside
-interface Ethernet0/1
- nameif outside
-END
-is_deeply( approve( $type, $minimal_device, $in ), $out, $title );
+    my ( $type, $minimal_device, $in, $out, $title ) = @_;
+    is_deeply( approve( $type, $minimal_device, $in ), $out, $title );
 
     $out = '';
     $title =~ /^Parse (.*)/ or
