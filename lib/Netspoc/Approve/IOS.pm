@@ -499,11 +499,10 @@ sub cmd_check_error($$) {
     }
     if ($error) {
 	errpr_info "$cmd\n";
-	my $last_line = pop @$lines;
 	for my $line (@$lines) {
 	    errpr_info "$line\n";
 	}
-	$self->abort_cmd("$last_line");
+	$self->abort_cmd("Unexpected output for '$cmd'");
     }
 }
 
@@ -774,10 +773,19 @@ sub schedule_reload {
 }
 
 sub cancel_reload {
-    my ($self) = @_;
+    my ($self, $force) = @_;
     return if not $self->{RELOAD_SCHEDULED};
 
-    mypr "reload cancel\n";
+    # If $force is set, don't trust result of $self->check_conf_mode(),
+    # but use command 'end' to reliably go out of conf mode.
+    # Once there was an issue, where a reload banner garbled the output
+    # of "conf t" and this script didn't know any longer which mode was active.
+    if ($force) {
+	issue_cmd('end');	# Don't check command output.
+	$self->{CONF_MODE} = 0;
+    }
+
+    mypr "Try to cancel reload\n";
 
     # Wait for the
     # ***
@@ -819,9 +827,11 @@ sub handle_reload_banner {
 
     # Substitute banner with empty string.
     # Find message inside banner.
+    # We expect end of line as \r\n.
+    # But for IOS 12.2(18)SXF6 and 12.2(52)SE we saw: \r\n\n\r\n\r\n
     if ($$output_ref =~ 
 	s/ 
-	(?:\r\n){3}            # first 3 empty lines
+	(?:\r\n{1,2}){3}       # 3 empty lines
 	\x07 [*]{3}\r\n        # BELL + ***
 	[*]{3} ([^\r\n]+) \r\n # *** Message
 	[*]{3}\r\n             # ***
