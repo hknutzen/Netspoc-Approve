@@ -1519,7 +1519,7 @@ sub two_cmd {
 
 sub abort_cmd {
     my ($self, $msg) = @_;
-    $self->cancel_reload();
+    $self->cancel_reload('force');
     errpr "$msg\n";
 }
 
