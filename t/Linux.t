@@ -18,19 +18,19 @@ my $minimal_device = '';
 ############################################################
 $title = "Parse Routing";
 ############################################################
-$device = <<END;
+$in = <<END;
 ip route add 10.1.11.0/24 via 10.10.1.6
 ip route add 0.0.0.0/0 via 10.9.9.9
 END
 
-$out = '';
+$out = $in;
 
 check_parse_and_unchanged($type, $minimal_device, $in, $out, $title);
 
 ############################################################
 $title = "Parse ACL with chains";
 ############################################################
-$device = <<END;
+$in = <<END;
 #!/usr/sbin/iptables-restore <<EOF
 *filter
 :INPUT DROP
@@ -76,6 +76,8 @@ COMMIT
 EOF
 END
 
+# Currently we don't see any output in compare mode,
+# because iptables rules are always fully transferred, not incementally.
 $out = '';
 
 check_parse_and_unchanged($type, $minimal_device, $in, $out, $title);
