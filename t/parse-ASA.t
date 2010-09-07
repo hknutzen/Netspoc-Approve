@@ -58,7 +58,7 @@ END
 
 # Check whether output is as expected with given input
 # AND whether output is empty for identical input.
-check_parse_and_unchanged( $device_type, $in, $out, $title );
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 
 ############################################################
@@ -75,7 +75,7 @@ static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
 global (outside) 1 10.48.56.5 netmask 255.255.255.255
 nat (inside) 1 10.48.48.0 255.255.248.0
 END
-check_parse_and_unchanged( $device_type, $in, $out, $title );
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 
 ############################################################
@@ -104,7 +104,7 @@ crypto map map-outside 10 set security-association lifetime kilobytes 4608000
 crypto map map-outside 10 set transform-set trans
 crypto map map-outside 10 match address crypto-acl-DRC-0
 END
-check_parse_and_unchanged( $device_type, $in, $out, $title );
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 
 ############################################################
@@ -149,7 +149,7 @@ vpn-filter value vpn-filter-DRC-0
 group-policy VPN-group-DRC-0 attributes
 split-tunnel-network-list value split-tunnel-DRC-0
 END
-check_parse_and_unchanged( $device_type, $in, $out, $title );
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 
 ############################################################
@@ -169,7 +169,7 @@ tunnel-group 193.155.130.20 ipsec-attributes
 peer-id-validate nocheck
 pre-shared-key *
 END
-check_parse_and_unchanged( $device_type, $in, $out, $title );
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 
 ############################################################
