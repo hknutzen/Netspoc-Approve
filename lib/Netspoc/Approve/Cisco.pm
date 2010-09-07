@@ -35,7 +35,7 @@ use Netspoc::Approve::Parse_Cisco;
 #           
 sub analyze_conf_lines {
     my ($self, $lines, $parse_info) = @_;
-    $self->add_prefix_suffix_info($parse_info);
+    $self->add_prefix_info($parse_info);
     my @stack;
     my $level = 0;
     my $config = [];
@@ -105,27 +105,53 @@ sub analyze_conf_lines {
 	$first_subcmd = 0;
 	my @args;
 	(my $cmd, @args) = split(' ', $rest);
-	my $prefix_any;
+
+	# Strip words from @args which belong to current command.
+	# - add found words to $cmd 
+	# - same for $lookup, but 
+	#   - use wildcard pattern "_any" instead of matched word,
+	#   - use "_skip" for skipped word, but no trailing "_skip".
+	my $lookup = $cmd;
 	if(my $prefix_info = $parse_info->{_prefix}) {
-	    my $prefix = $cmd;
-	    while(($prefix_info = $prefix_info->{$prefix}) && @args) {
-		$prefix = shift(@args);
-		$prefix_any = $prefix_info->{_any} ? "$cmd _any" : undef;
-		$cmd .= ' ' . $prefix;
+	    if ($prefix_info = $prefix_info->{$cmd}) {
+		my $skip = 0;
+		my @a = @args;
+		my @c = ($cmd);
+		my @l = ($lookup);
+		my @skipped;
+		while(@a > $skip) {
+		    my $prefix = $a[$skip];
+		    my $next;
+		    if ($next = $prefix_info->{$prefix}) {
+			splice(@a, $skip, 1);
+			push @c, $prefix;
+			push @l, @skipped, $prefix;
+			@skipped = ();
+		    }
+		    elsif ($next = $prefix_info->{_any}) {
+			splice(@a, $skip, 1);
+			push @c, $prefix;
+			push @l, @skipped, '_any';
+			@skipped = ();
+		    }
+		    elsif ($next = $prefix_info->{_skip}) {
+			$skip++;
+			push @skipped, '_skip';
+		    }
+		    else {
+
+			# Take longest match, found so far.
+			last;
+		    }
+		    last if not keys %$next;
+		    $prefix_info = $next;
+		}
+		@args = @a;
+		$cmd = join(' ', @c);
+		$lookup = join(' ', @l);
 	    }
 	}
-	if ((my $suffix_hash = $parse_info->{_suffix}->{$cmd}) && @args) {
-	    my $last_arg = $args[-1];
-	    if($suffix_hash->{$last_arg}) {
-		pop(@args);
-		$cmd .= ' +' . $last_arg;
-		$prefix_any .= ' +' . $last_arg if $prefix_any;
-	    }
-	}
-	if (my $cmd_info = ($parse_info->{$cmd} || 
-			    $parse_info->{_any} || 
-			    $prefix_any && $parse_info->{$prefix_any}) )
-	{
+	if (my $cmd_info = ($parse_info->{$lookup} || $parse_info->{_any})) {
 
 	    # Remember current line number, set parse position.
 	    # Remember a version of the unparsed line without duplicate 
@@ -133,7 +159,9 @@ sub analyze_conf_lines {
 	    my $new_cmd = { line => $counter, 
 			    pos => 0, 
 			    orig => join(' ', $cmd, @args),
-			    args => [ $cmd, @args ], };
+			    args => [ $cmd, @args ], 
+			    cmd_info => $cmd_info,
+			};
 	    push(@$config, $new_cmd);
 	    if (my $subcmd = $cmd_info->{subcmd}) {
 		push @stack, [ $config, $parse_info, $level ];
