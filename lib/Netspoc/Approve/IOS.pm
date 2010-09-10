@@ -64,7 +64,8 @@ sub get_parse_info {
 			['seq',
 			 { store => 'BASE', parse => \&check_ip, },
 			 { store => 'MASK', parse => \&check_ip, } ]] },
-	    'ip address _skip secondary' =>  { parse => \&skip }, # ignore
+	    'ip address _skip _skip secondary' =>  { 
+		parse => \&skip }, # ignore
 	    'ip unnumbered' => {
 		store => ['ADDRESS', 'UNNUMBERED'], parse => \&get_token, },
 	    'shutdown' => { 
