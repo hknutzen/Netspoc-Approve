@@ -1478,10 +1478,13 @@ sub cmd_check_echo {
 sub get_cmd_output {
     my ($self, $cmd) = @_;
     my $out = $self->shcmd($cmd);
-    $self->handle_reload_banner(\$out) if $self->{RELOAD_SCHEDULED};
+    my $need_reload;
+    $self->{RELOAD_SCHEDULED} and 
+	$self->handle_reload_banner(\$out) and $need_reload = 1;
     my @lines = split(/\r?\n/, $out);
     my $echo = shift(@lines);
     $self->cmd_check_echo($cmd, $echo, \@lines);
+    $need_reload and $self->schedule_reload(2);
     return(\@lines);
 }
 
@@ -1496,11 +1499,13 @@ sub two_cmd {
 	my $con = $self->{CONSOLE};
 	$con->con_send_cmd("$cmd1\n$cmd2\n");
 	my $prompt = $self->{ENAPROMPT};
+	my $need_reload;
 
 	# Read first prompt and check output of first command.
 	$con->con_wait( $prompt ) or $con->con_error();
 	my $out = $con->{RESULT}->{BEFORE};
-	$self->handle_reload_banner(\$out) if $self->{RELOAD_SCHEDULED};
+	$self->{RELOAD_SCHEDULED} and
+	    $self->handle_reload_banner(\$out) and $need_reload = 1;
 	my @lines1 = split(/\r?\n/, $out);
 	my $echo = shift(@lines1);
 	$self->cmd_check_echo($cmd1, $echo, \@lines1);
@@ -1508,12 +1513,14 @@ sub two_cmd {
 	# Read second prompt and check output of second command.
 	$con->con_wait( $prompt ) or $con->con_error();
 	$out = $con->{RESULT}->{BEFORE};
-	$self->handle_reload_banner(\$out) if $self->{RELOAD_SCHEDULED};
+	$self->{RELOAD_SCHEDULED} and
+	    $self->handle_reload_banner(\$out) and $need_reload = 1;
 	my @lines2 = split(/\r?\n/, $out);
 	$echo = shift(@lines2);
 	$self->cmd_check_echo($cmd2, $echo, \@lines2);
 
 	$self->cmd_check_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
+	$need_reload and $self->schedule_reload(2);
     }
 }
 
