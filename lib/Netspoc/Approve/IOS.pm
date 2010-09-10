@@ -552,20 +552,28 @@ sub prepare {
       or die "could not identify Hardware Info $output\n";
     $self->{HARDWARE} = $1;
 
-    # max. term width is 511 for pix, 512 for ios
+    # Max. term width is 512 for ios
     $self->device_cmd('term width 512');
     unless ($self->{COMPARE}) {
         $self->enter_conf_mode();
+
+	# No longing to
+
+	# Don't slow down the system by looging to console.
         $self->cmd('no logging console');
-        mypr "console logging is now disabled!\n";
+        mypr "Disabled 'logging console'\n";
+
+	$self->cmd('line vty 0 15');
+	$self->cmd('logging synchronous level all');
+        mypr "Enabled 'logging synchronous'\n";
 
 	# Needed for default route to work as expected.
         $self->cmd('ip subnet-zero');
-        mypr "ip subnet-zero is now enabled!\n";
+        mypr "Enabled 'ip subnet-zero'\n";
 
 	# Needed for default route to work as expected.
         $self->cmd('ip classless');
-        mypr "ip classless is now enabled!\n";
+        mypr "Enabled 'ip classless'\n";
         $self->leave_conf_mode();
 
     }
@@ -781,7 +789,7 @@ sub cancel_reload {
     # Once there was an issue, where a reload banner garbled the output
     # of "conf t" and this script didn't know any longer which mode was active.
     if ($force) {
-	issue_cmd('end');	# Don't check command output.
+	$self->issue_cmd('end');	# Don't check command output.
 	$self->{CONF_MODE} = 0;
     }
 
@@ -813,7 +821,7 @@ sub cancel_reload {
 }
 
 # If a reload is scheduled or aborted, a banner message will be inserted into 
-# the command output:
+# the expected command output:
 # <three empty lines>
 # ***
 # *** --- <message> ---
@@ -825,34 +833,37 @@ sub cancel_reload {
 sub handle_reload_banner {
     my ($self, $output_ref) = @_;
 
+    
     # Substitute banner with empty string.
     # Find message inside banner.
     # We expect end of line as \r\n.
     # But for IOS 12.2(18)SXF6 and 12.2(52)SE we saw: \r\n\n\r\n\r\n
     if ($$output_ref =~ 
-	s/ 
-	(?:\r\n{1,2}){3}       # 3 empty lines
-	\x07 [*]{3}\r\n        # BELL + ***
-	[*]{3} ([^\r\n]+) \r\n # *** Message
-	[*]{3}\r\n             # ***
-	//xmsg) 
+	s/
+	^ (.*?)		       # Prefix from original command
+  	(?:\r\n{1,2}){3}       # 3 empty lines
+  	\x07 [*]{3}\r\n        # BELL + ***
+  	[*]{3} ([^\r\n]+) \r\n # *** Message
+  	[*]{3}\r\n             # ***
+	(.*) $                 # Postfix from original command
+ 	/$1$3/xmsg)
     {
-	my $msg = $1;
+	my $prefix = $1;
+	my $msg = $2;
+	my $postfix = $3;
 	mypr "Found banner: $msg\n";
     
-	# Some IOS devices give an additional prompt after  
-	# the "SHUTDOWN" message has been printed.
-	# E.g. Cisco 3750 with 12.2(44)SE2
-	my $con = $self->{CONSOLE};
-	my $tt  = $con->{TIMEOUT};
-	$con->{TIMEOUT} = 1;
-	$con->con_wait($self->{ENAPROMPT});
-	$con->{TIMEOUT} = $tt;
-
-	# Renew running reload process.
-	if ($msg =~ /SHUTDOWN in 00:01:00/ && $self->{RELOAD_SCHEDULED}) {
-	    $self->schedule_reload(2);
+	# Because of 'logging synchronous' we are sure to get another prompt
+	# if the banner is the only output befor current prompt.
+	# Set $$output_ref to following output.
+	if(not $prefix and not $postfix) {
+	    my $con = $self->{CONSOLE};
+	    $con->con_wait($self->{ENAPROMPT});
+	    $$output_ref = $con->{RESULT}->{BEFORE};
 	}
+
+	# Check, if renew of running reload process is needed.
+	return ($msg =~ /SHUTDOWN in 00:01:00/ && $self->{RELOAD_SCHEDULED});
     }
 }
 
