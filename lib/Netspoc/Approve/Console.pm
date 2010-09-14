@@ -138,7 +138,6 @@ sub con_cmd {
 
 sub con_send_cmd {
     my ($CON, $cmd) = @_;
-    $CON->{RESULT}->{CMD} = $cmd;
     $CON->{EXPECT}->send( $cmd );
 }
 
