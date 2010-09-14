@@ -602,7 +602,7 @@ sub write_mem {
     while ($retries--) {
         my $lines = $self->get_cmd_output('write memory');
 	if ($lines->[0] =~ /^Building configuration/) {
-	    if ($lines->[1] =~ /\[OK\]/) {
+	    if ($lines->[-1] =~ /\[OK\]/) {
 		mypr "seems ok\n";
 		last;
 	    }
@@ -807,14 +807,9 @@ sub cancel_reload {
     $self->shcmd($cmd);
     $self->{ENAPROMPT} = $psave;
 
-    # Some IOS devices give an additional prompt after  the "ABORTED" message
-    # has been printed.
-    # E.g. Cisco 3750 with 12.2(44)SE2
+    # Because of 'logging synchronous' we are sure to get another prompt.
     my $con = $self->{CONSOLE};
-    my $tt  = $con->{TIMEOUT};
-    $con->{TIMEOUT} = 1;
-    $con->con_wait($psave);
-    $con->{TIMEOUT} = $tt;
+    $con->con_wait($self->{ENAPROMPT});
     $self->{RELOAD_SCHEDULED} = 0;
 
     # synchronize expect buffers with empty command.
@@ -840,31 +835,45 @@ sub handle_reload_banner {
     # We expect end of line as \r\n.
     # But for IOS 12.2(18)SXF6 and 12.2(52)SE we saw: \r\n\n\r\n\r\n
     if ($$output_ref =~ 
-	s/
+	m/
 	^ (.*?)		       # Prefix from original command
   	(?:\r\n{1,2}){3}       # 3 empty lines
   	\x07 [*]{3}\r\n        # BELL + ***
   	[*]{3} ([^\r\n]+) \r\n # *** Message
   	[*]{3}\r\n             # ***
 	(.*) $                 # Postfix from original command
- 	/$1$3/xmsg)
+ 	/xs)
     {
 	my $prefix = $1;
 	my $msg = $2;
 	my $postfix = $3;
 	mypr "Found banner: $msg\n";
+#	mypr "Prefix: $prefix\n";
+#	mypr "Postfix: $postfix\n";
     
+	# Ignore $postfix if it's only a newline added by 'logging synchronous'
+	if ($prefix =~ / \n $/msx and $postfix eq '\r\n') {
+	    $$output_ref = $prefix;
+	}
+
 	# Because of 'logging synchronous' we are sure to get another prompt
 	# if the banner is the only output befor current prompt.
-	# Set $$output_ref to following output.
-	if(not $prefix and not $postfix) {
+	# Read next prompt and set $$output_ref to next output.
+	elsif(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
+	    mypr "Expecting prompt after banner\n";
 	    my $con = $self->{CONSOLE};
 	    $con->con_wait($self->{ENAPROMPT});
+	    mypr "- found prompt\n";
 	    $$output_ref = $con->{RESULT}->{BEFORE};
 	}
 
+	# Remove banner from output.
+	else {
+	    $$output_ref = $prefix.$postfix;
+	}
+
 	# Check, if renew of running reload process is needed.
-	return ($msg =~ /SHUTDOWN in 00:01:00/ && $self->{RELOAD_SCHEDULED});
+	return ($msg =~ /SHUTDOWN in 00:01:00/);
     }
 }
 
