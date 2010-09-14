@@ -1291,15 +1291,14 @@ sub login_enable {
     $con->con_wait($prompt) or $con->con_error();
     if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 	$con->con_dump();
-	$con->{PROMPT}  = qr/$self->{PROMPT}|password:/i;
-	$con->con_cmd("yes\n") or $con->con_error();
-	$con->{PROMPT}  = $self->{PROMPT};
+	$con->con_issue_cmd("yes\n", qr/$self->{PROMPT}|password:/i) or 
+	    $con->con_error();
 	mypr "\n";
 	$con->con_dump();
     }
     if($con->{RESULT}->{MATCH} =~ qr/password:/i) {
 	my $pass = $self->get_password();
-	$con->con_cmd("$pass\n") or $con->con_error();
+	$con->con_issue_cmd("$pass\n", $self->{PROMPT} ) or $con->con_error();
 	$con->con_dump();
     }
     $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
