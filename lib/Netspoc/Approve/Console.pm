@@ -40,11 +40,11 @@ sub new_console ($$$$) {
         die "console \'$name\' already created\n";
     }
     $nob->{CONSOLE}->{$name}->{NAME} = $name;
-    my $CON = $nob->{CONSOLE}->{$name};
-    $CON->{NAME}   = $name;
-    $CON->{PARENT} = $nob->{CONSOLE};
+    my $con = $nob->{CONSOLE}->{$name};
+    $con->{NAME}   = $name;
+    $con->{PARENT} = $nob->{CONSOLE};
     my $console = Expect->new();
-    $CON->{EXPECT} = $console;
+    $con->{EXPECT} = $console;
 
     if ( $logfile ) {
         my $fh;
@@ -67,7 +67,7 @@ sub new_console ($$$$) {
         print $fh "********************************************************\n";
         print $fh "\n";
         $console->log_file( $logfile );
-        $CON->{LOG} = $fh;
+        $con->{LOG} = $fh;
     }
     $console->debug( 0 );
     $console->exp_internal( 0 );
@@ -75,14 +75,14 @@ sub new_console ($$$$) {
     #$Expect::Debug = 1;
     $console->raw_pty( 1 );
     $console->log_stdout( 0 );
-    bless( $CON, $class );
-    return $CON;
+    bless( $con, $class );
+    return $con;
 }
 
 sub shutdown_console ($$) {
-    my ($CON, $shutdown_message) = @_;
-    if ( exists $CON->{LOG} ) {
-        my $fh = $CON->{LOG};
+    my ($con, $shutdown_message) = @_;
+    if ( exists $con->{LOG} ) {
+        my $fh = $con->{LOG};
         print $fh "\n";
         print $fh "********************************************************\n";
         print $fh "  $shutdown_message\n";
@@ -92,8 +92,8 @@ sub shutdown_console ($$) {
 
     # do the right thing... (maybe we have to close something else...)
     #print $ssh->fileno()."\n";
-    $CON->{EXPECT}->soft_close();    # or die $ssh->error();
-    delete $CON->{PARENT}->{ $CON->{NAME} };
+    $con->{EXPECT}->soft_close();    # or die $ssh->error();
+    delete $con->{PARENT}->{ $con->{NAME} };
 }
 
 #    If called in an array context expect() will return
@@ -111,38 +111,61 @@ sub shutdown_console ($$) {
 #    handle.
 
 sub con_wait {
-    my ($CON, $prompt) = @_;
-    my $timeout = $CON->{TIMEOUT};
-    delete $CON->{RESULT};
-    my @result = $CON->{EXPECT}->expect( $timeout, '-re', $prompt );
+    my ($con, $prompt) = @_;
+    my $timeout = $con->{TIMEOUT};
+    my $exp = $con->{EXPECT};
+    my @result = $exp->expect( $timeout, '-re', $prompt );
 
-    $CON->{RESULT}->{ERROR}   = $result[1];
-    $CON->{RESULT}->{MPPOS}   = $result[0];
-    $CON->{RESULT}->{MATCH}   = $result[2];
-    $CON->{RESULT}->{BEFORE}  = $result[3];
-    $CON->{RESULT}->{AFTER}   = $result[4];
-    return not defined $CON->{RESULT}->{ERROR};
+    $con->{RESULT} = (my $result = {});
+    $result->{ERROR}   = $result[1];
+    $result->{MPPOS}   = $result[0];
+    $result->{MATCH}   = $result[2];
+    $result->{BEFORE}  = $result[3];
+    $result->{AFTER}   = $result[4];
+    return not defined $con->{RESULT}->{ERROR};
 }
 
-sub con_issue_cmd {
-    my ($CON, $cmd, $prompt) = @_;
-    $CON->con_send_cmd($cmd);
-    return $CON->con_wait( $prompt );
-}
+# We might accidently have read multiple prompt strings.
+# This occurs, if relaod banner is sent or multiple commands are sent in 
+# one packet.
+# Check for this case and put extra data after first prompt back into
+# accumulator of expect.
+sub con_wait_prompt1 {
+    my ($con, $prompt) = @_;
 
-sub con_cmd {
-    my ($CON, $cmd) = @_;
-    my $prompt = $CON->{PROMPT};
-    return $CON->con_issue_cmd( $cmd, $prompt );
+    $con->con_wait($prompt) or return 0;
+
+    # Prompt was found.
+    # Check for multiple prompts, find first one.
+    my $result = $con->{RESULT};
+    my $exp = $con->{EXPECT};
+    if ($result->{BEFORE} =~ /^(.*?)($prompt)(.*)$/) {
+	mypr "Found prompt1\n";
+	mypr "Before: $1\n";
+	$result->{BEFORE} = $1;
+	my $accum = $3 . $result->{MATCH} . $exp->clear_accum();
+	$exp->set_accum($accum);
+	mypr "Accum: $accum\n";
+	$result->{MATCH} = $2;
+    }
+    return 1;	    
 }
 
 sub con_send_cmd {
-    my ($CON, $cmd) = @_;
-    $CON->{EXPECT}->send( $cmd );
+    my ($con, $cmd) = @_;
+    $con->{EXPECT}->send( $cmd );
+}
+
+sub con_issue_cmd {
+    my ($con, $cmd, $prompt, $check_prompt1) = @_;
+    $con->con_send_cmd($cmd);
+    return $check_prompt1 
+	? $con->con_wait_prompt1($prompt) 
+	: $con->con_wait( $prompt );
 }
 
 sub con_error {
-    my $CON  = shift;
+    my $con  = shift;
     my $subs = "";
     for ( my $i = 1 ; $i <= 3 ; $i++ ) {
         my ( $package, $file, $ln, $sub ) = caller $i;
@@ -150,17 +173,17 @@ sub con_error {
     }
     mypr "\n";
     errpr_info "$subs\n";
-    for my $key ( keys %{ $CON->{RESULT} } ) {
+    for my $key ( keys %{ $con->{RESULT} } ) {
         my $value =
-          defined $CON->{RESULT}->{$key} ? $CON->{RESULT}->{$key} : "";
+          defined $con->{RESULT}->{$key} ? $con->{RESULT}->{$key} : "";
         errpr_info "$key $value\n";
     }
     exit -1;
 }
 
 sub con_dump( $ ) {
-    my $CON = shift;
-    mypr "$CON->{RESULT}->{BEFORE}$CON->{RESULT}->{MATCH}";
+    my $con = shift;
+    mypr "$con->{RESULT}->{BEFORE}$con->{RESULT}->{MATCH}";
 }
 
 # Modules must return a true value.
