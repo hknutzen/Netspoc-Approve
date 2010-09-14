@@ -382,7 +382,7 @@ sub prepare {
     $self->checkidentity($name);
 
     # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/$prompt_prefix\S*#\s?$/;
+    $self->{ENAPROMPT} = qr/$prompt_prefix\S*#\s?/;
 }
 
 sub login_enable {
@@ -408,16 +408,15 @@ sub login_enable {
             $con->con_wait($prompt) or $con->con_error();
             if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
                 $con->con_dump();
-                $con->{PROMPT}  = qr/password:/i;
-                $con->con_cmd("yes\n") or $con->con_error();
+                $con->con_issue_cmd("yes\n",qr/password:/i) or 
+		    $con->con_error();
                 mypr "\n";
                 warnpr
                   "RSA key for $self->{IP} permanently added to the list of known hosts\n";
                 $con->con_dump();
             }
-            $con->{PROMPT}  = $self->{PROMPT};
 	    $pass ||= $self->get_user_password($user);
-            $con->con_cmd("$pass\n") or $con->con_error();
+            $con->con_issue_cmd("$pass\n", $self->{PROMPT}) or $con->con_error();
             $con->con_dump();
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
         }
@@ -432,9 +431,8 @@ sub login_enable {
             $con->con_issue_cmd("$user\n", "[Pp]assword:")
               or $con->con_error();
             $con->con_dump();
-            $con->{PROMPT}  = $self->{PROMPT};
 	    $pass ||= $self->get_user_password($user);
-            $con->con_cmd("$pass\n") or $con->con_error();
+            $con->con_issue_cmd("$pass\n", $self->{PROMPT}) or $con->con_error();
             $con->con_dump();
         }
     }
@@ -447,8 +445,7 @@ sub login_enable {
         $con->con_wait($prompt) or $con->con_error();
         $con->con_dump();
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-        $con->{PROMPT}           = $self->{PROMPT};
-        $con->con_cmd("$pass\n") or $con->con_error();
+        $con->con_issue_cmd("$pass\n", $self->{PROMPT}) or $con->con_error();
         $con->con_dump();
     }
     my $psave = $self->{PROMPT};
