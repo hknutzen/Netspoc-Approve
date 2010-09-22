@@ -301,8 +301,8 @@ sub build_db ($$) {
             if ($found) {
                 if ($found ne $LEG_ALIAS_DB{ $entry->{NAME} }) {
                     mypr "PASS_DBB: while enhancing %NAME_HASH: "
-                      . "name match \'$found->{SOURCE}->{LINE}\'\n";
-                    mypr "PASS_DBB:          alias match \' "
+                      . "name match \'$found->{SOURCE}->{LINE}\'\n"
+		      . "PASS_DBB:          alias match \' "
                       . "$LEG_ALIAS_DB{$entry->{NAME}}->{SOURCE}->{LINE}\'\n";
                 }
             }
@@ -328,9 +328,9 @@ sub build_db ($$) {
             if ($found) {
                 if ($found ne $LEG_IP_DB{ $entry->{IP} }) {
                     errpr "while enhancing %NAME_HASH: name/alias "
-                      . "match \'$found->{SOURCE}->{LINE}\'\n";
-                    errpr "                                    ip match "
-                      . "\'$LEG_IP_DB{$entry->{IP}}->{SOURCE}->{LINE}\'\n";
+                      . "match '$found->{SOURCE}->{LINE}'\n"
+		      . "                                    ip match "
+                      . "'$LEG_IP_DB{$entry->{IP}}->{SOURCE}->{LINE}'\n";
                 }
             }
             else {
