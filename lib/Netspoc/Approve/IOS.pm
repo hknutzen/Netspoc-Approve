@@ -18,6 +18,7 @@ sub version_drc2_ios() {
 use base "Netspoc::Approve::Cisco";
 use strict;
 use warnings;
+use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
