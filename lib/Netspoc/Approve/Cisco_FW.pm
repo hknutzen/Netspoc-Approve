@@ -141,7 +141,13 @@ sub get_parse_info {
 	'MASK' => 0
 	};
     { 
-	
+
+	# To enable the association of a name with an IP address.
+	# This interferes with parsing of ACL and object-groups.
+	names => {
+	    error => "'names' command must be disabled with 'no names'",
+	},
+
 #  global [(<ext_if_name>)] <nat_id>
 #         {<global_ip>[-<global_ip>] [netmask <global_mask>]} | interface
 #
