@@ -1020,7 +1020,7 @@ sub equalize_obj_group {
 	$spoc_group->{transfer} = 1;
 	$self->mark_as_changed('OBJECT_GROUP');
 	mypr " ACL changes because $spoc_group->{name} is transferred\n";
-	return  1;
+	return 1;
     }
 
     # Change group on device.
@@ -1035,113 +1035,77 @@ sub equalize_obj_group {
     $self->mark_as_changed('OBJECT_GROUP');
     return 0;
 }
-    
-# Build textual representation from ACL entry for use with Algorithm::Diff.
-# Ignore name of object-group. Object-groups are compared semantically later.
-sub acl_entry2key {
-    my ($e) = @_;
-    my @r;
-    push(@r, $e->{MODE});
-    for my $where (qw(SRC DST)) {
-	my $what = $e->{$where};
-	push(@r, $what->{OBJECT_GROUP} 
-	       ? 'object-group' 
-	       : "$what->{BASE}/$what->{MASK}");
-    }
-    push @r, $e->{TYPE};
-    if ($e->{TYPE} eq 'icmp') {
-        my $s = $e->{SPEC};
-	for my $where (qw(TYPE CODE)) {
-	    my $v = $s->{TYPE};
-	    push(@r, defined $v ? $v : '-');
-	}
-    }
-    elsif ($e->{TYPE} eq 'tcp' or $e->{TYPE} eq 'udp') {
-	for my $where (qw(SRC_PORT DST_PORT)) {
-	    my $port = $e->{$where};
-	    push(@r, "$port->{LOW}:$port->{HIGH}");
-	}
-	push(@r, 'established') if $e->{ESTA};
-    }
-    if($e->{LOG}) {
-	push(@r, 'log');
-	push(@r, $e->{LOG_MODE}) if $e->{LOG_MODE};
-	push(@r, $e->{LOG_LEVEL}) if $e->{LOG_LEVEL};
-	push(@r, "interval $e->{LOG_INTERVAL}") if $e->{LOG_INTERVAL};
-    }
-    return join(' ', @r);
-}
 
-sub equalize_acl {
-    my($self, $conf, $spoc, $conf_acl, $spoc_acl) = @_;
-    my $conf_entries = $conf_acl->{LIST};
-    my $spoc_entries = $spoc_acl->{LIST};
+sub equalize_obj_group_in_ace {
+    my($self, $conf, $spoc, $conf_entry, $spoc_entry) = @_;
     my $modified;
-    my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
-				     { keyGen => \&acl_entry2key } );
-    while($diff->Next()) {
-
-	# ACL lines are equal, but object-group may change.
-	if($diff->Same()) {
-	    my $conf_min = $diff->Min(1);
-	    my $count = $diff->Max(1) - $conf_min;
-	    my $spoc_min = $diff->Min(2);
-	    for my $i (0 .. $count) {
-		my $conf_entry = $conf_entries->[$conf_min+$i];
-		my $spoc_entry = $spoc_entries->[$spoc_min+$i];
-		for my $where (qw(SRC DST)) {
-		    if(my $conf_group_name = 
-		       $conf_entry->{$where}->{OBJECT_GROUP}) 
-		    {
-			my $spoc_group_name = 
-			    $spoc_entry->{$where}->{OBJECT_GROUP};
-			my $conf_group = 
-			    object_for_name( $conf, 'OBJECT_GROUP', 
-					     $conf_group_name );
-			my $spoc_group = 
-			    object_for_name( $spoc, 'OBJECT_GROUP', 
-							  $spoc_group_name );
-			if($self->equalize_obj_group($conf_group, $spoc_group))
-			{
-			    $modified = 1;
-			}
-			else {
-			    $self->mark_as_unchanged('OBJECT_GROUP');
-			}
-		    }
-		}
-	    }
-	}
-
-	# ACL lines differ.
-	else {
-	    $modified = 1;
-
-	    # Mark object-groups referenced by acl lines from spoc 
-	    # but not on device.
-	    for my $spoc_entry ($diff->Items(2)) {
-		for my $where (qw(SRC DST)) {
-		    if(my $spoc_group_name = $spoc_entry->{$where}->{OBJECT_GROUP}) {
-			my $spoc_group = object_for_name( $spoc, 'OBJECT_GROUP', 
-							  $spoc_group_name );
-			if(not $spoc_group->{name_on_dev}) {
-			    $spoc_group->{transfer} = 1;
-			    $self->mark_as_changed('OBJECT_GROUP');
-			}
-		    }
-		}
-	    }
-
-	    if(my $count = $diff->Items(1)) {
-		mypr " $count extra lines on device\n";
-	    }
-	    if(my $count = $diff->Items(2)) {
-		mypr " $count extra lines from Netspoc\n";
+    for my $where (qw(SRC DST)) {
+	if(my $conf_group_name = 
+	   $conf_entry->{$where}->{OBJECT_GROUP}) 
+	{
+	    my $spoc_group_name = 
+		$spoc_entry->{$where}->{OBJECT_GROUP};
+	    my $conf_group = 
+		object_for_name( $conf, 'OBJECT_GROUP', 
+				 $conf_group_name );
+	    my $spoc_group = 
+		object_for_name( $spoc, 'OBJECT_GROUP', 
+				 $spoc_group_name );
+	    if($self->equalize_obj_group($conf_group, $spoc_group))
+	    {
+		$modified = 1;
 	    }
 	}
     }
     $modified;
 }
+
+# Mark object-groups referenced by acl lines from spoc but not on device.
+sub mark_new_object_groups {
+    my ($self, $spoc, $spoc_entry) = @_;
+    for my $where (qw(SRC DST)) {
+	if(my $spoc_group_name = $spoc_entry->{$where}->{OBJECT_GROUP}) {
+	    my $spoc_group = object_for_name( $spoc, 'OBJECT_GROUP', 
+					      $spoc_group_name );
+	    if(not $spoc_group->{name_on_dev}) {
+		$spoc_group->{transfer} = 1;
+		$self->mark_as_changed('OBJECT_GROUP');
+	    }
+	}
+    }
+}
+
+# Renumber line numbers in mapping from acl entries to line numbers.
+sub change_acl_numbers {
+    my ($self, $hash, $start, $incr) = @_;
+    for my $line (values %$hash) {
+	if ($line >= $start) {
+	    $line += $incr;
+	}
+    }
+}
+
+sub add_numbered_acl {
+    my ($self, $line, $cmd) = @_;
+    $cmd =~ s/^(access-list\s+\S+)/$1 line $line/;
+    $cmd;
+}
+
+sub del_numbered_acl {
+    my ($self, $line, $cmd) = @_;
+    $cmd =~ s/^(access-list\s+\S+)/no $1 line $line/;
+    $cmd;
+}
+
+# ASA ACL lines start at 1, increment by 1.
+# When adding lines in front of some line n
+# start at n+0 and subsequent lines at n+0+0, n+0+0+0, ...
+sub ACL_line_discipline {
+    return (1, 1, 0, 0);	    
+}
+
+# No limit for ASA.
+sub check_max_acl_entries {}
 
 sub make_equal {
     my ( $self, $conf, $spoc, $parse_name, $conf_name,
@@ -1198,39 +1162,29 @@ sub make_equal {
 
     # Compare object on device with object from Netspoc.
     elsif ( $conf_value && $spoc_value ) {
-	# On both, compare attributes.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
 	    mypr "Comparing $conf_name $spoc_name\n";
-	    if ( $modified = $self->equalize_acl( $conf, $spoc, 
-						  $conf_value, $spoc_value, ) )
+	    if (my $cmds = $self->equalize_acl($conf, $spoc, 
+					       $conf_value, $spoc_value))
 	    {
-		$spoc_value->{transfer} = 1;
+		$modified = 1;
+		$spoc_value->{modify_cmds} = $cmds;
 	    }
 	    else {
-		$conf_value->{needed} = $spoc_value;
-		$spoc_value->{name_on_dev} = $conf_name;
+		$modified = 0;
 	    }
 	}
 	else {
 	    # String-compare and mark changed attributes.
 	    $modified = $self->equalize_attributes( $conf_value, $spoc_value,
 						    $parse_name, $structure );
-	    $conf_value->{needed} = $spoc_value;
-	    $spoc_value->{name_on_dev} = $conf_name;
 	}
-
-	# If this object was previously marked for transfer,
-	# remove the mark, because we now know, that the object is already
-	# available on device.
-	if($spoc_value->{name_on_dev}) {
-
-## Currently dangerous, because {new_name} has already been used.
-#	    undef $spoc_value->{transfer};
-	}
+	$conf_value->{needed} = $spoc_value;
+	$spoc_value->{name_on_dev} = $conf_name;
     }
     elsif ( $conf_value  &&  !$spoc_value ) {
-	# On dev but not on spoc.
-#	mypr "$parse_name => $conf_name on dev but not on spoc. \n";
+
+	# Only on device, will be removed.
 	$modified = 1;
     }
     else {
@@ -1463,7 +1417,8 @@ sub traverse_netspoc_tree {
 	my $spoc_hash = $spoc->{$parse_name};
 	for my $spoc_name ( keys %$spoc_hash ) {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
-	    if($spoc_value->{add_entries} || $spoc_value->{del_entries}) {
+	    if($spoc_value->{add_entries} || $spoc_value->{del_entries}
+	       || $spoc_value->{modify_cmds}) {
 		my $method = $structure->{$parse_name}->{modify};
 		my $conf_name = $spoc_value->{name_on_dev};
 		$self->$method( $spoc_value, $conf_name );
@@ -1950,7 +1905,6 @@ sub transfer_object_group {
 
 sub modify_object_group {
     my ( $self, $spoc, $conf_name ) = @_;
-    
 
     mypr "### modify object-group $conf_name on device\n";
     my $cmd = "object-group $spoc->{TYPE} $conf_name";
@@ -1973,6 +1927,23 @@ sub remove_object_group {
     $self->cmd( $cmd );
 }
 
+sub subst_ace_name_og {
+    my ($self, $ace, $new_name, $spoc) = @_;
+    my $cmd = $ace->{orig};
+    $cmd =~ s/^access-list\s+\S+/access-list $new_name/;
+    for my $where ( qw( SRC DST ) ) {
+	if ( my $gid = $ace->{$where}->{OBJECT_GROUP} ) {
+	    my $group = object_for_name( $spoc, 'OBJECT_GROUP', $gid );
+	    my $new_gid =  $group->{name_on_dev} || 
+		($group->{transfer} && $group->{new_name}) or
+		die "Expected group $gid already on device";
+	    $cmd =~ s/object-group $gid(?!\S)/object-group $new_gid/;
+	    $ace->{$where}->{OBJECT_GROUP} = $new_gid;  
+	}
+    }
+    $cmd;
+}
+
 sub transfer_acl {
     my ( $self, $spoc, $structure, $parse_name, $acl_name ) = @_;
 
@@ -1981,22 +1952,23 @@ sub transfer_acl {
     
     mypr "### transfer access-list $acl_name to device as $new_name \n";
 
-    my @cmds;
-    for my $ace ( @{ $acl->{LIST} } ) {
-	my $cmd = $ace->{orig};
-	$cmd =~ s/^access-list\s+\S+/access-list $new_name/;
-	for my $where ( qw( SRC DST ) ) {
-	    if ( my $gid = $ace->{$where}->{OBJECT_GROUP} ) {
-		my $group = object_for_name( $spoc, 'OBJECT_GROUP', $gid );
-		my $new_gid = $group->{transfered_as} || $group->{name_on_dev} or
-		    die "Expected group $gid already on device";
-		$cmd =~ s/object-group $gid(?!\S)/object-group $new_gid/;
-		$ace->{$where}->{OBJECT_GROUP} = $new_gid;  
-	    }
-	}
-	push @cmds, $cmd;
-    }
+    my @cmds = map({ $self->subst_ace_name_og($_, $new_name, $spoc) } 
+		   @{ $acl->{LIST} });
     map { $self->cmd( $_ ) } @cmds;
+}
+
+sub modify_acl {
+    my ( $self, $spoc, $conf_name ) = @_;
+    
+    mypr "### modify access-list $conf_name on device\n";
+    for my $cmd (@{ $spoc->{modify_cmds} }) {
+	if (ref $cmd) {
+	    $self->two_cmd(@$cmd);
+	}
+	else {
+	    $self->cmd($cmd);
+	}
+    }
 }
 
 sub remove_acl {
