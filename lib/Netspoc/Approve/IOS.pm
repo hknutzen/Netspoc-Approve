@@ -880,197 +880,44 @@ sub handle_reload_banner {
     }
 }
 
-# Build textual representation from ACL entry for use with Algorithm::Diff.
-sub acl_entry2key {
-    my ($e) = @_;
-    my @r;
-    push(@r, $e->{MODE});
-    for my $where (qw(SRC DST)) {
-	my $what = $e->{$where};
-	push(@r, "$what->{BASE}/$what->{MASK}");
-    }
-    push @r, $e->{TYPE};
-    if ($e->{TYPE} eq 'icmp') {
-        my $s = $e->{SPEC};
-	for my $where (qw(TYPE CODE)) {
-	    my $v = $s->{TYPE};
-	    push(@r, defined $v ? $v : '-');
-	}
-    }
-    elsif ($e->{TYPE} eq 'tcp' or $e->{TYPE} eq 'udp') {
-	for my $where (qw(SRC_PORT DST_PORT)) {
-	    my $port = $e->{$where};
-	    push(@r, "$port->{LOW}:$port->{HIGH}");
-	}
-	push(@r, 'established') if $e->{ESTA};
-    }
-    if($e->{LOG}) {
-	push(@r, 'log');
-	push(@r, $e->{LOG_MODE}) if $e->{LOG_MODE};
-	push(@r, $e->{LOG_LEVEL}) if $e->{LOG_LEVEL};
-	push(@r, "interval $e->{LOG_INTERVAL}") if $e->{LOG_INTERVAL};
-    }
-    return join(' ', @r);
+# Object groups aren't expected in ACL entries currently.
+sub equalize_obj_group_in_ace {}
+sub mark_new_object_groups {}
+
+# ACL line numbers don't change during incremental ACL update.
+sub change_acl_numbers {}
+
+
+sub add_numbered_acl {
+    my ($self, $line, $cmd) = @_;
+    "$line $cmd";
 }
 
-# Incrementally convert an ACL on device to the new ACL from netspoc.
-# Algorithm::Diff finds ACL lines which need to be added or to be deleted.
-# But an ACL line, which is already present on device can't be added again. 
-# Therefore we have add, delete and move operations.
-# We distinguish between move_up (from bottom to top) and
-# move_down (from top to bottom).
-#
-# The move operation is implemented specially:
-# The delete and add command are transferred together in one packet 
-# to prevent accidental lock out from device.
-#
-# ACL is changed on device in 2 passes:
-# 1. Add new ACL entries and move entries upwards, top entries first.
-#  a) add new entries which are not already present on device.
-#  b) move entries upwards
-# 2. Delete old ACL entries and move entries downward, bottom entries first.
-#  a) delete entry which isn't used any longer.
-#  b) move entry downwards
-sub equalize_acl {
-    my($self, $conf_acl, $spoc_acl) = @_;
-    my $conf_entries = $conf_acl->{LIST};
-    my $spoc_entries = $spoc_acl->{LIST};
+sub del_numbered_acl {
+    my ($self, $line, $cmd) = @_;
+    "no $line";
+}
 
-    my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
-				     { keyGen => \&acl_entry2key } );
+# Noop for IOS. Will be needed if object groups are implemented.
+sub subst_ace_name_og {
+    my ($self, $ace, $new_name, $spoc) = @_;
+    $ace->{orig};
+}
 
-    # Hash for finding duplicates when comparing old and new entries.
-    my %dupl;
+# IOS ACL lines start at 10000, increment by 10000.
+# When adding lines in front of some line n
+# start at n-9999 and subsequent lines at n-9999+1, n-9999+1+1, ...
+sub ACL_line_discipline {
+    return (10000, 10000, -9999, 1);	    
+}
 
-    # ACL lines which are moved upwards. 
-    # Mapping from spoc entry to conf entry.
-    my %move_up;
-
-    # ACL lines which are moved downwards. 
-    # Mapping from conf entry to spoc entry.
-    my %move_down;
-
-    # Entry needs not to be deleted because it was moved early.
-    my %moved;
-
-    # Collect entries 
-    # - do be added on device (includes move_up)
-    # - to be deleted on device (includes move_down).
-    my (@add, @delete);
-
-    # Cisco lines of ACL entries.
-    my %cisco_line;
-
-    # Add new line numbers to ACL entries read from device.
-    for (my $i = 0; $i < @$conf_entries; $i++) {
-	$cisco_line{$conf_entries->[$i]} = 10000 + $i * 10000;
+sub check_max_acl_entries {
+    my ($self, $acl) = @_;
+    my $entries = $acl->{LIST};
+    my (undef, $incr) = $self->ACL_line_discipline();
+    if (@$entries >= $incr) {
+	errpr "Can't handle device ACL $acl->{name} with $incr or more entries\n";
     }
-
-    # 1. Process to be deleted entries.
-    while($diff->Next()) {
-	if ($diff->Diff() & 1) {
-	    for my $conf_entry ($diff->Items(1)) {
-		my $key = acl_entry2key($conf_entry);
-		$dupl{$key} and internal_err "Duplicate ACL entry on device";
-		$dupl{$key} = $conf_entry;
-		push @delete, $conf_entry;
-	    }
-	}
-    }
-
-    # 2. Process to be added entries.
-    $diff->Reset();
-    while($diff->Next()) {
-	if ($diff->Diff() & 2) {
-	    my $conf_next = $diff->Min(1);
-	    my $line = $cisco_line{$conf_entries->[$conf_next]} - 9999;
-	    for my $spoc_entry ($diff->Items(2)) {
-		$cisco_line{$spoc_entry} = $line++;
-
-		# Find lines already present on device
-		my $key = acl_entry2key($spoc_entry);
-		if (my $conf_entry = $dupl{$key}) {
-
-		    # Move upwards.
-		    if ($cisco_line{$spoc_entry} < $cisco_line{$conf_entry}) {
-			$move_up{$spoc_entry} = $conf_entry;
-			$moved{$conf_entry} = 1;
-			push @add, $spoc_entry;
-		    }
-
-		    # Move downwards.
-		    else {
-			$move_down{$conf_entry} = $spoc_entry;
-		    }
-		}
-
-		# Add.
-		else {
-		    push @add, $spoc_entry;
-		}
-	    }
-	}
-    }
-    
-    return if not (@add || @delete);
-
-    my $acl_name = $conf_acl->{name};
-
-    if (@$conf_entries >= 10000) {
-	errpr "Can't handle device ACL $acl_name with 10000 or more entries\n";
-    }
-    if (@$spoc_entries >= 10000) {
-	my $spoc_name = $spoc_acl->{name};
-	errpr "Can't handle netspoc ACL $spoc_name with 10000 or more entries\n";
-    }
-
-    $self->{CHANGE}->{ACL} = 1;
-
-    # Change line numbers of ACL entries on device to the same values 
-    # as used above.
-    # Do resequence before schedule reload, because it may abort
-    # if this command isn't available on old IOS version.
-    $self->enter_conf_mode();
-    $self->cmd("ip access-list resequence $acl_name 10000 10000");
-
-    $self->schedule_reload(5);
-    $self->cmd("ip access-list extended $acl_name");
-
-    # 1. Add lines from netspoc and move lines upwards.
-    for my $spoc_entry (@add) {
-	my $line = $cisco_line{$spoc_entry};
-	my $cmd  = "$line $spoc_entry->{orig}";
-	if (my $conf_entry = $move_up{$spoc_entry}) {
-	    my $line1 = $cisco_line{$conf_entry};
-	    my $cmd1  = "no $line1";
-	    $self->two_cmd($cmd1, $cmd);
-	}
-	else {
-	    $self->cmd($cmd);
-	}
-    }
-
-    # 2. Delete lines on device and move lines downwards.
-    # Work from bottom to top. Otherwise 
-    # - we could lock out ourselves
-    # - permit too much traffic for a short time.
-    for my $conf_entry (reverse @delete) {
-	my $line = $cisco_line{$conf_entry};
-	my $cmd1 = "no $line";
-	if (my $spoc_entry = $move_down{$conf_entry}) {
-	    my $line2 = $cisco_line{$spoc_entry};
-	    my $cmd2  = "$line2 $spoc_entry->{orig}";
-	    $self->two_cmd($cmd1, $cmd2);
-	}
-	elsif (not $moved{$conf_entry}) {
-	    $self->cmd($cmd1);
-	}
-    }
-
-    $self->cmd('exit');
-    $self->cancel_reload();
-    $self->cmd("ip access-list resequence $acl_name 10 10");
-    $self->leave_conf_mode();
 }
 
 sub define_acl {
@@ -1095,6 +942,7 @@ sub process_interface_acls( $$$ ){
     mypr "SMART: establish new acls for device\n";
     mypr "======================================================\n";
 
+    my ($line_start, $line_incr) = $self->ACL_line_discipline();
     $self->{CHANGE}->{ACL} = 0;
     for my $intf (values %{$spoc->{IF}}){
 	my $name = $intf->{name};
@@ -1109,7 +957,33 @@ sub process_interface_acls( $$$ ){
 
 	    # Change ACL at device.
 	    if ($conf_acl and $spoc_acl){
-		$self->equalize_acl($conf_acl, $spoc_acl);
+		if (my $cmds = $self->equalize_acl($conf, $spoc, $conf_acl, $spoc_acl)) {
+		    my $acl_name = $conf_acl->{name};
+		    
+		    # Change line numbers of ACL entries on device to the same
+		    # values as used in ACL commands.
+		    # Do resequence before schedule reload, because it may
+		    # abort if this command isn't available on old IOS version.
+		    $self->enter_conf_mode();
+		    $self->cmd("ip access-list resequence $acl_name" .
+			       " $line_start $line_incr");
+		    $self->schedule_reload(5);
+		    $self->cmd("ip access-list extended $acl_name");
+		    for my $cmd (@$cmds) {
+			if (ref $cmd) {
+			    $self->two_cmd(@$cmd);
+			}
+			else {
+			    $self->cmd($cmd);
+			}
+		    }
+		    $self->cmd('exit');
+		    $self->cancel_reload();
+		    $self->cmd("ip access-list resequence $acl_name 10 10");
+		    $self->leave_conf_mode();
+
+		    $self->{CHANGE}->{ACL} = 1;
+		}
 	    }
 
 	    # Add ACL to device.
