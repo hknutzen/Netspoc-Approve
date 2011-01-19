@@ -593,6 +593,7 @@ sub equalize_acl {
 		    
 		    # Change ACL line to modified name of obj-group.
 		    $add_before{$spoc_entry} = $conf_entry;
+		    $spoc_line_offset{$spoc_entry} = $add_offset;
 		    push @delete, $conf_entry;
 		    $move_up{$spoc_entry} = $conf_entry;
 		    $moved{$conf_entry} = 1;
