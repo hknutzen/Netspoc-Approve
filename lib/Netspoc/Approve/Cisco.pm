@@ -606,8 +606,10 @@ sub equalize_acl {
 	elsif ($diff->Diff() & 1) {
 	    for my $conf_entry ($diff->Items(1)) {
 		my $key = acl_entry2key($conf_entry);
-		$dupl{$key} and internal_err "Duplicate ACL entry on device";
-		$dupl{$key} = $conf_entry;
+
+		# We can get multiple lines with identical key if both
+		# src and dst are an object group.
+		push @{ $dupl{$key} }, $conf_entry;
 		push @delete, $conf_entry;
 	    }
 	}
@@ -635,7 +637,9 @@ sub equalize_acl {
 
 		# Find lines already present on device
 		my $key = acl_entry2key($spoc_entry);
-		if (my $conf_entry = $dupl{$key}) {
+		my $aref;
+		if ($aref = $dupl{$key} and @$aref) {
+		    my $conf_entry = pop @$aref;
 		    $self->equalize_obj_group_in_ace($conf, $spoc, 
 						     $conf_entry, $spoc_entry);
 
