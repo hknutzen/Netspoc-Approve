@@ -28,7 +28,6 @@ use Netspoc::Approve::IOS;
 use Netspoc::Approve::IOS_FW;
 use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
-use Netspoc::Approve::FWSM;
 use Netspoc::Approve::Helper;
 
 my %type2class = (
@@ -37,7 +36,6 @@ my %type2class = (
     IOS_FW => 'Netspoc::Approve::IOS_FW',
     ASA    => 'Netspoc::Approve::ASA',
     PIX    => 'Netspoc::Approve::PIX',
-    FWSM   => 'Netspoc::Approve::FWSM',
 );
 
 sub parse_ver( $ ) {
