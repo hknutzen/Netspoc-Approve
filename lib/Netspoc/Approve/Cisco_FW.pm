@@ -1147,7 +1147,7 @@ sub make_equal {
 					       $conf_value, $spoc_value))
 	    {
 		$modified = 1;
-		$spoc_value->{modify_vcmds} = $cmds;
+		$spoc_value->{modify_vcmds} = $vcmds;
 	    }
 	    else {
 		$modified = 0;
