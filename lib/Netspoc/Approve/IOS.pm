@@ -887,23 +887,6 @@ sub mark_new_object_groups {}
 # ACL line numbers don't change during incremental ACL update.
 sub change_acl_numbers {}
 
-
-sub add_numbered_acl {
-    my ($self, $line, $cmd) = @_;
-    "$line $cmd";
-}
-
-sub del_numbered_acl {
-    my ($self, $line, $cmd) = @_;
-    "no $line";
-}
-
-# Noop for IOS. Will be needed if object groups are implemented.
-sub subst_ace_name_og {
-    my ($self, $ace, $new_name, $spoc) = @_;
-    $ace->{orig};
-}
-
 # IOS ACL lines start at 10000, increment by 10000.
 # When adding lines in front of some line n
 # start at n-9999 and subsequent lines at n-9999+1, n-9999+1+1, ...
@@ -942,6 +925,20 @@ sub process_interface_acls( $$$ ){
     mypr "SMART: establish new acls for device\n";
     mypr "======================================================\n";
 
+    my $gen_cmd = sub {
+	my ($hash) = @_;
+	my $line = $hash->{line};
+	my $cmd;
+	if ($hash->{delete}) {
+	    $cmd = "no $line";
+	}
+	else {
+	    $cmd = $hash->{ace}->{orig};
+	    $cmd = "$line $cmd" if defined $line;
+	}
+	$cmd;
+    };
+    
     my ($line_start, $line_incr) = $self->ACL_line_discipline();
     $self->{CHANGE}->{ACL} = 0;
     for my $intf (values %{$spoc->{IF}}){
@@ -957,7 +954,9 @@ sub process_interface_acls( $$$ ){
 
 	    # Change ACL at device.
 	    if ($conf_acl and $spoc_acl){
-		if (my $cmds = $self->equalize_acl($conf, $spoc, $conf_acl, $spoc_acl)) {
+		if (my $vcmds = $self->equalize_acl($conf, $spoc, 
+						    $conf_acl, $spoc_acl)) 
+		{
 		    my $acl_name = $conf_acl->{name};
 		    
 		    # Change line numbers of ACL entries on device to the same
@@ -969,11 +968,15 @@ sub process_interface_acls( $$$ ){
 			       " $line_start $line_incr");
 		    $self->schedule_reload(5);
 		    $self->cmd("ip access-list extended $acl_name");
-		    for my $cmd (@$cmds) {
-			if (ref $cmd) {
-			    $self->two_cmd(@$cmd);
+		    for my $vcmd (@$vcmds) {
+			if (ref $vcmd eq 'ARRAY') {
+			    my ($vcmd1, $vcmd2) = @$vcmd;
+			    my $cmd1 = $gen_cmd->($vcmd1);
+			    my $cmd2 = $gen_cmd->($vcmd2);
+			    $self->two_cmd($cmd1, $cmd2);
 			}
 			else {
+			    my $cmd = $gen_cmd->($vcmd);
 			    $self->cmd($cmd);
 			}
 		    }
