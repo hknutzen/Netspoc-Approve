@@ -866,7 +866,7 @@ sub equalize_attributes {
     my $modified;
     my $parse = $structure->{$parse_name};
     if ( not ( $structure && $parse_name ) ) {
-	errpr "structure or parse_name not defined! \n";
+	internal_err "Structure or parse_name not defined";
     }
 
     # Equalize "normal" (normal=non-next) attributes.
@@ -1070,6 +1070,7 @@ sub mark_new_object_groups {
 	    if(not $spoc_group->{name_on_dev}) {
 		$spoc_group->{transfer} = 1;
 		$self->mark_as_changed('OBJECT_GROUP');
+		mypr " New ACL line: $spoc_group->{name} is transferred\n";
 	    }
 	}
     }
@@ -1083,18 +1084,6 @@ sub change_acl_numbers {
 	    $line += $incr;
 	}
     }
-}
-
-sub add_numbered_acl {
-    my ($self, $line, $cmd) = @_;
-    $cmd =~ s/^(access-list\s+\S+)/$1 line $line/;
-    $cmd;
-}
-
-sub del_numbered_acl {
-    my ($self, $line, $cmd) = @_;
-    $cmd =~ s/^(access-list\s+\S+)/no $1 line $line/;
-    $cmd;
 }
 
 # ASA ACL lines start at 1, increment by 1.
@@ -1144,18 +1133,8 @@ sub make_equal {
 
 	# Mark object-groups referenced by acl lines.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
-
 	    for my $spoc_entry (@{ $spoc_value->{LIST} }) {
-		for my $where (qw(SRC DST)) {
-		    if(my $spoc_group_name = $spoc_entry->{$where}->{OBJECT_GROUP}) {
-			my $spoc_group = object_for_name( $spoc, 'OBJECT_GROUP', 
-							  $spoc_group_name );
-			if(not $spoc_group->{name_on_dev}) {
-			    $spoc_group->{transfer} = 1;
-			    $self->mark_as_changed('OBJECT_GROUP');
-			}
-		    }
-		}
+		$self->mark_new_object_groups($spoc, $spoc_entry);
 	    }
 	}
     }
@@ -1164,11 +1143,11 @@ sub make_equal {
     elsif ( $conf_value && $spoc_value ) {
 	if ( $parse_name eq 'ACCESS_LIST' ) {
 	    mypr "Comparing $conf_name $spoc_name\n";
-	    if (my $cmds = $self->equalize_acl($conf, $spoc, 
+	    if (my $vcmds = $self->equalize_acl($conf, $spoc, 
 					       $conf_value, $spoc_value))
 	    {
 		$modified = 1;
-		$spoc_value->{modify_cmds} = $cmds;
+		$spoc_value->{modify_vcmds} = $cmds;
 	    }
 	    else {
 		$modified = 0;
@@ -1265,9 +1244,9 @@ sub unify_anchors {
 				   $conf_key, $conf_key,
 				   $structure );
 	    if ( $new_conf && $conf_key ne $new_conf ) {
-		errpr "Anchors known so far are made equal by " .
+		internal_err "Anchors known so far are made equal by " .
 		    "changing their attributes, not by transfer. " .
-		    "(Anchor in conf: $key:$conf_key) \n";
+		    "(Anchor in conf: $key:$conf_key)";
 	    }
 	}
 	# Iterate over anchors in netspoc (without those already
@@ -1418,10 +1397,10 @@ sub traverse_netspoc_tree {
 	for my $spoc_name ( keys %$spoc_hash ) {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
 	    if($spoc_value->{add_entries} || $spoc_value->{del_entries}
-	       || $spoc_value->{modify_cmds}) {
+	       || $spoc_value->{modify_vcmds}) {
 		my $method = $structure->{$parse_name}->{modify};
 		my $conf_name = $spoc_value->{name_on_dev};
-		$self->$method( $spoc_value, $conf_name );
+		$self->$method( $spoc, $spoc_value, $conf_name );
 	    }	    
 	}
     }	
@@ -1616,7 +1595,8 @@ sub change_attributes {
 	    else {
 		my $attr_cmd = $attr2cmd{$parse_name}->{$attr};
 		if ( ! $attr_cmd ) {
-		    errpr "Command not found for attribute $parse_name:$attr\n";
+		    internal_err 
+			"Command not found for attribute $parse_name:$attr";
 		}
 		elsif ( $parse_name eq 'DEFAULT_GROUP' ) {
 		    $attr_cmd .= " default-group ";
@@ -1904,16 +1884,17 @@ sub transfer_object_group {
 }
 
 sub modify_object_group {
-    my ( $self, $spoc, $conf_name ) = @_;
+    my ( $self, $spoc, $spoc_value, $conf_name ) = @_;
 
     mypr "### modify object-group $conf_name on device\n";
-    my $cmd = "object-group $spoc->{TYPE} $conf_name";
+    my $cmd = "object-group $spoc_value->{TYPE} $conf_name";
     $self->cmd($cmd);
-    if($spoc->{add_entries}) {
-	map( { $self->cmd( $_->{orig} ) } @{ $spoc->{add_entries} } );
+    if($spoc_value->{add_entries}) {
+	map( { $self->cmd( $_->{orig} ) } @{ $spoc_value->{add_entries} } );
     }
-    if($spoc->{del_entries}) {
-	map( { $self->cmd( "no $_->{orig}" ) } @{ $spoc->{del_entries} } );
+    if($spoc_value->{del_entries}) {
+	map( { $self->cmd( "no $_->{orig}" ) } 
+	     @{ $spoc_value->{del_entries} } );
     }
 }
 
@@ -1958,14 +1939,35 @@ sub transfer_acl {
 }
 
 sub modify_acl {
-    my ( $self, $spoc, $conf_name ) = @_;
-    
-    mypr "### modify access-list $conf_name on device\n";
-    for my $cmd (@{ $spoc->{modify_cmds} }) {
-	if (ref $cmd) {
-	    $self->two_cmd(@$cmd);
+    my ( $self, $spoc, $spoc_value, $conf_name ) = @_;
+
+    my $gen_cmd = sub {
+	my ($hash) = @_;
+	my $ace = $hash->{ace};
+	my $line = $hash->{line};
+	my $cmd;
+	if ($hash->{delete}) {
+	    $cmd = $ace->{orig};
+	    $cmd =~ s/^(access-list\s+\S+)/no $1 line $line/;
 	}
 	else {
+	    my $name = $hash->{name};
+	    $cmd = $self->subst_ace_name_og($ace, $name, $spoc);
+	    $cmd =~ s/^(access-list\s+\S+)/$1 line $line/ if defined $line;
+	}
+	$cmd;
+    };
+    
+    mypr "### modify access-list $conf_name on device\n";
+    for my $hash (@{ $spoc_value->{modify_vcmds} }) {
+	if (ref $hash eq 'ARRAY') {
+	    my ($hash1, $hash2) = @$hash;
+	    my $cmd1 = $gen_cmd->($hash1);
+	    my $cmd2 = $gen_cmd->($hash2);
+	    $self->two_cmd($cmd1, $cmd2);
+	}
+	else {
+	    my $cmd = $gen_cmd->($hash);
 	    $self->cmd($cmd);
 	}
     }
@@ -2036,7 +2038,7 @@ sub object_for_name {
     return if not $c_name;
 
     if ( $no_err && $no_err ne 'no_err' ) {
-	errpr "Illegal parameter $no_err \n";
+	internal_err "Illegal parameter $no_err";
     }
 
     my $c_value;
@@ -2049,7 +2051,7 @@ sub object_for_name {
     }
     if ( ! $no_err ) {
 	if ( ! $c_value ) {
-	    errpr "No object found for $c_name \n";
+	    internal_err "No object found for $c_name";
 	}
     }
     return $c_value;
@@ -2147,7 +2149,7 @@ sub cmd_for_attribute {
     my ( $parse_name, $attr ) = @_;
     my $attr_cmd = $attr2cmd{$parse_name}->{$attr};
     if ( ! $attr_cmd ) {
-	errpr "Command not found for attribute $parse_name:$attr! \n";
+	internal_err "Command not found for attribute $parse_name:$attr";
     }
     return $attr_cmd;
 }
