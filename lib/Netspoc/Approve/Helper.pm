@@ -269,7 +269,7 @@ sub check_warn() {
 
 sub internal_err( @ ) {
     my ($package, $file, $line, $sub) = caller 1;
-    die "Internal error in $sub:\n ", @_, "\n";
+    errpr "Internal error in $sub:\n ", @_, "\n";
 }
 
 sub writestatus ( $ ) {
