@@ -557,9 +557,6 @@ sub equalize_acl {
     # Device line numbers of ACL entries.
     my %device_line;
 
-    # Collect commands to change ACL in place.
-    my @cmds;
-
     # Conf line at which position a spoc line will be added.
     my %add_before;
 
@@ -667,28 +664,30 @@ sub equalize_acl {
 	}
     }
     
-    return undef if not (@cmds || @add || @delete);
+    return undef if not (@add || @delete);
 
     $self->check_max_acl_entries($conf_acl);
     $self->check_max_acl_entries($spoc_acl);
 
+    # Collect commands to change ACL in place.
+    my @vcmds;
+
     # 1. Add lines from netspoc and move lines upwards.
     for my $spoc_entry (@add) {
-	my $cmd1;
+	my $vcmd1;
 	if (my $conf_entry = $move_up{$spoc_entry}) {
 	    my $line = $device_line{$conf_entry};
-	    $cmd1 = $self->del_numbered_acl($line, $conf_entry->{orig});
+	    $vcmd1 = { ace => $conf_entry, delete => 1, line => $line};
 	    $self->change_acl_numbers(\%device_line, $line+1, -1);
 	}
-	my $cmd2 = $self->subst_ace_name_og($spoc_entry, $conf_acl->{name}, 
-					    $spoc);
+	my $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
 	if (my $next_conf_entry = $add_before{$spoc_entry}) {
 	    my $line = $device_line{$next_conf_entry} + 
 		$spoc_line_offset{$spoc_entry};
-	    $cmd2 = $self->add_numbered_acl($line, $cmd2);
+	    $vcmd2->{line} = $line;
 	    $self->change_acl_numbers(\%device_line, $line, +1);
 	}
-	push(@cmds, $cmd1 ? [ $cmd1, $cmd2] : $cmd2);
+	push(@vcmds, $vcmd1 ? [ $vcmd1, $vcmd2] : $vcmd2);
     }
 
     # 2. Delete lines on device and move lines downwards.
@@ -698,23 +697,22 @@ sub equalize_acl {
     for my $conf_entry (reverse @delete) {
 	next if $moved{$conf_entry};
 	my $line = $device_line{$conf_entry};
-	my $cmd1 = $self->del_numbered_acl($line, $conf_entry->{orig});
+	my $vcmd1 = { ace => $conf_entry, delete => 1, line => $line};
 	$self->change_acl_numbers(\%device_line, $line+1, -1);
-	my $cmd2;
+	my $vcmd2;
 	if (my $spoc_entry = $move_down{$conf_entry}) {
-	    $cmd2 = $self->subst_ace_name_og($spoc_entry, $conf_acl->{name}, 
-					     $spoc);
+	    $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
 	    if (my $next_conf_entry = $add_before{$spoc_entry}) {
-		my $line = $device_line{$next_conf_entry} + 
+		my $line2 = $device_line{$next_conf_entry} + 
 		    $spoc_line_offset{$spoc_entry};
-		$cmd2 = $self->add_numbered_acl($line, $cmd2);
+		$vcmd2->{line} = $line2;
 		$self->change_acl_numbers(\%device_line, $line, +1);
 	    }
 	}
-	push(@cmds, $cmd2 ? [ $cmd1, $cmd2] : $cmd1);
+	push(@vcmds, $vcmd2 ? [ $vcmd1, $vcmd2] : $vcmd1);
     }
 
-    return \@cmds;
+    return \@vcmds;
 }
 
 # Packages must return a true value;
