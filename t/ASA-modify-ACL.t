@@ -158,3 +158,34 @@ network-object host 3.3.3.3
 access-list inside line 1 extended permit ip object-group g1-DRC-0 any
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Object group used in two ACLs; 1. occurence new, 2. unchanged";
+############################################################
+$device = <<'END';
+interface Ethernet0/0
+ nameif inside
+interface Ethernet0/1
+ nameif outside
+object-group network g1-0
+ network-object host 2.2.2.2
+access-list inside extended permit ip host 1.1.1.1 any
+access-group inside in interface inside
+access-list outside extended permit ip object-group g1-0 any
+access-group outside in interface outside
+END
+
+$in = <<'END';
+object-group network g1
+ network-object host 2.2.2.2
+access-list inside extended permit ip object-group g1 any
+access-list inside extended permit ip host 1.1.1.1 any
+access-group inside in interface inside
+access-list outside extended permit ip object-group g1 any
+access-group outside in interface outside
+END
+
+$out = <<'END';
+access-list inside line 1 extended permit ip object-group g1-0 any
+END
+is_deeply(approve('ASA', $device, $in), $out, $title);
