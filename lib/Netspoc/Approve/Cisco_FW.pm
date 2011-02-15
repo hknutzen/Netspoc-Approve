@@ -1948,12 +1948,17 @@ sub modify_acl {
 	my $cmd;
 	if ($hash->{delete}) {
 	    $cmd = $ace->{orig};
-	    $cmd =~ s/^(access-list\s+\S+)/no $1 line $line/;
+	    # Note: 
+	    # access-list id [line line-number] [extended]
+	    # access-list id standard [line line-num]
+	    # (from Cisco Security Appliance Command Reference, Version 8.0(4))
+	    $cmd =~ s/^(access-list\s+\S+(:?\s+standard)?)/no $1 line $line/;
 	}
 	else {
 	    my $name = $hash->{name};
 	    $cmd = $self->subst_ace_name_og($ace, $name, $spoc);
-	    $cmd =~ s/^(access-list\s+\S+)/$1 line $line/ if defined $line;
+	    $cmd =~ s/^(access-list\s+\S+(:?\s+standard)?)/$1 line $line/ 
+		if defined $line;
 	}
 	$cmd;
     };
