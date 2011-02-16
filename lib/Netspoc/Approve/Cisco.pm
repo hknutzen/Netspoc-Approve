@@ -584,6 +584,7 @@ sub equalize_acl {
 	    for my $i (0 .. $count) {
 		my $conf_entry = $conf_entries->[$conf_min+$i];
 		my $spoc_entry = $spoc_entries->[$spoc_min+$i];
+		debug "E:\n $conf_entry->{orig}\n $spoc_entry->{orig}";
 		if ($self->equalize_obj_group_in_ace($conf, $spoc, 
 						     $conf_entry, $spoc_entry))
 		{
@@ -602,6 +603,7 @@ sub equalize_acl {
 	# Process to be deleted entries.
 	elsif ($diff->Diff() & 1) {
 	    for my $conf_entry ($diff->Items(1)) {
+		debug "R: \n $conf_entry->{orig}";
 		my $key = acl_entry2key($conf_entry);
 
 		# We can get multiple lines with identical key if both
@@ -623,13 +625,14 @@ sub equalize_acl {
 		$offset = $add_offset;
 	    }
 	    for my $spoc_entry ($diff->Items(2)) {
-		$self->mark_new_object_groups($spoc, $spoc_entry);
+		debug "A: \n $spoc_entry->{orig}";
 
 		# Remember conf line where to add new line.
 		if ($next_conf_entry) {
 		    $add_before{$spoc_entry} = $next_conf_entry;
 		    $spoc_line_offset{$spoc_entry} = $offset;
 		    $offset += $add_incr;
+		    debug " next: $next_conf_entry->{orig}";
 		}
 
 		# Find lines already present on device
@@ -637,6 +640,7 @@ sub equalize_acl {
 		my $aref;
 		if ($aref = $dupl{$key} and @$aref) {
 		    my $conf_entry = pop @$aref;
+		    debug "D: \n $conf_entry->{orig}";
 		    $self->equalize_obj_group_in_ace($conf, $spoc, 
 						     $conf_entry, $spoc_entry);
 
@@ -652,6 +656,7 @@ sub equalize_acl {
 
 		    # Move downwards.
 		    else {
+			$self->mark_new_object_groups($spoc, $spoc_entry);
 			$move_down{$conf_entry} = $spoc_entry;
 		    }
 		}
