@@ -257,11 +257,6 @@ sub parse_rule {
     return $rule;
 }
 
-# Helper functions.
-sub debug {
-    print(STDERR "@_\n");
-}
-
 sub err_msg {
     errpr("@_\n");
 }
