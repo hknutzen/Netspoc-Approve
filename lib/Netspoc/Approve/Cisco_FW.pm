@@ -1033,6 +1033,12 @@ sub equalize_obj_group {
 	push(@{$spoc_group->{add_entries}}, $diff->Items(2));
     }			    
     $self->mark_as_changed('OBJECT_GROUP');
+    mypr " $conf_group->{name} is changed to values of $spoc_group->{name}\n";
+    if($spoc_group->{transfer}) {
+	mypr " Canceled transfer of $spoc_group->{name}," . 
+	    " because $conf_group->{name} now has its values\n";
+	undef $spoc_group->{transfer};
+    }
     return 0;
 }
 
