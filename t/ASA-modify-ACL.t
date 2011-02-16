@@ -43,7 +43,7 @@ $out = <<'END';
 access-list inside line 1 extended permit ip host 2.2.2.2 any
 access-list inside line 2 extended permit ip host 3.3.3.3 any
 access-list inside line 4 extended permit ip host 4.4.4.4 any
-access-list inside extended permit ip host 6.6.6.6 any
+access-list inside line 6 extended permit ip host 6.6.6.6 any
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
 
@@ -128,8 +128,38 @@ access-group inside in interface inside
 END
 
 $out = <<'END';
-no access-list inside line 3 extended permit ip host 3.3.3.3 any\N access-list inside extended permit ip host 3.3.3.3 any
+no access-list inside line 3 extended permit ip host 3.3.3.3 any\N access-list inside line 6 extended permit ip host 3.3.3.3 any
 no access-list inside line 2 extended permit ip host 2.2.2.2 any\N access-list inside line 3 extended permit ip host 2.2.2.2 any
+END
+is_deeply(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Move successive ACL entries downwards";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list inside extended permit ip host 1.1.1.1 any
+access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended permit ip host 3.3.3.3 any
+access-list inside extended permit ip host 4.4.4.4 any
+access-list inside extended permit ip host 5.5.5.5 any
+access-list inside extended permit ip host 6.6.6.6 any
+access-group inside in interface inside
+END
+
+$in = <<'END';
+access-list inside extended permit ip host 3.3.3.3 any
+access-list inside extended permit ip host 4.4.4.4 any
+access-list inside extended permit ip host 5.5.5.5 any
+access-list inside extended permit ip host 1.1.1.1 any
+access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended permit ip host 6.6.6.6 any
+access-group inside in interface inside
+END
+
+$out = <<'END';
+no access-list inside line 2 extended permit ip host 2.2.2.2 any\N access-list inside line 5 extended permit ip host 2.2.2.2 any
+no access-list inside line 1 extended permit ip host 1.1.1.1 any\N access-list inside line 4 extended permit ip host 1.1.1.1 any
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
 
