@@ -557,9 +557,9 @@ sub equalize_acl {
     # Device line numbers of ACL entries.
     my %device_line;
 
-    # Conf line at which position a spoc line will be added.
-    my %add_before;
-
+     # Conf line at which position a spoc line will be added.
+     my %add_before;
+ 
     # Relative line numbers for added lines relativ to next conf line.
     # For IOS: -9999, -9998, -9997, ...
     # For ASA: 0, 0, 0, ...
@@ -572,6 +572,7 @@ sub equalize_acl {
     for (my $i = 0; $i < @$conf_entries; $i++) {
 	$device_line{$conf_entries->[$i]} = $line_start + $i * $line_incr;
     }
+    $device_line{LAST} = $line_start + @$conf_entries * $line_incr;
 
     # 1. Process equal and to be deleted entries.
     while($diff->Next()) {
@@ -584,13 +585,14 @@ sub equalize_acl {
 	    for my $i (0 .. $count) {
 		my $conf_entry = $conf_entries->[$conf_min+$i];
 		my $spoc_entry = $spoc_entries->[$spoc_min+$i];
-		debug "E:\n $conf_entry->{orig}\n $spoc_entry->{orig}";
+#		debug "E:\n $conf_entry->{orig}\n $spoc_entry->{orig}";
 		if ($self->equalize_obj_group_in_ace($conf, $spoc, 
 						     $conf_entry, $spoc_entry))
 		{
 		    
 		    # Change ACL line to modified name of obj-group.
-		    $add_before{$spoc_entry} = $conf_entry;
+ 		    $add_before{$spoc_entry} = $conf_entry;
+#		    debug "line $device_line{$spoc_entry}: $spoc_entry->{orig}";
 		    $spoc_line_offset{$spoc_entry} = $add_offset;
 		    push @delete, $conf_entry;
 		    $move_up{$spoc_entry} = $conf_entry;
@@ -603,7 +605,7 @@ sub equalize_acl {
 	# Process to be deleted entries.
 	elsif ($diff->Diff() & 1) {
 	    for my $conf_entry ($diff->Items(1)) {
-		debug "R: \n $conf_entry->{orig}";
+#		debug "R: \n $conf_entry->{orig}";
 		my $key = acl_entry2key($conf_entry);
 
 		# We can get multiple lines with identical key if both
@@ -618,33 +620,30 @@ sub equalize_acl {
     $diff->Reset();
     while($diff->Next()) {
 	if ($diff->Diff() & 2) {
-	    my $next_conf_entry;
-	    my $offset;
-	    if (defined (my $conf_next = $diff->Min(1))) {
-		$next_conf_entry = $conf_entries->[$conf_next];
-		$offset = $add_offset;
-	    }
-	    for my $spoc_entry ($diff->Items(2)) {
-		debug "A: \n $spoc_entry->{orig}";
+	    my $conf_next = $diff->Min(1);
+	    my $next_conf_entry = $conf_entries->[$conf_next] || 'LAST';
+	    my $offset = $add_offset;
+	    my @items = $diff->Items(2);
+	    for (my $i = 0; $i < @items; $i++) {
+		my $spoc_entry = $items[$i];
+#		debug "A:\n $spoc_entry->{orig}";
 
 		# Remember conf line where to add new line.
-		if ($next_conf_entry) {
-		    $add_before{$spoc_entry} = $next_conf_entry;
-		    $spoc_line_offset{$spoc_entry} = $offset;
-		    $offset += $add_incr;
-		    debug " next: $next_conf_entry->{orig}";
-		}
+		$add_before{$spoc_entry} = $next_conf_entry;
+		$spoc_line_offset{$spoc_entry} = $offset;
+		$offset += $add_incr;
+#		debug " next: ", $next_conf_entry eq 'LAST' ? 'LAST' : $next_conf_entry->{orig};
 
 		# Find lines already present on device
 		my $key = acl_entry2key($spoc_entry);
 		my $aref;
 		if ($aref = $dupl{$key} and @$aref) {
 		    my $conf_entry = pop @$aref;
-		    debug "D: \n $conf_entry->{orig}";
+#		    debug "D:\n $conf_entry->{orig}";
 		    $self->equalize_obj_group_in_ace($conf, $spoc, 
 						     $conf_entry, $spoc_entry);
 
-		    # Move upwards.
+		    # Move upwards, to lower line number.
 		    if ($next_conf_entry and
 			$device_line{$next_conf_entry} < 
 			$device_line{$conf_entry}) 
@@ -654,15 +653,19 @@ sub equalize_acl {
 			push @add, $spoc_entry;
 		    }
 
-		    # Move downwards.
+		    # Move downwards, to higher line number.
+		    # Todo:
+		    # Deletes occur in reversed order, hence the associated new entry 
+		    # must be added in front of some other new entry, 
+		    # if this has already been added before.
 		    else {
-			$self->mark_new_object_groups($spoc, $spoc_entry);
 			$move_down{$conf_entry} = $spoc_entry;
 		    }
 		}
 
 		# Add.
 		else {
+		    $self->mark_new_object_groups($spoc, $spoc_entry);
 		    push @add, $spoc_entry;
 		}
 	    }
@@ -686,12 +689,11 @@ sub equalize_acl {
 	    $self->change_acl_numbers(\%device_line, $line+1, -1);
 	}
 	my $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
-	if (my $next_conf_entry = $add_before{$spoc_entry}) {
-	    my $line = $device_line{$next_conf_entry} + 
+ 	my $next_conf_entry = $add_before{$spoc_entry};
+	my $line = $device_line{$next_conf_entry} + 
 		$spoc_line_offset{$spoc_entry};
-	    $vcmd2->{line} = $line;
-	    $self->change_acl_numbers(\%device_line, $line, +1);
-	}
+	$vcmd2->{line} = $line;
+	$self->change_acl_numbers(\%device_line, $line, +1);
 	push(@vcmds, $vcmd1 ? [ $vcmd1, $vcmd2] : $vcmd2);
     }
 
@@ -707,12 +709,11 @@ sub equalize_acl {
 	my $vcmd2;
 	if (my $spoc_entry = $move_down{$conf_entry}) {
 	    $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
-	    if (my $next_conf_entry = $add_before{$spoc_entry}) {
-		my $line2 = $device_line{$next_conf_entry} + 
-		    $spoc_line_offset{$spoc_entry};
-		$vcmd2->{line} = $line2;
-		$self->change_acl_numbers(\%device_line, $line, +1);
-	    }
+ 	    my $next_conf_entry = $add_before{$spoc_entry};
+	    my $line2 = $device_line{$next_conf_entry} + 
+		$spoc_line_offset{$spoc_entry};
+	    $vcmd2->{line} = $line2;
+	    $self->change_acl_numbers(\%device_line, $line2, +1);
 	}
 	push(@vcmds, $vcmd2 ? [ $vcmd1, $vcmd2] : $vcmd1);
     }
