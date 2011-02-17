@@ -638,7 +638,7 @@ sub equalize_acl {
 		my $key = acl_entry2key($spoc_entry);
 		my $aref;
 		if ($aref = $dupl{$key} and @$aref) {
-		    my $conf_entry = pop @$aref;
+		    my $conf_entry = shift @$aref;
 #		    debug "D:\n $conf_entry->{orig}";
 		    $self->equalize_obj_group_in_ace($conf, $spoc, 
 						     $conf_entry, $spoc_entry);
