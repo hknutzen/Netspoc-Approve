@@ -884,6 +884,11 @@ sub handle_reload_banner {
 sub equalize_obj_group_in_ace {}
 sub mark_new_object_groups {}
 
+sub find_matching_acl_entry {
+    my ($self, $spoc, $spoc_entry, $conf_entries);
+    shift @$conf_entries;
+}
+
 # ACL line numbers don't change during incremental ACL update.
 sub change_acl_numbers {}
 

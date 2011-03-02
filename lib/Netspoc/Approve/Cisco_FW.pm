@@ -1082,6 +1082,52 @@ sub mark_new_object_groups {
     }
 }
 
+# An ACL line with object groups in src and dst is added.
+# A corresponding ACL line will be removed before.
+# If multiple lines are available for remove, if we always take the first one,
+# we could get duplicate lines by accident.
+#
+# Input: ACL line from netspoc, array of ACL lines from device.
+# Result: One removed element of the array.
+# Search an ACL line on device which references the same object groups 
+# as the ACL from netspoc.
+# Return the first element if no such element is found.
+sub find_matching_acl_entry {
+    my ($self, $spoc, $spoc_entry, $conf_entries) = @_;
+    my $result = 0;
+    if (@$conf_entries > 1) {
+
+	# Find known groups in new entry.
+	my $device_groups;
+	for my $where (qw(SRC DST)) {
+	    my $what = $spoc_entry->{$where};
+	    if (my $og_name = $what->{OBJECT_GROUP}) {
+		my $group = object_for_name($spoc, 'OBJECT_GROUP', $og_name);
+		if (my $conf_og_name = $group->{name_on_dev}) {
+		    $device_groups->{$where} = $conf_og_name;
+		}
+	    }
+	}
+	# Find entry with equal groups.
+	if ($device_groups->{SRC} and $device_groups->{DST}) {
+	    for (my $i = 0; $i < @$conf_entries; $i++) {
+		my $conf_entry = $conf_entries->[$i];
+		my $found = 1;
+		for my $where (qw(SRC DST)) {
+		    $found &&= 
+			$device_groups->{$where} eq 
+			$conf_entry->{$where}->{OBJECT_GROUP};
+		}
+		if ($found) {
+		    $result = $i;
+		    last;
+		}
+	    }
+	}
+    }
+    return splice(@$conf_entries, $result, 1);
+}
+	
 # Renumber line numbers in mapping from acl entries to line numbers.
 sub change_acl_numbers {
     my ($self, $hash, $start, $incr) = @_;
