@@ -208,24 +208,22 @@ sub get_parse_info {
 		      { store => 'TYPE', 
 			parse => qr/tcp|udp/, default => 'ip' },
 		      ['or',
-		       { store => 'INTERFACE', parse => qr/interface/ },
+#		       { store => 'INTERFACE', parse => qr/interface/ },
 		       { store => 'GLOBAL_IP', parse => \&get_ip } ],
 		      ['seq',
 		       { parse => \&test_ne, params => ['ip', '$TYPE'] },
 		       { store => 'GLOBAL_PORT', 
 			 parse => 'parse_port', params => ['$TYPE'] } ],
 		      ['or',
-		       ['seq',
-			{ parse => qr/interface/ },
-			{ store => 'ACCESS_LIST', parse => \&get_token },
-			{ store => 'DNS', parse => qr/dns/ } ],
+#		       ['seq',
+#			{ parse => qr/access-list/ },
+#			{ store => 'ACCESS_LIST', parse => \&get_token } ],
 		       ['seq',
 			{ store => 'LOCAL_IP', parse => \&get_ip },
 			['seq',
 			 { parse => \&test_ne, params => ['ip', '$TYPE'] },
 			 { store => 'LOCAL_PORT', 
 			   parse => 'parse_port', params => ['$TYPE'] } ],
-			{ store => 'DNS', parse => qr/dns/ },
 			['seq',
 			 { parse => qr/netmask/ },
 			 { store => 'NETMASK', 
@@ -238,6 +236,7 @@ sub get_parse_info {
 		       { store => 'EMB_LIMIT', 
 			 parse => \&check_int,
 			 default => 0 } ],
+		      { store => 'DNS', parse => qr/dns/ },
 		      { store => 'NORANDOMSEQ', parse => qr/norandomseq/ } ],
 	},
 
@@ -678,38 +677,28 @@ sub get_config_from_device( $ ) {
 ##############################################################
 
 # We want to kick out the netspoc static,
-# if the raw entry covers the netspoc entry totally.
+# if the raw entry fully covers the netspoc entry.
 #        - used to overwrite netspoc generated statics
-#
-# possible results:
+# Possible results:
 #        0 - no match
-#        1 -  match or inclusion
-#        2 -  match with intersection
-#        3 -  warning
-#
-# ToDo: Handle all attributes.
-sub static_global_local_match_a_b( $$$ ) {
-    my ($self, $a, $b) = @_;
+#        1 - spoc is included in raw
+sub static_global_local_match {
+    my ($self, $spoc, $raw) = @_;
     my $result = 0;
-    $a->{LOCAL_IF} eq $b->{LOCAL_IF} and $a->{GLOBAL_IF} eq $b->{GLOBAL_IF}
-      or return 0;
-
-    for my $k (qw(INTERFACE ACCESS_LIST)) {
-	next if defined $a->{$k} xor defined $b->{$k};
-	next if not defined $a->{$k};
-	$a->{$k} eq $b->{$k} or return 3;
-    }
+    $spoc->{LOCAL_IF} eq $raw->{LOCAL_IF} and 
+	$spoc->{GLOBAL_IF} eq $raw->{GLOBAL_IF}
+    or return 0;
 
     # Default value has been set to 0xffffffff by parser.
-    my $a_addr = { MASK => $a->{NETMASK} };
-    my $b_addr = { MASK => $b->{NETMASK} };
+    my $spoc_addr = { MASK => $spoc->{NETMASK} };
+    my $raw_addr = { MASK => $raw->{NETMASK} };
 
     for my $key (qw(LOCAL_IP GLOBAL_IP)) {
-	$a_addr->{BASE} = $a->{$key};
-	$b_addr->{BASE} = $b->{$key};
-	$result = $self->ip_netz_a_in_b($a_addr, $b_addr) and return $result;
+	$spoc_addr->{BASE} = $spoc->{$key};
+	$raw_addr->{BASE} = $raw->{$key};
+	($self->ip_netz_a_in_b($spoc_addr, $raw_addr) == 1) or return 0;
     }
-    return $result;
+    return 1;
 }
 
 sub attr_eq( $$$ ) {
@@ -728,7 +717,6 @@ sub attr_eq( $$$ ) {
 sub merge_rawdata {
     my ($self, $spoc_conf, $raw_conf) = @_;
 
-
     # access-list 
     $self->merge_acls($spoc_conf, $raw_conf);
 
@@ -736,40 +724,27 @@ sub merge_rawdata {
     if ($raw_conf->{STATIC}) {
 	my @std_static = ();
 	my @remove = ();
-	$spoc_conf->{STATIC} ||= [];
-	for my $s (@{ $raw_conf->{STATIC} }) {
+	my $spoc_v = $spoc_conf->{STATIC} ||= [];
+	for my $raw (@{ $raw_conf->{STATIC} }) {
 	    my $covered = 0;
-	    for (my $i = 0 ; $i < scalar @{ $spoc_conf->{STATIC} } ; $i++) {
-		my $spoc  = $spoc_conf->{STATIC}[$i];
-		my $match = 0;
-		if ($self->attr_eq($spoc, $s)) {
-		    warnpr "RAW: ignoring useless: '$s->{orig}'\n";
+	    for (my $i = 0 ; $i < @$spoc_v ; $i++) {
+		my $spoc = $spoc_v->[$i];
+		if ($self->attr_eq($spoc, $raw)) {
+		    warnpr "RAW: ignoring useless: '$raw->{orig}'\n";
 		    $covered = 1;
 		}
-		elsif ($match =
-		       $self->static_global_local_match_a_b($spoc, $s))
-		{
-		    unless ($match == 3) {
-			mypr "RAW: spoc static '$spoc->{orig}' replaced by",
-			" '$s->{orig}'\n";
-			push @remove, $i;
-		    }
-		    else {
-			warnpr "RAW: weired match RAW: \'",
-			$s->{orig}, "\'\n";
-			warnpr "RAW: weired match SPOC: \'",
-			$spoc->{orig}, "\'\n";
-			warnpr "RAW: static discarded!\n";
-			$covered = 1;
-		    }
+		elsif ($self->static_global_local_match($spoc, $raw)) {
+		    mypr "RAW: spoc line '$spoc->{orig}'",
+		    "\n   replaced by '$raw->{orig}'\n";
+		    push @remove, $i;
 		}
 	    }
-	    $covered or push @std_static, $s;
+	    $covered or push @std_static, $raw;
 	}
 	for my $r (reverse sort @remove) {
-	    splice @{ $spoc_conf->{STATIC} }, $r, 1;
+	    splice @$spoc_v, $r, 1;
 	}
-	@{ $spoc_conf->{STATIC} } = (@{ $spoc_conf->{STATIC} }, @std_static),
+	push(@$spoc_v, @std_static),
 	mypr " attached static entries: " . scalar @std_static . "\n";
     }
 
