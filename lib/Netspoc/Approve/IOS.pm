@@ -965,6 +965,7 @@ sub equalize_acl {
     for (my $i = 0; $i < @$conf_entries; $i++) {
 	$cisco_line{$conf_entries->[$i]} = 10000 + $i * 10000;
     }
+    $cisco_line{LAST} = 10000 + @$conf_entries * 10000;
 
     # 1. Process to be deleted entries.
     while($diff->Next()) {
@@ -983,7 +984,8 @@ sub equalize_acl {
     while($diff->Next()) {
 	if ($diff->Diff() & 2) {
 	    my $conf_next = $diff->Min(1);
-	    my $line = $cisco_line{$conf_entries->[$conf_next]} - 9999;
+	    my $next_conf_entry = $conf_entries->[$conf_next] || 'LAST';
+	    my $line = $cisco_line{$next_conf_entry} - 9999;
 	    for my $spoc_entry ($diff->Items(2)) {
 		$cisco_line{$spoc_entry} = $line++;
 
