@@ -206,6 +206,38 @@ END
 is_deeply(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Add lines at end of ACL";
+############################################################
+$in = <<END;
+ip access-list extended test
+ permit ip any host 10.0.1.1
+ permit ip any host 10.0.1.2
+ permit ip any host 10.0.1.3
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$device = <<END;
+ip access-list extended test
+ permit ip any host 10.0.1.1
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+ip access-list resequence test 10000 10000
+ip access-list extended test
+10001 permit ip any host 10.0.1.2
+10002 permit ip any host 10.0.1.3
+exit
+ip access-list resequence test 10 10
+END
+
+is_deeply(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Change ACL, prevent lockout";
 #
 # ACL lines must be deleted in reversed order,
