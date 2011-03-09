@@ -172,6 +172,9 @@ my $job = $class->new(
     GLOBAL_CONFIG => $global_config,
 );
 
+@ip > 0 or die "Can't get IP from spoc file\n";
+$job->{IP} = shift(@ip);
+
 # Enable logging if configured.
 $job->logging();
 
@@ -266,9 +269,6 @@ if (my $p1 = $opts{P1}) {
     mypr "\n";
     exit $exit;
 }
-
-@ip > 0 or die "Can't get IP from spoc file\n";
-$job->{IP} = shift(@ip);
 
 # Check reachability
 if (defined $job->{OPTS}->{PING_ONLY}) {
