@@ -880,6 +880,69 @@ sub handle_reload_banner {
     }
 }
 
+sub get_my_connection {
+    my ($self) = @_;
+    if (my $cached = $self->{ip_port}) {
+	return @$cached;
+    }
+
+    # In file compare mode use IP from netspoc file.
+    if (not $self->{CONSOLE}) {
+	my $any = { BASE => 0, MASK => 0 };
+	my $ip = $self->{IP};
+	my $dst = $ip ? { BASE => $ip, MASK => 0xffffffff } : $any;
+	my $range = { TYPE => 'tcp', SRC_PORT => 22, DST_PORT => 23 };
+	my $cached = $self->{ip_port} = [ $any, $dst, $range ];
+	return @$cached;
+    }
+
+    # With real device. Read IP from device, because
+    # IP from netspoc may have been changed by NAT.
+
+    # Read my vty and my IP
+    # *  7 vty 1     netspoc   idle                 00:00:00 10.10.10.10
+    my $lines = $self->get_cmd_output('sh users | incl ^\*');
+    my $line = $lines->[0];
+    chomp $line;
+    my ($vty, $s_ip);
+    if ($line =~ /^\*\s+(\d+).*?([\d.]+)$/) {
+	($vty, $s_ip) = ($1, $2);
+    }
+    else {
+	errpr "Can't determine my vty\n";
+    }
+    my $src_ip = quad2int($s_ip) or errpr "Can't parse src ip: $s_ip\n";
+
+    $lines = $self->get_cmd_output("sh tcp $vty | incl Local host:");
+    $line = $lines->[0];
+    my ($port, $d_ip);
+    if ($line =~ /Local host:\s([\d.]+),\sLocal port:\s(\d+)/i) {
+	($d_ip, $port) = ($1, $2);
+    }
+    else {
+	errpr "Can't determine remote ip and port of my TCP session\n";
+    }
+    my $dst_ip = quad2int($d_ip) or errpr "Can't parse remote ip: $d_ip\n";
+    mypr "My connection: $s_ip -> $d_ip:$port\n";
+    my $src = { BASE => $src_ip, MASK => 0xffffffff };
+    my $dst = { BASE => $dst_ip, MASK => 0xffffffff };
+    my $range = { TYPE => 'tcp', SRC_PORT => $port, DST_PORT => $port };
+    my $cached = $self->{ip_port} = [ $src, $dst, $range ];
+    return @$cached;
+}
+
+sub is_device_access {
+    my ($self, $conf_entry) = @_;
+    my $src = $conf_entry->{SRC};
+    my $dst = $conf_entry->{DST};
+    my $proto = $conf_entry->{TYPE};
+    my ($device_src, $device_dst, $device_proto) = $self->get_my_connection();
+    return
+	$self->ip_netz_a_in_b($device_src, $src) and
+	$self->ip_netz_a_in_b($device_dst, $dst) and
+	$self->services_a_in_b($device_proto, $proto);
+}
+
 # Build textual representation from ACL entry for use with Algorithm::Diff.
 sub acl_entry2key {
     my ($e) = @_;
@@ -923,6 +986,8 @@ sub acl_entry2key {
 # The move operation is implemented specially:
 # The delete and add command are transferred together in one packet 
 # to prevent accidental lock out from device.
+# But this doesn't work reliably. Hence we abort the operation,
+# if that ACL line is moved, which allows netspoc to access the device.
 #
 # ACL is changed on device in 2 passes:
 # 1. Add new ACL entries and move entries upwards, top entries first.
@@ -931,10 +996,15 @@ sub acl_entry2key {
 # 2. Delete old ACL entries and move entries downward, bottom entries first.
 #  a) delete entry which isn't used any longer.
 #  b) move entry downwards
+#
+# Return value:
+# 1: ACL has been updated successfully
+# 0: ACL can't be updated; a new ACL needs to be defined and assigned.
 sub equalize_acl {
     my($self, $conf_acl, $spoc_acl) = @_;
     my $conf_entries = $conf_acl->{LIST};
     my $spoc_entries = $spoc_acl->{LIST};
+    my $acl_name = $conf_acl->{name};
 
     my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
 				     { keyGen => \&acl_entry2key } );
@@ -992,6 +1062,16 @@ sub equalize_acl {
 		# Find lines already present on device
 		my $key = acl_entry2key($spoc_entry);
 		if (my $conf_entry = $dupl{$key}) {
+		    
+		    # Abort move operation, if this ACL line permits
+		    # our access to this device
+		    if ($self->is_device_access($conf_entry)) {
+			mypr "Can't modify $acl_name.\n";
+			mypr "Some entry must be moved and is assumed" .
+			    " to allow device access:\n";
+			mypr " $conf_entry->{orig}\n";
+			return 0;
+		    }
 
 		    # Move upwards.
 		    if ($cisco_line{$spoc_entry} < $cisco_line{$conf_entry}) {
@@ -1014,9 +1094,7 @@ sub equalize_acl {
 	}
     }
     
-    return if not (@add || @delete);
-
-    my $acl_name = $conf_acl->{name};
+    return 1 if not (@add || @delete);
 
     if (@$conf_entries >= 10000) {
 	errpr "Can't handle device ACL $acl_name with 10000 or more entries\n";
@@ -1073,6 +1151,7 @@ sub equalize_acl {
     $self->cancel_reload();
     $self->cmd("ip access-list resequence $acl_name 10 10");
     $self->leave_conf_mode();
+    return 1;
 }
 
 sub define_acl {
@@ -1081,7 +1160,7 @@ sub define_acl {
 
     # Possibly there is an old acl with $aclname:
     # first remove old entries because acl should be empty - 
-    # otherwise new entries would be only appended.
+    # otherwise new entries would be appended only.
     $self->cmd("no ip access-list extended $name");
     $self->cmd("ip access-list extended $name");
     for my $c (@$entries) {
@@ -1108,40 +1187,52 @@ sub process_interface_acls( $$$ ){
 	    my $spocacl_name = $intf->{"ACCESS_GROUP_$in_out"} || '';
 	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
 	    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
-
-	    # Change ACL at device.
-	    if ($conf_acl and $spoc_acl){
-		$self->equalize_acl($conf_acl, $spoc_acl);
+	    my $ready;
+	    
+	    # Try to change existing ACL at device.
+	    if ($conf_acl and $spoc_acl) {
+		$ready = $self->equalize_acl($conf_acl, $spoc_acl);
 	    }
+	    next if $ready;
 
 	    # Add ACL to device.
-	    elsif ($spoc_acl) {
+	    if ($spoc_acl) {
 		$self->{CHANGE}->{ACL} = 1;
-		my $aclname = "$spocacl_name-DRC";
+
+		# New and old ACLs must use different names.
+		# We toggle between -DRC-0 and DRC-1.
+		my $aclindex = 0;
+		if ($conf_acl) {
+		    if ($confacl_name =~ /-DRC-([01])$/) {
+			$aclindex = (not $1) + 0;
+		    }
+		}
+		my $aclname = "$spocacl_name-DRC-$aclindex";
 
 		# begin transfer
 		mypr "creating ACL $aclname\n";
 		$self->define_acl($aclname, $spoc_acl->{LIST});
 
 		# Assign new acl to interface.
-		mypr "assigning new $direction ACL to interface $name\n";
+		mypr "assigning new $in_out ACL to interface $name\n";
 		$self->schedule_reload(5);
 		$self->enter_conf_mode();
 		$self->cmd("interface $name");
-		my $direction = lc($in_out);
 		$self->cmd("ip access-group $aclname $direction");
 		$self->leave_conf_mode();
 		$self->cancel_reload();
 	    }
 
 	    # Remove ACL from device.
-	    elsif ($conf_acl) {
+	    if ($conf_acl) {
 		$self->{CHANGE}->{ACL} = 1;
-		mypr "unassigning $direction ACL from interface $name\n";
 		$self->schedule_reload(5);
 		$self->enter_conf_mode();
-		$self->cmd("interface $name");
-		$self->cmd("no ip access-group $confacl_name $direction");
+		if (not $spoc_acl) {
+		    mypr "unassigning $in_out ACL from interface $name\n";
+		    $self->cmd("interface $name");
+		    $self->cmd("no ip access-group $confacl_name $direction");
+		}
 		$self->cancel_reload();
 		mypr "removing ACL $confacl_name on device\n";
 		$self->cmd("no ip access-list extended $confacl_name");
