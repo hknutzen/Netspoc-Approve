@@ -566,8 +566,8 @@ sub prepare {
         mypr "Disabled 'logging console'\n";
 
 	# Older IOS has only vty 0 4.
-	$self->get_cmd_output('line vty 0 15') &&
-	    $self->cmd('line vty 0 4');
+	my $lines = $self->get_cmd_output('line vty 0 15');
+	@$lines && $self->cmd('line vty 0 4');
 	$self->cmd('logging synchronous level all');
         mypr "Enabled 'logging synchronous'\n";
 
