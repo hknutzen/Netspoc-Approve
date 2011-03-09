@@ -882,17 +882,19 @@ sub handle_reload_banner {
 
 sub get_my_connection {
     my ($self) = @_;
-    if (my $cached = $self->{ip_port}) {
+    if (my $cached = $self->{CONNECTION}) {
 	return @$cached;
     }
 
     # In file compare mode use IP from netspoc file.
     if (not $self->{CONSOLE}) {
 	my $any = { BASE => 0, MASK => 0 };
-	my $ip = $self->{IP};
+	my $ip = quad2int($self->{IP});
 	my $dst = $ip ? { BASE => $ip, MASK => 0xffffffff } : $any;
-	my $range = { TYPE => 'tcp', SRC_PORT => 22, DST_PORT => 23 };
-	my $cached = $self->{ip_port} = [ $any, $dst, $range ];
+	my $range = { TYPE => 'tcp', 
+		      SRC_PORT => { LOW => 0, HIGH => 0xffff },
+		      DST_PORT => { LOW => 22, HIGH => 23 } };
+	my $cached = $self->{CONNECTION} = [ $any, $dst, $range ];
 	return @$cached;
     }
 
@@ -913,6 +915,7 @@ sub get_my_connection {
     }
     my $src_ip = quad2int($s_ip) or errpr "Can't parse src ip: $s_ip\n";
 
+    # Read tcp details for my connection.
     $lines = $self->get_cmd_output("sh tcp $vty | incl Local host:");
     $line = $lines->[0];
     my ($port, $d_ip);
@@ -926,21 +929,21 @@ sub get_my_connection {
     mypr "My connection: $s_ip -> $d_ip:$port\n";
     my $src = { BASE => $src_ip, MASK => 0xffffffff };
     my $dst = { BASE => $dst_ip, MASK => 0xffffffff };
-    my $range = { TYPE => 'tcp', SRC_PORT => $port, DST_PORT => $port };
-    my $cached = $self->{ip_port} = [ $src, $dst, $range ];
+    my $range = { TYPE => 'tcp', 
+		  SRC_PORT => { LOW => 0, HIGH => 0xffff },
+		  DST_PORT => { LOW => $port, HIGH => $port } };
+    my $cached = $self->{CONNECTION} = [ $src, $dst, $range ];
     return @$cached;
 }
 
 sub is_device_access {
     my ($self, $conf_entry) = @_;
-    my $src = $conf_entry->{SRC};
-    my $dst = $conf_entry->{DST};
-    my $proto = $conf_entry->{TYPE};
+    return 0 if $conf_entry->{MODE} eq 'deny';
     my ($device_src, $device_dst, $device_proto) = $self->get_my_connection();
     return
-	$self->ip_netz_a_in_b($device_src, $src) and
-	$self->ip_netz_a_in_b($device_dst, $dst) and
-	$self->services_a_in_b($device_proto, $proto);
+	$self->ip_netz_a_in_b($device_src, $conf_entry->{SRC}) &&
+	$self->ip_netz_a_in_b($device_dst, $conf_entry->{DST}) &&
+	$self->services_a_in_b($device_proto, $conf_entry);
 }
 
 # Build textual representation from ACL entry for use with Algorithm::Diff.
