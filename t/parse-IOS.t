@@ -320,6 +320,45 @@ END
 is_deeply(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Don't change ACL line which permit administrative access";
+############################################################
+$in = <<END;
+ip access-list extended test
+ permit tcp any host 10.1.13.33
+ permit tcp any host 10.1.13.31
+ permit tcp any host 10.1.13.32
+ deny ip any any
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$device = <<END;
+ip access-list extended test
+ permit tcp any host 10.1.13.31
+ permit tcp any host 10.1.13.32
+ permit tcp any host 10.1.13.33
+ deny ip any any
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+no ip access-list extended test-DRC-0
+ip access-list extended test-DRC-0
+permit tcp any host 10.1.13.33
+permit tcp any host 10.1.13.31
+permit tcp any host 10.1.13.32
+deny ip any any
+interface Ethernet1
+ip access-group test-DRC-0 in
+no ip access-list extended test
+END
+
+is_deeply(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Change incoming crypto filter ACL";
 ############################################################
 $in = <<END;
