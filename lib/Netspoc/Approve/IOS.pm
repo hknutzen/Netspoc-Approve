@@ -907,7 +907,7 @@ sub get_my_connection {
     my $line = $lines->[0];
     chomp $line;
     my ($vty, $s_ip);
-    if ($line =~ /^\*\s+(\d+).*?([\d.]+)$/) {
+    if ($line =~ /^\*\s*(\d+).*?([\d.]+)$/) {
 	($vty, $s_ip) = ($1, $2);
     }
     else {
