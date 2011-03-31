@@ -24,7 +24,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
 # For debugging:
-#use Data::Dumper;
+use Data::Dumper;
 
 # Global variables.
 
@@ -105,7 +105,7 @@ my %attr2cmd =
      IP_LOCAL_POOL => {
 	 IP_LOCAL_POOL             => 'ip local pool',
      },
-     CRYPTO_MAP_SEQ => {
+     CRYPTO_MAP_PEER => {
 #	 DYNAMIC_MAP		  => 'ipsec-isakmp dynamic',
 	 MATCH_ADDRESS		  => 'match address',
 	 NAT_T_DISABLE		  => 'set nat-t-disable',
@@ -127,10 +127,11 @@ my %attr_no_value = (
 
 my %attr_need_remove = (
 			# GROUP_POLICY
-			banner => 1,
+			banner                => 1,
 			'vpn-tunnel-protocol' => 1,
-			# CRYPTO_MAP_SEQ
-			PEER => 1,
+			# CRYPTO_MAP_PEER
+			PEER          => 1,
+			TRANSFORM_SET => 1,
 			);
 		      
 
@@ -503,6 +504,31 @@ sub postprocess_config {
     for my $key (@no_crypto_seq) {
 	$map->{$key} = delete $seq->{$key};
     }
+
+    # Transform crypto-map-seq-name to contain peer instead of
+    # sequence number in the name of the map.
+    for my $name ( keys %{$p->{CRYPTO_MAP_SEQ}} ) {
+	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
+	next unless $map->{PEER};
+	my $new_name;
+	( $new_name = $name ) =~ s/:(\d)+$/:$map->{PEER}/;
+	$p->{CRYPTO_MAP_PEER}->{$new_name} = $map;
+	$p->{CRYPTO_MAP_PEER}->{$new_name}->{SEQ} = $1;
+    }
+
+    # Transform crypto-map-seq to crypto-map-peer.
+    for my $name ( keys %{$p->{CRYPTO_MAP_SEQ}} ) {
+	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
+	next unless $map->{PEER};
+	my $new_name;
+	( $new_name = $name ) =~ s/:(\d)+$//;
+	$map->{name} = $new_name . ':' . $map->{PEER};
+	$p->{CRYPTO_MAP_SEQ}->{$name}->{SEQ} = $1;
+	push @{$p->{CRYPTO_MAP_LIST}->{$new_name}->{PEERS}}, $map;
+    }
+
+    # We don't need "CRYPTO_MAP_SEQ" anymore ...
+    delete $p->{CRYPTO_MAP_SEQ};
 
     # Some statistics.
     for my $key (%$p) {
@@ -1124,6 +1150,67 @@ sub equalize_acl {
     $modified;
 }
 
+sub by_peer {
+    return $a->{PEER} cmp $b->{PEER};
+}
+
+sub crypto_entry2key {
+    my ( $e ) = @_;
+    return $e->{PEER};
+}
+
+sub get_max_seq_nr {
+    my ( $conf ) = @_;
+    my $map = $conf->{CRYPTO_MAP_PEER};
+    my @sorted = sort { $a->{SEQ} <=> $b->{SEQ} } values %$map;
+    return $sorted[-1]->{SEQ};
+}
+
+sub equalize_crypto {
+    my ( $self, $conf, $spoc, $conf_crypto, $spoc_crypto ) = @_;
+
+    my $conf_entries = [ sort by_peer @{$conf_crypto->{PEERS}} ];
+    my $spoc_entries = [ sort by_peer @{$spoc_crypto->{PEERS}} ];
+
+    #print STDERR Dumper( $conf_entries ), "\n";
+    #print STDERR Dumper( $spoc_entries ), "\n";
+#FOO
+    my $modified;
+    
+    my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
+				     { keyGen => \&crypto_entry2key } );
+    # Maximum sequence-nr on device.
+    my $seq = get_max_seq_nr( $conf );
+    
+    while ( $diff->Next() ) {
+	next if $diff->Same();
+	
+	# Crypto entries differ.
+	$modified = 1;
+	
+	# On spoc but not on device.
+	for my $spoc_entry ( $diff->Items(2) ) {
+	    my $map_name = $spoc_entry->{name};
+	    my $spoc_crypto_map = object_for_name( $spoc, 'CRYPTO_MAP_PEER', 
+						   $map_name );
+	    # Start with "max-seq-nr on device +1" as sequence-nr
+	    # for spoc-crypto-map-entries that will be transfered
+	    # to device.
+	    $spoc_crypto_map->{SEQ} = ++$seq;
+	    $spoc_crypto_map->{transfer} = 1;
+	    mypr Dumper( $spoc_crypto_map );
+	}
+	
+	if ( my $count = $diff->Items(1) ) {
+	    mypr " CRYPTO: $count extra lines on device\n";
+	}
+	if ( my $count = $diff->Items(2) ) {
+	    mypr " CRYPTO: $count extra lines from Netspoc\n";
+	}
+    }
+    return $modified;
+}
+
 sub make_equal {
     my ( $self, $conf, $spoc, $parse_name, $conf_name,
 	 $spoc_name, $structure ) = @_;
@@ -1186,6 +1273,17 @@ sub make_equal {
 						  $conf_value, $spoc_value, ) )
 	    {
 		$spoc_value->{transfer} = 1;
+	    }
+	    else {
+		$conf_value->{needed} = $spoc_value;
+		$spoc_value->{name_on_dev} = $conf_name;
+	    }
+	}
+	elsif ( $parse_name eq 'CRYPTO_MAP_LIST' ) {
+	    if ( $modified = $self->equalize_crypto( $conf, $spoc, 
+						     $conf_value, $spoc_value ) )
+	    {
+		#$spoc_value->{transfer} = 1;
 	    }
 	    else {
 		$conf_value->{needed} = $spoc_value;
@@ -1457,7 +1555,7 @@ sub remove_unneeded_on_device {
     my ( $self, $conf, $structure ) = @_;
     
     # Caution: the order is significant in this array!
-    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
+    my @parse_names = qw( CRYPTO_MAP_PEER USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
 			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
@@ -1501,7 +1599,7 @@ sub remove_spare_objects_on_device {
     # marked as connected.
     # Spare object groups will be removed later by
     # remove_unneeded_on_device.
-    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
+    my @parse_names = qw( CRYPTO_MAP_PEER USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
 			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL
@@ -1714,7 +1812,7 @@ sub remove_interface {
 	"on device and in netspoc!\n";
 }
 
-sub transfer_crypto_map_seq {
+sub transfer_crypto_map_peer {
     my ( $self, $spoc, $structure, $parse_name, $name_seq ) = @_;
 
     my $object = object_for_name( $spoc, $parse_name, $name_seq );
@@ -1726,7 +1824,7 @@ sub transfer_crypto_map_seq {
     map { $self->cmd( $_ ) } @cmds;
 }
 
-sub remove_crypto_map_seq{
+sub remove_crypto_map_peer {
     my ( $self, $conf, $structure, $parse_name, $name_seq ) = @_;
 
     my $object = object_for_name( $conf, $parse_name, $name_seq );
@@ -2011,7 +2109,8 @@ sub add_attribute_cmds {
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
-	my ($name, $seq) = split(':', $object->{name});
+	my $name = $object->{name};
+	my $seq  = $object->{SEQ};
 	$prefix = "crypto map $name $seq";
     }
   ATTRIBUTE:
@@ -2116,7 +2215,7 @@ sub define_structure {
 		      },
 	    transfer => 'transfer_acl',
 	    remove   => 'remove_acl',
-	    modify => 'modify_acl',
+	    modify   => 'modify_acl',
 	},
 	OBJECT_GROUP => {
 	    attributes => [],
@@ -2135,15 +2234,21 @@ sub define_structure {
 	    transfer => 'transfer_interface',
 	    remove   => 'remove_interface',
 	},
-	CRYPTO_MAP_SEQ => {
+	CRYPTO_MAP_LIST => {
 	    anchor => 1,
-	    next   => [ { attr_name  => 'MATCH_ADDRESS',
-			  parse_name => 'ACCESS_LIST', },
-			],
-	    attributes => [ qw(NAT_T_DISABLE PEER PFS REVERSE_ROUTE SA_LIFETIME_SEC
-			       SA_LIFETIME_KB TRANSFORM_SET TRUSTPOINT) ],
-	    transfer => 'transfer_crypto_map_seq',
-	    remove   => 'remove_crypto_map_seq',
+	    next_list => { PEERS => [ { attr_name  => 'name',
+					parse_name => 'CRYPTO_MAP_PEER', },
+				      ],
+		       },
+	},
+	CRYPTO_MAP_PEER => {
+#	    attributes => [ qw(NAT_T_DISABLE PEER PFS REVERSE_ROUTE SA_LIFETIME_SEC
+#			       SA_LIFETIME_KB TRANSFORM_SET TRUSTPOINT) ],
+	    next     => [ { attr_name  => 'MATCH_ADDRESS',
+			    parse_name => 'ACCESS_LIST' }
+			  ],
+	    transfer => 'transfer_crypto_map_peer',
+	    remove   => 'remove_crypto_map_peer',
 	},
     };
 
