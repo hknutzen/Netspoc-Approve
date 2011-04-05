@@ -23,6 +23,8 @@ sub approve {
     my $header = <<END;
 $comment [ BEGIN router:$device_name ]
 $comment [ Model = $type ]
+$comment [ IP = 10.1.13.33 ]
+
 END
 
     $spoc = $header . $spoc;
