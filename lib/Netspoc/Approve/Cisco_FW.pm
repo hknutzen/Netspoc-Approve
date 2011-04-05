@@ -1199,8 +1199,12 @@ sub equalize_crypto {
 
 	# On spoc but not on device.
 	for my $spoc_entry ( $diff->Items(2) ) {
-	    $spoc_entry->{SEQ} = ++$seq;
-	    $spoc_entry->{transfer} = 1;
+	    my $spoc_name = $spoc_entry->{name};
+	    my ($map_name) = split(/:/, $spoc_name);
+	    $seq++;
+	    $spoc_entry->{new_name} = "$map_name:$seq";
+	    $self->make_equal($conf, $spoc, 'CRYPTO_MAP_SEQ',
+			      undef, $spoc_name, $structure);
 	}
 	
 	if ( my $count = $diff->Items(1) ) {
@@ -2095,8 +2099,7 @@ sub add_attribute_cmds {
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
- 	my ($name) = split(':', $object->{name});
-	my $seq = $object->{SEQ};
+ 	my ($name, $seq) = split(':', $object->{new_name} || $object->{name});
 	$prefix = "crypto map $name $seq";
     }
   ATTRIBUTE:
