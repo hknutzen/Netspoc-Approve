@@ -2,7 +2,7 @@
 # parse-IOS.t
 
 use strict;
-use Test::More qw(no_plan);
+use Test::More;
 use lib 't';
 use Test_Approve;
 
@@ -479,3 +479,7 @@ ERROR>>> severe diffs in crypto ipsec detected
 END
 
 #is_deeply(approve('IOS', $device, $in), $out, $title);
+
+
+############################################################
+done_testing;

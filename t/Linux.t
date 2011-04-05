@@ -2,7 +2,7 @@
 # Linux.t
 
 use strict;
-use Test::More qw(no_plan);
+use Test::More;
 use lib 't';
 use Test_Approve;
 
@@ -106,3 +106,7 @@ ip route del 10.30.0.0/16 via 10.1.2.3
 END
 
 is_deeply(approve($type, $device, $in), $out, $title);
+
+
+############################################################
+done_testing;
