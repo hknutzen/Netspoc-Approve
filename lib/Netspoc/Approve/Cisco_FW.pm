@@ -24,7 +24,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
 # For debugging:
-use Data::Dumper;
+#use Data::Dumper;
 
 # Global variables.
 
@@ -105,7 +105,7 @@ my %attr2cmd =
      IP_LOCAL_POOL => {
 	 IP_LOCAL_POOL             => 'ip local pool',
      },
-     CRYPTO_MAP_PEER => {
+     CRYPTO_MAP_SEQ => {
 #	 DYNAMIC_MAP		  => 'ipsec-isakmp dynamic',
 	 MATCH_ADDRESS		  => 'match address',
 	 NAT_T_DISABLE		  => 'set nat-t-disable',
@@ -129,7 +129,7 @@ my %attr_need_remove = (
 			# GROUP_POLICY
 			banner                => 1,
 			'vpn-tunnel-protocol' => 1,
-			# CRYPTO_MAP_PEER
+			# CRYPTO_MAP_SEQ
 			PEER          => 1,
 			TRANSFORM_SET => 1,
 			);
@@ -483,7 +483,7 @@ sub postprocess_config {
     }
 
     # Link interfaces to access lists via attribute ACCESS_GROUP_XXX.
-    for my $access_group ( values %{$p->{ACCESS_GROUP}} ) {
+    for my $access_group (values %{$p->{ACCESS_GROUP}}) {
 	my $acl_name = $access_group->{name};
 	my $attr = 'ACCESS_GROUP_' . uc($access_group->{TYPE});
 
@@ -498,6 +498,7 @@ sub postprocess_config {
     delete $p->{ACCESS_GROUP};
 
     # Separate "crypto map name seq" vs. "crypto map name interface"
+    # "name seq" is stored with key "name:seq".
     my @no_crypto_seq = grep { $_ !~ /:/ } keys %{$p->{CRYPTO_MAP}};
     my $seq = $p->{CRYPTO_MAP_SEQ} = delete $p->{CRYPTO_MAP};
     my $map = $p->{CRYPTO_MAP} = {};
@@ -505,30 +506,21 @@ sub postprocess_config {
 	$map->{$key} = delete $seq->{$key};
     }
 
-    # Transform crypto-map-seq-name to contain peer instead of
-    # sequence number in the name of the map.
-    for my $name ( keys %{$p->{CRYPTO_MAP_SEQ}} ) {
+    # Add entries of CRYPTO_MAP_SEQ to attribute PEER of artificial
+    # anchor CRYPTO_MAP_LIST.
+    my $lists = $p->{CRYPTO_MAP_LIST} = {};
+    my %peers;
+    for my $name (keys %$seq) {
+	my ($map_name, $seq_nr) = split(/:/, $name);
 	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
-	next unless $map->{PEER};
-	my $new_name;
-	( $new_name = $name ) =~ s/:(\d)+$/:$map->{PEER}/;
-	$p->{CRYPTO_MAP_PEER}->{$new_name} = $map;
-	$p->{CRYPTO_MAP_PEER}->{$new_name}->{SEQ} = $1;
+	my $peer_ip = $map->{PEER} or 
+	    errpr "Missing peer in crypto map $map_name $seq_nr\n";
+	$map->{SEQ} = $seq_nr;
+	$peers{$peer_ip} and 
+	    errpr "Duplicate peer $peer_ip in crypto map $map_name $seq_nr\n";
+	$peers{$peer_ip} = $map;
+	push @{ $lists->{$map_name}->{PEERS} }, $name;
     }
-
-    # Transform crypto-map-seq to crypto-map-peer.
-    for my $name ( keys %{$p->{CRYPTO_MAP_SEQ}} ) {
-	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
-	next unless $map->{PEER};
-	my $new_name;
-	( $new_name = $name ) =~ s/:(\d)+$//;
-	$map->{name} = $new_name . ':' . $map->{PEER};
-	$p->{CRYPTO_MAP_SEQ}->{$name}->{SEQ} = $1;
-	push @{$p->{CRYPTO_MAP_LIST}->{$new_name}->{PEERS}}, $map;
-    }
-
-    # We don't need "CRYPTO_MAP_SEQ" anymore ...
-    delete $p->{CRYPTO_MAP_SEQ};
 
     # Some statistics.
     for my $key (%$p) {
@@ -850,6 +842,7 @@ sub generate_names_for_transfer {
 
     for my $parse_name ( keys %{$structure} ) {
 	next if $structure->{$parse_name}->{anchor};
+	next if $parse_name eq 'CRYPTO_MAP_SEQ';
 	my $hash = $spoc->{$parse_name};
 	for my $name ( keys %$hash ) {
 	    next if ($parse_name eq 'TUNNEL_GROUP'
@@ -1147,7 +1140,7 @@ sub equalize_acl {
 	    }
 	}
     }
-    $modified;
+    return $modified;
 }
 
 sub by_peer {
@@ -1160,45 +1153,54 @@ sub crypto_entry2key {
 }
 
 sub get_max_seq_nr {
-    my ( $conf ) = @_;
-    my $map = $conf->{CRYPTO_MAP_PEER};
-    my @sorted = sort { $a->{SEQ} <=> $b->{SEQ} } values %$map;
-    return $sorted[-1]->{SEQ};
+    my ( $conf_entries ) = @_;
+    my $max = 0;
+    map { $_->{SEQ} > $max and $max = $_->{SEQ} } @$conf_entries;
+    return $max
 }
 
 sub equalize_crypto {
-    my ( $self, $conf, $spoc, $conf_crypto, $spoc_crypto ) = @_;
+    my ( $self, $conf, $spoc, $conf_crypto, $spoc_crypto, $structure ) = @_;
 
-    my $conf_entries = [ sort by_peer @{$conf_crypto->{PEERS}} ];
-    my $spoc_entries = [ sort by_peer @{$spoc_crypto->{PEERS}} ];
+    my $conf_entries = [ sort by_peer 
+			 map(object_for_name($conf, 'CRYPTO_MAP_SEQ', $_),
+			     @{$conf_crypto->{PEERS}}) ];
+    my $spoc_entries = [ sort by_peer 
+			 map(object_for_name($spoc, 'CRYPTO_MAP_SEQ', $_),
+			     @{$spoc_crypto->{PEERS}}) ];
 
-    #print STDERR Dumper( $conf_entries ), "\n";
-    #print STDERR Dumper( $spoc_entries ), "\n";
-#FOO
     my $modified;
     
     my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
 				     { keyGen => \&crypto_entry2key } );
-    # Maximum sequence-nr on device.
-    my $seq = get_max_seq_nr( $conf );
+
+    # Maximum sequence-nr on device for current crypto map.
+    # Starting point for added entries.
+    my $seq = get_max_seq_nr( $conf_entries );
     
     while ( $diff->Next() ) {
-	next if $diff->Same();
+
+	# Peer is equal, but other attributes may have changed.
+	if ($diff->Same()) {
+	    my $conf_min = $diff->Min(1);
+	    my $count = $diff->Max(1) - $conf_min;
+	    my $spoc_min = $diff->Min(2);
+	    for my $i (0 .. $count) {
+		my $conf_entry = $conf_entries->[$conf_min+$i];
+		my $spoc_entry = $spoc_entries->[$spoc_min+$i];
+		$self->make_equal($conf, $spoc, 'CRYPTO_MAP_SEQ',
+				  $conf_entry->{name}, $spoc_entry->{name},
+				  $structure);
+	    }
+	    next;
+	}
 	
-	# Crypto entries differ.
 	$modified = 1;
-	
+
 	# On spoc but not on device.
 	for my $spoc_entry ( $diff->Items(2) ) {
-	    my $map_name = $spoc_entry->{name};
-	    my $spoc_crypto_map = object_for_name( $spoc, 'CRYPTO_MAP_PEER', 
-						   $map_name );
-	    # Start with "max-seq-nr on device +1" as sequence-nr
-	    # for spoc-crypto-map-entries that will be transfered
-	    # to device.
-	    $spoc_crypto_map->{SEQ} = ++$seq;
-	    $spoc_crypto_map->{transfer} = 1;
-	    mypr Dumper( $spoc_crypto_map );
+	    $spoc_entry->{SEQ} = ++$seq;
+	    $spoc_entry->{transfer} = 1;
 	}
 	
 	if ( my $count = $diff->Items(1) ) {
@@ -1229,7 +1231,7 @@ sub make_equal {
     # return the name of the transfered object.
     if ( $spoc_value ) {
 	if ( $spoc_value->{transfer} ) {
-	    return $spoc_value->{new_name};
+	    return $spoc_value->{new_name} || $spoc_name;
 	}
 	elsif( $spoc_value->{name_on_dev} ) {
 	    return $spoc_value->{name_on_dev};
@@ -1262,6 +1264,14 @@ sub make_equal {
 		}
 	    }
 	}
+
+	# Mark referenced CRYPTO_MAP_SEQ elements.
+	elsif ( $parse_name eq 'CRYPTO_MAP_LIST' ) {
+	    for my $peer_name (@{ $spoc_value->{PEERS} }) {
+		$self->make_equal($conf, $spoc, 'CRYPTO_MAP_SEQ',
+				  undef, $peer_name, $structure);
+	    }	    
+	}
     }
 
     # Compare object on device with object from Netspoc.
@@ -1280,15 +1290,9 @@ sub make_equal {
 	    }
 	}
 	elsif ( $parse_name eq 'CRYPTO_MAP_LIST' ) {
-	    if ( $modified = $self->equalize_crypto( $conf, $spoc, 
-						     $conf_value, $spoc_value ) )
-	    {
-		#$spoc_value->{transfer} = 1;
-	    }
-	    else {
-		$conf_value->{needed} = $spoc_value;
-		$spoc_value->{name_on_dev} = $conf_name;
-	    }
+	    $modified = $self->equalize_crypto( $conf, $spoc, 
+						$conf_value, $spoc_value,
+						$structure );
 	}
 	else {
 	    # String-compare and mark changed attributes.
@@ -1307,20 +1311,17 @@ sub make_equal {
 #	    undef $spoc_value->{transfer};
 	}
     }
+
+    # On dev but not on spoc. Unused, will be removed later.
     elsif ( $conf_value  &&  !$spoc_value ) {
-	# On dev but not on spoc.
 #	mypr "$parse_name => $conf_name on dev but not on spoc. \n";
 	$modified = 1;
     }
-    else {
-	if ( $conf_name ) {
-	    warnpr "Referenced $parse_name -> $conf_name " .
-		"not found on device! \n";
-	}
-    }
 
+    # Process child nodes recursively.
     if ( my $parse = $structure->{$parse_name} ) {
-	# See if we have to continue recursively.
+
+	# Attention: {next_list} is not handled here, but individually.
 	if ( my $next = $parse->{next} ) {
 	    for my $next_key ( @$next ) {
 		my $next_attr_name  = $next_key->{attr_name};
@@ -1423,15 +1424,10 @@ sub change_modified_attributes {
 	}
 
 	# Enter recursion ...
-	if ( my $next = $parse->{next} ) {
-	    for my $next_key ( @$next ) {
-		my $next_attr_name  = $next_key->{attr_name};
-		my $next_parse_name = $next_key->{parse_name};
-		if ( my $spoc_next = $spoc_value->{$next_attr_name} ) {
-		    $self->change_modified_attributes( $spoc, $next_parse_name,
-						       $spoc_next, $structure );
-		}
-	    }
+	for my $pair (get_next_names($parse, $spoc_value)) {
+	    my ($next_parse_name, $spoc_next) = @$pair;
+	    $self->change_modified_attributes( $spoc, $next_parse_name,
+					       $spoc_next, $structure );
 	}
     }
 }
@@ -1442,26 +1438,21 @@ sub change_modified_attributes {
 sub transfer1 {
     my ( $self, $spoc, $parse_name, $spoc_name, $structure ) = @_;
 
-    #mypr "PROCESS $spoc_name ... \n"; 
+#    mypr "PROCESS $spoc_name ... \n"; 
     my $spoc_value = object_for_name( $spoc, $parse_name,
 				      $spoc_name, 'no_err' );
 
     if ( my $parse = $structure->{$parse_name} ) {
-	if ( my $next = $parse->{next} ) {
-	    for my $next_key ( @$next ) {
-		my $next_attr_name  = $next_key->{attr_name};
-		my $next_parse_name = $next_key->{parse_name};
-		if ( my $spoc_next = $spoc_value->{$next_attr_name} ) {
-		    $self->transfer1( $spoc, $next_parse_name,
-				      $spoc_next, $structure );
-		}
-	    }
+	for my $pair (get_next_names($parse, $spoc_value)) {
+	    my ($next_parse_name, $spoc_next) = @$pair;
+	    $self->transfer1( $spoc, $next_parse_name,
+			      $spoc_next, $structure );
 	}
 
 	# Do actual transfer after recursion so
 	# that we start with the leaves.
 	my $method = $parse->{transfer};
-	if ( $spoc_value->{transfer} ) {
+	if ( $spoc_value->{transfer} and $method ) {
 	    if ( my $transfered_as = $spoc_value->{transfered_as} ) {
 		#mypr "$spoc_name ALREADY TRANSFERED AS $transfered_as! \n";
 	    }
@@ -1555,7 +1546,7 @@ sub remove_unneeded_on_device {
     my ( $self, $conf, $structure ) = @_;
     
     # Caution: the order is significant in this array!
-    my @parse_names = qw( CRYPTO_MAP_PEER USERNAME CA_CERT_MAP 
+    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
 			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
@@ -1599,7 +1590,7 @@ sub remove_spare_objects_on_device {
     # marked as connected.
     # Spare object groups will be removed later by
     # remove_unneeded_on_device.
-    my @parse_names = qw( CRYPTO_MAP_PEER USERNAME CA_CERT_MAP 
+    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
 			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL
@@ -1635,18 +1626,13 @@ sub mark_connected {
     $object->{connected} = 1;
 
     if ( my $parse = $structure->{$parse_name} ) {
-	if ( my $next = $parse->{next} ) {
-	    for my $next_key ( @$next ) {
-		my $next_attr_name  = $next_key->{attr_name};
-		my $next_parse_name = $next_key->{parse_name};
-		if ( my $conf_next = $object->{$next_attr_name} ) {
-		    my $next_obj = $conf->{$next_parse_name}->{$conf_next} or
-			errpr "Can't find $next_parse_name $conf_next " .
-			"referenced by $object->{name}\n";
-		    $self->mark_connected( $conf, $next_parse_name,
-					   $next_obj, $structure );
-		}
-	    }
+	for my $pair (get_next_names($parse, $object)) {
+	    my ($next_parse_name, $next_name) = @$pair;
+	    my $next_obj = $conf->{$next_parse_name}->{$next_name} or
+		errpr "Can't find $next_parse_name $next_name " .
+		"referenced by $object->{name}\n";
+	    $self->mark_connected( $conf, $next_parse_name,
+				   $next_obj, $structure );
 	}
     }
 }
@@ -1812,7 +1798,7 @@ sub remove_interface {
 	"on device and in netspoc!\n";
 }
 
-sub transfer_crypto_map_peer {
+sub transfer_crypto_map_seq {
     my ( $self, $spoc, $structure, $parse_name, $name_seq ) = @_;
 
     my $object = object_for_name( $spoc, $parse_name, $name_seq );
@@ -1824,7 +1810,7 @@ sub transfer_crypto_map_peer {
     map { $self->cmd( $_ ) } @cmds;
 }
 
-sub remove_crypto_map_peer {
+sub remove_crypto_map_seq {
     my ( $self, $conf, $structure, $parse_name, $name_seq ) = @_;
 
     my $object = object_for_name( $conf, $parse_name, $name_seq );
@@ -2109,8 +2095,8 @@ sub add_attribute_cmds {
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
-	my $name = $object->{name};
-	my $seq  = $object->{SEQ};
+ 	my ($name) = split(':', $object->{name});
+	my $seq = $object->{SEQ};
 	$prefix = "crypto map $name $seq";
     }
   ATTRIBUTE:
@@ -2207,15 +2193,14 @@ sub define_structure {
 
     my $structure = {
 	ACCESS_LIST => {
-	    next_list => { LIST => [ { attr_name => [ 'SRC', 'OBJECT_GROUP' ],
-				      parse_name => 'ACCESS_LIST', }, 
-				    { attr_name => [ 'DST', 'OBJECT_GROUP' ],
-				      parse_name => 'ACCESS_LIST', },
-				    ],
-		      },
+#	    next_list => { LIST => [ { attr_name => [ 'SRC', 'OBJECT_GROUP' ],
+#				      parse_name => 'ACCESS_LIST', }, 
+#				    { attr_name => [ 'DST', 'OBJECT_GROUP' ],
+#				      parse_name => 'ACCESS_LIST', },
+#				    ],
+#		      },
 	    transfer => 'transfer_acl',
 	    remove   => 'remove_acl',
-	    modify   => 'modify_acl',
 	},
 	OBJECT_GROUP => {
 	    attributes => [],
@@ -2236,26 +2221,48 @@ sub define_structure {
 	},
 	CRYPTO_MAP_LIST => {
 	    anchor => 1,
-	    next_list => { PEERS => [ { attr_name  => 'name',
-					parse_name => 'CRYPTO_MAP_PEER', },
-				      ],
-		       },
+	    next_list => [ { attr_name  => 'PEERS',
+			     parse_name => 'CRYPTO_MAP_SEQ', },
+			   ],
 	},
-	CRYPTO_MAP_PEER => {
-#	    attributes => [ qw(NAT_T_DISABLE PEER PFS REVERSE_ROUTE SA_LIFETIME_SEC
-#			       SA_LIFETIME_KB TRANSFORM_SET TRUSTPOINT) ],
+	CRYPTO_MAP_SEQ => {
+	    attributes => [ qw(NAT_T_DISABLE PEER PFS REVERSE_ROUTE 
+			       SA_LIFETIME_SEC SA_LIFETIME_KB 
+			       TRANSFORM_SET TRUSTPOINT) ],
 	    next     => [ { attr_name  => 'MATCH_ADDRESS',
 			    parse_name => 'ACCESS_LIST' }
 			  ],
-	    transfer => 'transfer_crypto_map_peer',
-	    remove   => 'remove_crypto_map_peer',
+	    transfer => 'transfer_crypto_map_seq',
+	    remove   => 'remove_crypto_map_seq',
 	},
     };
 
     return $structure;
 }
 
-
+sub get_next_names {
+    my ($parse_info, $object) = @_;
+    my @result;
+    for my $key (qw(next next_list)) {
+	if (my $next = $parse_info->{$key}) {
+	    for my $next_key ( @$next ) {
+		my $next_attr_name  = $next_key->{attr_name};
+		my $next_parse_name = $next_key->{parse_name};
+		if ( my $conf_next = $object->{$next_attr_name} ) {
+		    if ($key eq 'next_list') {
+			push @result, 
+			map [ $next_parse_name, $_ ], @$conf_next;
+		    }
+		    else {
+			push @result, [ $next_parse_name, $conf_next ];
+		    }
+		}
+	    }
+	}
+    }
+    return @result;
+}
+			
 
 sub cmd_for_attribute {
     my ( $parse_name, $attr ) = @_;
