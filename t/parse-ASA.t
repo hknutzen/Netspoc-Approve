@@ -2,7 +2,7 @@
 # $id:$
 
 use strict;
-use Test::More qw(no_plan);
+use Test::More;
 use lib 't';
 use Test_Approve;
 
@@ -105,7 +105,6 @@ crypto map map-outside 10 set transform-set trans
 crypto map map-outside 10 match address crypto-acl-DRC-0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
-
 
 ############################################################
 $title = "Parse username, group-policy";
@@ -356,11 +355,43 @@ clear configure tunnel-group 193.155.130.20
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
 
+############################################################
+$title = "Insert into crypto map sequence";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+crypto ipsec transform-set Trans esp-aes-256 esp-sha-hmac
+access-list crypto-outside-1 extended permit ip any 10.0.2.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.2
+crypto map crypto-outside 1 set transform-set Trans
+crypto map crypto-outside 1 set pfs group2
+END
+
+$in = <<END;
+crypto ipsec transform-set Trans esp-aes-256 esp-sha-hmac
+access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set transform-set Trans
+crypto map crypto-outside 1 set pfs group2
+access-list crypto-outside-2 extended permit ip any 10.0.2.0 255.255.255.0
+crypto map crypto-outside 2 match address crypto-outside-2
+crypto map crypto-outside 2 set peer 10.0.0.2
+crypto map crypto-outside 2 set transform-set Trans
+crypto map crypto-outside 2 set pfs group1
+END
+
+$out = <<END;
+access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.1.0 255.255.255.0
+crypto map crypto-outside 2 set peer 10.0.0.1
+crypto map crypto-outside 2 set pfs group2
+crypto map crypto-outside 2 set transform-set Trans
+crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
+crypto map crypto-outside 1 set pfs group1
+END
+is_deeply(approve('ASA', $device, $in), $out, $title);
 
 
-
-
-
-
-
-
+############################################################
+done_testing;
