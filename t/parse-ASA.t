@@ -357,39 +357,50 @@ END
 is_deeply(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Insert into crypto map sequence";
+$title = "Insert and delete entries from crypto map sequence";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
-crypto ipsec transform-set Trans esp-aes-256 esp-sha-hmac
-access-list crypto-outside-1 extended permit ip any 10.0.2.0 255.255.255.0
-crypto map crypto-outside 1 match address crypto-outside-1
-crypto map crypto-outside 1 set peer 10.0.0.2
-crypto map crypto-outside 1 set transform-set Trans
-crypto map crypto-outside 1 set pfs group2
-END
-
-$in = <<END;
 crypto ipsec transform-set Trans esp-aes-256 esp-sha-hmac
 access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.1
 crypto map crypto-outside 1 set transform-set Trans
 crypto map crypto-outside 1 set pfs group2
-access-list crypto-outside-2 extended permit ip any 10.0.2.0 255.255.255.0
-crypto map crypto-outside 2 match address crypto-outside-2
-crypto map crypto-outside 2 set peer 10.0.0.2
-crypto map crypto-outside 2 set transform-set Trans
-crypto map crypto-outside 2 set pfs group1
+access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
+crypto map crypto-outside 3 match address crypto-outside-3
+crypto map crypto-outside 3 set peer 10.0.0.3
+crypto map crypto-outside 3 set transform-set Trans
+crypto map crypto-outside 3 set pfs group2
+crypto map crypto-outside 65535 ipsec-isakmp dynamic name1
+END
+
+$in = <<END;
+crypto ipsec transform-set Trans esp-aes-256 esp-sha-hmac
+access-list crypto-outside-1 extended permit ip any 10.0.2.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.2
+crypto map crypto-outside 1 set transform-set Trans
+crypto map crypto-outside 1 set pfs group2
+access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
+crypto map crypto-outside 3 match address crypto-outside-3
+crypto map crypto-outside 3 set peer 10.0.0.3
+crypto map crypto-outside 3 set transform-set Trans
+crypto map crypto-outside 3 set pfs group1
+crypto map crypto-outside 65534 ipsec-isakmp dynamic name1
+crypto map crypto-outside 65535 ipsec-isakmp dynamic name2
 END
 
 $out = <<END;
-access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.1.0 255.255.255.0
-crypto map crypto-outside 2 set peer 10.0.0.1
+crypto map crypto-outside 65534 ipsec-isakmp dynamic name2
+access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
+crypto map crypto-outside 2 set peer 10.0.0.2
 crypto map crypto-outside 2 set pfs group2
 crypto map crypto-outside 2 set transform-set Trans
 crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
-crypto map crypto-outside 1 set pfs group1
+crypto map crypto-outside 3 set pfs group1
+clear configure crypto map crypto-outside 1
+clear configure access-list crypto-outside-1
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
 
