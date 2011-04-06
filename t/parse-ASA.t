@@ -86,16 +86,17 @@ access-list crypto-acl permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 
 crypto ipsec transform-set trans esp-3des esp-sha-hmac 
 
-crypto map map-outside 10 ipsec-isakmp
 crypto map map-outside 10 match address crypto-acl
 crypto map map-outside 10 set pfs group2
 crypto map map-outside 10 set peer 97.98.99.100
 crypto map map-outside 10 set transform-set trans
 crypto map map-outside 10 set security-association lifetime seconds 43200 kilobytes 4608000
+crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside interface outside
 END
 
 $out = <<END;
+crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 access-list crypto-acl-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto map map-outside 10 set peer 97.98.99.100
 crypto map map-outside 10 set pfs group2
