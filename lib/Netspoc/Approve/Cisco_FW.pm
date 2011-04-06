@@ -106,7 +106,7 @@ my %attr2cmd =
 	 IP_LOCAL_POOL             => 'ip local pool',
      },
      CRYPTO_MAP_SEQ => {
-#	 DYNAMIC_MAP		  => 'ipsec-isakmp dynamic',
+	 DYNAMIC_MAP		  => 'ipsec-isakmp dynamic',
 	 MATCH_ADDRESS		  => 'match address',
 	 NAT_T_DISABLE		  => 'set nat-t-disable',
 	 PEER			  => 'set peer',
@@ -428,7 +428,8 @@ sub get_parse_info {
 
 			 ['seq',
 			  { parse => qr/ipsec-isakmp/ },
-			  { parse => \&skip } ],
+			  { parse => qr/dynamic/ },
+			  { store => 'DYNAMIC_MAP', parse => \&get_token } ],
 			 # Old PIX has other syntax.
 #			  { parse => qr/dynamic/ },
 #			  { store => 'DYNAMIC_MAP', parse => \&get_token } ],
@@ -513,12 +514,13 @@ sub postprocess_config {
     for my $name (keys %$seq) {
 	my ($map_name, $seq_nr) = split(/:/, $name);
 	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
-	my $peer_ip = $map->{PEER} or 
-	    errpr "Missing peer in crypto map $map_name $seq_nr\n";
+	my $peer = $map->{PEER} || $map->{DYNAMIC_MAP} or 
+	    errpr "Missing peer or dynamic in crypto map $map_name $seq_nr\n";
 	$map->{SEQ} = $seq_nr;
-	$peers{$peer_ip} and 
-	    errpr "Duplicate peer $peer_ip in crypto map $map_name $seq_nr\n";
-	$peers{$peer_ip} = $map;
+	$peers{$peer} and 
+	    errpr "Duplicate peer or dynamic $peer in" .
+	    " crypto map $map_name $seq_nr\n";
+	$peers{$peer} = $map;
 	push @{ $lists->{$map_name}->{PEERS} }, $name;
     }
 
@@ -1143,20 +1145,26 @@ sub equalize_acl {
     return $modified;
 }
 
+# PEER value is IP address.
+# DYNAMIC_MAP value is name.
 sub by_peer {
-    return $a->{PEER} cmp $b->{PEER};
+    return 
+	($a->{PEER} || $a->{DYNAMIC_MAP}) cmp 
+	($b->{PEER} || $b->{DYNAMIC_MAP});
 }
 
 sub crypto_entry2key {
     my ( $e ) = @_;
-    return $e->{PEER};
+    return $e->{PEER} || $e->{DYNAMIC_MAP};
 }
 
-sub get_max_seq_nr {
-    my ( $conf_entries ) = @_;
-    my $max = 0;
-    map { $_->{SEQ} > $max and $max = $_->{SEQ} } @$conf_entries;
-    return $max
+# Find next free sequence number in entries of some crypto map on device.
+sub get_free_seq_nr {
+    my ( $conf_entries, $start, $increment ) = @_;
+    while (grep { $_->{SEQ} == $start } @$conf_entries) {
+	$start += $increment;
+    }
+    return $start;
 }
 
 sub equalize_crypto {
@@ -1174,9 +1182,9 @@ sub equalize_crypto {
     my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
 				     { keyGen => \&crypto_entry2key } );
 
-    # Maximum sequence-nr on device for current crypto map.
-    # Starting point for added entries.
-    my $seq = get_max_seq_nr( $conf_entries );
+    # Try this sequence number for next to be added entry.
+    my $peer_seq = 1;
+    my $dyn_seq = 65535;
     
     while ( $diff->Next() ) {
 
@@ -1201,8 +1209,16 @@ sub equalize_crypto {
 	for my $spoc_entry ( $diff->Items(2) ) {
 	    my $spoc_name = $spoc_entry->{name};
 	    my ($map_name) = split(/:/, $spoc_name);
-	    $seq++;
-	    $spoc_entry->{new_name} = "$map_name:$seq";
+	    if ($spoc_entry->{PEER}) {
+		$peer_seq = get_free_seq_nr($conf_entries, $peer_seq, +1);
+		$spoc_entry->{new_name} = "$map_name:$peer_seq";
+		$peer_seq += 1;
+	    }
+	    else {
+		$dyn_seq = get_free_seq_nr($conf_entries, $dyn_seq, -1);
+		$spoc_entry->{new_name} = "$map_name:$dyn_seq";
+		$dyn_seq -= 1;
+	    }
 	    $self->make_equal($conf, $spoc, 'CRYPTO_MAP_SEQ',
 			      undef, $spoc_name, $structure);
 	}
@@ -2229,8 +2245,8 @@ sub define_structure {
 			   ],
 	},
 	CRYPTO_MAP_SEQ => {
-	    attributes => [ qw(NAT_T_DISABLE PEER PFS REVERSE_ROUTE 
-			       SA_LIFETIME_SEC SA_LIFETIME_KB 
+	    attributes => [ qw(NAT_T_DISABLE PEER DYNAMIC_MAP PFS 
+			       REVERSE_ROUTE SA_LIFETIME_SEC SA_LIFETIME_KB 
 			       TRANSFORM_SET TRUSTPOINT) ],
 	    next     => [ { attr_name  => 'MATCH_ADDRESS',
 			    parse_name => 'ACCESS_LIST' }
