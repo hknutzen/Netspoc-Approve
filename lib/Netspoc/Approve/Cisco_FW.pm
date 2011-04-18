@@ -615,6 +615,14 @@ sub cmd_check_error {
     }
 }
 
+sub checkidentity {
+    my ($self, $name) = @_;
+    
+    # Ignore customized prompt extensions following the first slash "/".
+    $name =~ s(/.*)();
+    $self->SUPER::checkidentity($name);
+}
+
 sub check_firewall {
     my ($self, $conf) = @_; 
 
