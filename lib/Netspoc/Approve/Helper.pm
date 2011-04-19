@@ -149,7 +149,7 @@ our %PORT_Trans_TCP = (
     'telnet'            => 23,
     'time'              => 37,
     'uucp'              => 540,
-    'whois'             => 63,		# PIX 6.3 docu: 43
+    'whois'             => 43,		# PIX 6.3 docu, IOS 12.4(15)T1
     'www'               => 80
 );
 
