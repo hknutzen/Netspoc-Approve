@@ -1752,11 +1752,8 @@ sub change_attributes {
 	    # Single attributes which need to be converted 
 	    # back to device syntax.
 	    else {
-		my $attr_cmd = $attr2cmd{$parse_name}->{$attr};
-		if ( ! $attr_cmd ) {
-		    internal_err "Command not found for attribute $parse_name:$attr";
-		}
-		elsif ( $parse_name eq 'DEFAULT_GROUP' ) {
+		my $attr_cmd = cmd_for_attribute( $parse_name, $attr );
+		if ( $parse_name eq 'DEFAULT_GROUP' ) {
 		    $attr_cmd .= " default-group ";
 		}
 		$attr_cmd = "$prefix $attr_cmd" if($prefix);
@@ -1801,7 +1798,7 @@ sub remove_attributes {
 	    }
 	}
 	else {
-	    my $attr_cmd = $attr2cmd{$parse_name}->{$attr};
+	    my $attr_cmd = cmd_for_attribute( $parse_name, $attr );
 	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if(not $attr_no_value{$attr}) {
 		$attr_cmd = "$attr_cmd $value";
