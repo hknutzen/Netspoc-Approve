@@ -650,19 +650,23 @@ sub parse_seq {
 	    $part_success = parse_seq($self, $arg, $part, $result);
 	}
 	$success ||= $part_success;
-	if($type eq 'or') {
+	if($type eq 'seq') {
+
+	    # All args must match
+	}
+	elsif($type eq 'or') {
 	    last if $success;
 	}
-	elsif($type eq 'seq') {
+	elsif($type eq 'cond1') {
 
 	    # Stop if first arg doesn't match.
 	    last if not $success;
 	}
 	else {
-	    errpr "internal: unexpected 'seq' type $type\n";
+	    errpr "internal: Expected 'seq|cond1|or' but got $type\n";
 	}
     }
-    return 1;
+    return $success;
 }
 	    
 sub parse_line {
