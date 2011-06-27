@@ -77,6 +77,8 @@ sub get_parse_info {
 		store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
 	    'ip inspect _skip in' => { 
 		store => 'INSPECT', parse => \&get_token, },
+	    'ip vrf forwarding' => {
+		store => 'VRF', parse => \&get_token, },
 	    'crypto map' => {
 		store => 'CRYPTO_MAP', parse => \&get_token, },
 	    'crypto ipsec client ezvpn' => { 
@@ -98,7 +100,7 @@ sub get_parse_info {
 	  },
 	},
 
-# ip route destination-prefix destination-prefix-mask
+# ip route [vrf name] destination-prefix destination-prefix-mask
 #          [interface-type card/subcard/port] forward-addr
 #          [metric | permanent | track track-number | tag tag-value]
 #
@@ -106,6 +108,9 @@ sub get_parse_info {
 	    store => 'ROUTING',
 	    multi => 1,
 	    parse => ['seq',
+		      ['seq',
+		       { parse => qr/vrf/, },
+		       { store => 'VRF', parse => \&get_token, },],
 		      { store => 'BASE', parse => \&get_ip, },
 		      { store => 'MASK', parse => \&get_ip, },
 		      ['or',
@@ -279,6 +284,7 @@ sub get_parse_info {
     $entry = $entry->{parse} = [ @{$entry->{parse}} ];
     $entry = $entry->[1] = { %{$entry->[1]} };
     $entry->{default} = 'deny';
+
     $result;
 }
 
@@ -506,26 +512,6 @@ sub cmd_check_error($$) {
 	}
 	$self->abort_cmd("Unexpected output for '$cmd'");
     }
-}
-
-sub checkinterfaces {
-    my ($self, $conf, $spoc) = @_;
-
-    # Some interfaces must be ignored.
-    # Mark them as 'shutdown', which is handled by the superclass.
-    for my $intf (values %{ $conf->{IF} }) {
-	my $name = $intf->{name};
-        if ($name eq 'Null0' 
-	    or $name =~ /^Loopback\d+$/ 
-	    or
-	    $intf->{SWITCHPORT}
-            and $intf->{SWITCHPORT}->{MODE}
-            and $intf->{SWITCHPORT}->{MODE} eq "trunk") 
-	{
-	    $intf->{SHUTDOWN} = 1;
-	}
-    }
-    $self->SUPER::checkinterfaces($conf, $spoc);
 }
 
 sub check_firewall {
