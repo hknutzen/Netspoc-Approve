@@ -463,13 +463,29 @@ sub login_enable {
 # All active interfaces on device must be known by Netspoc.
 sub checkinterfaces {
     my ($self, $conf, $spoc) = @_;
+    my @errors;
     for my $name (sort keys %{ $conf->{IF} }) {
-	my $intf = $conf->{IF}->{$name};
-        next if $intf->{SHUTDOWN};
-        next if not $intf->{ADDRESS};
-        if (not $spoc->{IF}->{$name}) {
+	my $conf_intf = $conf->{IF}->{$name};
+        next if $conf_intf->{SHUTDOWN};
+        next if not $conf_intf->{ADDRESS};
+        if (my $spoc_intf = $spoc->{IF}->{$name}) {
+	    my $conf_vrf = $conf_intf->{VRF} || '-';
+	    my $spoc_vrf = $spoc_intf->{VRF} || '-';
+	    $conf_vrf eq $spoc_vrf or 
+		push(@errors,
+		     "Different VRFs defined for interface $name:" .
+		     "Conf: $conf_vrf, Netspoc: $spoc_vrf");
+	}
+	else {
             warnpr "Interface $name on device is not known by Netspoc.\n";
         }
+    }
+    for my $name (sort keys %{ $spoc->{IF} }) {
+	$conf->{IF}->{$name} or
+	    push(@errors, "Interface $name from Netspoc not known on device");
+    }
+    if (@errors) {
+	errpr(join(".\n", @errors) . ".\n");
     }
 }
 
