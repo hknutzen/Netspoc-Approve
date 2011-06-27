@@ -552,7 +552,7 @@ sub prepare_devicemode {
     my $spoc_conf = $self->load_spoc($path);
     my $conf = $self->get_parsed_config_from_device();
 
-    # Check for unknown interfaces at device.
+    # Check for matching interfaces.
     $self->checkinterfaces($conf, $spoc_conf);
 
     # Check if active firewall feature matches device type.
@@ -662,7 +662,7 @@ sub parse_seq {
 	    errpr "internal: unexpected 'seq' type $type\n";
 	}
     }
-    return $success;
+    return 1;
 }
 	    
 sub parse_line {
@@ -829,7 +829,7 @@ sub route_line_a_eq_b {
     my ($self, $a, $b) = @_;
     ($a->{BASE} == $b->{BASE} && $a->{MASK} == $b->{MASK})
       or return 0;
-    for my $key (qw(IF NIF NEXTHOP METRIC TRACK TAG PERMANENT)) {
+    for my $key (qw(VRF IF NIF NEXTHOP METRIC TRACK TAG PERMANENT)) {
         if (defined($a->{$key}) || defined($b->{$key})) {
             (        defined($a->{$key})
                   && defined($b->{$key})
