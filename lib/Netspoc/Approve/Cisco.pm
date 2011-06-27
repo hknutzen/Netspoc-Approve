@@ -77,6 +77,15 @@ sub analyze_conf_lines {
 	    # which have a higher indentation level than 1.
 	    # This is only applicable for the first sub command.
 	    if($first_subcmd) {
+
+		# For unknown commands allow first command(s) to be 
+		# indented deeper and following commands to be indented
+		# only by one.		
+		if (not $parse_info or not keys %$parse_info) {
+		    push @stack, [ $config, $parse_info, $level ];
+		    $config = undef;
+		    $parse_info = undef;
+		}
 		$level = $sub_level;
 	    }
 	    else {
