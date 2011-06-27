@@ -37,12 +37,11 @@ use Netspoc::Approve::Parse_Cisco;
 #   - regexp, used as argument for check_regex
 #   - function ref. which parses one or more arguments and returns a value
 #   - string: like function ref, but used as a method name
-#   - array ref with first element is
-#     - string 'seq': multiple parse info hashes or seq arrays are following, 
-#                     all elements are evaluated, if the first element 
+#   - array ref with first element is a string and multiple elements following
+#     - string 'seq': all elements are evaluated.
+#     - string 'cond1': all elements are evaluated, if the first element 
 #                     returns a defined value
-#     - string 'or': two or more parse info hashes are following,
-#                    they are evaluated until a defined value is returned.
+#     - string 'or': elements are evaluated until a defined value is returned.
 #   no parse attribute is given, if command has no (further) arguments.
 # - default: take this value if value of parse function was undef 
 #            or if no parse function is given.
@@ -54,7 +53,7 @@ sub get_parse_info {
 	interface =>
 	{ store => 'IF',
 	  named => 1,
-	  parse => ['seq',
+	  parse => ['cond1',
 		    { parse => qr/type/ },
 		    { parse => qr/tunnel/ } ],
 	  subcmd =>
@@ -108,7 +107,7 @@ sub get_parse_info {
 	    store => 'ROUTING',
 	    multi => 1,
 	    parse => ['seq',
-		      ['seq',
+		      ['cond1',
 		       { parse => qr/vrf/, },
 		       { store => 'VRF', parse => \&get_token, },],
 		      { store => 'BASE', parse => \&get_ip, },
@@ -122,10 +121,10 @@ sub get_parse_info {
 		       { store => 'METRIC', 
 			 parse => \&check_int, 
 			 default => 1 },
-		       ['seq',
+		       ['cond1',
 			{ parse => qr/track/, },
 			{ store => 'TRACK', parse => \&get_token, },],
-		       ['seq',
+		       ['cond1',
 			{ parse => qr/tag/, },
 			{ store => 'TAG', parse => \&get_token, },],
 		       { store => 'PERMANENT', parse => qr/permanent/, },],],
@@ -143,11 +142,11 @@ sub get_parse_info {
 		    parse => ['seq',
 			      { store => 'MODE', default => 'permit' },
 			      ['or',
-			       ['seq',
+			       ['cond1',
 				{ store => 'TYPE', parse => qr/ip/ },
 				{ store => 'SRC', parse => 'parse_address' },
 				{ store => 'DST', parse => 'parse_address' } ],
-			       ['seq',
+			       ['cond1',
 				{ store => 'TYPE', parse => qr/udp|tcp/ },
 				{ store => 'SRC', parse => 'parse_address' },
 				{ store => 'SRC_PORT', 
@@ -159,7 +158,7 @@ sub get_parse_info {
 				  params => ['$TYPE'] },
 				{ store => 'ESTA', 
 				  parse => qr/established/ }, ],
-			       ['seq',
+			       ['cond1',
 				{ store => 'TYPE', parse => qr/icmp/ },
 				{ store => 'SRC', parse => 'parse_address' },
 				{ store => 'DST', parse => 'parse_address' },
@@ -176,11 +175,6 @@ sub get_parse_info {
 		},
 
 	    },
-	},
-	'router ospf' => {
-	    store => 'OSPF',
-	    parse => \&get_token,	# <1-65535>  Process ID
-	    subcmd => {},		# Has subcommands, but ignore them all.
 	},
 	'crypto isakmp identity' => {
 	    store => [ 'CRYPTO', 'ISAKMP', 'IDENTITY' ],
@@ -200,7 +194,15 @@ sub get_parse_info {
 		'encryption' => {
 		    store => 'ENCRYPTION', parse => \&get_token, },
 		'encr' => {
-		    store => 'ENCRYPTION', parse => \&get_token, },
+		    parse => sub { my ($arg) = @_;
+				   my $name = get_token($arg);
+				   if(defined(my $bits = check_int($arg))) {
+				       $name = "$name $bits";
+				   }
+				   $name;
+			       },
+		    store => 'ENCRYPTION', 
+		},
 		'hash' => {
 		    store => 'HASH', parse => \&get_token, },
 		'group' => {
@@ -234,6 +236,12 @@ sub get_parse_info {
 	    },
 	},	      
 
+# crypto map <name> local-address <interface>
+	'crypto map _skip local-address' => {
+	    named => 1,
+	    parse => ['seq', { parse => \&get_token, } ],
+	},
+
 # crypto map <name> <seq> ipsec-isakmp
 #  <sub commands>
 #
@@ -244,7 +252,9 @@ sub get_parse_info {
 	    multi => 1,
 	    parse => ['seq',
 		      { store => 'SEQU', parse => \&get_int, },
-		      { parse => qr/ipsec-isakmp/, }, ],
+		      ['or',
+		       { parse => qr/ipsec-isakmp/, }, 
+		       { parse => qr/gdoi/, store => 'GDOI', } ]],
 	    subcmd => {
 		'match address' => {
 		    store => 'MATCH_ADDRESS', parse => \&get_token, },
@@ -356,6 +366,7 @@ sub postprocess_config {
             for my $entry (@$cm) {
                 my $sequ = $entry->{SEQU};
                 mypr "  seq: $sequ\n";
+		next if $entry->{GDOI};
                 if (my $acl_name = $entry->{MATCH_ADDRESS}) {
                     mypr "   match-address: $acl_name\n";
                     if (my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
