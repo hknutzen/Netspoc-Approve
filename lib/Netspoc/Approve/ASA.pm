@@ -41,7 +41,7 @@ sub get_parse_info {
 		    parse => ['seq',
 			      { store => 'BASE', parse => \&get_ip },
 			      { store => 'MASK', parse => \&get_ip },
-			      ['seq',
+			      ['cond1',
 			       { parse => qr/standby/ },
 			       { store => 'STANDBY', parse => \&get_ip } ]] },
 		'management-only' => { 

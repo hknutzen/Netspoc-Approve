@@ -29,7 +29,7 @@ sub get_parse_info {
     $info->{interface} = {
 	store => 'HWIF',
 	named => 1,
-	parse => ['seq',
+	parse => ['cond1',
 		  { store => 'HW_SPEED', parse => \&check_token },
 		  { store => 'SHUTDOWN', parse => qr/shutdown/ } ]
     };		  

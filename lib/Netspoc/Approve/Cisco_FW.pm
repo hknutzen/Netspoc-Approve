@@ -456,7 +456,7 @@ sub get_parse_info {
 			       { parse => qr/seconds/ },
 			       { parse => \&get_int, 
 				 store => 'SA_LIFETIME_SEC', } ],
-			     ['seq',
+			     ['cond1',
 			      { parse => qr/kilobytes/ },
 			      { parse => \&get_int, 
 				store => 'SA_LIFETIME_KB', }, ]]],
