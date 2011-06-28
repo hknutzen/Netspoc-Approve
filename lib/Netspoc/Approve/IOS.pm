@@ -190,25 +190,17 @@ sub get_parse_info {
 	    store => [ 'CRYPTO', 'ISAKMP', 'POLICY' ],
 	    subcmd => {
 		'authentication' => {
-		    store => 'AUTHENTICATION', parse => \&get_token, },
+		    parse => \&get_token, store => 'AUTHENTICATION', },
 		'encryption' => {
-		    store => 'ENCRYPTION', parse => \&get_token, },
+		    parse => \&parse_encryption, store => 'ENCRYPTION', },
 		'encr' => {
-		    parse => sub { my ($arg) = @_;
-				   my $name = get_token($arg);
-				   if(defined(my $bits = check_int($arg))) {
-				       $name = "$name $bits";
-				   }
-				   $name;
-			       },
-		    store => 'ENCRYPTION', 
-		},
+		    parse => \&parse_encryption, store => 'ENCRYPTION', },
 		'hash' => {
-		    store => 'HASH', parse => \&get_token, },
+		    parse => \&get_token, store => 'HASH', },
 		'group' => {
-		    store => 'GROUP', parse => \&get_token, },
+		    parse => \&get_token, store => 'GROUP', },
 		'lifetime' => {
-		    store => 'LIFETIME', parse => \&get_token, },
+		    parse => \&get_token, store => 'LIFETIME', },
 	    },
 	},
 	'crypto ipsec transform-set' => {
@@ -296,6 +288,15 @@ sub get_parse_info {
     $entry->{default} = 'deny';
 
     $result;
+}
+
+sub parse_encryption { 
+    my ($arg) = @_;
+    my $name = get_token($arg);
+    if(defined(my $bits = check_int($arg))) {
+	$name = "$name $bits";
+    }
+    $name;
 }
 
 sub dev_cor {
