@@ -1,0 +1,15 @@
+#!/bin/sh
+# File: compare-all
+# $Id$
+
+# Abort on every error.
+set -e
+
+# Start that many jobs in parallel.
+PARALLEL=5
+
+cd /home/diamonds/netspoc/current/code
+
+for device in VPN01193 ; do
+    echo diamonds compare $device
+done | start-jobs $PARALLEL
