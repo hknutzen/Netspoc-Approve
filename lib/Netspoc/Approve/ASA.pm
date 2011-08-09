@@ -105,6 +105,14 @@ sub get_parse_info {
 		store => ['ATTRIBUTES', '_cmd'],
 		parse => \&get_to_eol,
 	    },
+	    'ikev1 trust-point' => {
+		store => 'IKEV1_TRUSTPOINT',
+		parse => \&get_to_eol
+	    },
+	    'ikev1 user-authentication' => {
+		store => 'IKEV1_USER_AUTH',
+		parse => \&get_to_eol
+	    },
 	    _any => {
 		store => ['ATTRIBUTES', '_cmd'],
 		parse => \&get_to_eol,
@@ -233,6 +241,19 @@ sub get_parse_info {
 	named => 1,
 	subcmd => {
 	    'certificate' => { banner => qr/^\s*quit$/, parse => \&skip },
+	}
+    };
+    
+    # Skip "tunnel-group <tg-name> webvpn-attributes".
+    # 
+    #tunnel-group DefaultWEBVPNGroup webvpn-attributes
+    # authentication certificate
+    $info->{'tunnel-group _skip webvpn-attributes'} = {
+	parse => \&skip,
+	subcmd => {
+	    _any => {
+		parse => \&skip,
+	    }
 	}
     };
 
@@ -370,6 +391,13 @@ sub postprocess_config {
 						  GROUP_POLICY => $dflt_gp };
     }
 
+    # 'DefaultWEBVPNGroup' must not be removed, even if not referenced.
+    $dflt_gp = 'DefaultWEBVPNGroup';
+    if ( $p->{TUNNEL_GROUP}->{$dflt_gp} ) {
+	$p->{DEFAULT_WEBVPN_GROUP}->{$dflt_gp} = { name => $dflt_gp,
+						   TUNNEL_GROUP => $dflt_gp };
+    }
+    
     $self->SUPER::postprocess_config($p);
 }
 
@@ -500,6 +528,15 @@ sub define_structure {
 	    remove   => sub {},
 	},
 	
+	DEFAULT_WEBVPN_GROUP => {
+	    anchor => 1,
+	    next => [ { attr_name  => 'TUNNEL_GROUP',
+			parse_name => 'TUNNEL_GROUP', },
+		      ],
+	    transfer => sub {},
+	    remove   => sub {},
+	},
+ 
 	IP_LOCAL_POOL => {
 	    attributes => [ qw( RANGE_FROM RANGE_TO MASK ) ],
 	    transfer => 'transfer_ip_local_pool',
