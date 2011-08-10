@@ -147,13 +147,14 @@ init_history_logging($device, $arguments, $running_for_user);
 log_history("START: $cmd");
 
 my $failed = system($cmd);
-
+my $details;
 if (open(my $log, '<', $logfile)) {
     while (<$log>) {
 	if (/WARNING>>>|ERROR>>>/ || /^comp:.*\*\*\*/) {
 	    print $_;
 	    chomp;
 	    log_history("RES: $_");
+	    $details = 1;
 	}
     }
 }
@@ -163,7 +164,7 @@ elsif (not $failed) {
 
 my $status = $failed ? 'FAILED' : 'OK';
 log_history("END: $status");
-if ($failed) {
-    print STDERR "FAILED; details in $netspocdir$policy/$logfile\n";
+if ($failed || $details) {
+    print STDERR "$status; details in $netspocdir$policy/$logfile\n";
 }
 exit $failed;
