@@ -10,6 +10,6 @@ PARALLEL=5
 
 cd /home/diamonds/netspoc/current/code
 
-for device in VPN01193 ; do
+for device in * ; do
     echo diamonds compare $device
 done | start-jobs $PARALLEL
