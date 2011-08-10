@@ -1,4 +1,4 @@
-#!/bin/bash -i
+#!/bin/sh
 # Read lines from standard input.
 # Starts each line as command in background.
 # Command line parameter controls maximum number of running commands.
@@ -12,28 +12,15 @@ usage() {
     echo "             controls how many processes are started concurrently"
     exit 1; 
 }
+
+verbose='-t'
 case $1 in
-    -q)	quiet=1; shift ;;
+    -q)	verbose=''; shift ;;
 esac
 max=$1
 
 let max=$max+0
 [ $max -gt 0 ] || usage
-started=0
-finished=0
 
-# -b Report the status of terminated background jobs immediately.
-# -m Monitor mode. Job control is enabled.
-set -bm
-while read line; do
-    # Count running (-r) jobs.
-    while [ $(jobs -r|wc -l) -ge $max ] ; do
-	sleep 1
-    done
-    [ -z "$quiet" ] && echo $line
-    eval $line &
-done
-
-# Wait for remaining processes to be finished.
-wait
-[ -z "$quiet" ] && echo '*Finished*'
+xargs -d '\n' -n1 -r $verbose -P $max sh -c &&
+[ "$verbose" ] && echo '*Finished*' >/dev/stderr
