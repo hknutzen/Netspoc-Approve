@@ -6,7 +6,7 @@
 set -e
 
 # Start that many jobs in parallel.
-PARALLEL=5
+PARALLEL=10
 
 cd /home/diamonds/netspoc/current/code
 
