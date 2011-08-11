@@ -16,6 +16,9 @@ use warnings;
 use Fcntl qw/:flock/;		# import LOCK_* constants
 use POSIX qw(strftime);
 
+# Clean PATH if run in taint mode.
+$ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
+
 my $prog = "diamonds";
 
 # Use old drc2.pl for devices matching this pattern
@@ -37,6 +40,7 @@ my %conf2var =
       SYSTEMUSER  => \$systemuser,
       );
 
+# File is trusted; values are untainted by pattern match.
 sub read_global_config {
     my $rcmad = '/home/diamonds/.rcmadnes';
     open(RCMAD,$rcmad) or die "Can't open $rcmad: $!\n";
@@ -81,8 +85,16 @@ sub usage {
     exit -1;
 }
 
+sub untaint {
+    my ($string) = @_;
+    $string =~ /^(.*)$/;
+    return $1;
+}
+
 sub get_and_cd_current_policy {
-    my $currentdir = readlink "${netspocdir}current" or 
+
+    # Link is created by trusted program.
+    my $currentdir = untaint(readlink "${netspocdir}current") or 
 	die "Error: could not get 'current' policy directory\n";
     chdir "$netspocdir$currentdir" or
 	die "Error: can't cd to $netspocdir$currentdir: $!\n";
@@ -111,7 +123,10 @@ $uname eq $systemuser or die "Error: $0 should be run as UID $systemuser\n";
 my $arguments = join ' ',$0,@ARGV[1..$#ARGV];
 my $ruid = shift;
 defined $ruid or die "Error: missing calling UID as first arg to $0\n";
-my $running_for_user = getpwuid($ruid) or die "ERROR: no user for uid $ruid\n";
+
+# Untaint, because it is only logged.
+my $running_for_user = untaint(getpwuid($ruid)) or 
+    die "ERROR: no user for uid $ruid\n";
 
 #
 # Command evaluation
@@ -121,8 +136,13 @@ my $device = shift(@ARGV) or usage();
 @ARGV and usage();
 
 my $policy = get_and_cd_current_policy();
-my $drc_cmd = get_drc_cmd($device);
+my $codefile = "$codepath$device";
+-f $codefile or die "Error: unknown device $device\n";
 
+# $device is now known to be valid.
+$device = untaint($device);
+
+my $drc_cmd = get_drc_cmd($device);
 my $logfile = "$logpath$device";
 my $compare_option;
 if ($command eq "compare") {
@@ -146,6 +166,9 @@ my $cmd =
 init_history_logging($device, $arguments, $running_for_user);
 log_history("START: $cmd");
 
+# Prevent taint mode for called program.
+$< = $>;
+$( = $);
 my $failed = system($cmd);
 my $details;
 if (open(my $log, '<', $logfile)) {
