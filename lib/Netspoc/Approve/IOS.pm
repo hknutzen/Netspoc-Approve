@@ -1491,7 +1491,7 @@ sub crypto_processing {
               )
             {
                 errpr
-                  "severe diffs in crypto map detected";
+                  "severe diffs in crypto map detected\n";
 		$self->{CHANGE}->{CRYPTO} = 1;
                 next;
             }
