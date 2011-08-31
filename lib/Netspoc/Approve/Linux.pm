@@ -1257,6 +1257,14 @@ sub get_config_from_device {
     return [ map({ "ip route add $_" } @$route_lines), @$iptables_lines ];
 }
 
+sub checkidentity {
+    my ($self, $name) = @_;
+    
+    # Ignore username in user@host.
+    $name =~ s(^.*@)();
+    $self->SUPER::checkidentity($name);
+}
+
 sub prepare {
     my ($self) = @_;
     $self->{PROMPT}    = qr/\r\n.*[\%\>\$\#]\s?$/;
