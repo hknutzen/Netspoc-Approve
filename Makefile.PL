@@ -4,7 +4,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
 	      'NAME'          => 'Netspoc::Approve',
 	      'VERSION'       => '1.036',
-	      'EXE_FILES'     => [ qw(bin/drc3.pl bin/rex3 bin/approve.pl bin/compare-all bin/start-jobs) ],
+	      'EXE_FILES'     => [ qw(bin/drc3.pl bin/rex3 bin/approve.pl bin/compare-all bin/missing-approve bin/start-jobs) ],
 	      'INSTALLSCRIPT' => '/usr/local/bin',
 	      'PREREQ_PM'     => {
 		  'Expect' => 0,
