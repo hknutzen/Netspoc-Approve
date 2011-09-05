@@ -60,11 +60,10 @@ sub get_parse_info {
 
     # Handle tunnel-group.
     # 
-    $info->{'tunnel-group'} = {
+    $info->{'tunnel-group _skip type'} = {
 	store => 'TUNNEL_GROUP_INTERNAL',
 	named => 1,
 	parse => [ 'seq',
-		   { parse => qr/type/ },
 		   { store => 'TYPE',
 		     parse => \&get_token
 		     },
@@ -105,13 +104,11 @@ sub get_parse_info {
 		store => ['ATTRIBUTES', '_cmd'],
 		parse => \&get_to_eol,
 	    },
-	    'ikev1 trust-point' => {
-		store => 'IKEV1_TRUSTPOINT',
-		parse => \&get_to_eol
-	    },
-	    'ikev1 user-authentication' => {
-		store => 'IKEV1_USER_AUTH',
-		parse => \&get_to_eol
+	    # ikev1 trust-point
+	    # ikev1 user-authentication
+	    'ikev1 _any' => {
+		store => ['ATTRIBUTES', '_cmd'],
+		parse => \&get_to_eol,
 	    },
 	    _any => {
 		store => ['ATTRIBUTES', '_cmd'],
@@ -243,19 +240,6 @@ sub get_parse_info {
 	    'certificate' => { banner => qr/^\s*quit$/, parse => \&skip },
 	}
     };
-    
-    # Skip "tunnel-group <tg-name> webvpn-attributes".
-    # 
-    #tunnel-group DefaultWEBVPNGroup webvpn-attributes
-    # authentication certificate
-    $info->{'tunnel-group _skip webvpn-attributes'} = {
-	parse => \&skip,
-	subcmd => {
-	    _any => {
-		parse => \&skip,
-	    }
-	}
-    };
 
     return $info;
 }
@@ -298,12 +282,12 @@ sub postprocess_config {
     # not have an IP-address as name, create
     # a tunnel-group with the same name.
     # For those that DO have an IP-address as name, create a
-    # separate TUNNEL_GROUP_IPSEC_IP_NAME-object (that is an anchor)
+    # separate TUNNEL_GROUP_IP_NAME_IPSEC-object (that is an anchor)
     # and delete the original TUNNEL_GROUP_IPSEC-object.
     my $tunnel_groups = $p->{TUNNEL_GROUP} ||= {};
     for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
 	if ( is_ip( $tg_ipsec_name ) ) {
-	    $p->{TUNNEL_GROUP_IPSEC_IP_NAME}->{$tg_ipsec_name} = 
+	    $p->{TUNNEL_GROUP_IP_NAME_IPSEC}->{$tg_ipsec_name} = 
 		$p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
 	    delete $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
 	}
@@ -481,6 +465,8 @@ sub define_structure {
 	    remove   => 'remove_tunnel_group',
 	},
 	
+	# Anchors are processed alphabetically when
+	# transferred to device.
 	TUNNEL_GROUP_IP_NAME => {
 	    anchor => 1,
 	    next => [],
@@ -496,7 +482,7 @@ sub define_structure {
 	    remove   => 'remove_tunnel_group_ipsec',
 	},
 		
-	TUNNEL_GROUP_IPSEC_IP_NAME => {
+	TUNNEL_GROUP_IP_NAME_IPSEC => {
 	    anchor => 1,
 	    next => [],
 	    attributes => [ qw( ATTRIBUTES ) ],
