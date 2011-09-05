@@ -56,7 +56,7 @@ my %conf_mode_entry = (
 			   prefix  => 'tunnel-group',
 			   postfix => 'ipsec-attributes',
 		       },
-		       TUNNEL_GROUP_IPSEC_IP_NAME => {
+		       TUNNEL_GROUP_IP_NAME_IPSEC => {
 			   prefix  => 'tunnel-group',
 			   postfix => 'ipsec-attributes',
 		       },
@@ -1528,7 +1528,7 @@ sub traverse_netspoc_tree {
     }
  
     # Process remaining objects recursively.
-    for my $key ( keys %$structure ) {
+    for my $key ( sort keys %$structure ) {
         my $value = $structure->{$key};
         next if not $value->{anchor};
 
@@ -1947,7 +1947,7 @@ sub transfer_tunnel_group {
     mypr "### transfer $parse_name $tg_name to device as $new_tg\n";
 
     my @cmds;
-    if ( $parse_name !~ /TUNNEL_GROUP_IPSEC/ ) {
+    if ( $parse_name !~ /TUNNEL_GROUP.*_IPSEC/ ) {
 	push @cmds, define_item_cmd($parse_name, $new_tg);
     }
     if ( $parse_name ne 'TUNNEL_GROUP_IP_NAME' ) {
