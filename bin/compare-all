@@ -12,4 +12,4 @@ cd /home/diamonds/netspoc/current/code
 
 for device in * ; do
     echo diamonds compare $device
-done | start-jobs $PARALLEL
+done | start-jobs -q $PARALLEL
