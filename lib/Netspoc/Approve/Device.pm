@@ -1678,20 +1678,27 @@ sub logging {
     my $logfile = $self->{OPTS}->{LOGFILE};
     if ($logfile !~ /\A\//) {
 
-        # $logfile given as relative path - enhance to absolute path
+        # $logfile given as relative path - extend to absolute path
         my $wd = `pwd`;
         chomp $wd;
         $logfile = "$wd/$logfile";
     }
     my $basename = basename($self->{OPTS}->{LOGFILE});
-    $basename or die "no filename for logging specified\n";
+    $basename or die "No filename for logging specified\n";
     my $dirname = dirname($self->{OPTS}->{LOGFILE});
 
-    # check for/create logdir
-    unless (-d $dirname) {
-        (mkdir $dirname) or die "could not create $dirname\n$!\n";
-        (defined chmod 0755, "$dirname")
-          or die " couldn't chmod logdir $dirname\n$!\n";
+    # Create logdir
+    if (not -d $dirname) {
+        if (mkdir($dirname, 0755)) {
+	    defined(chmod(0755, $dirname))
+		or die "Couldn't chmod logdir $dirname: $!\n";
+	}
+
+	# Check -d again, because some other process may have created 
+	# the directory in the meantime.
+	elsif (not -d $dirname) {
+	    die "Couldn't create $dirname: $!\n";
+	}
     }
     my $appmode;
     if ($self->{OPTS}->{LOGAPPEND}) {
@@ -1703,28 +1710,28 @@ sub logging {
             if (-f "$logfile") {
                 my $date = time();
                 system("mv $logfile $logfile.$date") == 0
-                  or die "could not backup $logfile\n$!\n";
+                  or die "Could not backup $logfile: $!\n";
                 $self->{OPTS}->{NOLOGMESSAGE}
-                  or mypr "existing logfile saved as \'$logfile.$date\'\n";
+                  or mypr "Existing logfile saved as '$logfile.$date'\n";
             }
         }
     }
     $self->{OPTS}->{NOLOGMESSAGE}
       or mypr "--- output redirected to $logfile\n";
 
-    # print the above message *before* redirecting!
+    # Print the above message *before* redirecting!
     unless (-f "$logfile") {
-        (open(STDOUT, "$appmode$logfile"))
-          or die "could not open $logfile\n$!\n";
+        (open(STDOUT, $appmode, $logfile))
+          or die "Could not open $logfile: $!\n";
         defined chmod 0644, "$logfile"
-          or die " couldn't chmod $logfile\n$!\n";
+          or die "Couldn't chmod $logfile: $!\n";
     }
     else {
-        (open(STDOUT, "$appmode$logfile"))
-          or die "could not open $logfile\n$!\n";
+        (open(STDOUT, $appmode, $logfile))
+          or die "Could not open $logfile: $!\n";
     }
     (open(STDERR, ">&STDOUT"))
-      or die "STDERR redirect: could not open $logfile\n$!\n";
+      or die "STDERR redirect: could not open $logfile: $!\n";
 }
 
 {
