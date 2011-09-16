@@ -8,8 +8,9 @@ usage() {
     echo " Reads commands line by line from stdin"
     echo " and starts them concurrently."
     echo " -q: run quiet, don't echo executed command line"
-    echo " <max proc>: a number greater or equal 1"
-    echo "             controls how many processes are started concurrently"
+    echo " <max proc>: Run up to max-procs processes at a time."
+    echo "             If max-procs is 0, it will run as many processes"
+    echo "             as possible at a time."
     exit 1; 
 }
 
@@ -19,8 +20,7 @@ case $1 in
 esac
 max=$1
 
-let max=$max+0
-[ $max -gt 0 ] || usage
+[ "$max" ] || usage
 
 xargs -d '\n' -n1 -r $verbose -P $max sh -c &&
 [ "$verbose" ] && echo '*Finished*' >/dev/stderr
