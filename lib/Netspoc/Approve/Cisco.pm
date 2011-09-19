@@ -377,12 +377,12 @@ sub route_del {
 
 sub prepare {
     my ($self) = @_;
-    $self->{PROMPT}    = qr/\r\n.*[\%\>\$\#]\s?$/;
-    $self->{ENAPROMPT} = qr/\r\n.*#\s?$/;
-    $self->{ENA_MODE}  = 0;
-    $self->login_enable() or exit -1;
+    $self->login_enable();
     mypr "logged in\n";
-    $self->{ENA_MODE} = 1;
+
+    # Force new prompt by issuing empty command.
+    # Read hostname from prompt.
+    $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
     my $result = $self->issue_cmd('');
     $result->{MATCH} =~ m/^(\r\n\s?\S+)\#\s?$/;
     my $prompt_prefix = $1;
@@ -391,82 +391,83 @@ sub prepare {
     $self->checkidentity($name);
 
     # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/$prompt_prefix\S*#\s?/;
+    $self->{ENAPROMPT} = qr/$prompt_prefix\S*\#\s?/;
 }
 
 sub login_enable {
     my ($self) = @_;
+    my $std_prompt = qr/[\>\#]/;
     my($con, $ip, $user, $pass) = @{$self}{qw(CONSOLE IP LOCAL_USER PASS)};
 
     if(not $pass) {
 	($user, $pass) = $self->get_aaa_password();
     }
     if ($user) {
-        mypr "Username found\n";
-        mypr "checking for SSH access at port 22\n";
         my $server = IO::Socket::INET->new(
             'PeerAddr' => $ip,
             'PeerPort' => 22
         );
         if ($server) {
             $server->close();
-            mypr "port 22 open - trying SSH for login\n";
-            $con->{EXPECT}->spawn("ssh", ("-l", "$user", "$ip"))
+            mypr "Using SSH with username for login\n";
+            $con->{EXPECT}->spawn("ssh", "-l", "$user", "$ip")
               or errpr "Cannot spawn ssh: $!\n";
             my $prompt = qr/password:|\(yes\/no\)\?/i;
             $con->con_wait($prompt) or $con->con_error();
             if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
-                $con->con_dump();
-                $con->con_issue_cmd("yes\n",qr/password:/i) or 
-		    $con->con_error();
-                mypr "\n";
-                warnpr
-                  "RSA key for $self->{IP} permanently added to the list of known hosts\n";
-                $con->con_dump();
+		$prompt = qr/password:/i;
+                $con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
+                errpr_info "SSH key for $ip permanently added to known hosts\n";
             }
 	    $pass ||= $self->get_user_password($user);
-            $con->con_issue_cmd("$pass\n", $self->{PROMPT}) or $con->con_error();
-            $con->con_dump();
+	    $prompt = qr/password:|$std_prompt/i;
+            $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
         }
         else {
-            mypr "port 22 closed -  trying telnet for login\n";
+            mypr "Using telnet with username for login\n";
             $con->{EXPECT}->spawn("telnet", ($ip))
               or errpr "Cannot spawn telnet: $!\n";
-            my $prompt = "Username:";
+            my $prompt = qr/username:/i;
             $con->con_wait($prompt) or $con->con_error();
-            $con->con_dump();
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-            $con->con_issue_cmd("$user\n", "[Pp]assword:")
-              or $con->con_error();
-            $con->con_dump();
+	    $prompt = qr/password:/i;
+            $con->con_issue_cmd("$user\n", $prompt) or $con->con_error();
 	    $pass ||= $self->get_user_password($user);
-            $con->con_issue_cmd("$pass\n", $self->{PROMPT}) or $con->con_error();
-            $con->con_dump();
+	    $prompt = qr/username:|password:|$std_prompt/i;
+            $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
         }
     }
     else {
-        mypr "using simple TELNET for login\n";
+        mypr "Using simple telnet for login\n";
         $pass = $self->{PASS};
         $con->{EXPECT}->spawn("telnet", ($ip))
           or errpr "Cannot spawn telnet: $!\n";
-        my $prompt = "PIX passwd:|Password:";
+        my $prompt = qr/PIX passwd:|password:/i;
         $con->con_wait($prompt) or $con->con_error();
-        $con->con_dump();
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-        $con->con_issue_cmd("$pass\n", $self->{PROMPT}) or $con->con_error();
-        $con->con_dump();
+	$prompt = qr/$prompt|$std_prompt/;
+        $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
     }
-    my $psave = $self->{PROMPT};
-    $self->{PROMPT} = qr/Password:|#/;
-    $self->issue_cmd('enable');
-    unless ($con->{RESULT}->{MATCH} eq "#") {
+    my $match = $con->{RESULT}->{MATCH};
+    if ($match eq '>') {
 
-        # Enable password required.
-        $self->{PROMPT} = $psave;
-        $self->issue_cmd($self->{ENABLE_PASS} || $pass);
+	# Enter enable mode. 
+	my $prompt = qr/password:|\#/i;
+	$con->con_issue_cmd("enable\n", $prompt) or $con->con_error();
+	if ($con->{RESULT}->{MATCH} ne '#') {
+	    
+	    # Enable password required.
+	    $pass = $self->{ENABLE_PASS} || $pass;
+	    $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+	}
+	if ($con->{RESULT}->{MATCH} ne '#') {
+	    errpr "Authentication for enable mode failed\n";
+	}
     }
-    return 1;
+    elsif ($match ne '#') {
+	errpr "Authentication failed\n";
+    }
 }
 
 # All active interfaces on device must be known by Netspoc.
