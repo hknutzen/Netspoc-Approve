@@ -24,7 +24,7 @@ use File::Basename;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
-  warnpr check_warn meself internal_err debug quad2int int2quad is_ip writestatus
+  warnpr check_warn internal_err debug quad2int int2quad is_ip writestatus
   formatstatus getstatus getfullstatus updatestatus
   open_status 
   %ICMP_Trans %IP_Trans %PORT_Trans_TCP %PORT_Trans_UDP  
@@ -221,16 +221,6 @@ my %statfields = (
 my $warn     = "NO";      # sorry its global...
 my $erro     = "NO";      # same applies to this :(
 my $err_mode = "";
-
-sub meself( $ ) {
-    my $l    = $_[0];
-    my $subs = "";
-    for (my $i = 1 ; $i <= $l ; $i++) {
-        my ($package, $file, $ln, $sub) = caller $i;
-        $sub and $subs = $sub . " " . $subs;
-    }
-    return $subs;
-}
 
 sub mypr {
     print STDOUT @_;
