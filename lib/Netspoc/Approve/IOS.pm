@@ -307,7 +307,7 @@ sub dev_cor {
 sub postprocess_config {
     my ($self, $p) = @_;
 
-    mypr meself(0) . "*** begin ***\n";
+    mypr "*** begin ***\n";
     my $crypto_map_found   = 0;
     my $ezvpn_client_found = 0;
     my %map_used;
@@ -467,7 +467,7 @@ sub postprocess_config {
 	    }
         }
     }
-    mypr meself(0) . "*** end ***\n";
+    mypr "*** end ***\n";
 }
 
 sub get_config_from_device {
