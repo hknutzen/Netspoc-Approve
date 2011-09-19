@@ -166,24 +166,12 @@ sub con_issue_cmd {
 
 sub con_error {
     my $con  = shift;
-    my $subs = "";
-    for ( my $i = 1 ; $i <= 3 ; $i++ ) {
-        my ( $package, $file, $ln, $sub ) = caller $i;
-        $sub and $subs = "$sub($ln) $subs";
-    }
-    mypr "\n";
-    errpr_info "$subs\n";
-    for my $key ( keys %{ $con->{RESULT} } ) {
-        my $value =
-          defined $con->{RESULT}->{$key} ? $con->{RESULT}->{$key} : "";
-        errpr_info "$key $value\n";
+    my $result = $con->{RESULT};
+    for my $key (keys %$result) {
+        my $value = $result->{$key};
+        errpr_info "$key $value\n" if $value;
     }
     exit -1;
-}
-
-sub con_dump( $ ) {
-    my $con = shift;
-    mypr "$con->{RESULT}->{BEFORE}$con->{RESULT}->{MATCH}";
 }
 
 # Modules must return a true value.
