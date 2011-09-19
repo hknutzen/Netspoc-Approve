@@ -1267,19 +1267,19 @@ sub checkidentity {
 
 sub prepare {
     my ($self) = @_;
-    $self->{PROMPT}    = qr/\r\n.*[\%\>\$\#]\s?$/;
-    $self->{ENAPROMPT} = qr/\r\n.*#\s?$/;
-    $self->{ENA_MODE}  = 0;
-    $self->login_enable() or exit -1;
+    $self->login_enable();
     mypr "logged in\n";
-    $self->{ENA_MODE} = 1;
+
+    # Force new prompt by issuing empty command.
+    # Read hostname from prompt.
+    $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
     my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^\r\n\s?(\S+):.*\#\s?$/;
+    $result->{MATCH} =~ m/^\r\n(\S+):.*\#\s?$/;
     my $name = $1;
     $self->checkidentity($name);
 
     # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/\r\n\s?$name:.*\#\s?$/;
+    $self->{ENAPROMPT} = qr/\r\n$name:.*\#\s?$/;
 
     # Parameter --noediting prevents \r to be inserted in echoed commands.
     $self->issue_cmd('exec /bin/bash --noediting');
@@ -1287,25 +1287,28 @@ sub prepare {
 
 sub login_enable {
     my ($self) = @_;
+    my $std_prompt = qr/[\%\>\$\#]/;
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
     $con->{EXPECT}->spawn('ssh', '-l', $config->{user}, $ip)
 	or errpr "Cannot spawn ssh: $!\n";
-    my $prompt = qr/$self->{PROMPT}|password:|\(yes\/no\)\?/i;
+    my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
     $con->con_wait($prompt) or $con->con_error();
     if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
-	$con->con_dump();
-	$con->con_issue_cmd("yes\n", qr/$self->{PROMPT}|password:/i) or 
-	    $con->con_error();
-	mypr "\n";
-	$con->con_dump();
+	$prompt = qr/$std_prompt|password:/i;
+	$con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
+	errpr_info "SSH key for $ip permanently added to known hosts\n";
     }
+
+    # Password prompt comes only if no ssh keys are in use.
     if($con->{RESULT}->{MATCH} =~ qr/password:/i) {
 	my $pass = $self->get_password();
-	$con->con_issue_cmd("$pass\n", $self->{PROMPT} ) or $con->con_error();
-	$con->con_dump();
+	$prompt = qr/$std_prompt|password:/i;
+	$con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+	if ($con->{RESULT}->{MATCH} !~ $std_prompt) {
+	    errpr "Authentication failed\n";
+	}
     }
     $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-    return 1;
 }
 
 # Packages must return a true value;
