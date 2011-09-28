@@ -896,16 +896,20 @@ sub get_my_connection {
 	return @$cached;
     }
 
-    # With real device. Read IP from device, because
-    # IP from netspoc may have been changed by NAT.
+    # With real device, read IP from device, because IP from netspoc may have
+    # been changed by NAT.
 
-    # Read my vty and my IP
-    # *  7 vty 1     netspoc   idle                 00:00:00 10.10.10.10
+    # Read my vty and my IP by command "sh users"
+    # Output:
+    # *  7 vty 1     netspoc   idle                 00:00:00 10.11.12.13
+    # Output seen from IOS 12.4(3f):
+    # * vty 322      netspoc   idle                 00:00:00 10.11.12.13
+    # ==> take first number as vty and IP at end of line.
     my $lines = $self->get_cmd_output('sh users | incl ^\*');
     my $line = $lines->[0];
     chomp $line;
     my ($vty, $s_ip);
-    if ($line =~ /^\*\s*(\d+).*?([\d.]+)$/) {
+    if ($line =~ /^\*\D*(\d+).*?([\d.]+)$/) {
 	($vty, $s_ip) = ($1, $2);
     }
     else {
