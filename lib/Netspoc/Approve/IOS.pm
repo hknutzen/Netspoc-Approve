@@ -972,8 +972,8 @@ sub acl_entry2key {
 	}
 	push(@r, 'established') if $e->{ESTA};
     }
-    if($e->{LOG}) {
-	push(@r, 'log');
+    if(my $log = $e->{LOG}) {
+	push(@r, $log);
     }
     return join(' ', @r);
 }
