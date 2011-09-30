@@ -3,6 +3,7 @@
 
 use strict;
 use Test::More;
+use Test::Differences;
 use lib 't';
 use Test_Approve;
 
@@ -32,14 +33,14 @@ ip access-list extended Ethernet1_in
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
  permit tcp any host 10.0.1.11 range 7937 8999
  permit icmp any host 10.0.1.11 3 3
- deny ip any any
+ deny ip any any log
 interface Ethernet1
  ip access-group Ethernet1_in in
 END
 
 $out = '';
 
-is_deeply(approve('IOS', $device, $device), $out, $title);
+eq_or_diff(approve('IOS', $device, $device), $out, $title);
 
 ############################################################
 $title = "Parse crypto EZVPN";
@@ -84,7 +85,7 @@ END
 
 $out = '';
 
-is_deeply(approve('IOS', $device, $device), $out, $title);
+eq_or_diff(approve('IOS', $device, $device), $out, $title);
 
 
 ############################################################
@@ -133,7 +134,7 @@ END
 
 $out = '';
 
-is_deeply(approve('IOS', $device, $device), $out, $title);
+eq_or_diff(approve('IOS', $device, $device), $out, $title);
 
 ############################################################
 $title = "Change routing";
@@ -157,7 +158,7 @@ ip route 10.40.0.0 255.255.0.0 10.1.2.4
 no ip route 10.30.0.0 255.255.0.0 10.1.2.3
 END
 
-is_deeply(approve('IOS', $device, $in), $out, $title);
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Change ACL";
@@ -171,7 +172,7 @@ ip access-list extended test
  permit udp host 10.0.12.3 host 10.0.1.11 eq 80
 ! permit tcp any host 10.0.1.11 range 7937 8999
  permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
- deny ip any any
+ deny ip any any log-input
 
 interface Ethernet1
  ip access-group test in
@@ -197,13 +198,15 @@ ip access-list resequence test 10000 10000
 ip access-list extended test
 no 60000\\N 1 permit icmp any host 10.0.1.11 3 3
 40001 permit udp host 10.0.12.3 host 10.0.1.11 eq 80
+40003 deny ip any any log-input
+no 70000
 no 50000
 no 30000\\N 40002 permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
 exit
 ip access-list resequence test 10 10
 END
 
-is_deeply(approve('IOS', $device, $in), $out, $title);
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Add lines at end of ACL";
@@ -235,7 +238,7 @@ exit
 ip access-list resequence test 10 10
 END
 
-is_deeply(approve('IOS', $device, $in), $out, $title);
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Change ACL, prevent lockout";
@@ -276,7 +279,7 @@ exit
 ip access-list resequence test 10 10
 END
 
-is_deeply(approve('IOS', $device, $in), $out, $title);
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Change ACL, prevent ephemeral permit";
@@ -317,7 +320,7 @@ exit
 ip access-list resequence test 10 10
 END
 
-is_deeply(approve('IOS', $device, $in), $out, $title);
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Don't change ACL line which permit administrative access";
@@ -356,7 +359,7 @@ ip access-group test-DRC-0 in
 no ip access-list extended test
 END
 
-is_deeply(approve('IOS', $device, $in), $out, $title);
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Change incoming crypto filter ACL";
@@ -407,7 +410,7 @@ set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
 no ip access-list extended crypto-filter-Ethernet1-1
 END
 
-is_deeply(approve('IOS', $device, $in), $out, $title);
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Move incoming to outgoing crypto filter ACL";
@@ -460,7 +463,7 @@ no set ip access-group crypto-in-filter-Ethernet1-1 in
 no ip access-list extended crypto-in-filter-Ethernet1-1
 END
 
-is_deeply(approve('IOS', $device, $in), $out, $title);
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 
 ############################################################
@@ -478,7 +481,7 @@ $out = <<END;
 ERROR>>> severe diffs in crypto ipsec detected
 END
 
-#is_deeply(approve('IOS', $device, $in), $out, $title);
+#eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 
 ############################################################
