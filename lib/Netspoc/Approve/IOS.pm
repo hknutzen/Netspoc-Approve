@@ -974,9 +974,6 @@ sub acl_entry2key {
     }
     if($e->{LOG}) {
 	push(@r, 'log');
-	push(@r, $e->{LOG_MODE}) if $e->{LOG_MODE};
-	push(@r, $e->{LOG_LEVEL}) if $e->{LOG_LEVEL};
-	push(@r, "interval $e->{LOG_INTERVAL}") if $e->{LOG_INTERVAL};
     }
     return join(' ', @r);
 }
