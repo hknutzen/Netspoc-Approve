@@ -1360,6 +1360,7 @@ sub crypto_struct_equal {
 						 )
 				)
                         {
+                            mypr "${indent}diff ACL of $key\n";
                             $equal = 0;
                         }
                     }
