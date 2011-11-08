@@ -228,11 +228,13 @@ sub get_parse_info {
 	    },
 	},	      
 
-# crypto map <name> local-address <interface>
-	'crypto map _skip local-address' => {
-	    named => 1,
-	    parse => ['seq', { parse => \&get_token, } ],
-	},
+# Ignore, don't try to parse as crypto map with sequence number.
+	'crypto map _skip client'         => { parse => \&skip, },
+	'crypto map _skip gdoi'           => { parse => \&skip, },
+	'crypto map _skip isakmp'         => { parse => \&skip, },
+	'crypto map _skip isakmp-profile' => { parse => \&skip, },
+	'crypto map _skip local-address'  => { parse => \&skip, },
+	'crypto map _skip redundancy'     => { parse => \&skip, },
 
 # crypto map <name> <seq> ipsec-isakmp
 #  <sub commands>
