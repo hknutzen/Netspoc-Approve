@@ -107,6 +107,8 @@ ip access-list extended crypto-filter-Dialer1-1
  permit udp 10.1.11.0 0.0.0.255 host 10.156.9.129 gt 1023
  deny ip any any
 
+crypto map crypto-Dialer1 local-address Loopback1
+
 crypto map crypto-Dialer1 1 ipsec-isakmp
  match address crypto-Dialer1-1
  set ip access-group crypto-filter-Dialer1-1 in
