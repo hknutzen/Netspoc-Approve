@@ -41,16 +41,11 @@ my %type2class = (
 sub usage {
     print STDERR <<END;
 usage: 'drc3 -v'
-usage: 'drc3 [-C <level>] -P1 <conf1> -P2 <conf2> <device>'
 usage: 'drc3 [-C <level>] -F1 <file1> -F2 <file2> <device>'
 usage: 'drc3 <option> -N <file> <device>'
 
- -p [<num>]           ping with max. #num retries
  --NOREACH            do not check if device is reachable
- --PING_ONLY          only check reachability and exit
  -P <policy>          policy
- -D <dir>             database directory for object lookup
- --DEBUGVPN           debug code generation for VPN              
  -L <logdir>          path for saving telnet-logs
  -N <file>            if set, NetSPoC mode and file
  --LOGFILE <fullpath> path for print output (default is STDOUT)
@@ -66,12 +61,8 @@ usage: 'drc3 <option> -N <file> <device>'
 		      4 = silent
  -S                   update Status
  -t <seconds>         timeout for telnet
- -P1 p<policy#>       Compare netspoc generated Configs p<policy#>
- -P2 p<policy#>
  -F1 <file1>	      Compare netspoc generated Configs given by absolute paths
  -F2 <file2>
- -Z		      ignored
- -G <file>            ignored
  -v                   show version info
 
 END
@@ -85,10 +76,7 @@ my %opts;
 
 &GetOptions(
     \%opts,
-    'p=i',
     'P=s',
-    'D=s',
-    'DEBUGVPN',
     't=i',
     'L=s',
     'N=s',
@@ -98,23 +86,14 @@ my %opts;
     'NOLOGMESSAGE',
     'I=s',    # invokator username
     'NOREACH',
-    'PING_ONLY',
     'C=i',
     'S',
-    'G=s',
-    'M=i',
     'v',
-    'Z',    	# ignored
-    'P1=s',
-    'P2=s',
     'F1=s',
     'F2=s'
 );
 
 my $nopolicy = "Policy (unknown)";
-
-# Set default values from global configuration.
-$opts{D} ||= $global_config->{DEVICEDBPATH};
 $opts{P} ||= $nopolicy;
 
 if ($opts{v}) {
@@ -169,119 +148,17 @@ if (my $f1 = $opts{F1}) {
         exit 0;
     }
 }
-if (my $p1 = $opts{P1}) {
-    my $p2 = $opts{P2} or &usage;
-
-    # tell the Helper that we only compare
-    errpr_mode("COMPARE");
-
-    $p1 = readlink $global_config->{NETSPOC} . $p1 || $p1;
-    $p2 = readlink $global_config->{NETSPOC} . $p2 || $p2;
-
-    mypr "\n";
-    mypr
-      "********************************************************************\n";
-    mypr " START: $p1 vs. $p2 at > ", scalar localtime, " <\n";
-    mypr
-      "********************************************************************\n";
-    mypr "\n";
-
-    my $f1 =
-        $global_config->{NETSPOC} 
-      . $p1 . "/"
-      . $global_config->{CODEPATH}
-      . $name;
-    my $f2 =
-        $global_config->{NETSPOC} 
-      . $p2 . "/"
-      . $global_config->{CODEPATH}
-      . $name;
-    my $exit = 0;
-    if ($job->lock($job->{NAME})) {
-        if ($job->{OPTS}->{S}) {
-            open_status($job);
-            my $fc_state = getstatus('FC_STATE');
-            if ($exit = $job->compare_files($f1, $f2)) {
-
-                # diffs
-                if ($fc_state eq 'OK') {
-                    my $sec_time = time();
-                    my $time     = scalar localtime($sec_time);
-                    updatestatus('FC_STATE', 'DIFF');
-                    updatestatus('FC_TIME',  $sec_time);
-
-                    # this is when we first found the diffs
-                    updatestatus('FC_CTIME', $time);
-                }
-            }
-            else {
-
-                # no diffs
-                my $sec_time = time();
-                my $time     = scalar localtime($sec_time);
-                updatestatus('FC_LAST_OK', $p2);
-                updatestatus('FC_TIME',    $sec_time);
-                updatestatus('FC_CTIME',   $time);
-                updatestatus('FC_STATE',   'OK');
-            }
-        }
-        else {
-            $exit = $job->compare_files($f1, $f2);
-        }
-        $job->unlock($job->{NAME});
-    }
-    else {
-        errpr "approve in process for $job->{NAME}\n";
-    }
-    mypr "\n";
-    mypr
-      "********************************************************************\n";
-    mypr " STOP: $p1 vs. $p2 at > ", scalar localtime, " <\n";
-    mypr
-      "********************************************************************\n";
-    mypr "\n";
-    exit $exit;
-}
-
-# Check reachability
-if (defined $job->{OPTS}->{PING_ONLY}) {
-    mypr "\n";
-    mypr
-      "********************************************************************\n";
-    mypr " START: $job->{OPTS}->{P} at > ", scalar localtime, " <\n";
-    mypr
-      "********************************************************************\n";
-    mypr "\n";
-    my $ex;
-    if ($job->check_device()) {
-        mypr "$job->{NAME}: reachable\n";
-        $ex = 0;
-    }
-    else {
-        mypr "$job->{NAME}: reachability test failed\n";
-        $ex = -1;
-    }
-    mypr "\n";
-    mypr
-      "********************************************************************\n";
-    mypr " STOP: $job->{OPTS}->{P} at > ", scalar localtime, " <\n";
-    mypr
-      "********************************************************************\n";
-    mypr "\n";
-    exit $ex;
-}
 
 if (!$job->{OPTS}->{NOREACH}) {
     if (!$job->check_device()) {
         errpr "$job->{NAME}: reachability test failed\n";
     }
 }
-else {
-    mypr "reachability test skipped\n";
-}
 
 # Get password from device DB.
-if(my $device_info = Netspoc::Approve::Device->get_obj_info($name, $opts{D}))
+if(my $device_info = 
+   Netspoc::Approve::Device->get_obj_info($name, 
+                                          $global_config->{DEVICEDBPATH}))
 {
     $job->{PASS} = $device_info->{PASS};
     $job->{LOCAL_USER} = $device_info->{LOCAL_USER};
