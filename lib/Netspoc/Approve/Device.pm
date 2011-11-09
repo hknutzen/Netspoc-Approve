@@ -425,8 +425,8 @@ sub get_user_password {
 sub get_spoc_data {
     my ($self, $global_config, $name, $codepath) = @_;
 
-    # Get data from newest spoc file or from $codepath if called 
-    # by 'local' compare.
+    # Get data from $codepath 
+    # or from newest spoc file if called by rex3.
     my $spocfile = 
 	$codepath ? 
 	$codepath :
