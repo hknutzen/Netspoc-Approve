@@ -2179,6 +2179,10 @@ sub transfer {
     my ( $self, $conf, $spoc, $structure ) = @_;
 
     $structure ||= $self->define_structure();
+
+    # Check for matching interfaces.
+    $self->checkinterfaces($conf, $spoc);
+
     $self->process_routing( $conf, $spoc );
     generate_names_for_transfer( $conf, $spoc, $structure );
 
