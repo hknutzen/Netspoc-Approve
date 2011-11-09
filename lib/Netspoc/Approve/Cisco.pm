@@ -417,7 +417,7 @@ sub login_enable {
             if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 		$prompt = qr/password:/i;
                 $con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
-                errpr_info "SSH key for $ip permanently added to known hosts\n";
+                warnpr "SSH key for $ip permanently added to known hosts\n";
             }
 	    $pass ||= $self->get_user_password($user);
 	    $prompt = qr/password:|$std_prompt/i;
@@ -479,12 +479,22 @@ sub checkinterfaces {
         next if $conf_intf->{SHUTDOWN};
         next if not $conf_intf->{ADDRESS};
         if (my $spoc_intf = $spoc->{IF}->{$name}) {
+
+            # Compare mapping to VRF.
 	    my $conf_vrf = $conf_intf->{VRF} || '-';
 	    my $spoc_vrf = $spoc_intf->{VRF} || '-';
 	    $conf_vrf eq $spoc_vrf or 
 		push(@errors,
 		     "Different VRFs defined for interface $name:" .
-		     "Conf: $conf_vrf, Netspoc: $spoc_vrf");
+		     " Conf: $conf_vrf, Netspoc: $spoc_vrf");
+
+            # Compare statefulness.
+            my $conf_inspect = $conf_intf->{INSPECT} ? 'enabled' : 'disabled';
+            my $spoc_inspect = $spoc_intf->{INSPECT} ? 'enabled' : 'disabled';
+	    $conf_inspect eq $spoc_inspect or 
+		push(@errors,
+		     "Different 'ip inspect' defined for interface $name:" .
+		     " Conf: $conf_inspect, Netspoc: $spoc_inspect");
 	}
 	else {
             warnpr "Interface $name on device is not known by Netspoc.\n";
@@ -495,7 +505,9 @@ sub checkinterfaces {
 	    push(@errors, "Interface $name from Netspoc not known on device");
     }
     if (@errors) {
-	errpr(join(".\n", @errors) . ".\n");
+        my $last = pop @errors;
+        errpr_info "$_\n" for @errors;
+	errpr("$last\n");
     }
 }
 
