@@ -528,16 +528,6 @@ sub cmd_check_error($$) {
     }
 }
 
-sub check_firewall {
-    my ($self, $conf) = @_;
-    for my $interface (values %{ $conf->{IF} }) {
-        if (exists $interface->{INSPECT}) {
-            errpr "CBAC detected at $interface for non-Firewall-Router\n";
-        }
-    }
-
-}
-
 #######################################################
 # telnet login, check CHECKHOSTname and set convenient options
 #######################################################
@@ -1602,6 +1592,9 @@ sub crypto_processing {
 
 sub transfer {
     my ($self, $conf, $spoc) = @_;
+
+    # Check for matching interfaces.
+    $self->checkinterfaces($conf, $spoc);
 
     # *** BEGIN TRANSFER ***
     $self->process_interface_acls($conf, $spoc);
