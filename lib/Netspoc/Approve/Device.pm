@@ -1121,12 +1121,6 @@ sub get_hash_matches ( $$$$$ ) {
 sub acl_array_compare_a_in_b {
     my ($self, $ac, $bc) = @_;
 
-    # Set verbosity.
-    my $opt = $self->{CMPVAL};
-    my $verbose = ($opt & 1);
-    my $showmatches = ($opt & 2);
-    my $silent = ($opt eq 4);
-
     my ($aprot, $asrc, $adst) = acl_prepare($ac);
     my ($bprot, $bsrc, $bdst, $bhash) = acl_prepare($bc, 1);
     my $p_rel = prot_relation($aprot, $bprot);
@@ -1153,19 +1147,12 @@ sub acl_array_compare_a_in_b {
 	for my $deny (@ad) {
 	    my $result = $self->acl_line_a_in_b($s, $deny);
 	    if ($result == 1) {
-		if (not $silent) {
-		    print "**** USELESS **** ($s->{line}) : $s->{orig}";
-		    print " denied by ($deny->{line}) : $deny->{orig}\n";
-		}
+                print "**** USELESS **** ($s->{line}) : $s->{orig}";
+                print " denied by ($deny->{line}) : $deny->{orig}\n";
 		next OUTER;
 	    }
 	    elsif ($result == 2) {
 		push @currentdenylist, $deny;
-		if ($verbose) {
-		    print "**** VERBOSE (fill currentdenylist) ****";
-		    print " $s->{line} : $s->{orig}";
-		    print " partial $deny->{line} : $deny->{orig}\n";
-		}
 	    }
 
 	    # else nothing to do - no intersection
@@ -1200,37 +1187,21 @@ sub acl_array_compare_a_in_b {
 		    for my $deny (@deny_int) {
 			for my $cd (@currentdenylist) {
 			    if ($self->acl_line_a_in_b($deny, $cd) == 1) {
-				if ($verbose) {
-				    print "**** VERBOSE (right side) ****";
-				    print " ($p->{line}): $p->{orig}";
-				    print " partial";
-				    print " $deny->{line} : $deny->{orig}";
-				    print " has full match at left side:";
-				    print " ($cd->{line}): $cd->{orig}\n";
-				};
 				next CHECK;
 			    }
 			}
 
-			if (not $silent) {
-			    print "+++ DENY MISMATCH +++";
-			    print " ($p->{line}): $p->{orig}";
-			    print " at right side has predecessor";
-			    print " ($deny->{line}): $deny->{orig}";
-			    print " which has no full match at left side\n";
-			    print "+++ While searching for match:";
-			    print " ($s->{line}): $s->{orig}\n";
-			};
+                        print "+++ DENY MISMATCH +++";
+                        print " ($p->{line}): $p->{orig}";
+                        print " at right side has predecessor";
+                        print " ($deny->{line}): $deny->{orig}";
+                        print " which has no full match at left side\n";
+                        print "+++ While searching for match:";
+                        print " ($s->{line}): $s->{orig}\n";
 			$deny_match = 'DMIS';
 		    }
 		    if ($deny_match eq 'DMIS') {
 			last INNER;
-		    }
-
-		    # ok
-		    if (@perm_int && $verbose) {
-			print "**** VERBOSE **** $s->{line} match  $p->{line} ";
-			print "with ", scalar(@perm_int), " intersections\n";
 		    }
 		}
 		my $lm;
@@ -1242,12 +1213,8 @@ sub acl_array_compare_a_in_b {
 			$lm = $log_mismatch = 1;
 		    }
 		}
-		if ($lm and !$silent) {
+		if ($lm) {
 		    print "**** LOG MISMATCH **** ($s->{line}): $s->{orig}";
-		    print " in ($p->{line}): $p->{orig}\n";
-		}
-		elsif ($showmatches) {
-		    print "**** SHOW MATCHES **** ($s->{line}): $s->{orig}";
 		    print " in ($p->{line}): $p->{orig}\n";
 		}
 		next OUTER;
@@ -1255,42 +1222,31 @@ sub acl_array_compare_a_in_b {
 	    elsif($result == 2) {
 		if ($p->{MODE} eq 'deny') {
 		    push @deny_int, $p;
-		    if ($verbose) {
-			print "**** VERBOSE (fill deny_intersec) **** ";
-			print "$s->{line} : $s->{orig}";
-			print " partial $p->{line} : $p->{orig}\n";
-		    }
 		}
 		else {
 
 		    # permit intersection
 		    push @perm_int, $p;
-		    if ($verbose) {
-			print "($s->{line}): $s->{orig}";
-			print " INTERSECTION ($p->{line}): $p->{orig}\n";
-		    }
 		}
 	    }
 
 	    # else nothing to do - no intersection
 	}
 	$clean = 0;
-	if(not $silent) {
-	    unless ($deny_match eq 'DMIS') {
-		if (@perm_int) {
-		    print " **** DENY **** ($s->{line}): $s->{orig}";
-		    print " by ($deny_line_nr): $deny_line\n";
-		    my @intersec = sort { $a->{line} <=> $b->{line } }
-		    (@deny_int, @perm_int);
-		    for my $p (@intersec) {
-			print " **** INTERSEC **** $p->{line} : $p->{orig}\n";
-		    }
-		}
-		else {
-		    print "**** DENY **** ($s->{line}): $s->{orig}";
-		    print " by ($deny_line_nr): $deny_line\n";
-		}
-	    }
+        unless ($deny_match eq 'DMIS') {
+            if (@perm_int) {
+                print " **** DENY **** ($s->{line}): $s->{orig}";
+                print " by ($deny_line_nr): $deny_line\n";
+                my @intersec = sort { $a->{line} <=> $b->{line } }
+                (@deny_int, @perm_int);
+                for my $p (@intersec) {
+                    print " **** INTERSEC **** $p->{line} : $p->{orig}\n";
+                }
+            }
+            else {
+                print "**** DENY **** ($s->{line}): $s->{orig}";
+                print " by ($deny_line_nr): $deny_line\n";
+            }
 	}
     }
     return ($clean and !$log_mismatch);    # a in b
@@ -1335,18 +1291,13 @@ sub acl_equal {
     my $oldinnew;
     mypr "acl's differ textualy!\n";
     mypr "begin semantic compare:\n";
-    if ($self->{CMPVAL} eq 4) {
-	$newinold = $self->acl_array_compare_a_in_b($spoc_acl, $conf_acl);
-	$oldinnew = $self->acl_array_compare_a_in_b($conf_acl, $spoc_acl);
-    }
-    else {
-	mypr "#### BEGIN NEW in OLD - $context\n";
-	$newinold = $self->acl_array_compare_a_in_b($spoc_acl, $conf_acl);
-	mypr "#### END   NEW in OLD - $context\n";
-	mypr "#### BEGIN OLD in NEW - $context\n";
-	$oldinnew = $self->acl_array_compare_a_in_b($conf_acl, $spoc_acl);
-	mypr "#### END   OLD in NEW - $context\n";
-    }
+    mypr "#### BEGIN NEW in OLD - $context\n";
+    $newinold = $self->acl_array_compare_a_in_b($spoc_acl, $conf_acl);
+    mypr "#### END   NEW in OLD - $context\n";
+    mypr "#### BEGIN OLD in NEW - $context\n";
+    $oldinnew = $self->acl_array_compare_a_in_b($conf_acl, $spoc_acl);
+    mypr "#### END   OLD in NEW - $context\n";
+
     if ($newinold and $oldinnew) {
 	$diff = 0;
 	mypr "#### ACLs equal ####\n";
@@ -1550,7 +1501,6 @@ sub approve {
     my $policy = $self->{OPTS}->{P};
 
     $self->{COMPARE}       = undef;
-    $self->{CMPVAL}        = 4;      # silent
 
     # set up console
     my $time = localtime();
@@ -1597,7 +1547,6 @@ sub compare {
 
     # save compare mode
     $self->{COMPARE}      = 1;
-    $self->{CMPVAL}       = $self->{OPTS}->{C};
 
     # set up console
     my $time = localtime();
@@ -1629,9 +1578,6 @@ sub compare_files {
     $self->adaption();
 
     $self->{COMPARE} = 1;
-
-    # Default compare is silent(4) mode
-    $self->{CMPVAL} = (defined $self->{OPTS}->{C}) ? $self->{OPTS}->{C} : 4;
 
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
