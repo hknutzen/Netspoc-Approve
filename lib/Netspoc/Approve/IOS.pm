@@ -6,14 +6,7 @@ package Netspoc::Approve::IOS;
 # Description:
 # Remote configure cisco ios router
 #
-
-'$Id$' =~ / (.+),v (.+?) /;
-
-my $id = "$1 $2";
-
-sub version_drc2_ios() {
-    return $id;
-}
+# $Id$
 
 use base "Netspoc::Approve::Cisco";
 use strict;

@@ -4,16 +4,9 @@ package Netspoc::Approve::Cisco;
 # Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
-# Module to remote configure cisco devices.
-
-
-'$Id$' =~ / (.+),v (.+?) /;
-
-my $id = "$1 $2";
-
-sub version_drc2_cisco() {
-    return $id;
-}
+# Base class for the different varieties of Cisco devices.
+#
+# $Id$
 
 use base "Netspoc::Approve::Device";
 use strict;

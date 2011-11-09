@@ -5,15 +5,8 @@ package Netspoc::Approve::Cisco_FW;
 #
 # Description:
 # Base class for Cisco firewalls (ASA, PIX, FWSM)
-
-
-'$Id$ ' =~ / (.+),v (.+?) /;
-
-my $id = "$1 $2";
-
-sub version_drc2_Firewall() {
-    return $id;
-}
+#
+# $Id$
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -22,9 +15,6 @@ use IO::Socket ();
 use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
-
-# For debugging:
-#use Data::Dumper;
 
 # Global variables.
 

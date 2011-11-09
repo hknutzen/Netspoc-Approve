@@ -6,14 +6,7 @@ package Netspoc::Approve::PIX;
 # Description:
 # Remote configure Cisco PIX up to version 6.3
 #
-
-'$Id$ ' =~ / (.+),v (.+?) /;
-
-my $id = "$1 $2";
-
-sub version_drc2_pix() {
-    return $id;
-}
+# $Id$
 
 use base "Netspoc::Approve::Cisco_FW";
 use strict;

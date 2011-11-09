@@ -5,12 +5,7 @@ package Netspoc::Approve::Linux;
 #
 # Description:
 # Module to remote configure Linux devices.
-
-
-'$Id$' =~ / (.+),v (.+?) /;
-
-my $id = "$1 $2";
-my $handle_iptables = 1;
+# $Id$
 
 use strict;
 use warnings;
@@ -19,6 +14,8 @@ use File::Temp qw/ tempfile /;
 use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
+
+my $handle_iptables = 1;
 
 my $config = {
     user => 'root',

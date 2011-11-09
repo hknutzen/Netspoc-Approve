@@ -5,26 +5,14 @@ package Netspoc::Approve::Device;
 # Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
-# Module to fetch all Data available prior to connecting to device(s)
-# needed to run the netspoc job.
-#
 # Base class for the different varieties of devices (IOS, PIX, etc.).
 #
-
-'$Id$ ' =~ / (.+),v (.+?) /;
-
-my $id = "$1 $2";
-
-sub version_drc2_job() {
-    return $id;
-}
+# $Id$
 
 use strict;
 use warnings;
 use Fcntl qw/:flock/;    # import LOCK_* constants
-
 use File::Basename;
-
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
@@ -1545,7 +1533,7 @@ sub remote_execute {
     # in compare mode prepare() does not change router config
     $self->{COMPARE} = 1;
     $self->con_setup(
-        "START: execute user command at > " . scalar localtime() . " < ($id)");
+        "START: execute user command at > " . scalar localtime() . " <");
     $self->prepare();
     $cmd =~ s/\\n/\n/g;
     for my $line (split /[;]/, $cmd) {
@@ -1566,7 +1554,7 @@ sub approve {
 
     # set up console
     my $time = localtime();
-    $self->con_setup("START: $policy at > $time < ($id)");
+    $self->con_setup("START: $policy at > $time <");
 
     # prepare device for configuration
     $self->prepare();
@@ -1584,13 +1572,13 @@ sub approve {
         errpr "approve failed\n";
     }
     $time = localtime();
-    $self->con_shutdown("STOP: $policy at > $time < ($id)");
+    $self->con_shutdown("STOP: $policy at > $time <");
 }
 
 sub get_change_status {
     my ($self) = @_;
     my $time = localtime();
-    mypr "comp: $time ($id)\n";
+    mypr "comp: $time\n";
     for my $key (sort keys %{$self->{CHANGE}}) {
 	if($self->{CHANGE}->{$key}) { 
 	    mypr "comp: $self->{NAME} *** $key changed ***\n";
@@ -1613,7 +1601,7 @@ sub compare {
 
     # set up console
     my $time = localtime();
-    $self->con_setup("START: $policy at > $time < ($id)");
+    $self->con_setup("START: $policy at > $time <");
 
     # prepare device for configuration
     $self->prepare();
@@ -1632,7 +1620,7 @@ sub compare {
     }
 
     $time = localtime();
-    $self->con_shutdown("STOP: $policy at > $time < ($id)");
+    $self->con_shutdown("STOP: $policy at > $time <");
     return($self->get_change_status());
 }
 

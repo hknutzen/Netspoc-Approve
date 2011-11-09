@@ -5,15 +5,9 @@ package Netspoc::Approve::Helper;
 # Author: Arne Spetzler
 #
 # Description:
-# module with misc helpers to drc2
+# module with misc helpers
 #
-
-'$Id$ ' =~ / (.+),v (.+?) /;
-my $id = "$1 $2";
-
-sub version_drc2_helper() {
-    return $id;
-}
+# $Id$
 
 require Exporter;
 use strict;

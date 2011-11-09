@@ -6,11 +6,7 @@ package Netspoc::Approve::Console;
 # Description:
 # Manage connection to device.
 #
-
-'$Id$ ' =~ / (.+),v (.+?) /;
-
-my $id = "$1 $2";
-
+# $Id$
 
 use strict;
 use warnings;
