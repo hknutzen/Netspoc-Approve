@@ -1464,8 +1464,6 @@ sub abort_cmd {
 # Return 0 if no answer.
 sub check_device {
     my ($self) = @_;
-    my $retries = $self->{OPTS}->{p} || 3;
-
     for my $i (1 ..3) {
         my $result = `ping -q -w $i -c 1 $self->{IP}`;
 	return $i if $result =~ /1 received/;
