@@ -1027,16 +1027,6 @@ sub merge_rawdata {
     $self->merge_iptables($spoc_conf, $raw_conf) if $handle_iptables;
 }
 
-# NoOp.
-sub checkinterfaces {
-    my($self) = @_;
-}
-
-# NoOp.
-sub check_firewall {
-    my($self) = @_;
-}
-
 sub status_ok {
     my($self) = @_;
     my $status = $self->get_cmd_output('echo $?');
