@@ -2,25 +2,15 @@
 # Author: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
-# Do the Remote Configuration of network objects
-
-'$Id$ ' =~ / (.+),v (.+?) /;
-
-my $id = "$1 $2";
-
-sub version_drc3() {
-    return $id;
-}
-
-$| = 1;    # output char by char
+# Approving device with netspoc configuration.
+#
+# $Id$
 
 use strict;
 use warnings;
-
 use Fcntl qw/:flock/;    # import LOCK_* constants
 use Fcntl;
 use Getopt::Long;
-
 use Netspoc::Approve::Device;
 use Netspoc::Approve::Linux;
 use Netspoc::Approve::Cisco;
@@ -30,6 +20,10 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
 use Netspoc::Approve::Helper;
 
+our $VERSION = sprintf "%d.%03d", q$Revision$ =~ /(\d+)/g;
+
+$| = 1;    # output char by char
+
 my %type2class = (
     Linux  => 'Netspoc::Approve::Linux',
     IOS    => 'Netspoc::Approve::IOS',
@@ -37,27 +31,6 @@ my %type2class = (
     ASA    => 'Netspoc::Approve::ASA',
     PIX    => 'Netspoc::Approve::PIX',
 );
-
-sub parse_ver( $ ) {
-    my $package = shift;
-    for my $symname (keys %{$package}) {
-        my $sym = ${$package}{$symname};
-        if ($sym =~ /::version_drc3/) {
-
-            #print "$sym\n";
-            print &$sym() . "\n";
-
-            #print ${$package}{$symname}."\n";
-            #main->version();
-        }
-        if ($sym =~ /(\S*)::\z/) {
-
-            # print "HIT:$1\n";
-            next if ($sym =~ /::main/);
-            &parse_ver(\%{$sym});
-        }
-    }
-}
 
 ####################################################################
 # main
@@ -145,7 +118,7 @@ $opts{D} ||= $global_config->{DEVICEDBPATH};
 $opts{P} ||= $nopolicy;
 
 if ($opts{v}) {
-    parse_ver(\%main::);
+    print STDERR "$VERSION\n";
     exit unless @ARGV;
 }
 
@@ -208,7 +181,7 @@ if (my $p1 = $opts{P1}) {
     mypr "\n";
     mypr
       "********************************************************************\n";
-    mypr " START: $p1 vs. $p2 at > ", scalar localtime, " < ($id)\n";
+    mypr " START: $p1 vs. $p2 at > ", scalar localtime, " <\n";
     mypr
       "********************************************************************\n";
     mypr "\n";
@@ -263,7 +236,7 @@ if (my $p1 = $opts{P1}) {
     mypr "\n";
     mypr
       "********************************************************************\n";
-    mypr " STOP: $p1 vs. $p2 at > ", scalar localtime, " < ($id)\n";
+    mypr " STOP: $p1 vs. $p2 at > ", scalar localtime, " <\n";
     mypr
       "********************************************************************\n";
     mypr "\n";
@@ -275,7 +248,7 @@ if (defined $job->{OPTS}->{PING_ONLY}) {
     mypr "\n";
     mypr
       "********************************************************************\n";
-    mypr " START: $job->{OPTS}->{P} at > ", scalar localtime, " < ($id)\n";
+    mypr " START: $job->{OPTS}->{P} at > ", scalar localtime, " <\n";
     mypr
       "********************************************************************\n";
     mypr "\n";
@@ -291,7 +264,7 @@ if (defined $job->{OPTS}->{PING_ONLY}) {
     mypr "\n";
     mypr
       "********************************************************************\n";
-    mypr " STOP: $job->{OPTS}->{P} at > ", scalar localtime, " < ($id)\n";
+    mypr " STOP: $job->{OPTS}->{P} at > ", scalar localtime, " <\n";
     mypr
       "********************************************************************\n";
     mypr "\n";
@@ -321,7 +294,7 @@ if (my $spoc_path = $job->{OPTS}->{N}) {
     mypr "\n";
     mypr
       "********************************************************************\n";
-    mypr " START: $job->{OPTS}->{P} at > ", scalar localtime, " < ($id)\n";
+    mypr " START: $job->{OPTS}->{P} at > ", scalar localtime, " <\n";
     mypr
       "********************************************************************\n";
     mypr "\n";
@@ -449,7 +422,7 @@ if (my $spoc_path = $job->{OPTS}->{N}) {
     mypr "\n";
     mypr
       "********************************************************************\n";
-    mypr " STOP: $job->{OPTS}->{P} at > ", scalar localtime, " < ($id)\n";
+    mypr " STOP: $job->{OPTS}->{P} at > ", scalar localtime, " <\n";
     mypr
       "********************************************************************\n";
     mypr "\n";
