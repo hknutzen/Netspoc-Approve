@@ -539,26 +539,12 @@ sub load_spoc {
     return($conf);
 }
 
-sub get_parsed_config_from_device {
+sub load_device {
     my ($self) = @_;
     my $device_lines = $self->get_config_from_device();
     mypr "### Parsing device config\n";
     my $conf  = $self->parse_config($device_lines);
     return($conf);
-}
-
-sub prepare_devicemode {
-    my ($self, $path) = @_;
-    my $spoc_conf = $self->load_spoc($path);
-    my $conf = $self->get_parsed_config_from_device();
-
-    # Check for matching interfaces.
-    $self->checkinterfaces($conf, $spoc_conf);
-
-    # Check if active firewall feature matches device type.
-    $self->check_firewall($conf);
-
-    return ($conf, $spoc_conf);
 }
 
 # A command line consists of two parts: command and argument.
@@ -1588,8 +1574,9 @@ sub approve {
     # Check for Netspoc message in device banner.
     $self->checkbanner();
 
-    # now do the main thing
-    my ($device_conf, $spoc_conf) = $self->prepare_devicemode($spoc_path);
+    my $spoc_conf = $self->load_spoc($spoc_path);
+    my $device_conf = $self->load_device();
+
     if ($self->transfer($device_conf, $spoc_conf)) {
         mypr "approve done\n";
     }
@@ -1634,8 +1621,9 @@ sub compare {
     # check if Netspoc message in device banner
     $self->checkbanner();
 
-    # now do the main thing
-    my ($device_conf, $spoc_conf) = $self->prepare_devicemode($spoc_path);
+    my $spoc_conf = $self->load_spoc($spoc_path);
+    my $device_conf = $self->load_device();
+
     if ($self->transfer($device_conf, $spoc_conf)) {
         mypr "compare done\n";
     }
