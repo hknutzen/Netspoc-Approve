@@ -1490,13 +1490,12 @@ sub remote_execute {
 sub approve {
     my ($self, $spoc_path) = @_;
     $self->adaption();
-    my $policy = $self->{OPTS}->{P};
 
-    $self->{COMPARE}       = undef;
+    $self->{COMPARE} = undef;
 
     # set up console
     my $time = localtime();
-    $self->con_setup("START: $policy at > $time <");
+    $self->con_setup("START: at > $time <");
 
     # prepare device for configuration
     $self->prepare();
@@ -1514,7 +1513,7 @@ sub approve {
         errpr "approve failed\n";
     }
     $time = localtime();
-    $self->con_shutdown("STOP: $policy at > $time <");
+    $self->con_shutdown("STOP: at > $time <");
 }
 
 sub get_change_status {
@@ -1535,14 +1534,13 @@ sub get_change_status {
 sub compare {
     my ($self, $spoc_path) = @_;
     $self->adaption();
-    my $policy = $self->{OPTS}->{P};
 
     # save compare mode
     $self->{COMPARE}      = 1;
 
     # set up console
     my $time = localtime();
-    $self->con_setup("START: $policy at > $time <");
+    $self->con_setup("START: at > $time <");
 
     # prepare device for configuration
     $self->prepare();
@@ -1561,7 +1559,7 @@ sub compare {
     }
 
     $time = localtime();
-    $self->con_shutdown("STOP: $policy at > $time <");
+    $self->con_shutdown("STOP: at > $time <");
     return($self->get_change_status());
 }
 
