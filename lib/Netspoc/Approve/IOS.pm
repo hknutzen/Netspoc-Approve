@@ -869,10 +869,10 @@ sub get_my_connection {
 	return @$cached;
     }
 
-    # In file compare mode use IP from netspoc file.
+    # In file compare mode use IP from netspoc file or 1.2.3.4 if not available.
     if (not $self->{CONSOLE}) {
 	my $any = { BASE => 0, MASK => 0 };
-	my $ip = quad2int($self->{IP});
+	my $ip = quad2int($self->{IP} || '1.2.3.4');
 	my $dst = $ip ? { BASE => $ip, MASK => 0xffffffff } : $any;
 	my $range = { TYPE => 'tcp', 
 		      SRC_PORT => { LOW => 0, HIGH => 0xffff },
