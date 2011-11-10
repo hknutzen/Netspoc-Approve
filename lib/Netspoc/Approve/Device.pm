@@ -422,20 +422,14 @@ sub get_user_password {
 }
 
 # Read type and IP addresses from header of spoc file.
+# ! [ Model = IOS ]
+# ! [ IP = 10.1.13.80,10.1.14.77 ]
 sub get_spoc_data {
-    my ($self, $global_config, $name, $codepath) = @_;
-
-    # Get data from $codepath 
-    # or from newest spoc file if called by rex3.
-    my $spocfile = 
-	$codepath ? 
-	$codepath :
-	"$global_config->{NETSPOC}current/$global_config->{CODEPATH}$name";
-
+    my ($self, $spocfile) = @_;
     my $type;
     my @ip;
-    open(FILE, $spocfile) or return $type;
-    while (my $line = <FILE>) {
+    open(my $file, '<', $spocfile) or return undef;
+    while (my $line = <$file>) {
         if ($line =~ /\[ Model = (\S+) ]/) {
             $type = $1;
         }
@@ -444,7 +438,7 @@ sub get_spoc_data {
 	    last;
         }
     }
-    close FILE;
+    close $file;
     return($type, @ip);
 }
 
