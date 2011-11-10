@@ -12,15 +12,10 @@ package Netspoc::Approve::Helper;
 require Exporter;
 use strict;
 use warnings;
-use Fcntl;
-use Expect;
-use File::Basename;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
-  warnpr check_warn internal_err debug quad2int int2quad is_ip writestatus
-  formatstatus getstatus getfullstatus updatestatus
-  open_status 
+  warnpr check_warn internal_err debug quad2int int2quad is_ip
   %ICMP_Trans %IP_Trans %PORT_Trans_TCP %PORT_Trans_UDP  
 );
 
@@ -186,32 +181,6 @@ our %PORT_Trans_UDP = (
     'xdmcp'         => 177
 );
 
-my %statfields = (
-    DEVICENAME  => 0,
-    APP_MESSAGE => 1,
-    APP_STATUS  => 3,     # same as for DEV_STATUS and ***UNFINISHED APPROVE***
-    APP_POLICY  => 2,
-    APP_TIME    => 4,     # seconds since 1970 Cleartext
-    APP_USER    => 5,
-    DEV_MESSAGE => 6,
-    DEV_STATUS  => 8,     # ***WARNINGS***, ***ERRORS***  or OK
-    DEV_POLICY  => 7,
-    DEV_TIME    => 9,     # seconds since 1970 Cleartext
-    DEV_USER    => 10,
-    COMP_COMP   => 11,
-    COMP_RESULT => 12,    # DIFF or UPTODATE
-    COMP_POLICY => 13,
-    COMP_CTIME  => 14,    # seconds since 1970 Cleartext
-    COMP_TIME   => 15,    # seconds since 1970
-    COMP_DTIME  => 16,    # DEV_TIME in seconds
-    FC_FC       => 17,
-    FC_LAST_OK  => 18,    #last policy which seems to be identical to DEV_POLICY
-    FC_STATE    => 19,    # result of last file compare: DIFF or OK
-    FC_CTIME    => 20,    # seconds since 1970 Cleartext
-    FC_TIME     => 21,    # seconds since 1970 (last change in state)
-    MAX         => 21
-);
-
 my $warn     = "NO";      # sorry its global...
 my $erro     = "NO";      # same applies to this :(
 my $err_mode = "";
@@ -258,130 +227,6 @@ sub internal_err( @ ) {
 
 sub debug ( @ ) {
     print STDERR @_, "\n";
-}
-
-sub writestatus ( $ ) {
-    my $stat = shift;
-
-    # disable output buffering for status messages
-    # due to better reliability
-    my $oldselect   = select STATUS;
-    my $oldbuffmode = $|;
-    unless ($oldbuffmode == 1) {
-        $| = 1;
-    }
-    seek STATUS, 0, 0;
-    print join ';', @$stat;
-    truncate STATUS, tell STATUS or die "could not truncate statfile\n";
-    $| = $oldbuffmode;
-    select $oldselect;
-}
-
-sub formatstatus ( $ ) {
-    my $stat = shift;
-    for (my $i = 0 ; $i <= $statfields{MAX} ; $i++) {
-        unless (exists $stat->[$i]
-            and $stat->[$i] =~ /\S/
-            and $stat->[$i] ne 'undef')
-        {
-            if ($i == $statfields{APP_MESSAGE}) {
-                $stat->[ $statfields{APP_MESSAGE} ] = 'LAST_APPROVE';
-            }
-            elsif ($i == $statfields{DEV_MESSAGE}) {
-                $stat->[ $statfields{DEV_MESSAGE} ] = 'LAST_SUCCESS';
-            }
-            elsif ($i == $statfields{DEV_POLICY}) {
-                $stat->[ $statfields{DEV_POLICY} ] = 'p0';
-            }
-            elsif ($i == $statfields{COMP_COMP}) {
-                $stat->[ $statfields{COMP_COMP} ] = 'COMPARE';
-            }
-            elsif ($i == $statfields{COMP_POLICY}) {
-                $stat->[ $statfields{COMP_POLICY} ] = 'p0';
-            }
-            elsif ($i == $statfields{COMP_TIME}) {
-                $stat->[ $statfields{COMP_TIME} ] = 0;
-            }
-            elsif ($i == $statfields{COMP_DTIME}) {
-                $stat->[ $statfields{COMP_DTIME} ] = 0;
-            }
-            elsif ($i == $statfields{FC_FC}) {
-                $stat->[ $statfields{FC_FC} ] = 'FILE_COMPARE';
-            }
-            elsif ($i == $statfields{FC_LAST_OK}) {
-                $stat->[ $statfields{FC_LAST_OK} ] = 0;
-            }
-            elsif ($i == $statfields{FC_TIME}) {
-                $stat->[ $statfields{FC_TIME} ] = 0;
-            }
-            else {
-                $stat->[$i] = 'undef';
-            }
-        }
-    }
-    $stat->[ $statfields{MAX} + 1 ] = "\n";
-    writestatus($stat);
-}
-
-sub getstatus ( $ ) {
-    my $position = shift;
-    seek STATUS, 0, 0;
-    my @stat = split ';', <STATUS>;
-
-    # @stat may be  empty
-    if ($#stat < $statfields{MAX} + 1) {
-        formatstatus(\@stat);
-    }
-    (exists $statfields{$position})
-      || die "unknown status field $position\n";
-
-    return $stat[ $statfields{$position} ];
-}
-
-sub getfullstatus () {
-    my $fst = {};
-    for my $pos (keys %statfields) {
-        $fst->{$pos} = getstatus($pos);
-    }
-    return $fst;
-}
-
-sub updatestatus ( $$ ) {
-    my ($position, $value) = @_;
-
-    # disable output buffering for status messages
-    # due to better reliability
-    seek STATUS, 0, 0;
-    my @stat = split ';', <STATUS>;
-
-    # @stat may be  empty
-    if ($#stat < $statfields{MAX} + 1) {
-        formatstatus(\@stat);
-    }
-    (exists $statfields{$position})
-      || die "unknown status field $position\n";
-
-    @stat[ $statfields{$position} ] = $value;
-
-    writestatus(\@stat);
-}
-
-sub open_status( $ ) {
-    my $job        = shift;
-    my $devicename = $job->{NAME};
-    my $statuspath = $job->{GLOBAL_CONFIG}->{STATUSPATH};
-
-    # open status file for update and checking
-    unless (-f "$statuspath$devicename") {
-        (sysopen(STATUS, "$statuspath$devicename", O_RDWR | O_CREAT))
-          or die "could not open/create file: $statuspath$devicename\n$!\n";
-        defined chmod 0644, "$statuspath$devicename"
-          or die " couldn't chmod lockfile $statuspath$devicename\n$!\n";
-    }
-    else {
-        (sysopen(STATUS, "$statuspath$devicename", O_RDWR))
-          or die "could not open file: $statuspath$devicename\n$!\n";
-    }
 }
 
 sub quad2int ($) {
