@@ -5,11 +5,8 @@
 # Description:
 # Wrapper to approve and compare current policy.
 # Does history logging.
-
-'$Id$ '=~ / (.+),v (.+?) /;
-my $id = "$1 $2";
-
-# check command line argument   
+#
+# $Id$
 
 use strict;
 use warnings;
@@ -24,6 +21,12 @@ my $prog = "diamonds";
 # Use old drc2.pl for devices matching this pattern
 my $old_device_pattern = qr/^vpn3k_/;
 
+sub usage {
+    print "Usage:\n";
+    print "$prog approve <device-name>\n";
+    print "$prog compare <device-name>\n";
+    exit -1;
+}
 
 # Read settings from config file
 my $netspocdir;
@@ -42,7 +45,7 @@ my %conf2var =
 
 # File is trusted; values are untainted by pattern match.
 sub read_global_config {
-    my $rcmad = '/home/diamonds/.rcmadnes';
+    my $rcmad = '/home/knutzehe/.rcmadnes';
     open(RCMAD,$rcmad) or die "Can't open $rcmad: $!\n";
     while (<RCMAD>){
 	if (/^ \s* (\w+) \s* = \s* (\S+) \s* $/x) {
@@ -69,20 +72,13 @@ sub init_history_logging {
 	die "Error: file '$historyfile' is locked: $!\n";
     }  
     my $date = strftime "%Y %m %e %H:%M:%S", localtime();
-    print HISTORY "$date ($id) USER $user called '$arguments'\n";
+    print HISTORY "$date USER $user called '$arguments'\n";
 }
 
 sub log_history {
     my ($message) = @_;
     my $date = strftime "%Y %m %e %H:%M:%S", localtime();
-    print HISTORY "$date ($id) $message\n";
- }
-
-sub usage {
-    print "Usage:\n";
-    print "$prog approve <device-name>\n";
-    print "$prog compare <device-name>\n";
-    exit -1;
+    print HISTORY "$date $message\n";
 }
 
 sub untaint {
@@ -99,11 +95,6 @@ sub get_and_cd_current_policy {
     chdir "$netspocdir$currentdir" or
 	die "Error: can't cd to $netspocdir$currentdir: $!\n";
     return $currentdir;
-}
-
-sub get_drc_cmd {
-    my($dev) = @_;
-    return $dev =~ $old_device_pattern ? 'drc2.pl' : 'drc3.pl';
 }
 
 #############################################################################
@@ -142,26 +133,35 @@ my $codefile = "$codepath$device";
 # $device is now known to be valid.
 $device = untaint($device);
 
-my $drc_cmd = get_drc_cmd($device);
 my $logfile = "$logpath$device";
-my $compare_option;
+my $is_compare;
 if ($command eq "compare") {
     $logfile .= ".compare";
-    $compare_option = '-C 0';
+    $is_compare = 1;
 }
 elsif ($command eq "approve") {
     $logfile .= ".drc";
-    $compare_option = '';
 }
 else{
     usage();
 }
 
-my $cmd = 
-    "$drc_cmd $compare_option -P $policy -N $codepath$device" .
-    " -S -I $running_for_user" .
-    " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
-    " $device";
+my $cmd;
+if ($device =~ $old_device_pattern) {
+    my $compare_option = $is_compare ? '-C 0' : '';
+    $cmd = 
+        "drc2.pl $compare_option -P $policy -S -I $running_for_user" .
+        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
+        " -N $codepath$device $device";
+}
+else {
+    my $compare_option = $is_compare ? '-C' : '';
+    $cmd = 
+        "perl -I /home/knutzehe/Netspoc-Approve/lib /home/knutzehe/Netspoc-Approve/bin/" .
+        "drc3.pl $compare_option -P $policy -S -I $running_for_user" .
+        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
+        " $codepath$device";
+}
 
 init_history_logging($device, $arguments, $running_for_user);
 log_history("START: $cmd");
