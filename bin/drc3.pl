@@ -41,9 +41,8 @@ my %type2class = (
 sub usage {
     print STDERR <<END;
 usage: 'drc3.pl [options] <file>'
-usage: 'drc3.pl <file1> <file2>'
-usage: 'drc3.pl -v'
-
+   or: 'drc3.pl <file1> <file2>'
+Compare / approve file with device or compare two files.
  -C                   compare device with netspoc
  -L <logdir>          path for saving telnet-logs
  -t <seconds>         timeout for telnet
@@ -89,11 +88,9 @@ my $file2 = shift;
 (my $name = $file1) =~ s|^[^/]*/||;
 
 
-# Get type and IP address from spoc file.
-# Prefer local spoc file; take file from policy DB otherwise.
-# This may fail if there is no spoc file or if name is an IP address.
-# In this case we get an empty type and no IP.
-my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($file1);
+# Get type and IP addresses from spoc file.
+# If no type is found, we get an empty type and no IP.
+my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($file2 || $file1);
 
 $type or die "Can't get type from $file1\n";
 
