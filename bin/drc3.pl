@@ -40,12 +40,12 @@ my %type2class = (
 
 sub usage {
     print STDERR <<END;
-usage: 'drc3 -v'
-usage: 'drc3 [-C <level>] -F1 <file1> -F2 <file2> <device>'
-usage: 'drc3 <option> -N <file> <device>'
+usage: 'drc3.pl [options] <file>'
+usage: 'drc3.pl <file1> <file2>'
+usage: 'drc3.pl -v'
 
+ -C                   compare device with netspoc
  --NOREACH            do not check if device is reachable
- -P <policy>          policy
  -L <logdir>          path for saving telnet-logs
  -N <file>            if set, NetSPoC mode and file
  --LOGFILE <fullpath> path for print output (default is STDOUT)
@@ -53,16 +53,9 @@ usage: 'drc3 <option> -N <file> <device>'
  --LOGVERSIONS        do not overwrite existing logfiles
  --NOLOGMESSAGE       supress output about logfile Names
  -I <username>        Username of invokator (usually submitted by approve.pl)
- -C <level>           compare device with netspoc
-                      0 = show only diffs
-		      1 = verbose
-		      2 = show matches
-		      3 = 1 & 2
-		      4 = silent
+ -P <policy>          policy
  -S                   update Status
  -t <seconds>         timeout for telnet
- -F1 <file1>	      Compare netspoc generated Configs given by absolute paths
- -F2 <file2>
  -v                   show version info
 
 END
@@ -76,43 +69,41 @@ my %opts;
 
 &GetOptions(
     \%opts,
-    'P=s',
-    't=i',
+    'C',
+    'NOREACH',
     'L=s',
     'N=s',
     'LOGFILE=s',
     'LOGAPPEND',
     'LOGVERSIONS',
     'NOLOGMESSAGE',
-    'I=s',    # invokator username
-    'NOREACH',
-    'C=i',
+    'I=s',
+    'P=s',
     'S',
+    't=i',
     'v',
-    'F1=s',
-    'F2=s'
 );
-
-my $nopolicy = "Policy (unknown)";
-$opts{P} ||= $nopolicy;
 
 if ($opts{v}) {
     print STDERR "$VERSION\n";
-    exit unless @ARGV;
+    exit;
 }
 
-my $name = shift;
-$name and not @_ or &usage;
+my $file1 = shift or usage();
+my $file2 = shift;
+@ARGV and usage();
+
+# Take basename of file as device name.
+(my $name = $file1) =~ s|^[^/]*/||;
+
 
 # Get type and IP address from spoc file.
 # Prefer local spoc file; take file from policy DB otherwise.
 # This may fail if there is no spoc file or if name is an IP address.
 # In this case we get an empty type and no IP.
-my ($type, @ip) = 
-    Netspoc::Approve::Device->get_spoc_data($global_config, 
-					    $name, $opts{N} || $opts{F2});
+my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($file1);
 
-$type or die "Can't get type from spoc file\n";
+$type or die "Can't get type from $file1\n";
 
 # Get class from type.
 my $class = $type2class{$type}
@@ -124,30 +115,20 @@ my $job = $class->new(
     GLOBAL_CONFIG => $global_config,
 );
 
+# Handle file compare first, which doesn't need device's IP and password.
+if ($file2) {
+    keys %opts and usage;
+
+    # tell the Helper that we only compare
+    errpr_mode("COMPARE");
+    exit($job->compare_files($file1, $file2) ? 1 : 0)
+}
+
 @ip > 0 or die "Can't get IP from spoc file\n";
 $job->{IP} = shift(@ip);
 
 # Enable logging if configured.
 $job->logging();
-
-# Handle methods first, which don't need device's password.
-if (my $f1 = $opts{F1}) {
-    my $f2 = $opts{F2} or &usage;
-
-    # tell the Helper that we only compare
-    errpr_mode("COMPARE");
-
-    if ($job->compare_files($f1, $f2)) {
-
-        # diffs
-        exit 1;
-    }
-    else {
-
-        # no diffs
-        exit 0;
-    }
-}
 
 if (!$job->{OPTS}->{NOREACH}) {
     if (!$job->check_device()) {
@@ -164,149 +145,90 @@ if(my $device_info =
     $job->{LOCAL_USER} = $device_info->{LOCAL_USER};
 }
 
-if (my $spoc_path = $job->{OPTS}->{N}) {
+# Compare or approve network device.
+$opts{S} and $opts{P} or die "Must set option 'P' if option 'S' is set.\n";
+my $policy = $opts{P} || 'Policy (unknown)';
 
-    # compare or approve network devices
-    $job->{POLICY} = $job->{OPTS}->{P};
-    mypr "\n";
-    mypr
-      "********************************************************************\n";
-    mypr " START: $job->{OPTS}->{P} at > ", scalar localtime, " <\n";
-    mypr
-      "********************************************************************\n";
-    mypr "\n";
-    if ($job->lock($job->{NAME})) {
-        $job->{OPTS}->{S} and open_status($job);
-        if (defined $job->{OPTS}->{C}) {
-            #####################
-            # compare Mode!
-            #####################
-            errpr_mode("COMPARE");   # tell the Helper that we only compare
-            my $compare_result = $job->compare($spoc_path);
-            unless ($job->{OPTS}->{P} eq $nopolicy) {
-                unless ($job->{POLICY} =~ /^p(\d+)$/) {
-                    die
-                      "wrong policy format in policy spec. expected \'p<num>\'\n";
-                }
-                my $job_policy = $1;
-                if ($job->{OPTS}->{S}) {
+mypr "\n";
+mypr "********************************************************************\n";
+mypr " START: $policy at > ", scalar localtime, " <\n";
+mypr "********************************************************************\n";
+mypr "\n";
 
-                    #
-                    #### COMPARE STATUS FIELDS UPDATE ####
-                    #
-                    unless (getstatus('DEV_POLICY') =~ /^p(\d+)$/) {
-                        mypr getstatus('DEV_POLICY') . "\n";
-                        die "wrong policy format in device status file\n";
-                    }
-                    my $dev_policy = $1;
-                    unless ($job->{POLICY} =~ /^p(\d+)$/) {
-                        die "wrong policy format in policy spec.\n";
-                    }
-                    if ($compare_result) {
+$job->lock($job->{NAME}) or die "Approve in process for $job->{NAME}\n";
 
-                        # differences found!
-                        # only update status if compare is serious
-                        unless ($job_policy < $dev_policy) {
-                            if (getstatus('COMP_RESULT') ne 'DIFF') {
-                                updatestatus('COMP_RESULT', 'DIFF');
-                                updatestatus('COMP_POLICY', $job->{POLICY});
-                                updatestatus('COMP_TIME',   time);
-                                updatestatus('COMP_CTIME',  localtime(time()));
-                            }
-                            elsif (getstatus('COMP_TIME') <
-                                getstatus('COMP_DTIME'))
-                            {
+$opts{S} and open_status($job);
 
-                                # old compare result is not valid
-                                updatestatus('COMP_RESULT', 'DIFF');
-                                updatestatus('COMP_POLICY', $job->{POLICY});
-                                updatestatus('COMP_TIME',   time());
-                                updatestatus('COMP_CTIME',  localtime(time()));
-                            }
-                        }
-                    }
-                    else {
+# Compare mode.
+if ($opts{C}) {
+    errpr_mode("COMPARE");
+    my $found_changes = $job->compare($file1);
 
-                        # no changes
-                        unless (getstatus('COMP_POLICY') =~ /^p(\d+)$/) {
-                            print getstatus('COMP_POLICY');
-                            print "\n";
-                            die "wrong policy format in device status file\n";
-                        }
-                        my $comp_policy = $1;
+    # Update compare status fields.
+    if ($opts{S}) {
+        if ($found_changes) {
 
-                        # only update status if compare is serious
-                        unless ($job_policy < $comp_policy) {
-                            updatestatus('COMP_RESULT', 'UPTODATE');
-                            updatestatus('COMP_POLICY', $job->{POLICY});
-                            updatestatus('COMP_TIME',   time);
-                            updatestatus('COMP_CTIME',  localtime(time()));
-                        }
-                    }
-                }
+            # Only update compare status, 
+            # - if status changed to diff for first time,
+            # - or device was approved since last compare.
+            if (getstatus('COMP_RESULT') ne 'DIFF' ||
+                   getstatus('COMP_TIME') < getstatus('COMP_DTIME')) {
+                updatestatus('COMP_RESULT', 'DIFF');
+                updatestatus('COMP_POLICY', $policy);
+                updatestatus('COMP_TIME',   time());
+                updatestatus('COMP_CTIME',  localtime(time()));
             }
         }
+
+        # No changes.
         else {
-            ##########################
-            # approve Mode!
-            ##########################
-            my $user;
-            if ($job->{OPTS}->{I}) {
-                $user = $job->{OPTS}->{I};    # user from approve.pl
-            }
-            else {
-                $user = getpwuid($>);
-            }
-            if ($job->{OPTS}->{S}) {
-
-                # set approve Status to 'ERROR' - later reset to 'WARNINGS' or 'OK'
-                updatestatus('DEVICENAME', $job->{NAME});
-                updatestatus('APP_TIME',   scalar localtime);
-                updatestatus('APP_STATUS', '***UNFINISHED APPROVE***');
-                updatestatus('APP_USER',   $user);
-                updatestatus('APP_POLICY', $job->{OPTS}->{P});
-            }
-            $job->approve($spoc_path);
-            if ($job->{OPTS}->{S}) {
-
-                # set approve/device status to 'WARNINGS' or 'OK'
-                my $sec_time = time();
-                my $time     = scalar localtime($sec_time);
-                updatestatus('APP_TIME',   $time);
-                updatestatus('DEV_TIME',   $time);
-                updatestatus('COMP_DTIME', $sec_time);
-                updatestatus('DEV_USER',   $user);
-                updatestatus('DEV_POLICY', $job->{OPTS}->{P});
-                if (check_erro() eq "YES") {
-                    updatestatus('APP_STATUS', '***ERRORS***');
-                    updatestatus('DEV_STATUS', '***ERRORS***');
-                }
-                elsif (check_warn() eq "YES") {
-                    updatestatus('APP_STATUS', '***WARNINGS***');
-                    updatestatus('DEV_STATUS', '***WARNINGS***');
-                }
-                else {
-                    updatestatus('APP_STATUS', 'OK');
-                    updatestatus('DEV_STATUS', 'OK');
-                }
-            }
+            updatestatus('COMP_RESULT', 'UPTODATE');
+            updatestatus('COMP_POLICY', $policy);
+            updatestatus('COMP_TIME',   time());
+            updatestatus('COMP_CTIME',  localtime(time()));
         }
-        $job->unlock($job->{NAME});
     }
-    else {
-        errpr "approve in process for $job->{NAME}\n";
-    }
-    mypr "\n";
-    mypr
-      "********************************************************************\n";
-    mypr " STOP: $job->{OPTS}->{P} at > ", scalar localtime, " <\n";
-    mypr
-      "********************************************************************\n";
-    mypr "\n";
 }
+
+# Approve mode.
 else {
-    errpr_info "Invalid option\n";
-    usage();
+    my $user = $opts{I} || getpwuid($>);
+
+    if ($opts{S}) {
+        
+        # Set preliminary approve status.
+        updatestatus('DEVICENAME', $name);
+        updatestatus('APP_TIME',   scalar localtime());
+        updatestatus('APP_STATUS', '***UNFINISHED APPROVE***');
+        updatestatus('APP_USER',   $user);
+        updatestatus('APP_POLICY', $policy);
+    }
+    $job->approve($file1);
+    if ($opts{S}) {
+        
+        # Set real approve status.
+        my $status = (check_erro() eq "YES")
+                   ? '***ERRORS***'
+                   : (check_warn() eq "YES")
+                   ? '***WARNINGS***'
+                   : 'OK';
+        my $sec_time = time();
+        my $time     = localtime($sec_time);
+        updatestatus('APP_TIME',   $time);
+        updatestatus('DEV_TIME',   $time);
+        updatestatus('COMP_DTIME', $sec_time);
+        updatestatus('DEV_USER',   $user);
+        updatestatus('DEV_POLICY', $policy);
+        updatestatus('APP_STATUS', $status);
+        updatestatus('DEV_STATUS', $status);
+    }
 }
-exit;
+$job->unlock($job->{NAME});
+
+mypr "\n";
+mypr "********************************************************************\n";
+mypr " STOP: $policy at > ", scalar localtime, " <\n";
+mypr "********************************************************************\n";
+mypr "\n";
+
 
