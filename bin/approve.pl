@@ -12,6 +12,7 @@ use strict;
 use warnings;
 use Fcntl qw/:flock/;		# import LOCK_* constants
 use POSIX qw(strftime);
+use Netspoc::Approve::Status;
 
 # Clean PATH if run in taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
@@ -33,6 +34,7 @@ my $netspocdir;
 my $codepath;
 my $logpath;
 my $historypath;
+my $statuspath;
 my $systemuser;
 
 my %conf2var = 
@@ -40,12 +42,13 @@ my %conf2var =
       CODEPATH    => \$codepath,
       LOGPATH     => \$logpath,
       HISTORYPATH => \$historypath,
+      STATUSPATH  => \$statuspath,
       SYSTEMUSER  => \$systemuser,
       );
 
 # File is trusted; values are untainted by pattern match.
 sub read_global_config {
-    my $rcmad = '/home/knutzehe/.rcmadnes';
+    my $rcmad = '/home/diamonds/.rcmadnes';
     open(RCMAD,$rcmad) or die "Can't open $rcmad: $!\n";
     while (<RCMAD>){
 	if (/^ \s* (\w+) \s* = \s* (\S+) \s* $/x) {
@@ -150,44 +153,105 @@ my $cmd;
 if ($device =~ $old_device_pattern) {
     my $compare_option = $is_compare ? '-C 0' : '';
     $cmd = 
-        "drc2.pl $compare_option -P $policy -S -I $running_for_user" .
+        "drc2.pl $compare_option -P $policy -I $running_for_user" .
         " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
         " -N $codepath$device $device";
 }
 else {
     my $compare_option = $is_compare ? '-C' : '';
     $cmd = 
-        "perl -I /home/knutzehe/Netspoc-Approve/lib /home/knutzehe/Netspoc-Approve/bin/" .
-        "drc3.pl $compare_option -P $policy -S -I $running_for_user" .
+        "drc3.pl $compare_option" .
         " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
         " $codepath$device";
 }
 
 init_history_logging($device, $arguments, $running_for_user);
 log_history("START: $cmd");
+my $status = Netspoc::Approve::Status->new(device => $device, 
+                                           path => $statuspath);
+# Set preliminary approve status.
+if (not $is_compare) {
+    $status->update('DEVICENAME', $device);
+    $status->update('APP_TIME',   scalar localtime());
+    $status->update('APP_STATUS', '***UNFINISHED APPROVE***');
+    $status->update('APP_USER',   $running_for_user);
+    $status->update('APP_POLICY', $policy);
+}
 
 # Prevent taint mode for called program.
 $< = $>;
 $( = $);
+
+# Run command.
 my $failed = system($cmd);
-my $details;
+
+my ($warnings, $errors, $changes);
 if (open(my $log, '<', $logfile)) {
     while (<$log>) {
-	if (/WARNING>>>|ERROR>>>/ || /^comp:.*\*\*\*/) {
-	    print $_;
-	    chomp;
-	    log_history("RES: $_");
-	    $details = 1;
-	}
+	if (/WARNING>>>/) {
+            $warnings++;
+        }
+        elsif (/ERROR>>>/) {
+            $errors++;
+        }
+        elsif (/^comp:.*\*\*\*/) {
+            $changes++;
+        }
+        else {
+            next; 
+        }
+        print $_;
+        chomp;
+        log_history("RES: $_");
     }
 }
 elsif (not $failed) {
     die "Error: can't open $logfile: $!\n";
 }
 
-my $status = $failed ? 'FAILED' : 'OK';
-log_history("END: $status");
-if ($failed || $details) {
-    print STDERR "$status; details in $netspocdir$policy/$logfile\n";
+if ($is_compare) {
+    if ($changes) {
+
+        # Only update compare status, 
+        # - if status changed to diff for first time,
+        # - or device was approved since last compare.
+        if ($status->get('COMP_RESULT') ne 'DIFF' ||
+            $status->get('COMP_TIME') < getstatus('COMP_DTIME')) {
+            $status->update('COMP_RESULT', 'DIFF');
+            $status->update('COMP_POLICY', $policy);
+            $status->update('COMP_TIME',   time());
+            $status->update('COMP_CTIME',  scalar localtime(time()));
+        }
+    }
+
+    # No changes.
+    else {
+        $status->update('COMP_RESULT', 'UPTODATE');
+        $status->update('COMP_POLICY', $policy);
+        $status->update('COMP_TIME',   time());
+        $status->update('COMP_CTIME',  scalar localtime(time()));
+    }
+}
+
+# Approve mode
+else {
+
+    # Set real approve status.
+    my $result = $errors ? '***ERRORS***' : $warnings ? '***WARNINGS***' : 'OK';
+    my $sec_time = time();
+    my $time     = localtime($sec_time);
+    $status->update('APP_TIME',   $time);
+    $status->update('DEV_TIME',   $time);
+    $status->update('COMP_DTIME', $sec_time);
+    $status->update('DEV_USER',   $running_for_user);
+    $status->update('DEV_POLICY', $policy);
+    $status->update('APP_STATUS', $result);
+    $status->update('DEV_STATUS', $result);
+}
+
+my $fail_ok = $failed ? 'FAILED' : 'OK';
+log_history("END: $fail_ok");
+if ($failed || $warnings || $errors || $changes) {
+    print STDERR "$fail_ok; details in $netspocdir$policy/$logfile\n";
 }
 exit $failed;
