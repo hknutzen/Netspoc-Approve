@@ -40,7 +40,7 @@ END
     close(FILE);
 
     my $cmd = 
-	"perl -I lib bin/drc3.pl -F1 $conf_file -F2 $spoc_file $device_name"
+	"perl -I lib bin/drc3.pl $conf_file $spoc_file"
 
 	# redirect STDERR to STDOUT.
 	# disabled, because we can't debug tests.
