@@ -6,19 +6,12 @@ package Netspoc::Approve::IOS_FW;
 # Description:
 # Remote configure cisco IOS router with firewall feature set.
 #
-
-'$Id$ ' =~ / (.+),v (.+?) /;
-
-my $id = "$1 $2";
+# $Id$
 
 use base "Netspoc::Approve::IOS";
 use strict;
 use warnings;
 use Netspoc::Approve::Helper;
-
-sub version_drc2_IOS_FW() {
-    return $id;
-}
 
 # Packages must return a true value;
 1;
