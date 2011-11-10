@@ -45,17 +45,13 @@ usage: 'drc3.pl <file1> <file2>'
 usage: 'drc3.pl -v'
 
  -C                   compare device with netspoc
- --NOREACH            do not check if device is reachable
  -L <logdir>          path for saving telnet-logs
- -N <file>            if set, NetSPoC mode and file
+ -t <seconds>         timeout for telnet
  --LOGFILE <fullpath> path for print output (default is STDOUT)
  --LOGAPPEND          if logfile already exists, append logs
  --LOGVERSIONS        do not overwrite existing logfiles
  --NOLOGMESSAGE       supress output about logfile Names
- -I <username>        Username of invokator (usually submitted by approve.pl)
- -P <policy>          policy
- -S                   update Status
- -t <seconds>         timeout for telnet
+ --NOREACH            do not check if device is reachable
  -v                   show version info
 
 END
@@ -70,17 +66,13 @@ my %opts;
 &GetOptions(
     \%opts,
     'C',
-    'NOREACH',
     'L=s',
-    'N=s',
+    't=i',
     'LOGFILE=s',
     'LOGAPPEND',
     'LOGVERSIONS',
     'NOLOGMESSAGE',
-    'I=s',
-    'P=s',
-    'S',
-    't=i',
+    'NOREACH',
     'v',
 );
 
@@ -145,89 +137,29 @@ if(my $device_info =
     $job->{LOCAL_USER} = $device_info->{LOCAL_USER};
 }
 
-# Compare or approve network device.
-$opts{S} and $opts{P} or die "Must set option 'P' if option 'S' is set.\n";
-my $policy = $opts{P} || 'Policy (unknown)';
+# Compare or approve device.
 
 mypr "\n";
 mypr "********************************************************************\n";
-mypr " START: $policy at > ", scalar localtime, " <\n";
+mypr " START: at > ", scalar localtime, " <\n";
 mypr "********************************************************************\n";
 mypr "\n";
 
-$job->lock($job->{NAME}) or die "Approve in process for $job->{NAME}\n";
+$job->lock($name) or die "Approve in progress for $name\n";
 
-$opts{S} and open_status($job);
-
-# Compare mode.
+# Start compare / approve.
 if ($opts{C}) {
-    errpr_mode("COMPARE");
-    my $found_changes = $job->compare($file1);
-
-    # Update compare status fields.
-    if ($opts{S}) {
-        if ($found_changes) {
-
-            # Only update compare status, 
-            # - if status changed to diff for first time,
-            # - or device was approved since last compare.
-            if (getstatus('COMP_RESULT') ne 'DIFF' ||
-                   getstatus('COMP_TIME') < getstatus('COMP_DTIME')) {
-                updatestatus('COMP_RESULT', 'DIFF');
-                updatestatus('COMP_POLICY', $policy);
-                updatestatus('COMP_TIME',   time());
-                updatestatus('COMP_CTIME',  localtime(time()));
-            }
-        }
-
-        # No changes.
-        else {
-            updatestatus('COMP_RESULT', 'UPTODATE');
-            updatestatus('COMP_POLICY', $policy);
-            updatestatus('COMP_TIME',   time());
-            updatestatus('COMP_CTIME',  localtime(time()));
-        }
-    }
+    $job->compare($file1);
 }
-
-# Approve mode.
 else {
-    my $user = $opts{I} || getpwuid($>);
-
-    if ($opts{S}) {
-        
-        # Set preliminary approve status.
-        updatestatus('DEVICENAME', $name);
-        updatestatus('APP_TIME',   scalar localtime());
-        updatestatus('APP_STATUS', '***UNFINISHED APPROVE***');
-        updatestatus('APP_USER',   $user);
-        updatestatus('APP_POLICY', $policy);
-    }
     $job->approve($file1);
-    if ($opts{S}) {
-        
-        # Set real approve status.
-        my $status = (check_erro() eq "YES")
-                   ? '***ERRORS***'
-                   : (check_warn() eq "YES")
-                   ? '***WARNINGS***'
-                   : 'OK';
-        my $sec_time = time();
-        my $time     = localtime($sec_time);
-        updatestatus('APP_TIME',   $time);
-        updatestatus('DEV_TIME',   $time);
-        updatestatus('COMP_DTIME', $sec_time);
-        updatestatus('DEV_USER',   $user);
-        updatestatus('DEV_POLICY', $policy);
-        updatestatus('APP_STATUS', $status);
-        updatestatus('DEV_STATUS', $status);
-    }
 }
-$job->unlock($job->{NAME});
+
+$job->unlock($name);
 
 mypr "\n";
 mypr "********************************************************************\n";
-mypr " STOP: $policy at > ", scalar localtime, " <\n";
+mypr " STOP: at > ", scalar localtime, " <\n";
 mypr "********************************************************************\n";
 mypr "\n";
 
