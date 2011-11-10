@@ -102,7 +102,9 @@ my $job = $class->new(
     NAME          => $name,
     OPTS          => \%opts,
     GLOBAL_CONFIG => $global_config,
+    IP            => shift(@ip),
 );
+
 
 # Handle file compare first, which doesn't need device's IP and password.
 if ($file2) {
@@ -113,8 +115,7 @@ if ($file2) {
     exit($job->compare_files($file1, $file2) ? 1 : 0)
 }
 
-@ip > 0 or die "Can't get IP from spoc file\n";
-$job->{IP} = shift(@ip);
+$job->{IP} or die "Can't get IP from spoc file\n";
 
 # Enable logging if configured.
 $job->logging();
