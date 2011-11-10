@@ -223,7 +223,7 @@ sub get_parse_info {
 
 # Ignore, don't try to parse as crypto map with sequence number.
 	'crypto map _skip client'         => { parse => \&skip, },
-	'crypto map _skip gdoi'           => { parse => \&skip, },
+	'crypto map _skip gdoi'           => { parse => \&skip, subcmd => {} },
 	'crypto map _skip isakmp'         => { parse => \&skip, },
 	'crypto map _skip isakmp-profile' => { parse => \&skip, },
 	'crypto map _skip local-address'  => { parse => \&skip, },
