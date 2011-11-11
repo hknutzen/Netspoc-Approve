@@ -186,6 +186,7 @@ $( = $);
 my $failed = system($cmd);
 
 my ($warnings, $errors, $changes);
+$errors++ if $failed;
 if (open(my $log, '<', $logfile)) {
     while (<$log>) {
 	if (/WARNING>>>/) {
