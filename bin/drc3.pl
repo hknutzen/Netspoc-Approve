@@ -85,7 +85,7 @@ my $file2 = shift;
 @ARGV and usage();
 
 # Take basename of file as device name.
-(my $name = $file1) =~ s|^[^/]*/||;
+(my $name = $file1) =~ s|^.*/||;
 
 
 # Get type and IP addresses from spoc file.
