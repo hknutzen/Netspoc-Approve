@@ -12,6 +12,7 @@ package Netspoc::Approve::Helper;
 require Exporter;
 use strict;
 use warnings;
+use Expect;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
