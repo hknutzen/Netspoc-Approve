@@ -108,12 +108,6 @@ sub get_and_cd_current_policy {
 
 read_global_config();
 
-#
-# User management
-#
-my $uname = getpwuid($>);	# $> == effective UID
-$uname eq $systemuser or die "Error: $0 should be run as UID $systemuser\n";
-
 my $arguments = join ' ',$0,@ARGV[1..$#ARGV];
 my $ruid = shift;
 defined $ruid or die "Error: missing calling UID as first arg to $0\n";
