@@ -202,7 +202,7 @@ elsif (not $failed) {
 
 # Set approve status.
 if ($is_compare) {
-    $status->finish_compare($changes, $policy);
+    $errors or $status->finish_compare($changes, $policy);
 }
 else {
     my $result = $errors ? '***ERRORS***' : $warnings ? '***WARNINGS***' : 'OK';
