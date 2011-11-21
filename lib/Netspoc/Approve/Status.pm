@@ -163,3 +163,52 @@ sub update {
 
     $self->write($stat);
 }
+
+## High level methods.
+
+sub start_approve {
+    my ($self, $policy, $user) = @_;
+    $self->update('APP_TIME',   scalar localtime());
+    $self->update('APP_STATUS', '***UNFINISHED APPROVE***');
+    $self->update('APP_USER',   $user);
+    $self->update('APP_POLICY', $policy);
+}
+
+sub finish_approve {
+    my ($self, $result, $policy, $user) = @_;
+    my $sec_time = time();
+    my $time     = localtime($sec_time);
+    $self->update('APP_TIME',   $time);
+    $self->update('DEV_TIME',   $time);
+    $self->update('COMP_DTIME', $sec_time);
+    $self->update('DEV_USER',   $user);
+    $self->update('DEV_POLICY', $policy);
+    $self->update('APP_STATUS', $result);
+    $self->update('DEV_STATUS', $result);
+}
+
+sub finish_compare {
+    my ($self, $changed, $policy) = @_;
+    my $set_result;
+
+    if (not $changed) {
+        $set_result = 'UPTODATE';
+    }
+
+    # Changed.
+    # Only update compare status, 
+    # - if status changes to diff for first time,
+    # - or device was approved since last compare.
+    elsif ($self->get('COMP_RESULT') ne 'DIFF' ||
+           $self->get('COMP_TIME') < $self->get('COMP_DTIME')) 
+    {
+        $set_result = 'DIFF';
+    }
+
+    if ($set_result) {
+        $self->update('COMP_RESULT', $set_result);
+        $self->update('COMP_POLICY', $policy);
+        $self->update('COMP_TIME',   time());
+        $self->update('COMP_CTIME',  scalar localtime(time()));
+    }
+}
