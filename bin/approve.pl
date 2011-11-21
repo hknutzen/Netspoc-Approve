@@ -217,7 +217,7 @@ if ($is_compare) {
         # - if status changed to diff for first time,
         # - or device was approved since last compare.
         if ($status->get('COMP_RESULT') ne 'DIFF' ||
-            $status->get('COMP_TIME') < getstatus('COMP_DTIME')) {
+            $status->get('COMP_TIME') < $status->get('COMP_DTIME')) {
             $status->update('COMP_RESULT', 'DIFF');
             $status->update('COMP_POLICY', $policy);
             $status->update('COMP_TIME',   time());
