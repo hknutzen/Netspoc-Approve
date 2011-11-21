@@ -171,11 +171,7 @@ my $status = Netspoc::Approve::Status->new(device => $device,
                                            path => $statuspath);
 # Set preliminary approve status.
 if (not $is_compare) {
-    $status->update('DEVICENAME', $device);
-    $status->update('APP_TIME',   scalar localtime());
-    $status->update('APP_STATUS', '***UNFINISHED APPROVE***');
-    $status->update('APP_USER',   $running_for_user);
-    $status->update('APP_POLICY', $policy);
+    $status->start_approve($policy, $running_for_user);
 }
 
 # Prevent taint mode for called program.
@@ -210,46 +206,16 @@ elsif (not $failed) {
     die "Error: can't open $logfile: $!\n";
 }
 
+# Set approve status.
 if ($is_compare) {
-    if ($changes) {
-
-        # Only update compare status, 
-        # - if status changed to diff for first time,
-        # - or device was approved since last compare.
-        if ($status->get('COMP_RESULT') ne 'DIFF' ||
-            $status->get('COMP_TIME') < $status->get('COMP_DTIME')) {
-            $status->update('COMP_RESULT', 'DIFF');
-            $status->update('COMP_POLICY', $policy);
-            $status->update('COMP_TIME',   time());
-            $status->update('COMP_CTIME',  scalar localtime(time()));
-        }
-    }
-
-    # No changes.
-    else {
-        $status->update('COMP_RESULT', 'UPTODATE');
-        $status->update('COMP_POLICY', $policy);
-        $status->update('COMP_TIME',   time());
-        $status->update('COMP_CTIME',  scalar localtime(time()));
-    }
+    $status->finish_compare($changes, $policy);
 }
-
-# Approve mode
 else {
-
-    # Set real approve status.
     my $result = $errors ? '***ERRORS***' : $warnings ? '***WARNINGS***' : 'OK';
-    my $sec_time = time();
-    my $time     = localtime($sec_time);
-    $status->update('APP_TIME',   $time);
-    $status->update('DEV_TIME',   $time);
-    $status->update('COMP_DTIME', $sec_time);
-    $status->update('DEV_USER',   $running_for_user);
-    $status->update('DEV_POLICY', $policy);
-    $status->update('APP_STATUS', $result);
-    $status->update('DEV_STATUS', $result);
+    $status->finish_approve($result, $policy, $running_for_user);
 }
 
+# Print error messages to STDERR.
 my $fail_ok = $failed ? 'FAILED' : 'OK';
 log_history("END: $fail_ok");
 if ($failed || $warnings || $errors || $changes) {
