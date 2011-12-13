@@ -124,6 +124,7 @@ our %PORT_Names_TCP = (
     'sqlnet'            => 1521,
     'rsh'		=> 514,		# ASA 8.0, duplicate of 'cmd'
     'rtsp'              => 554,
+    'sip'               => 5600,
     'ssh'               => 22,
     'sunrpc'            => 111,
     'tacacs'            => 49,
