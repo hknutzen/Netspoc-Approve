@@ -36,7 +36,7 @@ object-group network g0
  network-object 10.0.5.0 255.255.255.0
  network-object host 10.0.12.3
 
-access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq 7938
+access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
 access-list outside_in extended permit tcp any host 10.0.1.11 range 7937 8999
 access-list outside_in extended deny ip any any
 access-group outside_in in interface outside
@@ -49,7 +49,7 @@ network-object 10.0.6.0 255.255.255.0
 network-object 10.0.5.0 255.255.255.0
 network-object host 10.0.12.3
 access-list inside_in-DRC-0 extended deny ip any any
-access-list outside_in-DRC-0 extended permit udp object-group g0-DRC-0 host 10.0.1.11 eq 7938
+access-list outside_in-DRC-0 extended permit udp object-group g0-DRC-0 host 10.0.1.11 eq sip
 access-list outside_in-DRC-0 extended permit tcp any host 10.0.1.11 range 7937 8999
 access-list outside_in-DRC-0 extended deny ip any any
 access-group inside_in-DRC-0 in interface inside
