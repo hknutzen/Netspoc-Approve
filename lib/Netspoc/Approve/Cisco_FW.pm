@@ -105,6 +105,7 @@ my %attr2cmd =
 	 SA_LIFETIME_SEC	  => 'set security-association lifetime seconds',
 	 SA_LIFETIME_KB		  => 'set security-association lifetime kilobytes',
 	 TRANSFORM_SET		  => 'set transform-set',
+	 TRANSFORM_SET_IKEV1	  => 'set ikev1 transform-set',
 	 TRUSTPOINT		  => 'set trustpoint',
      },
      );
@@ -382,13 +383,14 @@ sub get_parse_info {
 # crypto map map-name seq-num set pfs [group1|group2|group5|group7]
 # crypto map map-name seq-num set reverse-route
 # crypto map map-name seq-num set security-association lifetime {kilobytes|seconds} N
-# crypto map map-name seq-num set transform-set WORD
+# crypto map map-name seq-num set [ikev1] transform-set WORD
 # crypto map map-name seq-num set trustpoint WORD
 # 
 # crypto map map-name interface intf_name
 #
 # Ignore:
 #  crypto map map-name client
+
 
 	'crypto map' => {
 	    store => ['CRYPTO_MAP'],
@@ -450,10 +452,16 @@ sub get_parse_info {
 			      { parse => qr/kilobytes/ },
 			      { parse => \&get_int, 
 				store => 'SA_LIFETIME_KB', }, ]]],
+			   [ 'or',
 			   ['cond1',
+			    { parse => qr/ikev1/ },
 			    { parse => qr/transform-set/ },
 			    { parse => \&get_token,
-			      store => 'TRANSFORM_SET', } ],
+			      store => 'TRANSFORM_SET_IKEV1' } ],
+			   ['cond1',
+			      { parse => qr/transform-set/ },
+			      { parse => \&get_token,
+				store => 'TRANSFORM_SET' } ]],
 			   ['cond1',
 			    { parse => qr/trustpoint/ },
 			    { parse => \&get_token,
@@ -2248,7 +2256,7 @@ sub define_structure {
 	CRYPTO_MAP_SEQ => {
 	    attributes => [ qw(NAT_T_DISABLE PEER DYNAMIC_MAP PFS 
 			       REVERSE_ROUTE SA_LIFETIME_SEC SA_LIFETIME_KB 
-			       TRANSFORM_SET TRUSTPOINT) ],
+			       TRANSFORM_SET TRANSFORM_SET_IKEV1 TRUSTPOINT) ],
 	    next     => [ { attr_name  => 'MATCH_ADDRESS',
 			    parse_name => 'ACCESS_LIST' }
 			  ],
