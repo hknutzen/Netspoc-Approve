@@ -1,0 +1,67 @@
+--- Expect.pm	2007-07-19 14:23:51.000000000 +0200
++++ Expect.pm.patched	2010-09-16 12:51:42.000000000 +0200
+@@ -699,26 +699,26 @@
+ 	      $exp_matched = $exp;
+ 	    }
+ 	  } elsif ($pattern->[1] eq '-re') {
+-	    # m// in array context promises to return an empty list
+-	    # but doesn't if the pattern doesn't contain brackets (),
+-	    # so we kludge around by adding an empty bracket
+-	    # at the end.
+-
+ 	    if ($Expect::Multiline_Matching) {
+ 	      @matchlist = (${*$exp}{exp_Accum}
+-			    =~ m/$pattern->[2]()/m);
+-	      ($match, $before, $after) = ($&, $`, $');
++			    # Use (?:.|\n) instead of simply "." 
++			    # to match \n as well.
++			    # We can't simply add a /s modifier, because this 
++			    # would break existing patterns which are assuming
++			    # that "." doesn't match \n.
++			    =~ m/((?:.|\n)*?)($pattern->[2])((?:.|\n)*)/m);
+ 	    } else {
+ 	      @matchlist = (${*$exp}{exp_Accum}
+-			    =~ m/$pattern->[2]()/);
+-	      ($match, $before, $after) = ($&, $`, $');
++			    =~ m/(.*?)($pattern->[2])(.*)/);
+ 	    }
+ 	    if (@matchlist) {
++		$before = shift @matchlist;
++		$match = shift @matchlist;
++		$after = pop @matchlist;
+ 	      # Matching regexp
+ 	      ${*$exp}{exp_Before} = $before;
+ 	      ${*$exp}{exp_Match}  = $match;
+ 	      ${*$exp}{exp_After}  = $after;
+-	      pop @matchlist;	# remove kludged empty bracket from end
+ 	      @{${*$exp}{exp_Matchlist}} = @matchlist;
+ 	      ${*$exp}{exp_Match_Number} = $pattern->[0];
+ 	      $exp_matched = $exp;
+@@ -1189,15 +1189,15 @@
+ 	      # I'm going to make the esc. seq. pretty because it will 
+ 	      # probably contain unprintable characters.
+ 	      print STDERR "\tEscape Sequence: '"._trim_length(undef,_make_readable($escape_sequence))."'\r\n";
+-	      print STDERR "\tMatched by string: '"._trim_length(undef,_make_readable($&))."'\r\n";
++	      print STDERR "\tMatched by string: '"._trim_length(undef,_make_readable($1))."'\r\n";
+ 	    }
+ 	    # Print out stuff before the escape.
+ 	    # Keep in mind that the sequence may have been split up
+ 	    # over several reads.
+ 	    # Let's get rid of it from this read. If part of it was 
+ 	    # in the last read there's not a lot we can do about it now.
+-	    if (${*$read_handle}{exp_Pty_Buffer} =~ /($escape_sequence)/) {
+-	      $read_handle->_print_handles($`);
++	    if (${*$read_handle}{exp_Pty_Buffer} =~ /(.*?)($escape_sequence)/) {
++	      $read_handle->_print_handles($1);
+ 	    } else {
+ 	      $read_handle->_print_handles(${*$read_handle}{exp_Pty_Buffer})
+ 	    }
+@@ -1538,7 +1538,7 @@
+   $s =~ s/\f/\\f/g;
+   $s =~ s/\010/\\b/g;
+   # escape control chars high/low, but allow ISO 8859-1 chars
+-  $s =~ s/[\000-\037\177-\237\377]/sprintf("\\%03lo",ord($&))/ge;
++  $s =~ s/([\000-\037\177-\237\377])/sprintf("\\%03lo",ord($1))/ge;
+ 
+   return $s;
+ }
