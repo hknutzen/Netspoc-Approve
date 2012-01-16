@@ -5,7 +5,6 @@ package Netspoc::Approve::Linux;
 #
 # Description:
 # Module to remote configure Linux devices.
-# $Id$
 
 use strict;
 use warnings;
@@ -14,6 +13,8 @@ use File::Temp qw/ tempfile /;
 use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 my $handle_iptables = 1;
 

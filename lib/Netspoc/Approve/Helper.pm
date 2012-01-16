@@ -7,12 +7,13 @@ package Netspoc::Approve::Helper;
 # Description:
 # module with misc helpers
 #
-# $Id$
 
 require Exporter;
 use strict;
 use warnings;
 use Expect;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info

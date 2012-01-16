@@ -6,7 +6,6 @@ package Netspoc::Approve::Cisco;
 # Description:
 # Base class for the different varieties of Cisco devices.
 #
-# $Id$
 
 use base "Netspoc::Approve::Device";
 use strict;
@@ -15,6 +14,7 @@ use IO::Socket ();
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
+# VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers

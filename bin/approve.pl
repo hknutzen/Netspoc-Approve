@@ -6,13 +6,14 @@
 # Wrapper to approve and compare current policy.
 # Does history logging.
 #
-# $Id$
 
 use strict;
 use warnings;
 use Fcntl qw/:flock/;		# import LOCK_* constants
 use POSIX qw(strftime);
 use Netspoc::Approve::Status;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 # Clean PATH if run in taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';

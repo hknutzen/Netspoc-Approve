@@ -6,13 +6,14 @@ package Netspoc::Approve::ASA;
 # Description:
 # Remote configure Cisco ASA and PIX version 7.x.
 #
-# $Id$
 
 use base "Netspoc::Approve::Cisco_FW";
 use strict;
 use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;

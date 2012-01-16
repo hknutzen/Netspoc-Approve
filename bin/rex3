@@ -4,7 +4,6 @@
 # Description:
 # Remote execute command on Cisco device.
 #
-# $Id$	
 
 use strict;
 use warnings;
@@ -17,6 +16,8 @@ use Netspoc::Approve::IOS_FW;
 use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
 use Netspoc::Approve::Helper;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 sub usage {
     die <<END;

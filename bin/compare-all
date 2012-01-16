@@ -1,6 +1,5 @@
 #!/bin/sh
 # File: compare-all
-# $Id$
 
 # Abort on every error.
 set -e

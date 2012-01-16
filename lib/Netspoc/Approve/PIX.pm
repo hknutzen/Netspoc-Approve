@@ -6,13 +6,14 @@ package Netspoc::Approve::PIX;
 # Description:
 # Remote configure Cisco PIX up to version 6.3
 #
-# $Id$
 
 use base "Netspoc::Approve::Cisco_FW";
 use strict;
 use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;

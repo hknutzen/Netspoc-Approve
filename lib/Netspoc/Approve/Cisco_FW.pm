@@ -6,7 +6,8 @@ package Netspoc::Approve::Cisco_FW;
 # Description:
 # Base class for Cisco firewalls (ASA, PIX, FWSM)
 #
-# $Id$
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;

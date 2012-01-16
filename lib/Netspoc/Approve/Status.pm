@@ -6,12 +6,13 @@ package Netspoc::Approve::Status;
 # Description:
 # Write status files for approve and compare.
 #
-# $Id$
 
 use strict;
 use warnings;
 use Carp;
 use Fcntl;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---

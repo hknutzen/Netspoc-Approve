@@ -6,7 +6,6 @@ package Netspoc::Approve::IOS;
 # Description:
 # Remote configure cisco ios router
 #
-# $Id$
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -14,6 +13,8 @@ use warnings;
 use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.

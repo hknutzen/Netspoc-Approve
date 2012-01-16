@@ -7,7 +7,6 @@ package Netspoc::Approve::Device;
 # Description:
 # Base class for the different varieties of devices (IOS, PIX, etc.).
 #
-# $Id$
 
 use strict;
 use warnings;
@@ -16,6 +15,8 @@ use File::Basename;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---

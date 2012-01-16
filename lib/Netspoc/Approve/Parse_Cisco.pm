@@ -5,13 +5,14 @@ package Netspoc::Approve::Parse_Cisco;
 # Description:
 # Functions to parse Cisco command lines.
 #
-# $Id$
 
 use strict;
 use warnings;
 use Netspoc::Approve::Helper;
 
 require Exporter;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = 

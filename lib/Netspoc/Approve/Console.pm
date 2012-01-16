@@ -6,12 +6,13 @@ package Netspoc::Approve::Console;
 # Description:
 # Manage connection to device.
 #
-# $Id$
 
 use strict;
 use warnings;
 use Netspoc::Approve::Helper;
 require Exporter;
+
+# VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );

@@ -4,7 +4,6 @@
 # Description:
 # Approving device with netspoc configuration.
 #
-# $Id$
 
 use strict;
 use warnings;
@@ -20,7 +19,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
 use Netspoc::Approve::Helper;
 
-our $VERSION = sprintf "%d.%03d", q$Revision$ =~ /(\d+)/g;
+# VERSION: inserted by DZP::OurPkgVersion
 
 $| = 1;    # output char by char
 
