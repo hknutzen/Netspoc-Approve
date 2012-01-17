@@ -20,7 +20,7 @@ use Netspoc::Approve::PIX;
 use Netspoc::Approve::Helper;
 
 # VERSION: inserted by DZP::OurPkgVersion
-
+my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
 my %type2class = (
@@ -75,7 +75,7 @@ my %opts;
 );
 
 if ($opts{v}) {
-    print STDERR "$VERSION\n";
+    print STDERR "$version\n";
     exit;
 }
 
