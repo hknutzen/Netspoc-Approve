@@ -277,6 +277,8 @@ tunnel-group VPN-tunnel webvpn-attributes
  authentication aaa certificate
 ! TODO: parse sequence number
 tunnel-group-map ca-map 20 VPN-tunnel
+webvpn
+ certificate-group-map ca-map 20 VPN-tunnel
 END
 
 $out = <<'END';
@@ -301,6 +303,8 @@ authentication aaa certificate
 crypto ca certificate map ca-map-DRC-0 10
 subject-name attr ea co @sub.example.com
 tunnel-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
+webvpn
+certificate-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
 tunnel-group VPN-tunnel-DRC-0 general-attributes
 default-group-policy VPN-group-DRC-0
 group-policy VPN-group-DRC-0 attributes
@@ -308,7 +312,7 @@ address-pools value pool-DRC-0
 split-tunnel-network-list value split-tunnel-DRC-0
 vpn-filter value vpn-filter-DRC-0
 END
-is_deeply(approve('ASA', $minimal_device, $in), $out, $title);
+check_parse_and_unchanged('ASA', $minimal_device, $in, $out, $title);
 
 
 ############################################################
@@ -340,6 +344,65 @@ trust-point ASDM_TrustPoint5
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
 
+############################################################
+$title = "Add webvpn-attributes, delete ipsec-attributes";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group NAME type remote-access
+tunnel-group NAME ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 NAME
+END
+
+$in = <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel webvpn-attributes
+ authentication aaa
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+$out = <<'END';
+tunnel-group NAME webvpn-attributes
+authentication aaa
+crypto ca certificate map ca-map 10
+no tunnel-group NAME ipsec-attributes
+END
+is_deeply(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Add certificate-group-map";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group NAME type remote-access
+tunnel-group NAME ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 NAME
+END
+
+$in = <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 VPN-tunnel
+webvpn
+ certificate-group-map ca-map 20 VPN-tunnel
+END
+
+$out = <<'END';
+webvpn
+certificate-group-map ca-map 10 NAME
+END
+is_deeply(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Delete tunnel-group";
