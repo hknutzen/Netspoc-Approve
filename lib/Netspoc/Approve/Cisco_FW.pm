@@ -574,6 +574,8 @@ my @known_status =
      # PIX: "xxx interface address added to PAT pool"
      # ASA: "INFO: xxx interface address added to PAT pool"
      qr/interface address added to PAT pool/,
+     # ASA: general info
+     qr/^INFO:/,
       );
 
 my @known_warning = 
