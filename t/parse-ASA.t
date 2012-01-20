@@ -273,6 +273,8 @@ tunnel-group VPN-tunnel ipsec-attributes
  isakmp ikev1-user-authentication none
  isakmp keepalive threshold 15 retry 3
  trust-point ASDM_TrustPoint4
+tunnel-group VPN-tunnel webvpn-attributes
+ authentication aaa certificate
 ! TODO: parse sequence number
 tunnel-group-map ca-map 20 VPN-tunnel
 END
@@ -294,6 +296,8 @@ isakmp ikev1-user-authentication none
 isakmp keepalive threshold 15 retry 3
 peer-id-validate req
 trust-point ASDM_TrustPoint4
+tunnel-group VPN-tunnel-DRC-0 webvpn-attributes
+authentication aaa certificate
 crypto ca certificate map ca-map-DRC-0 10
 subject-name attr ea co @sub.example.com
 tunnel-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0

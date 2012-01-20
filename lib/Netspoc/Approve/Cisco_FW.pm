@@ -24,7 +24,7 @@ my %define_object = (
 			 prefix  => 'tunnel-group',
 			 postfix => 'type remote-access',
 		     },
-		     TUNNEL_GROUP_IP_NAME => {
+		     TUNNEL_GROUP_IPNAME => {
 			 prefix  => 'tunnel-group',
 			 postfix => 'type ipsec-l2l',
 		     },
@@ -39,17 +39,21 @@ my %define_object = (
 		     );
 
 my %conf_mode_entry = (
-		       TUNNEL_GROUP => {
+                       TUNNEL_GROUP => {
+                           prefix  => 'tunnel-group',
+                           postfix => 'general-attributes',
+                       },
+ 		       TUNNEL_GROUP_IPSEC => {
 			   prefix  => 'tunnel-group',
-			   postfix => 'general-attributes',
+			   postfix => 'ipsec-attributes',
 		       },
-		       TUNNEL_GROUP_IPSEC => {
+ 		       TUNNEL_GROUP_IPNAME_IPSEC => {
 			   prefix  => 'tunnel-group',
 			   postfix => 'ipsec-attributes',
 		       },
-		       TUNNEL_GROUP_IP_NAME_IPSEC => {
+		       TUNNEL_GROUP_WEBVPN => {
 			   prefix  => 'tunnel-group',
-			   postfix => 'ipsec-attributes',
+			   postfix => 'webvpn-attributes',
 		       },
 		       GROUP_POLICY => {
 			   prefix  => 'group-policy',
@@ -1467,7 +1471,7 @@ sub change_modified_attributes {
 sub transfer1 {
     my ( $self, $spoc, $parse_name, $spoc_name, $structure ) = @_;
 
-#    mypr "PROCESS $spoc_name ... \n"; 
+#    mypr "PROCESS $parse_name:$spoc_name\n"; 
     my $spoc_value = object_for_name( $spoc, $parse_name,
 				      $spoc_name, 'no_err' );
 
@@ -1576,8 +1580,9 @@ sub remove_unneeded_on_device {
     
     # Caution: the order is significant in this array!
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
-			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
-			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
+                          TUNNEL_GROUP TUNNEL_GROUP_IPNAME 
+			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
+                          GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
@@ -1620,8 +1625,9 @@ sub remove_spare_objects_on_device {
     # Spare object groups will be removed later by
     # remove_unneeded_on_device.
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
-			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP
-			  TUNNEL_GROUP_IP_NAME GROUP_POLICY
+                          TUNNEL_GROUP TUNNEL_GROUP_IPNAME 
+			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
+                          GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
@@ -1698,7 +1704,7 @@ sub change_attributes {
     my ( $self, $parse_name, $spoc_name, $spoc_value, $attributes ) = @_;
     my @cmds;
 
-    return if ( $parse_name =~ /^(CERT_ANCHOR|CA_CERT_MAP)/);
+    return if $parse_name =~ /^(CERT_ANCHOR|CA_CERT_MAP)$/;
     return if ( $spoc_value->{change_done} );
 
     mypr "### CHANGE ATTRIBUTES of $parse_name -> $spoc_name \n";
@@ -1720,7 +1726,7 @@ sub change_attributes {
 	push @cmds, "ip local pool $spoc_name $from-$to mask $mask";
     }
     elsif( $parse_name eq 'IF' ) {
-	for my $attr ( keys %{$attributes} ) {
+	for my $attr ( keys %$attributes ) {
 	    my $value = $attributes->{$attr};
 	    my $direction = $attr =~ /_IN/ ? 'in' : 'out';
 	    push @cmds, "access-group $value $direction interface $spoc_name";
@@ -1736,7 +1742,7 @@ sub change_attributes {
 	    push @cmds, item_conf_mode_cmd( $parse_name, $spoc_name );
 	}
 	
-	for my $attr ( keys %{$attributes} ) {
+	for my $attr ( keys %$attributes ) {
 	    my $value = $attributes->{$attr};
 
 	    # A hash of attributes, read unchanged from device.
@@ -1752,8 +1758,7 @@ sub change_attributes {
 
 	    # Single attributes which need to be converted 
 	    # back to device syntax.
-	    else {
-		my $attr_cmd = cmd_for_attribute( $parse_name, $attr );
+	    elsif ( my $attr_cmd = cmd_for_attribute( $parse_name, $attr )) {
 		if ( $parse_name eq 'DEFAULT_GROUP' ) {
 		    $attr_cmd .= " default-group ";
 		}
@@ -1798,8 +1803,7 @@ sub remove_attributes {
 		push @cmds, "no $new_cmd";
 	    }
 	}
-	else {
-	    my $attr_cmd = cmd_for_attribute( $parse_name, $attr );
+	elsif (my $attr_cmd = cmd_for_attribute( $parse_name, $attr )) {
 	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if(not $attr_no_value{$attr}) {
 		$attr_cmd = "$attr_cmd $value";
@@ -1859,21 +1863,33 @@ sub transfer_ca_cert_map {
     my @cmds;
     push @cmds, item_conf_mode_cmd( $parse_name, $new_cert_map );
     push @cmds, add_attribute_cmds( $structure, $parse_name, $object, 'attributes' );
-
-    # Create tunnel-group-map that connects certificate-map
-    # to tunnel-group.
+    
     if(my $tunnel_group_name = $object->{TUNNEL_GROUP}) {
 	my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
-	my $name = $tunnel_group->{new_name};
-	push @cmds, "tunnel-group-map $new_cert_map 10 $name";
+	my $name = $tunnel_group->{name_on_dev} || $tunnel_group->{new_name};
+        push @cmds, $self->tranfer_tunnel_group_map($new_cert_map, $name);
     }
-    else {
-	errpr "Missing tunnel-group in tunnel-group-map for " .
-	    "certificate $object->{name}\n";
+    if(my $tunnel_group_name = $object->{WEB_TUNNEL_GROUP}) {
+	my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
+	my $name = $tunnel_group->{name_on_dev} || $tunnel_group->{new_name};
+        push @cmds, $self->tranfer_cert_group_map($new_cert_map, $name);
     }
-
     map { $self->cmd( $_ ) } @cmds;
 }
+
+# Create tunnel-group-map that connects certificate-map to tunnel-group.
+sub tranfer_tunnel_group_map {
+    my ($self, $cert_map_name, $tg_name) = @_;
+    return ("tunnel-group-map $cert_map_name 10 $tg_name");
+}
+
+# Create webvpn certificate-group-map that connects certificate-map to
+# tunnel-group.
+sub tranfer_cert_group_map {
+    my ($self, $cert_map_name, $tg_name) = @_;
+    return("webvpn", 
+           "certificate-group-map $cert_map_name 10 $tg_name");
+}  
 
 sub remove_ca_cert_map {
     my ( $self, $conf, $structure, $parse_name, $cert_map ) = @_;
@@ -1946,10 +1962,10 @@ sub transfer_tunnel_group {
     mypr "### transfer $parse_name $tg_name to device as $new_tg\n";
 
     my @cmds;
-    if ( $parse_name !~ /TUNNEL_GROUP.*_IPSEC/ ) {
+    if ( $parse_name =~ /^TUNNEL_GROUP(?:_IPNAME)?$/ ) {
 	push @cmds, define_item_cmd($parse_name, $new_tg);
     }
-    if ( $parse_name ne 'TUNNEL_GROUP_IP_NAME' ) {
+    if ( $parse_name ne 'TUNNEL_GROUP_IPNAME' ) {
 	push @cmds, item_conf_mode_cmd( $parse_name, $new_tg );
 	push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $tunnel_group, 'attributes' );
@@ -1963,10 +1979,11 @@ sub remove_tunnel_group {
     $self->cmd("clear configure tunnel-group $tg_name");
 }
 
-sub remove_tunnel_group_ipsec {
+sub remove_tunnel_group_xxx {
     my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
-    mypr "### remove tunnel-group $tg_name from device \n";
-    $self->cmd("no tunnel-group $tg_name ipsec-attributes");
+    my $cmd = item_conf_mode_cmd($parse_name, $tg_name);
+    mypr "### remove tunnel-group $tg_name xxx from device \n";
+    $self->cmd("no $cmd");
 }
 
 sub transfer_group_policy {
@@ -2135,10 +2152,10 @@ sub add_attribute_cmds {
 		push @cmds, $new_cmd;
 	    }
 	}
-	else {
+	elsif (	my $attr_cmd = cmd_for_attribute( $parse_name, $attr )) {
+
 	    # Some attributes are optional.
 	    next ATTRIBUTE if not $value;
-	    my $attr_cmd = cmd_for_attribute( $parse_name, $attr );
 	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if(not $attr_no_value{$attr}) {
 		$attr_cmd = "$attr_cmd $value";
@@ -2295,11 +2312,7 @@ sub get_next_names {
 
 sub cmd_for_attribute {
     my ( $parse_name, $attr ) = @_;
-    my $attr_cmd = $attr2cmd{$parse_name}->{$attr};
-    if ( ! $attr_cmd ) {
-	internal_err "Command not found for attribute $parse_name:$attr";
-    }
-    return $attr_cmd;
+    $attr2cmd{$parse_name}->{$attr};
 }
 
 sub mark_as_changed {
