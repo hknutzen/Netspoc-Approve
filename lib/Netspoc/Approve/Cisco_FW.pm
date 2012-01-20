@@ -1704,7 +1704,7 @@ sub change_attributes {
     my ( $self, $parse_name, $spoc_name, $spoc_value, $attributes ) = @_;
     my @cmds;
 
-    return if $parse_name =~ /^(CERT_ANCHOR|CA_CERT_MAP)$/;
+    return if $parse_name =~ /^(CERT_ANCHOR)$/;
     return if ( $spoc_value->{change_done} );
 
     mypr "### CHANGE ATTRIBUTES of $parse_name -> $spoc_name \n";
@@ -1729,8 +1729,18 @@ sub change_attributes {
 	for my $attr ( keys %$attributes ) {
 	    my $value = $attributes->{$attr};
 	    my $direction = $attr =~ /_IN/ ? 'in' : 'out';
-	    push @cmds, "access-group $value $direction interface $spoc_name";
+	    push(@cmds, "access-group $value $direction interface $spoc_name");
 	}
+    }
+    elsif ($parse_name eq 'CA_CERT_MAP') {
+        if (my $tg_name = $attributes->{TUNNEL_GROUP}) {
+            push @cmds, "tunnel-group-map $spoc_name 10 $tg_name";
+        }
+        if (my $tg_name = $attributes->{WEB_TUNNEL_GROUP}) {
+            push(@cmds, 
+                 "webvpn", 
+                 "certificate-group-map $spoc_name 10 $tg_name");
+        }
     }
     else {
 	my $prefix;
@@ -1863,33 +1873,8 @@ sub transfer_ca_cert_map {
     my @cmds;
     push @cmds, item_conf_mode_cmd( $parse_name, $new_cert_map );
     push @cmds, add_attribute_cmds( $structure, $parse_name, $object, 'attributes' );
-    
-    if(my $tunnel_group_name = $object->{TUNNEL_GROUP}) {
-	my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
-	my $name = $tunnel_group->{name_on_dev} || $tunnel_group->{new_name};
-        push @cmds, $self->tranfer_tunnel_group_map($new_cert_map, $name);
-    }
-    if(my $tunnel_group_name = $object->{WEB_TUNNEL_GROUP}) {
-	my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
-	my $name = $tunnel_group->{name_on_dev} || $tunnel_group->{new_name};
-        push @cmds, $self->tranfer_cert_group_map($new_cert_map, $name);
-    }
     map { $self->cmd( $_ ) } @cmds;
 }
-
-# Create tunnel-group-map that connects certificate-map to tunnel-group.
-sub tranfer_tunnel_group_map {
-    my ($self, $cert_map_name, $tg_name) = @_;
-    return ("tunnel-group-map $cert_map_name 10 $tg_name");
-}
-
-# Create webvpn certificate-group-map that connects certificate-map to
-# tunnel-group.
-sub tranfer_cert_group_map {
-    my ($self, $cert_map_name, $tg_name) = @_;
-    return("webvpn", 
-           "certificate-group-map $cert_map_name 10 $tg_name");
-}  
 
 sub remove_ca_cert_map {
     my ( $self, $conf, $structure, $parse_name, $cert_map ) = @_;
@@ -1956,9 +1941,13 @@ sub transfer_tunnel_group {
 
     my $tunnel_group = $spoc->{$parse_name}->{$tg_name} or
 	errpr "No $parse_name found for $tg_name!";
-    my $tg_name_is_ip = is_ip( $tg_name );
-    my $new_tg = $tg_name_is_ip ?
-	$tg_name  :  $tunnel_group->{new_name};
+    my $tg = $spoc->{TUNNEL_GROUP}->{$tg_name};
+    my $new_tg = is_ip( $tg_name ) 
+               ? $tg_name
+
+               # Use same name for tg xxx-attributes if tg is already
+               # on device.
+               : $tg->{name_on_dev} || $tg->{new_name};
     mypr "### transfer $parse_name $tg_name to device as $new_tg\n";
 
     my @cmds;
