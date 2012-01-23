@@ -13,7 +13,7 @@ use strict;
 use warnings;
 use Expect;
 
-# VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info

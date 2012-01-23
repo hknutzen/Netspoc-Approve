@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-# VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---

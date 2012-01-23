@@ -13,7 +13,7 @@ use Fcntl qw/:flock/;		# import LOCK_* constants
 use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 
-# VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean PATH if run in taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';

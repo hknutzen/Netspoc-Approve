@@ -1,0 +1,30 @@
+name = Netspoc
+author = Heinz Knutzen <heinz.knutzen@dataport.de>
+license = GPL_2
+copyright_holder = Heinz Knutzen
+
+[GatherDir]
+[PruneCruft]
+[ManifestSkip]
+[MetaYAML]
+[License]
+[Readme]
+[ExecDir]
+[MakeMaker]
+[Manifest]
+[TestRelease]
+[Git::Check]
+[Git::NextVersion]
+   first_version = 3.003
+[Git::Commit]
+[Git::CommitBuild]
+   branch =
+   release_branch = releases
+[Git::Tag]
+   branch     = releases
+[ArchiveRelease]
+   ;directory name must differ from branch name 
+   directory = released 
+
+; Add $VERSION to .pm files.
+[OurPkgVersion]
