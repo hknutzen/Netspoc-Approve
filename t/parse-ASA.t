@@ -423,6 +423,7 @@ $in = <<'END';
 END
 
 $out = <<'END';
+no tunnel-group 193.155.130.20 ipsec-attributes
 clear configure tunnel-group 193.155.130.20
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);

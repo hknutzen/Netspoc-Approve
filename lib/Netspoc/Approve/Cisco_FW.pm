@@ -1582,8 +1582,9 @@ sub remove_unneeded_on_device {
     
     # Caution: the order is significant in this array!
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
-                          TUNNEL_GROUP TUNNEL_GROUP_IPNAME 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
+                          TUNNEL_GROUP 
+                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
@@ -1627,8 +1628,9 @@ sub remove_spare_objects_on_device {
     # Spare object groups will be removed later by
     # remove_unneeded_on_device.
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
-                          TUNNEL_GROUP TUNNEL_GROUP_IPNAME 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
+                          TUNNEL_GROUP
+                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
