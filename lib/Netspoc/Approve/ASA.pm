@@ -213,6 +213,10 @@ sub get_parse_info {
 		parse => \&get_token,
 	    },
 
+            # This command is ignored.
+            # But declare it, because it has subcommands.
+            'webvpn' => { subcmd => {} },
+
 	    # '_any' is special word, which matches any token.
 	    # '_cmd' is replaced by current command name.
 	    _any => {
