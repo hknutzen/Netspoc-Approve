@@ -143,9 +143,11 @@ username jon.doe@token.example.com nopassword
 username jon.doe@token.example.com attributes
 service-type remote-access
 vpn-framed-ip-address 10.1.1.67 255.255.254.0
+exit
 username jon.doe@token.example.com attributes
 vpn-group-policy VPN-group-DRC-0
 vpn-filter value vpn-filter-DRC-0
+exit
 group-policy VPN-group-DRC-0 attributes
 split-tunnel-network-list value split-tunnel-DRC-0
 END
@@ -197,9 +199,11 @@ $out = <<'END';
 username jon.doe@token.example.com attributes
 vpn-framed-ip-address 10.11.22.33 255.255.0.0
 vpn-idle-timeout 60
+exit
 username jon.doe@token.example.com attributes
 no password-storage
 no vpn-simultaneous-logins
+exit
 END
 is_deeply(approve('ASA', $device, $in), $out, $title);
 

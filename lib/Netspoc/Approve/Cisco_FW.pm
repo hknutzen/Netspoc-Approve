@@ -1784,6 +1784,10 @@ sub change_attributes {
 		push @cmds, $attr_cmd;
 	    }
 	}
+
+        # Exit 'username attributes', because 'webvpn' is used as
+        # global command and as subcommand of this conf mode.
+        push @cmds, 'exit' if $parse_name eq 'USERNAME';
     }
     map { $self->cmd( $_ ) } @cmds;
     $spoc_value->{change_done} = 1;
@@ -1823,6 +1827,10 @@ sub remove_attributes {
 	    push @cmds, "no $attr_cmd";
 	}
     }
+
+    # Exit 'username attributes', because 'webvpn' is used as
+    # global command and as subcommand of this conf mode.
+    push @cmds, 'exit' if $parse_name eq 'USERNAME';
     map { $self->cmd( $_ ) } @cmds;
 }
 
@@ -1925,6 +1933,7 @@ sub transfer_user {
     push @cmds, define_item_cmd( $parse_name, $username );
     push @cmds, item_conf_mode_cmd( $parse_name, $username );
     push @cmds, add_attribute_cmds( $structure, $parse_name, $user, 'attributes' );
+    push @cmds, 'exit' if $parse_name eq 'USERNAME';
     map { $self->cmd( $_ ) } @cmds;
 }
 
