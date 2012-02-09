@@ -269,6 +269,7 @@ sub analyze_conf_lines {
 	$first_subcmd = 0;
 	my @args;
 	(my $cmd, @args) = split(' ', $rest);
+        my $orig = join(' ', $cmd, @args);
 
 	# Strip words from @args which belong to current command.
 	# - add found words to $cmd 
@@ -322,7 +323,7 @@ sub analyze_conf_lines {
 	    # whitespace.
 	    my $new_cmd = { line => $counter, 
 			    pos => 0, 
-			    orig => join(' ', $cmd, @args),
+			    orig => $orig,
 			    args => [ $cmd, @args ], 
 			    cmd_info => $cmd_info,
 			};
