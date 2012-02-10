@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 
 
-our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.051'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Packages must return a true value;
 1;

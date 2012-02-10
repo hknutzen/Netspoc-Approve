@@ -14,7 +14,7 @@ use IO::Socket ();
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.051'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -269,6 +269,7 @@ sub analyze_conf_lines {
 	$first_subcmd = 0;
 	my @args;
 	(my $cmd, @args) = split(' ', $rest);
+        my $orig = join(' ', $cmd, @args);
 
 	# Strip words from @args which belong to current command.
 	# - add found words to $cmd 
@@ -322,7 +323,7 @@ sub analyze_conf_lines {
 	    # whitespace.
 	    my $new_cmd = { line => $counter, 
 			    pos => 0, 
-			    orig => join(' ', $cmd, @args),
+			    orig => $orig,
 			    args => [ $cmd, @args ], 
 			    cmd_info => $cmd_info,
 			};
@@ -552,7 +553,8 @@ sub prepare {
 sub login_enable {
     my ($self) = @_;
     my $std_prompt = qr/[\>\#]/;
-    my($con, $ip, $user, $pass) = @{$self}{qw(CONSOLE IP LOCAL_USER PASS)};
+    my($con, $ip, $pass) = @{$self}{qw(CONSOLE IP PASS)};
+    my $user;
 
     if(not $pass) {
 	($user, $pass) = $self->get_aaa_password();

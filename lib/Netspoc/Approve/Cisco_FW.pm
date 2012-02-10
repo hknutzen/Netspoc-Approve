@@ -7,7 +7,7 @@ package Netspoc::Approve::Cisco_FW;
 # Base class for Cisco firewalls (ASA, PIX, FWSM)
 #
 
-our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.051'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -163,6 +163,8 @@ sub get_parse_info {
 			 { parse => qr/netmask/ },
 			 { store => 'NETMASK', parse => \&get_ip } ]]]] },
 
+# PIX and ASA pre 8.4
+####
 # nat [(<real_ifc>)] <nat-id>
 #     {<real_ip> [<mask>]} | {access-list <acl_name>}
 #     [dns] [norandomseq] [outside] [<max_conn> [<emb_limit>]] 
@@ -816,12 +818,11 @@ sub merge_rawdata {
 }
 
 sub transfer_lines {
-    my ($self, $spoc_lines, $device_lines) = @_;
-    my $change;
+    my ($self, $conf, $spoc, $type) = @_;
     my %equal;
-    $spoc_lines ||= [];
-    $device_lines ||= [];
-    for my $d (@{$device_lines}) { 
+    my $conf_lines = $conf->{$type} || [];
+    my $spoc_lines = $spoc->{$type} || [];
+    for my $d (@{$conf_lines}) { 
         for my $s (@{$spoc_lines}) {
             if ($self->attr_eq($d, $s)) {
                 $equal{$d} = $equal{$s} = 1;
@@ -829,17 +830,50 @@ sub transfer_lines {
             }
         }
     }
-    for my $d (@{$device_lines}) {
+    for my $d (@{$conf_lines}) {
+        $self->{CHANGE}->{$type} ||= 0;
 	$equal{$d} and next;
-	$change = 1;
+        $self->{CHANGE}->{$type} = 1;
 	$self->cmd("no $d->{orig}");
     }
     for my $s (@{$spoc_lines}) {
 	$equal{$s} and next;
-	$change = 1;
+        $self->{CHANGE}->{$type} = 1;
 	$self->cmd($s->{orig});
     }
-    return $change;
+}
+
+sub add_object_lines {
+    my ($self, $conf, $spoc) = @_;
+    my $conf_hash = $conf->{OBJECT} || {};
+    my $spoc_hash = $spoc->{OBJECT} || {};
+    for my $name (keys %$spoc_hash) { 
+        $self->{CHANGE}->{OBJECT} ||= 0;
+        next if $conf_hash->{$name};
+        $self->{CHANGE}->{OBJECT} = 1;
+        my $value = $spoc_hash->{$name};
+
+        # Code from Netspoc contains line number for some commands.
+	$self->cmd($value->{orig});
+        for my $type (qw(SUBNET RANGE HOST)) {
+            if (my $subcmd = $value->{$type}) {
+                $self->cmd($subcmd->{orig});
+                last;
+            }
+        }
+    }
+}
+
+sub delete_object_lines {
+    my ($self, $conf, $spoc) = @_;
+    my $conf_hash = $conf->{OBJECT} || {};
+    my $spoc_hash = $spoc->{OBJECT} || {};
+    for my $name (keys %$conf_hash) { 
+        $self->{CHANGE}->{OBJECT} ||= 0;
+        next if $spoc_hash->{$name};
+        $self->{CHANGE}->{OBJECT} = 1;
+	$self->cmd("no $conf_hash->{$name}->{orig}");
+    }
 }
 
 sub generate_names_for_transfer {
@@ -2216,12 +2250,11 @@ sub transfer {
     $self->traverse_netspoc_tree( $spoc, $structure );
     $self->remove_unneeded_on_device( $conf, $structure );
 
-    for my $type ( qw( STATIC GLOBAL NAT ) ) {
-	mypr "### processing $type\n";
-	$self->{CHANGE}->{$type} = 0;
-	$self->transfer_lines( $spoc->{$type}, $conf->{$type} )
-	    and $self->{CHANGE}->{$type} = 1;
+    $self->add_object_lines($conf, $spoc);
+    for my $type ( qw( STATIC GLOBAL NAT TWICE_NAT) ) {
+        $self->transfer_lines($conf, $spoc, $type);
     }
+    $self->delete_object_lines($conf, $spoc);
     $self->leave_conf_mode();
 
     # Only write memory on device if there have been changes.

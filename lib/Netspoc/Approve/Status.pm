@@ -12,7 +12,7 @@ use warnings;
 use Carp;
 use Fcntl;
 
-our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.051'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---

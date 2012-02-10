@@ -12,7 +12,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 require Exporter;
 
-our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.051'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );

@@ -17,7 +17,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.051'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub usage {
     die <<END;
@@ -55,19 +55,14 @@ my %type2class = (
 # Try to get type and IP address from spoc file (use only first IP address).
 # This may fail if there is no spoc file or if host is an IP address.
 my $spocfile = 
-    "$global_config->{NETSPOC}current/$global_config->{CODEPATH}$name";
-my ($type, $ip) = 
-    Netspoc::Approve::Device->get_spoc_data($spocfile);
+    "$global_config->{NETSPOC}current/$global_config->{CODEPATH}$host";
+my ($type, $ip);
+if (-f $spocfile) {
+    ($type, $ip) = Netspoc::Approve::Device->get_spoc_data($spocfile);
+}
 
-# Try to get password and possibly IP address of host from device DB.
-my $device_info =
-  Netspoc::Approve::Device->get_obj_info($host, 
-					 $global_config->{DEVICEDBPATH}, 
-					 $global_config);
-
-$type ||= uc($device_info->{TYPE}) || 'IOS';
-$ip ||= $device_info->{IP} || $host;
-my $name = $device_info->{NAME} || $host;
+$type ||= 'IOS';
+$ip ||= $host;
 
 # Get class from type.
 my $class = $type2class{$type}
@@ -76,12 +71,13 @@ or die "Can't find class for spoc type '$type'\n";
 # Take IP address from spoc file if available otherwise from device DB.
 my $job = $class->new
     (
-     NAME          => $name,
+     NAME          => $host,
      OPTS          => \%opts,
      IP            => $ip,
-     PASS          => $device_info->{PASS},
-     LOCAL_USER    => $device_info->{LOCAL_USER},
      GLOBAL_CONFIG => $global_config,
      );
+
+# Try to get password from device DB.
+$job->{PASS} = $job->get_cw_password($host);
 
 $job->remote_execute($cmd);

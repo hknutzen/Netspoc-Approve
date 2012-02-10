@@ -4,6 +4,7 @@ our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve check_parse_and_unchanged);
 
 use Test::More;
+use Test::Differences;
 use File::Temp qw/ tempfile tempdir /;
 
 my $device_name = 'test';
@@ -77,13 +78,13 @@ END
 # AND whether output is empty for identical input.
 sub check_parse_and_unchanged {
     my ( $type, $minimal_device, $in, $out, $title ) = @_;
-    is_deeply( approve( $type, $minimal_device, $in ), $out, $title );
+    eq_or_diff( approve( $type, $minimal_device, $in ), $out, $title );
 
     $out = '';
     $title =~ /^Parse (.*)/ or
 	die "Need title starting with 'Parse' as argument!";
     $title = "Empty out on identical in ($1)";
-    is_deeply( approve( $type, $in, $in ), $out, $title );
+    eq_or_diff( approve( $type, $in, $in ), $out, $title );
 }    
     
 

@@ -19,7 +19,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.050'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.051'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -88,14 +88,13 @@ my $file2 = shift;
 
 
 # Get type and IP addresses from spoc file.
-# If no type is found, we get an empty type and no IP.
 my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($file2 || $file1);
 
 $type or die "Can't get type from $file1\n";
 
 # Get class from type.
 my $class = $type2class{$type}
-or die "Can't find class for spoc type '$type'\n";
+  or die "Can't find class for spoc type '$type'\n";
 
 my $job = $class->new(
     NAME          => $name,
@@ -125,14 +124,8 @@ if (!$job->{OPTS}->{NOREACH}) {
     }
 }
 
-# Get password from device DB.
-if(my $device_info = 
-   Netspoc::Approve::Device->get_obj_info($name, 
-                                          $global_config->{DEVICEDBPATH}))
-{
-    $job->{PASS} = $device_info->{PASS};
-    $job->{LOCAL_USER} = $device_info->{LOCAL_USER};
-}
+# Try to get password from CiscoWorks.
+$job->{PASS} = $job->get_cw_password($name);
 
 # Compare or approve device.
 
