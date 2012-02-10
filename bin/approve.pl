@@ -162,6 +162,7 @@ else {
 
 init_history_logging($device, $arguments, $running_for_user);
 log_history("START: $cmd");
+log_history("POLICY: $policy");
 my $status = Netspoc::Approve::Status->new(device => $device, 
                                            path => $statuspath);
 # Set preliminary approve status.
