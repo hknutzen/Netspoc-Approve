@@ -3,6 +3,7 @@
 
 use strict;
 use Test::More;
+use Test::Differences;
 use lib 't';
 use Test_Approve;
 
@@ -77,6 +78,36 @@ nat (inside) 1 10.48.48.0 255.255.248.0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
+
+############################################################
+$title = "Parse ASA 8.4 nat";
+############################################################
+$in = <<END;
+object network 10.9.1.33_255.255.255.255
+ subnet 10.9.1.33 255.255.255.255
+object network 1.1.1.23_255.255.255.255
+ subnet 1.1.1.23 255.255.255.255
+nat (inside,outside) 1 source static 10.9.1.33_255.255.255.255 1.1.1.23_255.255.255.255
+object network 10.9.1.0_255.255.255.0
+ subnet 10.9.1.0 255.255.255.0
+object network 1.1.1.16-1.1.1.31
+ range 1.1.1.16 1.1.1.31
+nat (inside,outside) source dynamic 10.9.1.0_255.255.255.0 1.1.1.16-1.1.1.31
+END
+
+$out = <<END;
+object network 10.9.1.0_255.255.255.0
+subnet 10.9.1.0 255.255.255.0
+object network 1.1.1.16-1.1.1.31
+range 1.1.1.16 1.1.1.31
+object network 1.1.1.23_255.255.255.255
+subnet 1.1.1.23 255.255.255.255
+object network 10.9.1.33_255.255.255.255
+subnet 10.9.1.33 255.255.255.255
+nat (inside,outside) 1 source static 10.9.1.33_255.255.255.255 1.1.1.23_255.255.255.255
+nat (inside,outside) source dynamic 10.9.1.0_255.255.255.0 1.1.1.16-1.1.1.31
+END
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 ############################################################
 $title = "Parse crypto map";
@@ -205,7 +236,7 @@ no password-storage
 no vpn-simultaneous-logins
 exit
 END
-is_deeply(approve('ASA', $device, $in), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 
 ############################################################
@@ -248,7 +279,7 @@ group-policy VPN-group attributes
 no pfs
 no vpn-idle-timeout
 END
-is_deeply(approve('ASA', $device, $in), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 
 ############################################################
@@ -346,7 +377,7 @@ $out = <<'END';
 tunnel-group VPN-tunnel ipsec-attributes
 trust-point ASDM_TrustPoint5
 END
-is_deeply(approve('ASA', $device, $in), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Add webvpn-attributes, delete ipsec-attributes";
@@ -376,7 +407,7 @@ authentication aaa
 crypto ca certificate map ca-map 10
 no tunnel-group NAME ipsec-attributes
 END
-is_deeply(approve('ASA', $device, $in), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Add certificate-group-map";
@@ -406,7 +437,7 @@ $out = <<'END';
 webvpn
 certificate-group-map ca-map 10 NAME
 END
-is_deeply(approve('ASA', $device, $in), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Delete tunnel-group";
@@ -426,7 +457,7 @@ $out = <<'END';
 no tunnel-group 193.155.130.20 ipsec-attributes
 clear configure tunnel-group 193.155.130.20
 END
-is_deeply(approve('ASA', $device, $in), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Insert and delete entries from crypto map sequence";
@@ -474,7 +505,7 @@ crypto map crypto-outside 3 set pfs group1
 clear configure crypto map crypto-outside 1
 clear configure access-list crypto-outside-1
 END
-is_deeply(approve('ASA', $device, $in), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 
 ############################################################
