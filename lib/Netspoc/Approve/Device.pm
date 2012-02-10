@@ -34,7 +34,6 @@ sub get_global_config($) {
     my ($self) = @_;
     my $config = {
         NETSPOC => '',
-        CHECKHOST => '',
         CODEPATH => '',
         CHECKBANNER => '',
         DEVICEDB => '',
@@ -999,10 +998,7 @@ sub acl_equal {
 
 sub checkidentity {
     my ($self, $name) = @_;
-    if($self->{GLOBAL_CONFIG}->{CHECKHOST} eq 'no') {
-	 mypr "hostname checking disabled\n";
-    }
-    elsif($name ne $self->{NAME}) {
+    if($name ne $self->{NAME}) {
 	errpr "wrong device name: $name, expected: $self->{NAME}\n";
     }
 }
