@@ -35,7 +35,6 @@ sub get_global_config($) {
     my $config = {
         NETSPOC => '',
         CHECKHOST => '',
-        EPILOGPATH => '',
         CODEPATH => '',
         CHECKBANNER => '',
         DEVICEDB => '',
@@ -143,12 +142,10 @@ sub get_spoc_data {
 sub get_raw_name( $$ ) {
     my ($self, $path) = @_;
     my $raw_path;
-    my $code_dir = $self->{GLOBAL_CONFIG}->{CODEPATH};
 
-    # ToDo: Change EPILOGPATH to 'netspoc/raw' here and in newpolicy.
-    for my $raw_dir ($self->{GLOBAL_CONFIG}->{EPILOGPATH}, 'netspoc/raw/') {
+    for my $raw_dir ('src/raw', 'netspoc/raw') {
 	$raw_path = $path;
-	if($raw_path =~ s/$code_dir/$raw_dir/) {
+	if($raw_path =~ s/ [^\/]+ (?=\/ [^\/]+ $) /$raw_dir/x) {
 	    return($raw_path) if -f $raw_path;
 	}
     }
