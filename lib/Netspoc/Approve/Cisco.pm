@@ -553,7 +553,8 @@ sub prepare {
 sub login_enable {
     my ($self) = @_;
     my $std_prompt = qr/[\>\#]/;
-    my($con, $ip, $user, $pass) = @{$self}{qw(CONSOLE IP LOCAL_USER PASS)};
+    my($con, $ip, $pass) = @{$self}{qw(CONSOLE IP PASS)};
+    my $user;
 
     if(not $pass) {
 	($user, $pass) = $self->get_aaa_password();

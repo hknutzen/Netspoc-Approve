@@ -125,14 +125,8 @@ if (!$job->{OPTS}->{NOREACH}) {
     }
 }
 
-# Get password from device DB.
-if(my $device_info = 
-   Netspoc::Approve::Device->get_obj_info($name, 
-                                          $global_config->{DEVICEDBPATH}))
-{
-    $job->{PASS} = $device_info->{PASS};
-    $job->{LOCAL_USER} = $device_info->{LOCAL_USER};
-}
+# Try to get password from CiscoWorks.
+$job->{PASS} = $job->get_cw_password($name);
 
 # Compare or approve device.
 

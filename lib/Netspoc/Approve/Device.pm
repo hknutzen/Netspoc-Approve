@@ -32,357 +32,53 @@ sub new {
 ###########################################################################
 sub get_global_config($) {
     my ($self) = @_;
-    my $config = {};
-
-    # Set masterdirectory and read global parameters.
+    my $config = {
+        NETSPOC => '',
+        CHECKHOST => '',
+        EPILOGPATH => '',
+        CODEPATH => '',
+        CHECKBANNER => '',
+        DEVICEDB => '',
+        AAA_CREDENTIAL => '',
+        SYSTEMUSER => '',
+    };
     my $madhome = '/home/diamonds/';
     my $rcmad   = $madhome . '.rcmadnes';
-    open(RCMAD, $rcmad) or die "Can't open $rcmad: $!\n";
-
-    $config->{BINHOME}        = '';
-    $config->{NETSPOC}        = '';
-    $config->{CHECKHOST}      = '';
-    $config->{EPILOGPATH}     = '';
-    $config->{CODEPATH}       = '';
-    $config->{STATUSPATH}     = '';
-    $config->{MIGSTATPATH}    = '';
-    $config->{VPNTMPDIR}      = '';
-    $config->{CHECKBANNER}    = '';
-    $config->{DEVICEDBPATH}   = '';
-    $config->{LOCKFILEPATH}   = "$madhome/lock";
-    $config->{AAA_CREDENTAIL} = '';
-    $config->{SYSTEMUSER}     = '';
-
-    while (<RCMAD>) {
-        /^\s*BINHOME\s*=\s*(\S+)\s*$/       and $config->{BINHOME}      = $1;
-        /^\s*NETSPOC\s*=\s*(\S+)\s*$/       and $config->{NETSPOC}      = $1;
-        /^\s*CHECKHOSTNAME\s*=\s*(\S+)\s*$/ and $config->{CHECKHOST}    = $1;
-        /^\s*CHECKBANNER\s*=\s*(\S+)\s*$/   and $config->{CHECKBANNER}  = $1;
-        /^\s*EPILOGPATH\s*=\s*(\S+)\s*$/    and $config->{EPILOGPATH}   = $1;
-        /^\s*CODEPATH\s*=\s*(\S+)\s*$/      and $config->{CODEPATH}     = $1;
-        /^\s*STATUSPATH\s*=\s*(\S+)\s*$/    and $config->{STATUSPATH}   = $1;
-        /^\s*MIGSTATPATH\s*=\s*(\S+)\s*$/   and $config->{MIGSTATPATH}  = $1;
-        /^\s*VPNTMPDIR\s*=\s*(\S+)\s*$/     and $config->{VPNTMPDIR}    = $1;
-        /^\s*DEVICEDB\s*=\s*(\S+)\s*$/      and $config->{DEVICEDBPATH} = $1;
-        /^\s*AAA_CREDENTIALS\s*=\s*(\S+)\s*$/
-          and $config->{AAA_CREDENTIAL} = $1;
-        /^\s*SYSTEMUSER\s*=\s*(\S+)\s*$/ and $config->{SYSTEMUSER} = $1;
+    open(my $file, $rcmad) or die "Can't open $rcmad: $!\n";
+    while (<$file>){
+	if (my ($key, $val) = /^ \s* (\w+) \s* = \s* (\S+) \s* $/x) {
+	    if (exists $config->{$key}) {
+		$config->{$key} = $val;
+	    }
+	}
     }
-    close RCMAD or die "could not close $rcmad\n";
-
-    $config->{NETSPOC}    or die "netspoc basedir missing in $rcmad\n";
-    $config->{EPILOGPATH} or die "path for epilog not found in $rcmad\n";
-    $config->{STATUSPATH}
-      or die "path for status update not found in $rcmad\n";
-    $config->{DEVICEDBPATH} or die "missing DEVICEDB setting in $rcmad\n";
-    $config->{VPNTMPDIR}    or die "missing VPNTMPDIR setting in $rcmad\n";
-    $config->{SYSTEMUSER}   or die "name of privileged user not set\n";
+    $config->{LOCKFILEPATH}   = "$madhome/lock";;
     return $config;
 }
 
-sub build_db ($$) {
-    my ($self, $path) = @_;
+# Get password data from file cw_pass.
+# Format:
+# - Comma separated values:
+#   0: <name>
+#   8: <Telnet password>
+# - ignore 
+#   - comment lines starting with ';' and 
+#   - empty lines.
+sub get_cw_password ($$) {
+    my ($self, $name) = @_;
+    my $path = "$self->{GLOBAL_CONFIG}->{DEVICEDB}/cw_pass";
 
-    my %LEG_ALL_DB;
-    my %LEG_IP_DB;
-    my %LEG_NAME_DB;
-    my %LEG_ALIAS_DB;
-    my %CW_IP_DB;
-
-    my %NAME_HASH;
-    my %IP_HASH;
-
-    # get password data from cw_pass
-    open(CSVDB, "$path/cw_pass") or die "could not open $path/cw_pass\n$!\n";
-    for my $line (<CSVDB>) {
+    open(my $csv, $path) or die "Can't open $path: $!\n";
+    for my $line (<$csv>) {
         $line =~ /^;/ and next;
         $line =~ s/[\"\r\n]//g;
-        ($line) or next;
-        my %OBJ;
-        (
-            $OBJ{NAME},     # Name (including domain or simply an IP)
-            $OBJ{RO},       # RO community string
-            $OBJ{RW},       # RW community string
-            $OBJ{SN},       # Serial Number
-            $OBJ{UF1},      # User Field 1 <-- Geraet hinter "ISDN" oder "Stand"
-            $OBJ{UF2},      # User Field 2 <-- Zugehoerigkeit zu einer
-                            # Netz-Gruppe (LN,SH,KR,DZ)
-            $OBJ{CW_TYP},   # User Field 3 <-- Typ (sw,rt,pix) fuer
-                            # switch,router,pix
-            $OBJ{UF4},      # User Field 4
-            $OBJ{TELNET_PASS},        # Name = Telnet password
-            $OBJ{ENABLE_PASS},        # Name = Enable password
-            $OBJ{ENABLE_SEC},         # = 11; Name = Enable secret
-            $OBJ{TAC_USER},           # = 12; Name = Tacacs user
-            $OBJ{TAC_PASS},           # = 13; Name = Tacacs password
-            $OBJ{TAC_ENABLE_PASS},    # = 14; Name = Tacacs enable user
-            $OBJ{TAC_ENABLE_USER},    # = 15; Name = Tacacs enable password
-            $OBJ{LOCAL_USER},         # = 16; Name = Local user
-            $OBJ{LOCAL_PASS},         # = 17; Name = Local password
-            $OBJ{RCP_USER},           # = 18; Name = Rcp user
-            $OBJ{RCP_PASS}            # = 19; Name = Rcp password
-        ) = split /[,]/, $line;
-        unless (exists $NAME_HASH{ $OBJ{NAME} }) {
-            $NAME_HASH{ $OBJ{NAME} }->{SOURCE}->{LINE} = $line;
-            $NAME_HASH{ $OBJ{NAME} }->{NAME}           = $OBJ{NAME};
-            $NAME_HASH{ $OBJ{NAME} }->{PASS}           = $OBJ{TELNET_PASS};
-            $NAME_HASH{ $OBJ{NAME} }->{ENABLE_PASS}    = $OBJ{ENABLE_PASS};
-            $NAME_HASH{ $OBJ{NAME} }->{LOCAL_USER}     = $OBJ{LOCAL_USER};
-            $NAME_HASH{ $OBJ{NAME} }->{TYPE}           = $OBJ{CW_TYP};
-        }
-        else {
-            mypr "PASS_DBB: CiscoWorks pass db: discarded line \'$line\'\n";
-            mypr "PASS_DBB:  -> object name already found in "
-              . "\'$NAME_HASH{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
+        $line or next;
+        my ($name2, $pass) = (split /,/, $line)[0, 8];
+        if ($name eq $name2) {
+            return $pass;
         }
     }
-    close CSVDB;
-
-    # use data from cw_ip to obtain ip adresses for objects from cw_pass
-    #
-    #   the data in cw_ip is actually expected to be the LMHOSTS file
-    #   from an microsoft Windows CiscoWorks machine
-    #
-    open(CSVDB, "$path/cw_ip") or die "could not open $path/cw_ip\n$!\n";
-    for my $line (<CSVDB>) {
-        $line =~ /^#/ and next;
-        $line =~ s/[\"\r\n]//g;
-        ($line) or next;
-        my %OBJ;
-        ($OBJ{IP}, $OBJ{NAME}) = split " ", $line;
-        unless (exists $CW_IP_DB{ $OBJ{NAME} }) {
-            $CW_IP_DB{ $OBJ{NAME} }->{SOURCE}->{LINE} = $line;
-            $CW_IP_DB{ $OBJ{NAME} }->{NAME}           = $OBJ{NAME};
-            $CW_IP_DB{ $OBJ{NAME} }->{IP}             = $OBJ{IP};
-        }
-        else {
-            unless ($line eq $CW_IP_DB{ $OBJ{NAME} }->{SOURCE}->{LINE}) {
-                mypr "PASS_DBB: CiscoWorks ip db: discarded line "
-                  . "\'$line\'\n";
-                mypr "PASS_DBB:   -> object name already found "
-                  . "in \'$CW_IP_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
-            }
-        }
-    }
-    close CSVDB;
-    for my $entry (values %NAME_HASH) {
-        if (exists $CW_IP_DB{ $entry->{NAME} }) {
-            $entry->{IP} = $CW_IP_DB{ $entry->{NAME} }->{IP};
-
-            # now add this entry also to %IP_HASH
-            unless (exists $IP_HASH{ $entry->{IP} }) {
-                $IP_HASH{ $entry->{IP} } = $entry;
-            }
-            else {
-                mypr "PASS_DBB: CiscoWorks ip db:  NOT added to IP_HASH DB"
-                  . " \'$entry->{SOURCE}->{LINE}\'\n";
-            }
-        }
-        elsif (defined quad2int($entry->{NAME})) {
-
-            # no ip for this object found - so this may be a switch without
-            # name - and we should not bother
-            $entry->{IP} = $entry->{NAME};
-            $IP_HASH{ $entry->{IP} } = $entry;
-        }
-        elsif ($entry->{NAME} =~ /Cisco Systems NM data import/) {
-
-            #nothing to do
-        }
-        else {
-            mypr "PASS_DBB: CiscoWorks ip db: no ip address found for objekt"
-              . " \'$entry->{SOURCE}->{LINE}\'\n";
-        }
-    }
-
-    #
-    # at this point we currently know nothing about aliases and object types
-    # so we still need the 'old' allp.csv file:
-    #
-    # data from lecagy db
-    open(CSVDB, "$path/allp.csv") or die "could not open $path/allp.csv\n$!\n";
-    for my $line (<CSVDB>) {
-        $line =~ /^#/ and next;
-        $line =~ s/[\"\n]//g;
-        ($line) or next;
-        my %OBJ;
-        (
-            $OBJ{NAME}, $OBJ{IP}, $OBJ{PASS}, $OBJ{ALIAS}, my $status,
-            $OBJ{TYPE}, $OBJ{ENABLE_PASS}
-        ) = split(/,/, $line);
-        $OBJ{SOURCE}->{LINE} = $line;
-        ($status =~ "aktiv") or mypr "PASS_DBB: status is $status\n";
-        $LEG_ALL_DB{ \%OBJ } = \%OBJ;
-
-        unless (exists $LEG_NAME_DB{ $OBJ{NAME} }) {
-            $LEG_NAME_DB{ $OBJ{NAME} } = \%OBJ;
-        }
-        else {
-
-            #unless($line eq $LEG_NAME_DB{$OBJ{NAME}}->{SOURCE}->{LINE}){
-            mypr "PASS_DBB: legacy name db: discarded line     \'$line\'\n";
-            mypr "PASS_DBB:   -> object name already found in "
-              . "\'$LEG_NAME_DB{$OBJ{NAME}}->{SOURCE}->{LINE}\'\n";
-
-            #}
-        }
-        if ($OBJ{ALIAS}) {    # assume no alias if literally "0"
-            unless (exists $LEG_ALIAS_DB{ $OBJ{ALIAS} }) {
-                $LEG_ALIAS_DB{ $OBJ{ALIAS} } = \%OBJ;
-            }
-            else {
-
-                #unless($line eq $LEG_ALIAS_DB{$OBJ{ALIAS}}->{SOURCE}->{LINE}){
-                mypr "PASS_DBB: legacy alias db: discarded line  "
-                  . "\'$line\'\n";
-                mypr "PASS_DBB:    -> object alias already found "
-                  . "in \'$LEG_ALIAS_DB{$OBJ{ALIAS}}->{SOURCE}->{LINE}\'\n";
-
-                #}
-            }
-        }
-        unless (exists $LEG_IP_DB{ $OBJ{IP} }) {
-            $LEG_IP_DB{ $OBJ{IP} } = \%OBJ;
-        }
-        else {
-
-            #unless($line eq $LEG_IP_DB{$OBJ{IP}}->{SOURCE}->{LINE}){
-            mypr "PASS_DBB: legacy ip db:   discarded line     \'$line\'\n";
-            mypr "PASS_DBB:    -> object ip already found in  "
-              . "\'$LEG_IP_DB{$OBJ{IP}}->{SOURCE}->{LINE}\'\n";
-
-            #}
-        }
-    }
-    close CSVDB;
-
-    # enhance %NAME_HASH (%IP_HASH implicitly) by data from legacy db
-    # if no data from legacy available:
-    #
-    # set TYPE  as IOS if NAME_HASH TYPE empty
-    # guess ALIAS as 0
-    #
-    # !!! treat data from CiscoWorks as more reliable as legacy data !!!
-    #
-    # mark "used" entries in legacy db
-    for my $entry (values %NAME_HASH) {
-        $entry->{TYPE} or $entry->{TYPE} = "ios";
-        $entry->{TYPE} eq 'L3sw'
-          and $entry->{TYPE} = "ios";    # Switches are handled as routers
-        my $found;
-        if (exists $LEG_NAME_DB{ $entry->{NAME} }) {
-            $found = $LEG_NAME_DB{ $entry->{NAME} };
-
-            # use password from Cisco Works in legacy DB!
-            $found->{PASS} = $entry->{PASS};
-
-            # use password from Cisco Works in legacy DB!
-            $found->{ENABLE_PASS} = $entry->{ENABLE_PASS};
-
-            # use user from Cisco Works in legacy DB!
-            $found->{LOCAL_USER} = $entry->{LOCAL_USER};
-            $entry->{ALIAS}      = $found->{ALIAS};
-
-            # mark as used
-            $found->{USED} = 1;
-        }
-        if (exists $LEG_ALIAS_DB{ $entry->{NAME} }) {
-            if ($found) {
-                if ($found ne $LEG_ALIAS_DB{ $entry->{NAME} }) {
-                    mypr "PASS_DBB: while enhancing %NAME_HASH: "
-                      . "name match \'$found->{SOURCE}->{LINE}\'\n"
-		      . "PASS_DBB:          alias match \' "
-                      . "$LEG_ALIAS_DB{$entry->{NAME}}->{SOURCE}->{LINE}\'\n";
-                }
-            }
-            else {
-                $found = $LEG_ALIAS_DB{ $entry->{NAME} };
-
-                # use password from Cisco Works in legacy DB!
-                $found->{PASS} = $entry->{PASS};
-
-                # use password from Cisco Works in legacy DB!
-                $found->{ENABLE_PASS} = $entry->{ENABLE_PASS};
-
-                # use user from Cisco Works in legacy DB!
-                $found->{LOCAL_USER} = $entry->{LOCAL_USER};
-                $entry->{ALIAS}      = $entry->{NAME};
-                $entry->{NAME}       = $found->{NAME};
-
-                # mark as used
-                $found->{USED} = 1;
-            }
-        }
-        if ($entry->{IP} and exists $LEG_IP_DB{ $entry->{IP} }) {
-            if ($found) {
-                if ($found ne $LEG_IP_DB{ $entry->{IP} }) {
-                    errpr "while enhancing %NAME_HASH: name/alias "
-                      . "match '$found->{SOURCE}->{LINE}'\n"
-		      . "                                    ip match "
-                      . "'$LEG_IP_DB{$entry->{IP}}->{SOURCE}->{LINE}'\n";
-                }
-            }
-            else {
-                $found = $LEG_IP_DB{ $entry->{IP} };
-
-                # use password from Cisco Works in legacy DB!
-                $found->{PASS} = $entry->{PASS};
-
-                # use password from Cisco Works in legacy DB!
-                $found->{ENABLE_PASS} = $entry->{ENABLE_PASS};
-
-                # use user from Cisco Works in legacy DB!
-                $found->{LOCAL_USER} = $entry->{LOCAL_USER};
-                $entry->{ALIAS}      = $found->{ALIAS};
-
-                # mark as used
-                $found->{USED} = 1;
-                unless ($found->{PASS} eq $entry->{PASS}) {
-                    mypr "PASS_DBB: while enhancing %NAME_HASH: "
-                      . "match \'$entry->{SOURCE}->{LINE}\'\n";
-                    mypr "PASS_DBB:           through ip address "
-                      . "with \'$found->{SOURCE}->{LINE}\'\n";
-                }
-            }
-        }
-        unless ($found) {
-
-            # "guess"
-            #$entry->{TYPE} or $entry->{TYPE}  = "ios";
-            $entry->{ALIAS} = 0;
-        }
-    }
-    my $used_entrys = 0;
-    for my $val (values %LEG_ALL_DB) {
-        if ($val->{USED}) {
-            ++$used_entrys;
-        }
-    }
-
-    return {
-        NAME_HASH   => \%NAME_HASH,
-        IP_HASH     => \%IP_HASH,
-        LEG_NAME_DB => \%LEG_NAME_DB,
-        LEG_IP_DB   => \%LEG_IP_DB
-    };
-}
-
-# Take name or ip and retrieve name, ip and optional password.
-sub get_obj_info {
-    my ($self, $spec, $db_path) = @_;
-    my $db     = $self->build_db($db_path);
-    my $object = $db->{NAME_HASH}->{$spec}
-      || $db->{IP_HASH}->{$spec}
-      || $db->{LEG_NAME_DB}->{$spec}
-      || $db->{LEG_IP_DB}->{$spec};
-    return if not $object;
-    if(my $pass = $object->{PASS} && ! $object->{LOCAL_USER}) {
-	if($pass =~ /^(.*?):(.*)$/) {
-	    $object->{LOCAL_USER} = $1;
-	    $object->{PASS} = $2;
-	}
-    }
-    return $object;
+    return;
 }
 
 sub get_aaa_password {
