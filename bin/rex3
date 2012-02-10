@@ -56,8 +56,10 @@ my %type2class = (
 # This may fail if there is no spoc file or if host is an IP address.
 my $spocfile = 
     "$global_config->{NETSPOC}current/$global_config->{CODEPATH}$host";
-my ($type, $ip) = 
-    Netspoc::Approve::Device->get_spoc_data($spocfile);
+my ($type, $ip);
+if (-f $spocfile) {
+    ($type, $ip) = Netspoc::Approve::Device->get_spoc_data($spocfile);
+}
 
 $type ||= 'IOS';
 $ip ||= $host;

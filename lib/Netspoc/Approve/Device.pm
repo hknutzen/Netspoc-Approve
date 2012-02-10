@@ -125,7 +125,7 @@ sub get_spoc_data {
     my ($self, $spocfile) = @_;
     my $type;
     my @ip;
-    open(my $file, '<', $spocfile) or return undef;
+    open(my $file, '<', $spocfile) or die "Can't open $spocfile: $!\n";
     while (my $line = <$file>) {
         if ($line =~ /\[ Model = (\S+) ]/) {
             $type = $1;

@@ -88,14 +88,13 @@ my $file2 = shift;
 
 
 # Get type and IP addresses from spoc file.
-# If no type is found, we get an empty type and no IP.
 my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($file2 || $file1);
 
 $type or die "Can't get type from $file1\n";
 
 # Get class from type.
 my $class = $type2class{$type}
-or die "Can't find class for spoc type '$type'\n";
+  or die "Can't find class for spoc type '$type'\n";
 
 my $job = $class->new(
     NAME          => $name,
