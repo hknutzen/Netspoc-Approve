@@ -37,7 +37,7 @@ sub get_global_config($) {
         CODEPATH => '',
         CHECKBANNER => '',
         DEVICEDB => '',
-        AAA_CREDENTIAL => '',
+        AAA_CREDENTIALS => '',
         SYSTEMUSER => '',
     };
     my $madhome = '/home/diamonds/';
@@ -49,6 +49,10 @@ sub get_global_config($) {
 		$config->{$key} = $val;
 	    }
 	}
+    }
+    for my $key (keys %$config) {
+        next if $key eq 'CHECKBANNER';
+        $config->{$key} or die "Missing $key in $rcmad\n";
     }
     $config->{LOCKFILEPATH}   = "$madhome/lock";;
     return $config;
@@ -86,7 +90,7 @@ sub get_aaa_password {
     if ($user eq $self->{GLOBAL_CONFIG}->{SYSTEMUSER}) {
 
 	# Use AAA credentials.
-	my $aaa_credential = $self->{GLOBAL_CONFIG}->{AAA_CREDENTIAL};
+	my $aaa_credential = $self->{GLOBAL_CONFIG}->{AAA_CREDENTIALS};
 	open(AAA, $aaa_credential)
 	    or die "Could not open $aaa_credential: $!\n";
 	my $credentials = <AAA>;
