@@ -56,7 +56,8 @@ sub get_parse_info {
                     parse => \&get_paren_token },
 
                   # Ignore line number. It is used implicitly from {orig}.
-                  { parse => \&check_int },
+                  # This version supports only "1" as value.
+                  { parse => qr/1/ },
                   { store => 'TYPE', parse => qr/static|dynamic/ },
                   { store => 'FROM', parse => \&get_token },
                   ['or',
