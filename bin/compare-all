@@ -10,5 +10,6 @@ PARALLEL=10
 cd /home/diamonds/netspoc/current/code
 
 for device in * ; do
+    case $device in *.raw) continue;; esac
     echo diamonds compare $device
 done | start-jobs -q $PARALLEL
