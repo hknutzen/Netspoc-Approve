@@ -42,7 +42,7 @@ sub get_global_config($) {
     };
     my $madhome = '/home/diamonds/';
     my $rcmad   = $madhome . '.rcmadnes';
-    open(my $file, $rcmad) or die "Can't open $rcmad: $!\n";
+    open(my $file, '<', $rcmad) or die "Can't open $rcmad: $!\n";
     while (<$file>){
 	if (my ($key, $val) = /^ \s* (\w+) \s* = \s* (\S+) \s* $/x) {
 	    if (exists $config->{$key}) {
@@ -70,7 +70,7 @@ sub get_cw_password ($$) {
     my ($self, $name) = @_;
     my $path = "$self->{GLOBAL_CONFIG}->{DEVICEDB}/cw_pass";
 
-    open(my $csv, $path) or die "Can't open $path: $!\n";
+    open(my $csv, '<', $path) or die "Can't open $path: $!\n";
     for my $line (<$csv>) {
         $line =~ /^;/ and next;
         $line =~ s/[\"\r\n]//g;
@@ -91,13 +91,13 @@ sub get_aaa_password {
 
 	# Use AAA credentials.
 	my $aaa_credential = $self->{GLOBAL_CONFIG}->{AAA_CREDENTIALS};
-	open(AAA, $aaa_credential)
+	open(my $file, '<', $aaa_credential)
 	    or die "Could not open $aaa_credential: $!\n";
-	my $credentials = <AAA>;
-	close(AAA);
+	my $credentials = <$file>;
+	close($file);
 	($user, $pass) = $credentials =~ (/^\s*(\S+)\s*(\S+)\s*$/)
 	    or die "No AAA credential found\n";
-	mypr "User $1 from aaa credentials extracted\n";
+	mypr "User $user extracted from aaa credentials\n";
     }
     return ($user, $pass);
 }
@@ -107,15 +107,15 @@ sub get_user_password {
     my $pass;
 
     # Write directly to tty, because STDOUT may be redirected.
-    open(TTY, ">:unix", "/dev/tty") or die "Can't open /dev/tty: $!\n";
-    print TTY "Running in non privileged mode and no "
+    open(my $tty, '>:unix', '/dev/tty') or die "Can't open /dev/tty: $!\n";
+    print $tty "Running in non privileged mode and no "
 	. "password found in database.\n";
-    print TTY "Password for $user?";
+    print $tty "Password for $user?";
     system('stty', '-echo');
     $pass = <STDIN>;
     system('stty', 'echo');
-    print TTY "  ...thank you :)\n";
-    close TTY;
+    print $tty "  ...thank you :)\n";
+    close $tty;
     chomp $pass;
     return ($pass);
 }
@@ -141,30 +141,14 @@ sub get_spoc_data {
     return($type, @ip);
 }
 
-sub load_spocfile($$) {
+sub load_spocfile {
     my ($self, $path) = @_;
     my @result;
 
-    # read (spoc) config
-    if ($path eq "STDIN") {
-        (open(SPOC, "<&STDIN")) or die "could not dup STDIN\n$!\n";
-        @result = <SPOC>;
-        close(SPOC);
-    }
-    elsif (-f $path) {
-        (open(SPOC, $path)) or die "could not open spocfile: $path\n$!\n";
-        @result = <SPOC>;
-        close(SPOC);
-    }
-    elsif (-f "${path}.gz") {
-        mypr "decompressing config file...";
-        @result = `gunzip -c "$path.gz"`;
-        $? and die "error running gunzip\n";
-        mypr "done.\n";
-    }
-    else {
-        die "spocfile \'$path\' not found!\n";
-    }
+    open(my $file, '<', $path) or die "Could not open spocfile $path: $!\n";
+    @result = <$file>;
+    close($file);
+
     my $count = @result;
     mypr "### Read config file $path with $count lines\n";
     return \@result;
@@ -1253,10 +1237,8 @@ sub compare_files {
 
 sub logging {
     my $self = shift;
-    open($self->{STDOUT}, ">&STDOUT")
-      or die "could not save STDOUT for Password prompt $!\n";
-    return unless ($self->{OPTS}->{LOGFILE});    # logging not enabled!
-    my $logfile = $self->{OPTS}->{LOGFILE};
+    my $logfile = $self->{OPTS}->{LOGFILE} or
+        return;
     if ($logfile !~ /\A\//) {
 
         # $logfile given as relative path - extend to absolute path
@@ -1317,7 +1299,7 @@ sub logging {
 
 {
 
-    # a closure, beause we need the lock
+    # A closure, beause we need the lock in both functions.
     my $lock;
 
     sub lock( $$ ) {
@@ -1326,14 +1308,14 @@ sub logging {
         # set lock for exclusive approval
         my $lockfile = "$self->{GLOBAL_CONFIG}->{LOCKFILEPATH}/$name";
         unless (-f "$lockfile") {
-            open($lock->{$name}, ">$lockfile")
-              or die "could not aquire lock file: $lockfile\n$!\n";
+            open($lock->{$name}, '>', "$lockfile")
+              or die "Could not aquire lock file $lockfile: $!\n";
             defined chmod 0666, "$lockfile"
-              or die " couldn't chmod lockfile $lockfile\n$!\n";
+              or die "Couldn't chmod lockfile $lockfile: $!\n";
         }
         else {
-            open($lock->{$name}, ">$lockfile")
-              or die "could not aquire lock file: $lockfile\n$!\n";
+            open($lock->{$name}, '>', "$lockfile")
+              or die "Could not aquire lock file $lockfile: $!\n";
         }
         unless (flock($lock->{$name}, LOCK_EX | LOCK_NB)) {
             mypr "$!\n";
