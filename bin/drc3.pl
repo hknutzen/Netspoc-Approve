@@ -14,19 +14,17 @@ use Netspoc::Approve::Device;
 use Netspoc::Approve::Linux;
 use Netspoc::Approve::Cisco;
 use Netspoc::Approve::IOS;
-use Netspoc::Approve::IOS_FW;
 use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.052'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.053'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
 my %type2class = (
     Linux  => 'Netspoc::Approve::Linux',
     IOS    => 'Netspoc::Approve::IOS',
-    IOS_FW => 'Netspoc::Approve::IOS_FW',
     ASA    => 'Netspoc::Approve::ASA',
     PIX    => 'Netspoc::Approve::PIX',
 );

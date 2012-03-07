@@ -35,6 +35,7 @@ missing () { echo $1; }
 
 cd $CODE || error 
 for device in * ; do
+    case $device in *.raw) continue;; esac
     file=$STATUS/$device
     if [ ! -r $file ] ; then
 	missing $device
