@@ -141,20 +141,6 @@ sub get_spoc_data {
     return($type, @ip);
 }
 
-# code/device -> src/raw/device || -> netspoc/raw/device
-sub get_raw_name( $$ ) {
-    my ($self, $path) = @_;
-    my $raw_path;
-
-    for my $raw_dir ('src/raw', 'netspoc/raw') {
-	$raw_path = $path;
-	if($raw_path =~ s/ [^\/]+ (?=\/ [^\/]+ $) /$raw_dir/x) {
-	    return($raw_path) if -f $raw_path;
-	}
-    }
-    return;
-}
-
 sub load_spocfile($$) {
     my ($self, $path) = @_;
     my @result;
@@ -184,27 +170,17 @@ sub load_spocfile($$) {
     return \@result;
 }
 
-sub load_raw($$) {
+sub load_raw {
     my ($self, $path) = @_;
+    my $raw = "$path.raw";
     my @result;
-    return \@result if not $path;
-    if (-f $path) {
-        open(RAW, "<$path") or die "could not open rawdata: $path\n$!\n";
-        @result = <RAW>;
-        close RAW;
-    }
-    elsif ($path .= '.gz' && -f $path) {
-        mypr "decompressing raw file...";
-        @result = `gunzip -c $path`;
-        $? and die "error running gunzip -c $path\n";
-        mypr "done.\n";
-    }
-    else {
-        @result = ();
-        mypr "no rawdata found...\n";
+    if (-f $raw) {
+        open(my $file, '<', $raw) or die "Could not open $raw: $!\n";
+        @result = <$file>;
+        close $file;
     }
     my $count = @result;
-    mypr "### Read rawdata file $path with $count lines\n" if $count;
+    mypr "### Read rawdata file $raw with $count lines\n" if $count;
     return \@result;
 }
 
@@ -212,7 +188,7 @@ sub load_spoc {
     my ($self, $path) = @_;
     my $lines     = $self->load_spocfile($path);
     my $conf      = $self->parse_config($lines);
-    my $raw_lines = $self->load_raw($self->get_raw_name($path));
+    my $raw_lines = $self->load_raw($path);
     my $raw_conf  = $self->parse_config($raw_lines);
     $self->merge_rawdata($conf, $raw_conf);
     return($conf);
