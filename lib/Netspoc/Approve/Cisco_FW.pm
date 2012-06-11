@@ -258,28 +258,113 @@ sub get_parse_info {
 	    named => 1,
 	    parse => ['seq',
 		      ['or',
-		      { store => 'TYPE', parse => qr/out/ },
-		      { store => 'TYPE', parse => qr/in/ },
-		       ],
+                       { store => 'TYPE', parse => qr/out/ },
+                       { store => 'TYPE', parse => qr/in/ },
+                      ],
 		      { parse => qr/interface/ },
 		      { store => 'IF_NAME', parse => \&get_token } ],
 	},
-	'object-group' => {
+	'object-group network' => {
 	    store => 'OBJECT_GROUP',
-	    named => 'from_parser',
-	    parse => ['seq',
-		      { store => 'TYPE', parse => qr/network/ },
-		      { store => 'name', parse => \&get_token } ],
+	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'network', },],
 	    subcmd => {
 		'network-object' => {
-		    store => 'NETWORK_OBJECT', 
+		    store => 'OBJECT', 
 		    multi => 1,
 		    parse => 'parse_address',
 		},
 		'group-object' => { 
-		    error => 'Nested object group not supported' },
+		    error => 'Nested object group not supported' 
+                },
+            }
+        },
+	'object-group service _skip tcp' => {
+	    store => 'OBJECT_GROUP',
+	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'tcp', },],
+	    subcmd => {
+                'port-object' => {
+		    store => 'OBJECT', 
+                    multi => 1,
+                    parse => 'parse_port_spec', params => ['tcp'],
+                },
+		'group-object' => { 
+		    error => 'Nested object group not supported' 
+                },
+            }
+        },
+	'object-group service _skip udp' => {
+	    store => 'OBJECT_GROUP',
+	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'udp', },],
+	    subcmd => {
+                'port-object' => {
+		    store => 'OBJECT', 
+                    multi => 1,
+                    parse => 'parse_port_spec', params => ['udp'],
+                },
+		'group-object' => { 
+		    error => 'Nested object group not supported' 
+                },
+            }
+        },
+	'object-group service _skip tcp-udp' => {
+	    store => 'OBJECT_GROUP',
+	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'tcp-udp', },],
+	    subcmd => {
+                'port-object' => {
+		    store => 'OBJECT', 
+                    multi => 1,
+                    parse => 'parse_port_spec', params => ['tcp-udp'],
+                },
+		'group-object' => { 
+		    error => 'Nested object group not supported' 
+                },
+            }
+        },
+	'object-group service' => {
+	    store => 'OBJECT_GROUP',
+	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'service', },],
+	    subcmd => {
+                'service-object' => {
+                    store => 'OBJECT',
+                    multi => 1,
+                    parse => 
+                        ['or',
+                         ['cond1', { store => 'TYPE', parse => qr/ip/ }, ],
+                         ['cond1',
+                          { store => 'TYPE', parse => qr/udp|tcp|tcp-udp/ },
+                          { store => 'PORT', 
+                            parse => 'parse_port_spec', params => ['$TYPE'] } ],
+                        ['cond1',
+                         { store => 'TYPE', parse => qr/icmp/ },
+                         { store => 'SPEC', parse => 'parse_icmp_spec' }, ]],
+                },
+		'group-object' => { 
+		    error => 'Nested object group not supported' 
+                },
 	    }
 	},
+        'object-group protocol' => {store => 'OBJECT_GROUP',
+	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'protocol', },],
+	    subcmd => {
+                'protocol-object' => {
+                    store => 'OBJECT',
+                    multi => 1,
+                    parse => 
+                        ['seq',
+                         { store => 'TYPE', parse => \&get_token },
+                         { store => 'TYPE' ,
+                           parse => 'normalize_proto', params => [ '$TYPE' ] },
+                        ],
+                }
+            }
+        },
+            
 
 # access-list deny-flow-max n
 # access-list alert-interval secs
@@ -336,20 +421,23 @@ sub get_parse_info {
 		     { store => 'MODE', parse => qr/permit|deny/ },
 		     ['or',
 		      ['cond1',
-		       { parse => qr/object-group/ },
-		       { error => '"object-group" as proto is unsupported' } ],
-		      ['cond1',
 		       { store => 'TYPE', parse => qr/ip/ },
 		       { store => 'SRC', parse => 'parse_address' },
-		       { store => 'DST', parse => 'parse_address' } ],,
+		       { store => 'DST', parse => 'parse_address' } ],
 		      ['cond1',
-		       { store => 'TYPE', parse => qr/udp|tcp/ },
+                       ['or',
+                        { store => 'TYPE', parse => qr/udp|tcp/ },
+                        { store => 'TYPE', parse => 'parse_object_group' },
+                       ],
 		       { store => 'SRC', parse => 'parse_address' },
-		       { store => 'SRC_PORT', 
+		       { store => 'SRC_PORT',
+
+                         # We don't support object-group for source port,
+                         # because this would eat the value for DST.
 			 parse => 'parse_port_spec', params => ['$TYPE'] },
 		       { store => 'DST', parse => 'parse_address' },
 		       { store => 'DST_PORT', 
-			 parse => 'parse_port_spec', params => ['$TYPE'] } ],
+			 parse => 'parse_og_port_spec', params => ['$TYPE'] } ],
 		      ['cond1',
 		       { store => 'TYPE', parse => qr/icmp/ },
 		       { store => 'SRC', parse => 'parse_address' },
@@ -544,17 +632,27 @@ sub dev_cor ($$) {
     return $addr;
 }
 
-sub parse_address {
+sub parse_object_group  {
     my ($self, $arg) = @_;
-
     if(check_regex('object-group', $arg)) {
-	my $result;
-	$result->{OBJECT_GROUP} = get_token($arg);
-	return $result;
+	return { OBJECT_GROUP => get_token($arg) };
     }
     else {
-	return $self->SUPER::parse_address($arg);
+        return undef;
     }
+}
+
+sub parse_address {
+    my ($self, $arg) = @_;
+    return 
+        $self->parse_object_group($arg) || $self->SUPER::parse_address($arg);
+}
+
+sub parse_og_port_spec {
+    my ($self, $arg, $type) = @_;
+    return 
+        $self->parse_object_group($arg) || 
+        $self->SUPER::parse_port_spec($arg, $type);
 }
 
 ##############################################################
@@ -986,13 +1084,39 @@ sub equalize_attributes {
     return $modified;
 }
 
-sub address2key {
-    my ($e) = @_;
-    "$e->{BASE}/$e->{MASK}";
-}
+my %object2key_sub = (
+    network => sub { my ($e) = @_; "$e->{BASE}/$e->{MASK}"; },
+    tcp     => sub { my ($e) = @_; "$e->{LOW}/$e->{HIGH}"; },
+    udp     => sub { my ($e) = @_; "$e->{LOW}/$e->{HIGH}"; },
+    'tcp-udp' => sub { my ($e) = @_; "$e->{LOW}/$e->{HIGH}"; },
+    service => sub { 
+        my ($e) = @_;
+        my $r = $e->{TYPE};
+        if ($e->{TYPE} eq 'icmp') {
+            my $s = $e->{SPEC};
+            for my $where (qw(TYPE CODE)) {
+                my $v = $s->{TYPE};
+                $r .= defined $v ? $v : '-';
+            }
+        }
+        elsif ($e->{TYPE} =~ /^(?:tcp|udp)/) {
+	    my $port = $e->{PORT};
+	    $r .= "$port->{LOW}:$port->{HIGH}";
+	}
+        $r;
+    },
+    protocol => sub { my ($e) = @_; $e->{TYPE} },
+);
 
-sub address_compare {
-    $a->{BASE} <=> $b->{BASE} || $a->{MASK} <=> $b->{MASK}
+sub sort_object_group {
+    my ($group) = @_;
+    my $aref = $group->{OBJECT};
+    my $type = $group->{TYPE};
+    my $sub = $object2key_sub{$type};
+    return [ map { $_->[0] }
+             sort { $a->[1] cmp $b->[1] }
+             map { [ $_, $sub->($_) ] }
+             @$aref ];
 }
 
 # Return value: Bool, is group-name modified or not.
@@ -1030,13 +1154,21 @@ sub equalize_obj_group {
 	return 1;
     }	
 
+    if ($conf_group->{TYPE} ne $spoc_group->{TYPE}) {
+	mypr " ACL changes because $conf_group->{name} and" .
+            " $spoc_group->{name} have different type\n";
+	return 1;
+    }
+
     # Sort entries before finding diffs.
     # Order doesn't matter and
     # order is disturbed later by incremental update.
-    my $conf_networks = [ sort address_compare @{$conf_group->{NETWORK_OBJECT}} ];
-    my $spoc_networks = [ sort address_compare @{$spoc_group->{NETWORK_OBJECT}} ];
+    my $conf_networks = sort_object_group($conf_group);
+    my $spoc_networks = sort_object_group($spoc_group);
+    my $type = $conf_group->{TYPE};
+    my $address2key = $object2key_sub{$type};
     my $diff = Algorithm::Diff->new( $conf_networks, $spoc_networks,  
-				     { keyGen => \&address2key } );
+				     { keyGen => $address2key } );
 
     # Check, if identical or how many changes needed.
     my $change_lines = 0;
@@ -1086,7 +1218,12 @@ sub equalize_obj_group {
     }
     return 0;
 }
-    
+
+sub check_object_group {
+    my ($attr) = @_;
+    (ref($attr) && $attr->{OBJECT_GROUP}) ? 'object-group' : undef;
+}
+
 # Build textual representation from ACL entry for use with Algorithm::Diff.
 # Ignore name of object-group. Object-groups are compared semantically later.
 sub acl_entry2key {
@@ -1095,11 +1232,9 @@ sub acl_entry2key {
     push(@r, $e->{MODE});
     for my $where (qw(SRC DST)) {
 	my $what = $e->{$where};
-	push(@r, $what->{OBJECT_GROUP} 
-	       ? 'object-group' 
-	       : "$what->{BASE}/$what->{MASK}");
+	push(@r, check_object_group($what) || "$what->{BASE}/$what->{MASK}");
     }
-    push @r, $e->{TYPE};
+    push(@r, check_object_group($e->{TYPE}) || $e->{TYPE});
     if ($e->{TYPE} eq 'icmp') {
         my $s = $e->{SPEC};
 	for my $where (qw(TYPE CODE)) {
@@ -1110,7 +1245,7 @@ sub acl_entry2key {
     elsif ($e->{TYPE} eq 'tcp' or $e->{TYPE} eq 'udp') {
 	for my $where (qw(SRC_PORT DST_PORT)) {
 	    my $port = $e->{$where};
-	    push(@r, "$port->{LOW}:$port->{HIGH}");
+	    push(@r, check_object_group($port) || "$port->{LOW}:$port->{HIGH}");
 	}
 	push(@r, 'established') if $e->{ESTA};
     }
@@ -1140,12 +1275,14 @@ sub equalize_acl {
 	    for my $i (0 .. $count) {
 		my $conf_entry = $conf_entries->[$conf_min+$i];
 		my $spoc_entry = $spoc_entries->[$spoc_min+$i];
-		for my $where (qw(SRC DST)) {
+		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
+                    my $what = $conf_entry->{$where};
 		    if(my $conf_group_name = 
-		       $conf_entry->{$where}->{OBJECT_GROUP}) 
+                       ref($what) && $what->{OBJECT_GROUP}) 
 		    {
+                        $what = $spoc_entry->{$where};
 			my $spoc_group_name = 
-			    $spoc_entry->{$where}->{OBJECT_GROUP};
+                            ref($what) && $what->{OBJECT_GROUP};
 			my $conf_group = 
 			    object_for_name( $conf, 'OBJECT_GROUP', 
 					     $conf_group_name );
@@ -1171,9 +1308,13 @@ sub equalize_acl {
 	    # Mark object-groups referenced by acl lines from spoc 
 	    # but not on device.
 	    for my $spoc_entry ($diff->Items(2)) {
-		for my $where (qw(SRC DST)) {
-		    if(my $spoc_group_name = $spoc_entry->{$where}->{OBJECT_GROUP}) {
-			my $spoc_group = object_for_name( $spoc, 'OBJECT_GROUP', 
+		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
+                    my $what = $spoc_entry->{$where};
+		    if(my $spoc_group_name = 
+                       ref($what) && $what->{OBJECT_GROUP})
+                    {
+			my $spoc_group = object_for_name( $spoc, 
+                                                          'OBJECT_GROUP', 
 							  $spoc_group_name );
 			if(not $spoc_group->{name_on_dev}) {
 			    $spoc_group->{transfer} = 1;
@@ -1321,8 +1462,11 @@ sub make_equal {
 	if ( $parse_name eq 'ACCESS_LIST' ) {
 
 	    for my $spoc_entry (@{ $spoc_value->{LIST} }) {
-		for my $where (qw(SRC DST)) {
-		    if(my $spoc_group_name = $spoc_entry->{$where}->{OBJECT_GROUP}) {
+		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
+                    my $what = $spoc_entry->{$where};
+		    if(my $spoc_group_name = 
+                       ref($what) && $what->{OBJECT_GROUP})
+                    {
 			my $spoc_group = object_for_name( $spoc, 'OBJECT_GROUP', 
 							  $spoc_group_name );
 			if(not $spoc_group->{name_on_dev}) {
@@ -2087,9 +2231,10 @@ sub transfer_object_group {
     mypr "### transfer object-group $object_group to device\n";
     my $group = object_for_name( $spoc, $parse_name, $object_group );
     my $new_name = $group->{new_name};
-    my $cmd = "object-group $group->{TYPE} $new_name";
+    my $cmd = $group->{orig};
+    $cmd =~ s/^(\S+ \S+ )(\S+)(.*)/$1$new_name$3/;
     $self->cmd($cmd);
-    map( { $self->cmd( $_->{orig} ) } @{ $group->{NETWORK_OBJECT} } );
+    map( { $self->cmd( $_->{orig} ) } @{ $group->{OBJECT} } );
 }
 
 sub modify_object_group {
@@ -2129,8 +2274,9 @@ sub transfer_acl {
     for my $ace ( @{ $acl->{LIST} } ) {
 	my $cmd = $ace->{orig};
 	$cmd =~ s/^access-list\s+\S+/access-list $new_name/;
-	for my $where ( qw( SRC DST ) ) {
-	    if ( my $gid = $ace->{$where}->{OBJECT_GROUP} ) {
+	for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
+            my $what = $ace->{$where};
+	    if (my $gid = ref($what) && $what->{OBJECT_GROUP}) {
 		my $group = object_for_name( $spoc, 'OBJECT_GROUP', $gid );
 		my $new_gid = $group->{transfered_as} || $group->{name_on_dev} or
 		    die "Expected group $gid already on device";
