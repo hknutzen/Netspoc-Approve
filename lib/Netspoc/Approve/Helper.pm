@@ -11,7 +11,6 @@ package Netspoc::Approve::Helper;
 require Exporter;
 use strict;
 use warnings;
-use Expect;
 
 # VERSION: inserted by DZP::OurPkgVersion
 

@@ -10,6 +10,7 @@ package Netspoc::Approve::Console;
 use strict;
 use warnings;
 use Netspoc::Approve::Helper;
+use Expect;
 require Exporter;
 
 # VERSION: inserted by DZP::OurPkgVersion
