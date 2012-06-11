@@ -61,7 +61,7 @@ sub check_warn() {
 
 sub internal_err( @ ) {
     my ($package, $file, $line, $sub) = caller 1;
-    errpr "Internal error in $sub:\n ", @_, "\n";
+    errpr "Internal error in $sub: ", @_, "\n";
 }
 
 sub debug ( @ ) {
