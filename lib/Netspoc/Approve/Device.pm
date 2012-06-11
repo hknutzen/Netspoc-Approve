@@ -288,7 +288,7 @@ sub parse_seq {
 	    last if not $success;
 	}
 	else {
-	    errpr "internal: Expected 'seq|cond1|or' but got $type\n";
+	    internal_err "Expected 'seq|cond1|or' but got $type";
 	}
     }
     return $success;
@@ -315,7 +315,7 @@ sub parse_line {
 	return($result);
     }
     else {
-	errpr "internal: unexpected parse attribute: $info\n";
+	internal_err "Unexpected parse attribute: $info";
     }
 }
 
@@ -336,8 +336,9 @@ sub parse_config1 {
 	    $name = get_token($arg);
 	}
 	my $parser = $cmd_info->{parse};
+        my @params = $cmd_info->{params} ? @{ $cmd_info->{params} } : ();
 	my $value;
-	$value = parse_line($self, $arg, $parser) if $parser;
+	$value = parse_line($self, $arg, $parser, @params) if $parser;
 	get_eol($arg);
 	if(my $subcmds = $arg->{subcmd}) {
 	    my $parse_info = $cmd_info->{subcmd} or 
