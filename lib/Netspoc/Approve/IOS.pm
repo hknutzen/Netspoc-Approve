@@ -170,10 +170,12 @@ sub get_parse_info {
 
 	    },
 	},
-	'crypto isakmp identity' => {
-	    store => [ 'CRYPTO', 'ISAKMP', 'IDENTITY' ],
-	    parse => \&get_token,
-	},
+
+# Currently ignored
+#	'crypto isakmp identity' => {
+#	    store => [ 'CRYPTO', 'ISAKMP', 'IDENTITY' ],
+#	    parse => \&get_token,
+#	},
 
 # crypto isakmp policy <priority>
 #  <subcommands> 
