@@ -23,8 +23,8 @@ sub new {
     my $path   = $attributes{path} or croak "Missing attribute 'path'";
 
     my $fh;
-    my $fullpath = "$path$device";
-    if (-f "$path$device") {
+    my $fullpath = "$path/$device";
+    if (-f $fullpath) {
         sysopen($fh, $fullpath, O_RDWR)
           or die "Can't open file: $fullpath: $!\n";
     }

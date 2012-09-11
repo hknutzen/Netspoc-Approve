@@ -10,6 +10,7 @@ use warnings;
 use Fcntl qw/:flock/;    # import LOCK_* constants
 use Fcntl;
 use Getopt::Long;
+use Netspoc::Approve::Load_Config;
 use Netspoc::Approve::Device;
 use Netspoc::Approve::Linux;
 use Netspoc::Approve::Cisco;
@@ -54,7 +55,7 @@ END
     exit -1;
 }
 
-my $global_config = Netspoc::Approve::Device->get_global_config();
+my $global_config = Netspoc::Approve::Load_Config::load();
 Getopt::Long::Configure("no_ignore_case");
 
 my %opts;
@@ -97,7 +98,7 @@ my $class = $type2class{$type}
 my $job = $class->new(
     NAME          => $name,
     OPTS          => \%opts,
-    GLOBAL_CONFIG => $global_config,
+    CONFIG => $global_config,
     IP            => shift(@ip),
 );
 
@@ -111,6 +112,7 @@ if ($file2) {
     exit($job->compare_files($file1, $file2) ? 1 : 0)
 }
 
+$opts{t} ||= 300;
 $job->{IP} or die "Can't get IP from spoc file\n";
 
 # Enable logging if configured.
