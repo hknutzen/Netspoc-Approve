@@ -1,5 +1,23 @@
 {{$NEXT}}
 
+1.055     2012-09-11 17:50:38 Europe/Berlin
+
+1.055     2012-09-11 17:42:13 Europe/Berlin
+
+1.055     2012-09-11 17:12:46 Europe/Berlin
+
+- Added 'vrf forwarding' as equivalent to 'ip vrf forwarding'
+- Reading of password file has been generalized
+  Simple name,password tuples are allowed now 
+  in addition to cisco works format.
+- Configuration file is read from 
+  /etc/netspoc-approve
+  /usr/local/etc/netspoc-approve 
+  ~/.netspoc-approve
+- Added support of object-group service, protocol for ASA
+- No longer compare 'crypto isakmp identity' for IOS
+- Removed rex3
+
 1.054     2012-03-07 15:39:45 Europe/Berlin
 
 - Command 'compare-all' no longer uses raw files.
