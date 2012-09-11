@@ -33,8 +33,6 @@ sub new {
 sub get_global_config($) {
     my ($self) = @_;
     my $config = {
-        NETSPOC => '',
-        CODEPATH => '',
         CHECKBANNER => '',
         DEVICEDB => '',
         AAA_CREDENTIALS => '',
