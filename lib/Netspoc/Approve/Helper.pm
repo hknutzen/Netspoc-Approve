@@ -11,9 +11,8 @@ package Netspoc::Approve::Helper;
 require Exporter;
 use strict;
 use warnings;
-use Expect;
 
-our $VERSION = '1.054'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.055'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
@@ -61,7 +60,7 @@ sub check_warn() {
 
 sub internal_err( @ ) {
     my ($package, $file, $line, $sub) = caller 1;
-    errpr "Internal error in $sub:\n ", @_, "\n";
+    errpr "Internal error in $sub: ", @_, "\n";
 }
 
 sub debug ( @ ) {

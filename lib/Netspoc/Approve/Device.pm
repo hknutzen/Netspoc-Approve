@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.054'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.055'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -30,54 +30,31 @@ sub new {
 ###########################################################################
 #   methods
 ###########################################################################
-sub get_global_config($) {
-    my ($self) = @_;
-    my $config = {
-        NETSPOC => '',
-        CODEPATH => '',
-        CHECKBANNER => '',
-        DEVICEDB => '',
-        AAA_CREDENTIALS => '',
-        SYSTEMUSER => '',
-    };
-    my $madhome = '/home/diamonds/';
-    my $rcmad   = $madhome . '.rcmadnes';
-    open(my $file, '<', $rcmad) or die "Can't open $rcmad: $!\n";
-    while (<$file>){
-	if (my ($key, $val) = /^ \s* (\w+) \s* = \s* (\S+) \s* $/x) {
-	    if (exists $config->{$key}) {
-		$config->{$key} = $val;
-	    }
-	}
-    }
-    for my $key (keys %$config) {
-        next if $key eq 'CHECKBANNER';
-        $config->{$key} or die "Missing $key in $rcmad\n";
-    }
-    $config->{LOCKFILEPATH}   = "$madhome/lock";;
-    return $config;
-}
 
-# Get password data from file cw_pass.
+# Get password from file.
 # Format:
 # - Comma separated values:
 #   0: <name>
+#   has at least 9 fields (Cisco Works format)
 #   8: <Telnet password>
+#   else
+#   1: <password>
 # - ignore 
-#   - comment lines starting with ';' and 
 #   - empty lines.
+#   - comment lines starting with ';' or #
 sub get_cw_password ($$) {
     my ($self, $name) = @_;
-    my $path = "$self->{GLOBAL_CONFIG}->{DEVICEDB}/cw_pass";
+    my $path = "$self->{CONFIG}->{PASSWDPATH}" or return;
 
     open(my $csv, '<', $path) or die "Can't open $path: $!\n";
     for my $line (<$csv>) {
-        $line =~ /^;/ and next;
-        $line =~ s/[\"\r\n]//g;
+        chomp $line;
+        $line =~ /^[;#]/ and next;
+        $line =~ s/[\"]//g;
         $line or next;
-        my ($name2, $pass) = (split /,/, $line)[0, 8];
-        if ($name eq $name2) {
-            return $pass;
+        my @fields = split(/,/, $line);
+        if ($name eq $fields[0]) {
+            return $fields[@fields >= 9 ? 8 : 1];
         }
     }
     return;
@@ -87,10 +64,12 @@ sub get_aaa_password {
     my ($self) = @_;
     my $pass;
     my $user = getpwuid($>);
-    if ($user eq $self->{GLOBAL_CONFIG}->{SYSTEMUSER}) {
+    my $system_user = $self->{CONFIG}->{SYSTEMUSER};
+    if ($system_user && $user eq $system_user) {
 
 	# Use AAA credentials.
-	my $aaa_credential = $self->{GLOBAL_CONFIG}->{AAA_CREDENTIALS};
+	my $aaa_credential = $self->{CONFIG}->{AAA_CREDENTIALS}
+            or die "Must configure AAA_CREDENTIALS together with SYSTEMUSER\n";
 	open(my $file, '<', $aaa_credential)
 	    or die "Could not open $aaa_credential: $!\n";
 	my $credentials = <$file>;
@@ -288,7 +267,7 @@ sub parse_seq {
 	    last if not $success;
 	}
 	else {
-	    errpr "internal: Expected 'seq|cond1|or' but got $type\n";
+	    internal_err "Expected 'seq|cond1|or' but got $type";
 	}
     }
     return $success;
@@ -315,7 +294,7 @@ sub parse_line {
 	return($result);
     }
     else {
-	errpr "internal: unexpected parse attribute: $info\n";
+	internal_err "Unexpected parse attribute: $info";
     }
 }
 
@@ -336,8 +315,9 @@ sub parse_config1 {
 	    $name = get_token($arg);
 	}
 	my $parser = $cmd_info->{parse};
+        my @params = $cmd_info->{params} ? @{ $cmd_info->{params} } : ();
 	my $value;
-	$value = parse_line($self, $arg, $parser) if $parser;
+	$value = parse_line($self, $arg, $parser, @params) if $parser;
 	get_eol($arg);
 	if(my $subcmds = $arg->{subcmd}) {
 	    my $parse_info = $cmd_info->{subcmd} or 
@@ -969,7 +949,7 @@ sub checkidentity {
 
 sub checkbanner {
     my ($self) = @_;
-    my $check = $self->{GLOBAL_CONFIG}->{CHECKBANNER} or return;
+    my $check = $self->{CONFIG}->{CHECKBANNER} or return;
     if ( $self->{PRE_LOGIN_LINES} !~ /$check/) {
         if ($self->{COMPARE}) {
             warnpr "Missing banner at NetSPoC managed device.\n";
@@ -983,21 +963,20 @@ sub checkbanner {
 sub adaption {
     my ($self) = @_;
 
-    $self->{telnet_timeout} = $self->{OPTS}->{t} || 300;
     $self->{telnet_logs}    = $self->{OPTS}->{L} || undef;
 }
 
 sub con_setup {
     my ($self, $startup_message) = @_;
-    my $logfile =
-      $self->{telnet_logs}
-      ? "$self->{telnet_logs}$self->{NAME}.tel"
-      : '';
+    my $logfile;
+    if (my $logdir = $self->{OPTS}->{L}) {
+        $logfile = "$self->{telnet_logs}$self->{NAME}.tel";
+    }
 
     my $con = $self->{CONSOLE} =
 	Netspoc::Approve::Console->new_console($self, "telnet", $logfile,
 					      $startup_message);
-    $con->{TIMEOUT} = $self->{telnet_timeout};
+    $con->{TIMEOUT} = $self->{OPTS}->{t};
 }
 
 sub con_shutdown {
@@ -1119,32 +1098,8 @@ sub check_device {
     return 0;
 }
 
-sub remote_execute {
-    my ($self, $cmd) = @_;
-    $self->adaption();
-
-    # tell the Helper not to print message approve aborted
-    errpr_mode("COMPARE");
-
-    # to prevent configured by console messages
-    # in compare mode prepare() does not change router config
-    $self->{COMPARE} = 1;
-    $self->con_setup(
-        "START: execute user command at > " . scalar localtime() . " <");
-    $self->prepare();
-    $cmd =~ s/\\n/\n/g;
-    for my $line (split /[;]/, $cmd) {
-        my $output = $self->shcmd($line);
-        mypr $output, "\n";
-    }
-    mypr "\n";
-    $self->con_shutdown("STOP");
-}
-
 sub approve {
     my ($self, $spoc_path) = @_;
-    $self->adaption();
-
     $self->{COMPARE} = undef;
 
     # set up console
@@ -1187,10 +1142,7 @@ sub get_change_status {
 
 sub compare {
     my ($self, $spoc_path) = @_;
-    $self->adaption();
-
-    # save compare mode
-    $self->{COMPARE}      = 1;
+    $self->{COMPARE} = 1;
 
     # set up console
     my $time = localtime();
@@ -1219,8 +1171,6 @@ sub compare {
 
 sub compare_files {
     my ($self, $path1, $path2) = @_;
-    $self->adaption();
-
     $self->{COMPARE} = 1;
 
     my $conf1 = $self->load_spoc($path1);
@@ -1283,7 +1233,7 @@ sub logging {
       or mypr "--- output redirected to $logfile\n";
 
     # Print the above message *before* redirecting!
-    unless (-f "$logfile") {
+    unless (-f $logfile) {
         (open(STDOUT, $appmode, $logfile))
           or die "Could not open $logfile: $!\n";
         defined chmod 0644, "$logfile"
@@ -1306,7 +1256,7 @@ sub logging {
         my ($self, $name) = @_;
 
         # set lock for exclusive approval
-        my $lockfile = "$self->{GLOBAL_CONFIG}->{LOCKFILEPATH}/$name";
+        my $lockfile = "$self->{CONFIG}->{LOCKFILEDIR}/$name";
         unless (-f "$lockfile") {
             open($lock->{$name}, '>', "$lockfile")
               or die "Could not aquire lock file $lockfile: $!\n";

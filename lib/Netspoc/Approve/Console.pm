@@ -10,9 +10,10 @@ package Netspoc::Approve::Console;
 use strict;
 use warnings;
 use Netspoc::Approve::Helper;
+use Expect;
 require Exporter;
 
-our $VERSION = '1.054'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.055'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );

@@ -1,5 +1,4 @@
 Changes
-Changes~
 LICENSE
 MANIFEST
 META.yml
@@ -9,10 +8,9 @@ bin/approve.pl
 bin/compare-all
 bin/drc3.pl
 bin/missing-approve
-bin/rex3
 bin/start-jobs
 dist.ini
-dist.ini~
+etc/netspoc-approve
 lib/Netspoc/Approve/ASA.pm
 lib/Netspoc/Approve/Cisco.pm
 lib/Netspoc/Approve/Cisco_FW.pm
@@ -21,6 +19,7 @@ lib/Netspoc/Approve/Device.pm
 lib/Netspoc/Approve/Helper.pm
 lib/Netspoc/Approve/IOS.pm
 lib/Netspoc/Approve/Linux.pm
+lib/Netspoc/Approve/Load_Config.pm
 lib/Netspoc/Approve/PIX.pm
 lib/Netspoc/Approve/Parse_Cisco.pm
 lib/Netspoc/Approve/Status.pm

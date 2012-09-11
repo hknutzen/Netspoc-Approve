@@ -1,0 +1,14 @@
+# Configuration file for netspoc-approve
+
+NETSPOCDIR  = /home/diamonds/netspoc
+LOCKFILEDIR = /home/diamonds/lock
+
+# optional
+SYSTEMUSER  = diamonds
+AAA_CREDENTIALS = /home/diamonds/.aaa_credentials
+PASSWDPATH  = /home/diamonds/device-database/cw_pass
+
+CHECKBANNER = NetSPoC
+
+STATUSDIR   = /home/diamonds/status
+HISTORYDIR  = /home/diamonds/history

@@ -14,7 +14,7 @@ use IO::Socket ();
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.054'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.055'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -67,18 +67,19 @@ our %ICMP_Names = (
     'mobile-redirect'             => { type => 32, code => -1 }
 );
 
+# Leave names unchanged for standard protocols icmp, tcp, udp.
 our %IP_Names = (
     'eigrp'  => 88,
     'gre'    => 47,
-    'icmp'   => 1,
+#    'icmp'   => 1,
     'igmp'   => 2,
     'igrp'   => 9,
     'ipinip' => 4,
     'nos'    => 94,    # strange name
     'ospf'   => 89,
     'pim'    => 103,
-    'tcp'    => 6,
-    'udp'    => 17,
+#    'tcp'    => 6,
+#    'udp'    => 17,
     'ah'     => 51,
     'ahp'    => 51,
     'esp'    => 50
@@ -386,8 +387,17 @@ sub parse_port {
     if ($proto eq 'tcp') {
         $port = $PORT_Names_TCP{$port} || $port;
     }
-    else {
+    elsif ($proto eq 'udp') {
         $port = $PORT_Names_UDP{$port} || $port;
+    }
+
+    # For tcp-udp and object-group check for intersection of port names.
+    else {
+        my $tcp = $PORT_Names_TCP{$port};
+        my $udp = $PORT_Names_UDP{$port};
+        if ($tcp && $udp && $tcp == $udp) {
+            $port = $tcp;
+        }
     }
     $port =~ /^\d+$/ or err_at_line($arg, 'Expected port number');
     return $port;
@@ -450,7 +460,7 @@ sub parse_icmp_spec {
 sub normalize_proto {
     my ($self, $arg, $proto) = @_;
     $proto = $IP_Names{$proto} || $proto;
-    $proto =~ /^\d+$/ 
+    $proto =~ /^(?:\d+|icmp|tcp|udp)$/
 	or $self->err_at_line($arg, "Expected numeric proto '$proto'");
     $proto =~ /^(1|6|17)$/
 	and $self->err_at_line($arg, "Don't use numeric proto for", 

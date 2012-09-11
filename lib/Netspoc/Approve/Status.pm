@@ -12,7 +12,7 @@ use warnings;
 use Carp;
 use Fcntl;
 
-our $VERSION = '1.054'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.055'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -23,8 +23,8 @@ sub new {
     my $path   = $attributes{path} or croak "Missing attribute 'path'";
 
     my $fh;
-    my $fullpath = "$path$device";
-    if (-f "$path$device") {
+    my $fullpath = "$path/$device";
+    if (-f $fullpath) {
         sysopen($fh, $fullpath, O_RDWR)
           or die "Can't open file: $fullpath: $!\n";
     }

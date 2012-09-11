@@ -14,7 +14,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.054'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.055'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -70,8 +70,13 @@ sub get_parse_info {
 		store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
 	    'ip inspect _skip in' => { 
 		store => 'INSPECT', parse => \&get_token, },
+
+            # Both commands are assumed to be equivalent.
 	    'ip vrf forwarding' => {
 		store => 'VRF', parse => \&get_token, },
+	    'vrf forwarding' => {
+		store => 'VRF', parse => \&get_token, },
+            # 
 	    'crypto map' => {
 		store => 'CRYPTO_MAP', parse => \&get_token, },
 	    'crypto ipsec client ezvpn' => { 
@@ -170,10 +175,12 @@ sub get_parse_info {
 
 	    },
 	},
-	'crypto isakmp identity' => {
-	    store => [ 'CRYPTO', 'ISAKMP', 'IDENTITY' ],
-	    parse => \&get_token,
-	},
+
+# Currently ignored
+#	'crypto isakmp identity' => {
+#	    store => [ 'CRYPTO', 'ISAKMP', 'IDENTITY' ],
+#	    parse => \&get_token,
+#	},
 
 # crypto isakmp policy <priority>
 #  <subcommands> 

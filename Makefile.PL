@@ -20,7 +20,6 @@ my %WriteMakefileArgs = (
   },
   "DISTNAME" => "Netspoc-Approve",
   "EXE_FILES" => [
-    "bin/rex3",
     "bin/compare-all",
     "bin/drc3.pl",
     "bin/missing-approve",
@@ -44,7 +43,7 @@ my %WriteMakefileArgs = (
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "1.054",
+  "VERSION" => "1.055",
   "test" => {
     "TESTS" => "t/*.t"
   }
