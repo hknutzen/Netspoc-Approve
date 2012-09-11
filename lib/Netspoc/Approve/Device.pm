@@ -1118,28 +1118,6 @@ sub check_device {
     return 0;
 }
 
-sub remote_execute {
-    my ($self, $cmd) = @_;
-    $self->adaption();
-
-    # tell the Helper not to print message approve aborted
-    errpr_mode("COMPARE");
-
-    # to prevent configured by console messages
-    # in compare mode prepare() does not change router config
-    $self->{COMPARE} = 1;
-    $self->con_setup(
-        "START: execute user command at > " . scalar localtime() . " <");
-    $self->prepare();
-    $cmd =~ s/\\n/\n/g;
-    for my $line (split /[;]/, $cmd) {
-        my $output = $self->shcmd($line);
-        mypr $output, "\n";
-    }
-    mypr "\n";
-    $self->con_shutdown("STOP");
-}
-
 sub approve {
     my ($self, $spoc_path) = @_;
     $self->adaption();
