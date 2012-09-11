@@ -70,8 +70,13 @@ sub get_parse_info {
 		store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
 	    'ip inspect _skip in' => { 
 		store => 'INSPECT', parse => \&get_token, },
+
+            # Both commands are assumed to be equivalent.
 	    'ip vrf forwarding' => {
 		store => 'VRF', parse => \&get_token, },
+	    'vrf forwarding' => {
+		store => 'VRF', parse => \&get_token, },
+            # 
 	    'crypto map' => {
 		store => 'CRYPTO_MAP', parse => \&get_token, },
 	    'crypto ipsec client ezvpn' => { 
