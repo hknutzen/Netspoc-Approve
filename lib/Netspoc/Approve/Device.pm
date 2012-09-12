@@ -964,9 +964,8 @@ sub con_setup {
     my ($self, $startup_message) = @_;
     my $logfile;
     if (my $logdir = $self->{OPTS}->{L}) {
-        $logfile = "$self->{telnet_logs}$self->{NAME}.tel";
+        $logfile = "$logdir/$self->{NAME}.tel";
     }
-
     my $con = $self->{CONSOLE} =
 	Netspoc::Approve::Console->new_console($self, "telnet", $logfile,
 					      $startup_message);

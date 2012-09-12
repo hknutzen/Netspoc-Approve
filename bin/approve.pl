@@ -120,14 +120,14 @@ if ($device =~ $old_device_pattern) {
     my $compare_option = $is_compare ? '-C 0' : '';
     $cmd = 
         "drc2.pl $compare_option -P $policy -I $running_for_user" .
-        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath/" .
+        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
         " -N $codefile $device";
 }
 else {
     my $compare_option = $is_compare ? '-C' : '';
     $cmd = 
         "drc3.pl $compare_option" .
-        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath/" .
+        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
         " $codefile";
 }
 
