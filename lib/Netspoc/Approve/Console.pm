@@ -19,30 +19,17 @@ our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
 
 ############################################################
-#
 # Constructor.
-#
 ############################################################
-sub new {
-    my $class = shift;
-    my $self  = {};
 
-    bless( $self, $class );
-    return $self;
-}
+sub new_console {
+    my ($class, $job, $logfile, $startup_message) = @_;
+    $job->{CONSOLE} and die "console already created\n";
 
-
-sub new_console ($$$$) {
-    my ($class, $nob, $name, $logfile, $startup_message) = @_;
-    if ( exists $nob->{CONSOLE}->{$name} ) {
-        die "console \'$name\' already created\n";
-    }
-    $nob->{CONSOLE}->{$name}->{NAME} = $name;
-    my $con = $nob->{CONSOLE}->{$name};
-    $con->{NAME}   = $name;
-    $con->{PARENT} = $nob->{CONSOLE};
-    my $console = Expect->new();
-    $con->{EXPECT} = $console;
+    my $con = $job->{CONSOLE} = {};
+    bless( $con, $class );
+    $con->{PARENT} = $job;
+    my $console = $con->{EXPECT} = Expect->new();
 
     if ( $logfile ) {
         my $fh;
@@ -73,7 +60,6 @@ sub new_console ($$$$) {
     #$Expect::Debug = 1;
     $console->raw_pty( 1 );
     $console->log_stdout( 0 );
-    bless( $con, $class );
     return $con;
 }
 
@@ -91,7 +77,7 @@ sub shutdown_console ($$) {
     # do the right thing... (maybe we have to close something else...)
     #print $ssh->fileno()."\n";
     $con->{EXPECT}->soft_close();    # or die $ssh->error();
-    delete $con->{PARENT}->{ $con->{NAME} };
+    delete $con->{PARENT}->{CONSOLE};
 }
 
 #    If called in an array context expect() will return
@@ -124,7 +110,7 @@ sub con_wait {
 }
 
 # We might accidently have read multiple prompt strings.
-# This occurs, if relaod banner is sent or multiple commands are sent in 
+# This occurs, if reload banner is sent or multiple commands are sent in 
 # one packet.
 # Check for this case and put extra data after first prompt back into
 # accumulator of expect.

@@ -967,8 +967,8 @@ sub con_setup {
         $logfile = "$logdir/$self->{NAME}.tel";
     }
     my $con = $self->{CONSOLE} =
-	Netspoc::Approve::Console->new_console($self, "telnet", $logfile,
-					      $startup_message);
+	Netspoc::Approve::Console->new_console($self, $logfile,
+                                               $startup_message);
     $con->{TIMEOUT} = $self->{OPTS}->{t};
 }
 
