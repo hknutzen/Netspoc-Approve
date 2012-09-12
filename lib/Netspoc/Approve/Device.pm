@@ -1182,19 +1182,10 @@ sub logging {
     my $self = shift;
     my $logfile = $self->{OPTS}->{LOGFILE} or
         return;
-    if ($logfile !~ /\A\//) {
-
-        # $logfile given as relative path - extend to absolute path
-        my $wd = `pwd`;
-        chomp $wd;
-        $logfile = "$wd/$logfile";
-    }
-    my $basename = basename($self->{OPTS}->{LOGFILE});
-    $basename or die "No filename for logging specified\n";
-    my $dirname = dirname($self->{OPTS}->{LOGFILE});
+    my $dirname = dirname($logfile);
 
     # Create logdir
-    if (not -d $dirname) {
+    if ($dirname && ! -d $dirname) {
         if (mkdir($dirname, 0755)) {
 	    defined(chmod(0755, $dirname))
 		or die "Couldn't chmod logdir $dirname: $!\n";
@@ -1202,7 +1193,7 @@ sub logging {
 
 	# Check -d again, because some other process may have created 
 	# the directory in the meantime.
-	elsif (not -d $dirname) {
+	elsif (! -d $dirname) {
 	    die "Couldn't create $dirname: $!\n";
 	}
     }
