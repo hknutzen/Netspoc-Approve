@@ -1,10 +1,10 @@
 {{$NEXT}}
 
+1.056     2012-09-12 09:10:36 Europe/Berlin
+
+- Fixed console logging directory
+
 1.055     2012-09-11 17:50:38 Europe/Berlin
-
-1.055     2012-09-11 17:42:13 Europe/Berlin
-
-1.055     2012-09-11 17:12:46 Europe/Berlin
 
 - Added 'vrf forwarding' as equivalent to 'ip vrf forwarding'
 - Reading of password file has been generalized
