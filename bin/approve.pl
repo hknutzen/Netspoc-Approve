@@ -14,7 +14,7 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.055'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.056'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean PATH if run in taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
@@ -120,14 +120,14 @@ if ($device =~ $old_device_pattern) {
     my $compare_option = $is_compare ? '-C 0' : '';
     $cmd = 
         "drc2.pl $compare_option -P $policy -I $running_for_user" .
-        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath/" .
+        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
         " -N $codefile $device";
 }
 else {
     my $compare_option = $is_compare ? '-C' : '';
     $cmd = 
         "drc3.pl $compare_option" .
-        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath/" .
+        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
         " $codefile";
 }
 

@@ -14,7 +14,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.055'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.056'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $handle_iptables = 1;
 
