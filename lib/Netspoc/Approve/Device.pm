@@ -960,12 +960,6 @@ sub checkbanner {
     }
 }
 
-sub adaption {
-    my ($self) = @_;
-
-    $self->{telnet_logs}    = $self->{OPTS}->{L} || undef;
-}
-
 sub con_setup {
     my ($self, $startup_message) = @_;
     my $logfile;
