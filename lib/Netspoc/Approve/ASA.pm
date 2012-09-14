@@ -29,12 +29,17 @@ sub get_parse_info {
 		'security-level' => { store => 'SECURITY', parse => \&get_int},
 		'ip address' => { 
 		    store => 'ADDRESS',
-		    parse => ['seq',
-			      { store => 'BASE', parse => \&get_ip },
-			      { store => 'MASK', parse => \&get_ip },
-			      ['cond1',
-			       { parse => qr/standby/ },
-			       { store => 'STANDBY', parse => \&get_ip } ]] },
+		    parse => ['or',
+                              ['seq',
+                               { store => 'DYNAMIC', parse => qr/pppoe|dhcp/, },
+                               ['cond1',
+                                { parse => qr/setroute/ } ]],
+                              ['seq',
+                               { store => 'BASE', parse => \&get_ip },
+                               { store => 'MASK', parse => \&get_ip },
+                               ['cond1',
+                                { parse => qr/standby/ },
+                                { store => 'STANDBY', parse => \&get_ip } ]]] },
 		'management-only' => { 
 		    store => 'MANAGEMENT_ONLY', default => 1 },
 	    }
