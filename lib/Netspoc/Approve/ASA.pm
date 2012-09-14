@@ -373,9 +373,11 @@ sub postprocess_config {
     my $tunnel_groups = $p->{TUNNEL_GROUP} ||= {};
     for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
 	if ( is_ip( $tg_ipsec_name ) ) {
-	    $p->{TUNNEL_GROUP_IPNAME_IPSEC}->{$tg_ipsec_name} = 
-		$p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
-	    delete $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
+	    $p->{TUNNEL_GROUP_IPNAME_IPSEC}->{$tg_ipsec_name} =
+                delete $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
+            if ($p->{TUNNEL_GROUP}->{$tg_ipsec_name}) {
+                errpr "tunnel-group <ip> general-attributes is not supported\n";
+            }
 	}
 	else {
 	    $p->{TUNNEL_GROUP}->{$tg_ipsec_name} ||= { name => $tg_ipsec_name };
