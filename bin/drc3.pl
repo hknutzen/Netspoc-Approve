@@ -55,7 +55,7 @@ END
     exit -1;
 }
 
-my $global_config = Netspoc::Approve::Load_Config::load();
+my $config = Netspoc::Approve::Load_Config::load();
 Getopt::Long::Configure("no_ignore_case");
 
 my %opts;
@@ -85,7 +85,6 @@ my $file2 = shift;
 # Take basename of file as device name.
 (my $name = $file1) =~ s|^.*/||;
 
-
 # Get type and IP addresses from spoc file.
 my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($file2 || $file1);
 
@@ -96,10 +95,10 @@ my $class = $type2class{$type}
   or die "Can't find class for spoc type '$type'\n";
 
 my $job = $class->new(
-    NAME          => $name,
-    OPTS          => \%opts,
-    CONFIG => $global_config,
-    IP            => shift(@ip),
+    NAME   => $name,
+    OPTS   => \%opts,
+    CONFIG => $config,
+    IP     => shift(@ip),
 );
 
 

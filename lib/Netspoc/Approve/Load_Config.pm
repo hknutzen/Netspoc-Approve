@@ -5,18 +5,18 @@ use warnings;
 use Carp;
 
 my $config = {
-    NETSPOCDIR      => 1,
-    LOCKFILEDIR     => 1,
-    HISTORYDIR      => 0,
-    STATUSDIR       => 0,
-    CHECKBANNER     => 0,	# regex
-    PASSWDPATH      => 0,
-    AAA_CREDENTIALS => 1,	# path
-    SYSTEMUSER      => 1,	# username
+    netspocdir      => 1,
+    lockfiledir     => 1,
+    historydir      => 0,
+    statusdir       => 0,
+    checkbanner     => 0,	# regex
+    passwdpath      => 0,
+    aaa_credentials => 0,	# path
+    systemuser      => 0,	# username
 };
 
-my @paths = 
-    </etc/netspoc-approve /usr/local/etc/netspoc-approve ~/.netspoc-approve>;
+my @prefix = ('/etc/', '/usr/local/etc/', glob('~/.'));
+my @paths = map("${_}netspoc-approve", @prefix);
 
 # Files are trusted; values are untainted by pattern match.
 sub load {

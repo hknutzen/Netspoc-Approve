@@ -37,7 +37,7 @@ my $config = Netspoc::Approve::Load_Config::load();
 # Open history file for logging.
 sub init_history_logging {
     my ($devicename, $arguments, $user) = @_;
-    my $historypath = $config->{HISTORYDIR} or return;
+    my $historypath = $config->{historydir} or return;
     my $historyfile = "$historypath/$devicename"; 
     open(HISTORY, ">>", $historyfile) or 
 	die "Error: Can't open $historyfile: $!\n";
@@ -52,7 +52,7 @@ sub init_history_logging {
 
 sub log_history {
     my ($message) = @_;
-    $config->{HISTORYDIR} or return;
+    $config->{historydir} or return;
     my $date = strftime "%Y %m %e %H:%M:%S", localtime();
     print HISTORY "$date $message\n";
 }
@@ -82,7 +82,7 @@ my $command = shift(@ARGV) or usage();
 my $device = shift(@ARGV) or usage();
 @ARGV and usage();
 
-my $netspocdir = $config->{NETSPOCDIR};
+my $netspocdir = $config->{netspocdir};
 
 # Read current policy
 # Link is created by trusted program.
@@ -136,7 +136,7 @@ log_history("START: $cmd");
 log_history("POLICY: $policy");
 
 my $status;
-if (my $statuspath = $config->{STATUSDIR}) {
+if (my $statuspath = $config->{statusdir}) {
     $status = Netspoc::Approve::Status->new(device => $device, 
                                             path => $statuspath);
 }

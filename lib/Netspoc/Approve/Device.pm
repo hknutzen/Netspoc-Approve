@@ -44,7 +44,7 @@ sub new {
 #   - comment lines starting with ';' or #
 sub get_cw_password ($$) {
     my ($self, $name) = @_;
-    my $path = "$self->{CONFIG}->{PASSWDPATH}" or return;
+    my $path = "$self->{CONFIG}->{passwdpath}" or return;
 
     open(my $csv, '<', $path) or die "Can't open $path: $!\n";
     for my $line (<$csv>) {
@@ -64,11 +64,11 @@ sub get_aaa_password {
     my ($self) = @_;
     my $pass;
     my $user = getpwuid($>);
-    my $system_user = $self->{CONFIG}->{SYSTEMUSER};
+    my $system_user = $self->{CONFIG}->{systemuser};
     if ($system_user && $user eq $system_user) {
 
 	# Use AAA credentials.
-	my $aaa_credential = $self->{CONFIG}->{AAA_CREDENTIALS}
+	my $aaa_credential = $self->{CONFIG}->{aaa_credentials}
             or die "Must configure AAA_CREDENTIALS together with SYSTEMUSER\n";
 	open(my $file, '<', $aaa_credential)
 	    or die "Could not open $aaa_credential: $!\n";
@@ -949,7 +949,7 @@ sub checkidentity {
 
 sub checkbanner {
     my ($self) = @_;
-    my $check = $self->{CONFIG}->{CHECKBANNER} or return;
+    my $check = $self->{CONFIG}->{checkbanner} or return;
     if ( $self->{PRE_LOGIN_LINES} !~ /$check/) {
         if ($self->{COMPARE}) {
             warnpr "Missing banner at NetSPoC managed device.\n";
@@ -1240,7 +1240,7 @@ sub logging {
         my ($self, $name) = @_;
 
         # set lock for exclusive approval
-        my $lockfile = "$self->{CONFIG}->{LOCKFILEDIR}/$name";
+        my $lockfile = "$self->{CONFIG}->{lockfiledir}/$name";
         unless (-f "$lockfile") {
             open($lock->{$name}, '>', "$lockfile")
               or die "Could not aquire lock file $lockfile: $!\n";
