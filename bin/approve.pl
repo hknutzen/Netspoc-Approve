@@ -1,10 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # approve.pl
 #
 # Author: Heinz Knutzen, Arne Spetzler
 # Description:
 # Wrapper to approve and compare current policy.
-# Does history logging.
+# Does history logging and writes status files.
 #
 
 use strict;
@@ -19,15 +19,13 @@ use Netspoc::Approve::Load_Config;
 # Clean PATH if run in taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
 
-my $prog = "diamonds";
-
 # Use old drc2.pl for devices matching this pattern
 my $old_device_pattern = qr/^vpn3k_/;
 
 sub usage {
     print "Usage:\n";
-    print "$prog approve <device-name>\n";
-    print "$prog compare <device-name>\n";
+    print "$0 approve <device-name>\n";
+    print "$0 compare <device-name>\n";
     exit -1;
 }
 
@@ -67,17 +65,11 @@ sub untaint {
 ##  main
 #############################################################################
 
-my $arguments = join ' ', $0 ,@ARGV[1..$#ARGV];
-my $ruid = shift;
-defined $ruid or die "Error: missing calling UID as first arg to $0\n";
+# Get real UID, we may be running with some other effective UID.
+my $running_for_user = getpwuid($<) or die "Error: real UID is unknown\n";
 
-# Untaint, because it is only logged.
-my $running_for_user = untaint(getpwuid($ruid)) or 
-    die "ERROR: no user for uid $ruid\n";
-
-#
-# Command evaluation
-#
+# Argument processing.
+my $arguments = join ' ', $0, @ARGV;
 my $command = shift(@ARGV) or usage();
 my $device = shift(@ARGV) or usage();
 @ARGV and usage();
@@ -147,6 +139,7 @@ if (not $is_compare) {
 }
 
 # Prevent taint mode for called program.
+# Set real to effective UID
 $< = $>;
 $( = $);
 
