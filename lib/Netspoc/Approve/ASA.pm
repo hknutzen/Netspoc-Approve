@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.056'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.057'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -29,12 +29,17 @@ sub get_parse_info {
 		'security-level' => { store => 'SECURITY', parse => \&get_int},
 		'ip address' => { 
 		    store => 'ADDRESS',
-		    parse => ['seq',
-			      { store => 'BASE', parse => \&get_ip },
-			      { store => 'MASK', parse => \&get_ip },
-			      ['cond1',
-			       { parse => qr/standby/ },
-			       { store => 'STANDBY', parse => \&get_ip } ]] },
+		    parse => ['or',
+                              ['seq',
+                               { store => 'DYNAMIC', parse => qr/pppoe|dhcp/, },
+                               ['cond1',
+                                { parse => qr/setroute/ } ]],
+                              ['seq',
+                               { store => 'BASE', parse => \&get_ip },
+                               { store => 'MASK', parse => \&get_ip },
+                               ['cond1',
+                                { parse => qr/standby/ },
+                                { store => 'STANDBY', parse => \&get_ip } ]]] },
 		'management-only' => { 
 		    store => 'MANAGEMENT_ONLY', default => 1 },
 	    }
@@ -368,9 +373,11 @@ sub postprocess_config {
     my $tunnel_groups = $p->{TUNNEL_GROUP} ||= {};
     for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
 	if ( is_ip( $tg_ipsec_name ) ) {
-	    $p->{TUNNEL_GROUP_IPNAME_IPSEC}->{$tg_ipsec_name} = 
-		$p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
-	    delete $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
+	    $p->{TUNNEL_GROUP_IPNAME_IPSEC}->{$tg_ipsec_name} =
+                delete $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
+            if ($p->{TUNNEL_GROUP}->{$tg_ipsec_name}) {
+                errpr "tunnel-group <ip> general-attributes is not supported\n";
+            }
 	}
 	else {
 	    $p->{TUNNEL_GROUP}->{$tg_ipsec_name} ||= { name => $tg_ipsec_name };

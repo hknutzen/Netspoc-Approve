@@ -1,10 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # approve.pl
 #
 # Author: Heinz Knutzen, Arne Spetzler
 # Description:
 # Wrapper to approve and compare current policy.
-# Does history logging.
+# Does history logging and writes status files.
 #
 
 use strict;
@@ -14,20 +14,18 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.056'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.057'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean PATH if run in taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
-
-my $prog = "diamonds";
 
 # Use old drc2.pl for devices matching this pattern
 my $old_device_pattern = qr/^vpn3k_/;
 
 sub usage {
     print "Usage:\n";
-    print "$prog approve <device-name>\n";
-    print "$prog compare <device-name>\n";
+    print "$0 approve <device-name>\n";
+    print "$0 compare <device-name>\n";
     exit -1;
 }
 
@@ -37,7 +35,7 @@ my $config = Netspoc::Approve::Load_Config::load();
 # Open history file for logging.
 sub init_history_logging {
     my ($devicename, $arguments, $user) = @_;
-    my $historypath = $config->{HISTORYDIR} or return;
+    my $historypath = $config->{historydir} or return;
     my $historyfile = "$historypath/$devicename"; 
     open(HISTORY, ">>", $historyfile) or 
 	die "Error: Can't open $historyfile: $!\n";
@@ -52,7 +50,7 @@ sub init_history_logging {
 
 sub log_history {
     my ($message) = @_;
-    $config->{HISTORYDIR} or return;
+    $config->{historydir} or return;
     my $date = strftime "%Y %m %e %H:%M:%S", localtime();
     print HISTORY "$date $message\n";
 }
@@ -67,22 +65,16 @@ sub untaint {
 ##  main
 #############################################################################
 
-my $arguments = join ' ', $0 ,@ARGV[1..$#ARGV];
-my $ruid = shift;
-defined $ruid or die "Error: missing calling UID as first arg to $0\n";
+# Get real UID, we may be running with some other effective UID.
+my $running_for_user = getpwuid($<) or die "Error: real UID is unknown\n";
 
-# Untaint, because it is only logged.
-my $running_for_user = untaint(getpwuid($ruid)) or 
-    die "ERROR: no user for uid $ruid\n";
-
-#
-# Command evaluation
-#
+# Argument processing.
+my $arguments = join ' ', $0, @ARGV;
 my $command = shift(@ARGV) or usage();
 my $device = shift(@ARGV) or usage();
 @ARGV and usage();
 
-my $netspocdir = $config->{NETSPOCDIR};
+my $netspocdir = $config->{netspocdir};
 
 # Read current policy
 # Link is created by trusted program.
@@ -136,7 +128,7 @@ log_history("START: $cmd");
 log_history("POLICY: $policy");
 
 my $status;
-if (my $statuspath = $config->{STATUSDIR}) {
+if (my $statuspath = $config->{statusdir}) {
     $status = Netspoc::Approve::Status->new(device => $device, 
                                             path => $statuspath);
 }
@@ -147,6 +139,7 @@ if (not $is_compare) {
 }
 
 # Prevent taint mode for called program.
+# Set real to effective UID
 $< = $>;
 $( = $);
 

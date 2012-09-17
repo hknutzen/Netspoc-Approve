@@ -1,4 +1,6 @@
 Changes
+INSTALL
+INSTALL~
 LICENSE
 MANIFEST
 META.yml
@@ -24,6 +26,10 @@ lib/Netspoc/Approve/PIX.pm
 lib/Netspoc/Approve/Parse_Cisco.pm
 lib/Netspoc/Approve/Status.pm
 patches/Expect.pm.patch
+suid-support/Makefile
+suid-support/README
+suid-support/diamonds
+suid-support/diamonds.c
 t/Linux.t
 t/Test_Approve.pm
 t/parse-ASA.t

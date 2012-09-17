@@ -1,14 +1,50 @@
 # Configuration file for netspoc-approve
+# Install in one of these locations:
+# - /etc/netspoc-approve 
+# - /usr/local/etc/netspoc-approve
+# - ~/.netspoc-approve
+# Multiple configuration files are read if present.
+# Options from a specific file overwrite the more general options.
+# Syntax: key = value
 
-NETSPOCDIR  = /home/diamonds/netspoc
-LOCKFILEDIR = /home/diamonds/lock
+# Directory, where generated device configuration is searched.
+# The directory is assumed to have this content
+# - current, a symbilc link to a subdirectory named pnnnn
+# - pnnnn, a subdirectory
+# - pnnnn/code, contains one file for each device
+netspocdir  = /home/diamonds/netspoc
 
-# optional
-SYSTEMUSER  = diamonds
-AAA_CREDENTIALS = /home/diamonds/.aaa_credentials
-PASSWDPATH  = /home/diamonds/device-database/cw_pass
+# Directory where lockfiles are created which prevent 
+# concurrent access to a device.
+lockfiledir = /home/diamonds/lock
 
-CHECKBANNER = NetSPoC
+# Optional
 
-STATUSDIR   = /home/diamonds/status
-HISTORYDIR  = /home/diamonds/history
+# A string or regular expression.
+# The banner of a Cisco device is checked if it contains such a substring.
+# This is used to enable or lock the use of Netspoc-Approve 
+# for a specific device.
+checkbanner = NetSPoC
+
+# Password file to automatically login via telnet to a device.
+# Format of the file: lines with comma separated values
+# a) device,passwort
+# b) device,x,x,x,x,x,x,x,password,...  (from CiscoWorks)
+passwdpath  = /home/diamonds/device-database/cw_pass
+
+# If approve is run by this user, 
+# read the password from file given in aaa_credentials
+systemuser  = diamonds
+
+# Password file for systemuser.
+# Username and password is used to automatically login via ssh
+# to any device which isn't found in passwdpath.
+# Format: username password
+aaa_credentials = /home/diamonds/.aaa_credentials
+
+# Create a stats file for each approved or compared device.
+# Format: 
+statusdir   = /home/diamonds/status
+
+# Create a log file for each approved or compared device.
+historydir  = /home/diamonds/history
