@@ -16,8 +16,9 @@ use Netspoc::Approve::Load_Config;
 
 # VERSION: inserted by DZP::OurPkgVersion
 
-# Clean PATH if run in taint mode.
+# Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
+delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 
 # Use old drc2.pl for devices matching this pattern
 my $old_device_pattern = qr/^vpn3k_/;
