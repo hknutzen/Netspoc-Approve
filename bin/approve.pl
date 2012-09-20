@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
 # approve.pl
 #
 # Author: Heinz Knutzen, Arne Spetzler
