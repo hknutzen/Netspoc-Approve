@@ -1,3 +1,7 @@
+1.059     2012-09-20 13:13:54 Europe/Berlin
+
+- Change interpreter back to perl (was env perl)
+
 1.058     2012-09-19 17:29:57 Europe/Berlin
 
 - Clean %ENV for taint mode.
