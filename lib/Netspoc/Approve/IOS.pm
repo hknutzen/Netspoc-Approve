@@ -597,153 +597,26 @@ sub write_mem {
         my $lines = $self->get_cmd_output('write memory');
 	if ($lines->[0] =~ /^Building configuration/) {
 	    if ($lines->[-1] =~ /\[OK\]/) {
-		mypr "seems ok\n";
+		mypr "write mem: found [OK]\n";
 		last;
 	    }
 	    else {
-		errpr "'write mem' failed. Config may be truncated!\n";
+		errpr "write mem: failed, config may be truncated\n";
 	    }
         }
         elsif (grep { $_ =~ /startup-config file open failed/i } @$lines) {
             if (not $retries) {
-                errpr "startup-config file open failed - giving up\n";
+                errpr "write mem: startup-config open failed - giving up\n";
             }
             else {
-                warnpr "startup-config file open failed - sleeping "
-		    . "$seconds seconds then trying again\n";
+                warnpr "write mem: startup-config open failed - trying again\n";
                 sleep $seconds;
             }
         }
         else {
-            errpr "Unexpected result for write memory. Check *.tel file\n";
+            errpr "write mem: unexpected result\n";
         }
     }
-}
-
-sub compare_ram_with_nvram {
-    my ($self) = @_;
-
-    # *** FETCH CONFIGS ***
-    mypr "fetch running config from device again ";
-
-    # Do not show content of certificates.
-    my $out = $self->shcmd('show run brief');
-
-    # Some devices have no 'brief' option.
-    if ($out =~ /^\s*%\s+invalid/im) {
-        $out = $self->shcmd('show run');
-    }
-    my @conf = split /\n/, $out;
-    mypr "... done\n";
-    mypr "fetch startup config from device again ";
-    $out = $self->shcmd('show start');
-    my @start = split /\n/, $out;
-    mypr "... done\n";
-
-    # *** COMPARE ***
-    my $compare_run   = 0;
-    my $startup_index = 0;
-    my @startup_certs = ();
-    my @running_certs = ();
-    for (my $i = 0 ; $i < scalar @start ; $i++) {
-        if ($start[$i] =~ /version/i) {
-            $startup_index = $i;
-            last;
-        }
-    }
-    for my $line (@conf) {
-        if ($line =~ /version/i) {
-            $compare_run = 1;
-        }
-        next if (not $compare_run);
-
-        # ignore patterns in running config
-        if (
-               $line =~ /\A\s*!/
-            or $line =~ /ntp clock-period/
-            or $line =~ /\A(\s+[A-F0-9]{8})+/
-            or    # match certificate contents
-            $line =~ /\A\s*quit\s*\Z/ or    # match certificate contents
-            $line =~ /^\s*certificate/
-            or $line =~ /no scheduler allocate/
-            or $line =~
-            /boot system flash:/ # at some devices this is not included by 'sh run brief'
-          )
-        {
-            if ($line =~ /certificate/) {
-
-                # mask out nvram file info for certificates
-                $line =~ s/\snvram:\S*//;
-
-                # collect cert IDs in running
-                push @running_certs, $line;
-            }
-            next;
-        }
-
-        # ignore patterns in startup config
-        while (
-               $start[$startup_index] =~ /\A\s*!/
-            or $start[$startup_index] =~ /ntp clock-period/
-            or $start[$startup_index] =~ /\A(\s+[A-F0-9]{8})+/
-            or    # match certificate contents
-            $start[$startup_index] =~ /\A\s*quit\s*\Z/
-            or    # match certificate contents
-            $start[$startup_index]    =~ /^\s*certificate/
-            or $start[$startup_index] =~ /no scheduler allocate/
-            or $start[$startup_index] =~ /boot system flash:/
-          )
-        {
-            if ($start[$startup_index] =~ /certificate/) {
-
-                # mask out nvram file info for certificates
-                $start[$startup_index] =~ s/\snvram:\S*//;
-
-                # collect cert IDs in startup
-                push @startup_certs, $start[$startup_index];
-            }
-            $startup_index++;
-        }
-        if ($line ne $start[$startup_index]) {
-            warnpr "Diff found   RUN: $line\n";
-            warnpr "Diff found START: $start[$startup_index]\n";
-            return 0;
-        }
-        $startup_index++;
-    }
-
-    # compare certificate lines
-    my @sc = sort @startup_certs;
-    my @rc = sort @running_certs;
-    if (scalar @sc != scalar @rc) {
-        warnpr "Diff found for certificate IDs\n";
-        warnpr "startup " . scalar @sc . " ID(s) found\n";
-        warnpr "running " . scalar @rc . " ID(s) found\n";
-        return 0;
-    }
-    for (my $i = 0 ; $i < scalar @sc ; $i++) {
-        if ($sc[$i] ne $rc[$i]) {
-            warnpr "START: $startup_certs[$i]\n";
-            warnpr "RUN:   $running_certs[$i]\n";
-            return 0;
-        }
-    }
-
-    #check if any residual non-space lines in startup config
-    while (scalar @start > $startup_index) {
-        $startup_index++;
-
-        # ignore patterns in startup config
-        my $t = scalar @start;
-
-        #mypr "$t $startup_index\n";
-        if ($start[$startup_index] !~ /\A\s*!/) {
-            warnpr
-              "Residual pattern in startup-config found: $start[$startup_index]\n";
-            return 0;
-        }
-    }
-    return 1;
 }
 
 sub schedule_reload {
@@ -1605,48 +1478,15 @@ sub transfer {
     #
     # *** CLEANUP
     #
-    if ($self->{COMPARE}) {
-
-	# No CONSOLE available when called by compare_files
-        if ($self->{CONSOLE} and not grep { $_ } values %{ $self->{CHANGE} }) {
-            mypr "no changes in running config -"
-              . " check if startup is uptodate:\n";
-	    $self->{CHANGE}->{STARTUP_CONFIG} = 0;
-            if ($self->compare_ram_with_nvram()) {
-                mypr "comp: Startup is uptodate\n";
-            }
-            else {
-                mypr "Startup not uptodate ***\n";
-                warnpr "Write memory recommended!\n";
-                $self->{CHANGE}->{STARTUP_CONFIG} = 1;
-            }
-        }
-    }
-    else {
+    if (!$self->{COMPARE}) {
         if (grep { $_ } values %{ $self->{CHANGE} }) {
 
             # Save config.
-            mypr "ok\n";
+            mypr "Configuration changed\n";
             $self->write_mem(5, 3);    # 5 retries, 3 seconds intervall
-
-	    # Check if write to startup config succeeded.
-            if (not $self->compare_ram_with_nvram()) {
- 		errpr "Problem with config size:"
-		    . " startup config was written but is not correct!\n";
-	    }
         }
         else {
-            mypr "no changes to save - check if startup is uptodate:\n";
-
-            # Handle recent problems with write mem.
-            # Compare running with startup config
-            if ($self->compare_ram_with_nvram()) {
-                mypr "Startup is uptodate\n";
-            }
-            else {
-                warnpr "Startup is *NOT* uptodate - trying to fix:\n";
-                $self->write_mem(5, 3);
-            }
+            mypr "No changes to save\n";
         }
     }
     return 1;
