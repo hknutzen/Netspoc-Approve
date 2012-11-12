@@ -1,3 +1,8 @@
+1.060     2012-11-12 12:36:47 Europe/Berlin
+
+- No longer compare running with startup config
+  This doesn't matter, because we check the result of "write mem" anyway.
+
 1.059     2012-09-20 13:13:54 Europe/Berlin
 
 - Change interpreter back to perl (was env perl)

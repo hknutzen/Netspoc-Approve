@@ -19,7 +19,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.059'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.060'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
