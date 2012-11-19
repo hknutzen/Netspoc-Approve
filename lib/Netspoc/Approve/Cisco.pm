@@ -21,68 +21,69 @@ use Netspoc::Approve::Parse_Cisco;
 ############################################################
 
 our %ICMP_Names = (
-    'echo-reply'                  => { type => 0,  code => -1 },
-    'unreachable'                 => { type => 3,  code => -1 },
-    'net-unreachable'             => { type => 3,  code => 0 },
-    'host-unreachable'            => { type => 3,  code => 1 },
-    'protocol-unreachable'        => { type => 3,  code => 2 },
-    'port-unreachable'            => { type => 3,  code => 3 },
-    'packet-too-big'              => { type => 3,  code => 4 },
-    'source-route-failed'         => { type => 3,  code => 5 },
-    'network-unknown'             => { type => 3,  code => 6 },
-    'host-unknown'                => { type => 3,  code => 7 },
-    'host-isolated'               => { type => 3,  code => 8 },
-    'dod-net-prohibited'          => { type => 3,  code => 9 },
-    'dod-host-prohibited'         => { type => 3,  code => 10 },
-    'net-tos-unreachable'         => { type => 3,  code => 11 },
-    'host-tos-unreachable'        => { type => 3,  code => 12 },
     'administratively-prohibited' => { type => 3,  code => 13 },
-    'host-precedence-unreachable' => { type => 3,  code => 14 },
-    'precedence-unreachable'      => { type => 3,  code => 15 },
-    'source-quench'               => { type => 4,  code => -1 },
-    'redirect'                    => { type => 5,  code => -1 },
-    'net-redirect'                => { type => 5,  code => 0 },
-    'host-redirect'               => { type => 5,  code => 1 },
-    'net-tos-redirect'            => { type => 5,  code => 2 },
-    'host-tos-redirect'           => { type => 5,  code => 3 },
     'alternate-address'           => { type => 6,  code => -1 },
+    'conversion-error'            => { type => 31, code => -1 },
+    'dod-host-prohibited'         => { type => 3,  code => 10 },
+    'dod-net-prohibited'          => { type => 3,  code => 9 },
     'echo'                        => { type => 8,  code => -1 },
+    'echo-reply'                  => { type => 0,  code => -1 },
+    'general-parameter-problem'   => { type => 12, code => 0 },
+    'host-isolated'               => { type => 3,  code => 8 },
+    'host-precedence-unreachable' => { type => 3,  code => 14 },
+    'host-redirect'               => { type => 5,  code => 1 },
+    'host-tos-redirect'           => { type => 5,  code => 3 },
+    'host-tos-unreachable'        => { type => 3,  code => 12 },
+    'host-unknown'                => { type => 3,  code => 7 },
+    'host-unreachable'            => { type => 3,  code => 1 },
+    'information-reply'           => { type => 16, code => -1 },
+    'information-request'         => { type => 15, code => -1 },
+    'mask-reply'                  => { type => 18, code => -1 },
+    'mask-request'                => { type => 17, code => -1 },
+    'mobile-redirect'             => { type => 32, code => -1 },
+    'net-redirect'                => { type => 5,  code => 0 },
+    'net-tos-redirect'            => { type => 5,  code => 2 },
+    'net-tos-unreachable'         => { type => 3,  code => 11 },
+    'net-unreachable'             => { type => 3,  code => 0 },
+    'network-unknown'             => { type => 3,  code => 6 },
+    'no-room-for-option'          => { type => 12, code => 2 },
+    'option-missing'              => { type => 12, code => 1 },
+    'packet-too-big'              => { type => 3,  code => 4 },
+    'parameter-problem'           => { type => 12, code => -1 },
+    'port-unreachable'            => { type => 3,  code => 3 },
+    'precedence-unreachable'      => { type => 3,  code => 15 },
+    'protocol-unreachable'        => { type => 3,  code => 2 },
+    'reassembly-timeout'          => { type => 11, code => 1 },
+    'redirect'                    => { type => 5,  code => -1 },
     'router-advertisement'        => { type => 9,  code => -1 },
     'router-solicitation'         => { type => 10, code => -1 },
+    'source-quench'               => { type => 4,  code => -1 },
+    'source-route-failed'         => { type => 3,  code => 5 },
     'time-exceeded'               => { type => 11, code => -1 },
-    'ttl-exceeded'                => { type => 11, code => 0 },
-    'reassembly-timeout'          => { type => 11, code => 1 },
-    'parameter-problem'           => { type => 12, code => -1 },
-    'general-parameter-problem'   => { type => 12, code => 0 },
-    'option-missing'              => { type => 12, code => 1 },
-    'no-room-for-option'          => { type => 12, code => 2 },
-    'timestamp-request'           => { type => 13, code => -1 },
     'timestamp-reply'             => { type => 14, code => -1 },
-    'information-request'         => { type => 15, code => -1 },
-    'information-reply'           => { type => 16, code => -1 },
-    'mask-request'                => { type => 17, code => -1 },
-    'mask-reply'                  => { type => 18, code => -1 },
+    'timestamp-request'           => { type => 13, code => -1 },
     'traceroute'                  => { type => 30, code => -1 },
-    'conversion-error'            => { type => 31, code => -1 },
-    'mobile-redirect'             => { type => 32, code => -1 }
+    'ttl-exceeded'                => { type => 11, code => 0 },
+    'unreachable'                 => { type => 3,  code => -1 },
 );
 
 # Leave names unchanged for standard protocols icmp, tcp, udp.
 our %IP_Names = (
+    'ah'     => 51,
+    'ahp'    => 51,
     'eigrp'  => 88,
+    'esp'    => 50,
     'gre'    => 47,
 #    'icmp'   => 1,
     'igmp'   => 2,
     'igrp'   => 9,
     'ipinip' => 4,
-    'nos'    => 94,    # strange name
+    'nos'    => 94,
     'ospf'   => 89,
+    'pcp'    => 108,	# NX-OS 6.x
     'pim'    => 103,
 #    'tcp'    => 6,
 #    'udp'    => 17,
-    'ah'     => 51,
-    'ahp'    => 51,
-    'esp'    => 50
 );
 
 our %PORT_Names_TCP = (
@@ -93,39 +94,40 @@ our %PORT_Names_TCP = (
     'daytime'           => 13,
     'discard'           => 9,
     'domain'            => 53,
+    'drip'              => 3949,	# NX-OS 6.x
     'echo'              => 7,
     'exec'              => 512,
     'finger'            => 79,
     'ftp'               => 21,
     'ftp-data'          => 20,
     'gopher'            => 70,
-    'h323'              => 1720,	# from PIX 6.3 docu
+    'h323'              => 1720,	# PIX 6.3 
     'hostname'          => 101,
     'https'             => 443,
     'ident'             => 113,
-    'imap4'             => 143,		# from PIX 6.3 docu
+    'imap4'             => 143,		# PIX 6.3
     'irc'               => 194,
-    'kerberos'          => 750,		# from PIX 6.3 docu
+    'kerberos'          => 750,		# PIX 6.3
     'klogin'            => 543,
     'kshell'            => 544,
     'ldap'              => 389,
     'ldaps'             => 636,
-    'lpd'               => 515,
     'login'             => 513,
     'lotusnotes'        => 1352,
-    'nfs'               => 2049,
+    'lpd'               => 515,
     'netbios-ssn'       => 139,
+    'nfs'               => 2049,
     'nntp'              => 119,
     'pcanywhere-data'   => 5631,
     'pim-auto-rp'       => 496,
     'pop2'              => 109,
     'pop3'              => 110,
-    'pptp'              => 1723,	# from PIX 6.3 docu
-    'smtp'              => 25,
-    'sqlnet'            => 1521,
+    'pptp'              => 1723,	# PIX 6.3
     'rsh'		=> 514,		# ASA 8.0, duplicate of 'cmd'
     'rtsp'              => 554,
     'sip'               => 5060,
+    'smtp'              => 25,
+    'sqlnet'            => 1521,
     'ssh'               => 22,
     'sunrpc'            => 111,
     'tacacs'            => 49,
@@ -134,7 +136,7 @@ our %PORT_Names_TCP = (
     'telnet'            => 23,
     'time'              => 37,
     'uucp'              => 540,
-    'whois'             => 43,		# PIX 6.3 docu, IOS 12.4(15)T1
+    'whois'             => 43,
     'www'               => 80
 );
 
@@ -144,16 +146,16 @@ our %PORT_Names_UDP = (
     'bootps'        => 67,
     'discard'       => 9,
     'dns'           => 53,
+    'dnsix'         => 90,
     'domain'        => 53,
-    'dnsix'         => 90,	# PIX 6.3 docu: 195 
     'echo'          => 7,
     'isakmp'        => 500,
-    'kerberos'      => 750,	# from PIX 6.3 docu
-    'mobile-ip'     => 434,     # maybe this is 435 ?
+    'kerberos'      => 750,	# PIX 6.3
+    'mobile-ip'     => 434,
     'nameserver'    => 42,
     'netbios-dgm'   => 138,
     'netbios-ns'    => 137,
-    'netbios-ss'    => 139,	# PIX 6.3 docu: netbios-ssn
+    'netbios-ss'    => 139,
     'nfs'           => 2049,
     'non500-isakmp' => 4500,
     'ntp'           => 123,
