@@ -3,6 +3,8 @@ package Test_Approve;
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve check_parse_and_unchanged);
 
+
+use strict;
 use Test::More;
 use Test::Differences;
 use File::Temp qw/ tempfile tempdir /;
@@ -16,8 +18,16 @@ mkdir($code_dir) or die "Can't create $code_dir: $!\n";
 mkdir($spoc_dir) or die "Can't create $spoc_dir: $!\n";
 mkdir($raw_dir) or die "Can't create $spoc_dir: $!\n";
 
+sub write_file {
+    my($name, $data) = @_;
+    my $fh;
+    open($fh, '>', $name) or die "Can't open $name: $!\n";
+    print($fh $data) or die "$!\n";
+    close($fh);
+}
+
 sub approve {
-    my($type, $conf, $spoc) = @_;
+    my($type, $conf, $spoc, $raw) = @_;
 
     # Header for all Netspoc input
     my $comment = $type eq 'Linux' ? '#' : '!';
@@ -31,15 +41,11 @@ END
     $spoc = $header . $spoc;
 
     # Prepare input files.
-    my $spoc_file = "$code_dir/spoc";
     my $conf_file = "$code_dir/conf";
-    my $fh;
-    open($fh, '>', $spoc_file) or die "Can't open $spoc_file: $!\n";
-    print($fh $spoc) or die "$!\n";
-    close($fh);
-    open($fh, '>', $conf_file) or die "Can't open $conf_file: $!\n";
-    print($fh $conf) or die "$!\n";
-    close($fh);
+    my $spoc_file = "$code_dir/spoc";
+    write_file($conf_file, $conf);
+    write_file($spoc_file, $spoc);
+    write_file("$spoc_file.raw", $raw) if $raw;
 
     my $cmd = 
 	"perl -I lib bin/drc3.pl $conf_file $spoc_file"
@@ -51,7 +57,7 @@ END
 	;
 	
     # Start file compare, get output.
-    open($approve, '-|', $cmd) or die "Can't execute drc3.pl: $!\n";
+    open(my $approve, '-|', $cmd) or die "Can't execute drc3.pl: $!\n";
     my @output = <$approve>;
     if (not close($approve)) {
 	$! and  die "Syserr closing pipe from drc3.pl: $!\n";
