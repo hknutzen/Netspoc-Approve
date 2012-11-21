@@ -415,6 +415,57 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Change outgoing crypto filter ACL";
+############################################################
+$in = <<END;
+crypto ipsec transform-set Trans esp-3des esp-sha-hmac
+ip access-list extended crypto-Ethernet1-1
+ permit ip any 10.127.18.0 0.0.0.255
+ip access-list extended crypto-filter-Ethernet1-1
+! permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+ deny ip any any
+crypto map crypto-Ethernet1 1 ipsec-isakmp
+ match address crypto-Ethernet1-1
+ set ip access-group crypto-filter-Ethernet1-1 out
+ set peer 10.156.4.206
+ set transform-set Trans
+
+interface Ethernet1
+ crypto map crypto-Ethernet1
+END
+
+$device = <<END;
+crypto ipsec transform-set Trans esp-3des esp-sha-hmac
+ip access-list extended crypto-Ethernet1-1
+ permit ip any 10.127.18.0 0.0.0.255
+ip access-list extended crypto-filter-Ethernet1-1
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+! permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+ deny ip any any
+crypto map crypto-Ethernet1 1 ipsec-isakmp
+ match address crypto-Ethernet1-1
+ set ip access-group crypto-filter-Ethernet1-1 out
+ set peer 10.156.4.206
+ set transform-set Trans
+
+interface Ethernet1
+ crypto map crypto-Ethernet1
+END
+
+$out = <<END;
+no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
+ip access-list extended crypto-filter-Ethernet1-1-DRC-0
+permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+deny ip any any
+crypto map crypto-Ethernet1 1
+set ip access-group crypto-filter-Ethernet1-1-DRC-0 out
+no ip access-list extended crypto-filter-Ethernet1-1
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Move incoming to outgoing crypto filter ACL";
 ############################################################
 $in = <<END;
