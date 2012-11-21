@@ -429,41 +429,6 @@ sub merge_rawdata {
     }
 }
 
-# Rawdata processing
-sub merge_routing {
-    my ($self, $spoc_conf, $raw_conf) = @_;
-    
-    # Route processing.
-    if ($spoc_conf->{ROUTING}) {
-	my $newroutes = ();
-      SPOC: for (my $i = 0 ; $i < scalar @{ $spoc_conf->{ROUTING} } ; $i++) {
-	  my $se = $spoc_conf->{ROUTING}->[$i];
-	  for my $re (@{ $raw_conf->{ROUTING} }) {
-	      if ($self->route_line_a_eq_b($se, $re)) {
-		  warnpr "RAW: double RE '$re->{orig}'" .
-		      " scheduled for remove from spocconf.\n";
-		  next SPOC;
-	      }
-	      elsif ( $re->{BASE} eq $se->{BASE}
-		      and $re->{MASK} eq $se->{MASK})
-	      {
-		  warnpr "RAW: inconsistent NEXT HOP in routing entries:\n";
-		  warnpr "     spoc: $se->{orig} (scheduled for remove)\n";
-		  warnpr "     raw:  $re->{orig} \n";
-		  next SPOC;
-	      }
-	  }
-	  push @{$newroutes}, $se;
-      }
-	$spoc_conf->{ROUTING} = $newroutes;
-    }
-    for my $re (@{ $raw_conf->{ROUTING} }) {
-	push @{ $spoc_conf->{ROUTING} }, $re;
-    }
-    mypr "RAW: attached routing entries: "
-	. scalar @{ $raw_conf->{ROUTING} } . "\n";
-}
-
 sub route_line_a_eq_b {
     my ($self, $a, $b) = @_;
     ($a->{BASE} == $b->{BASE} && $a->{MASK} == $b->{MASK})
