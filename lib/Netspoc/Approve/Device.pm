@@ -417,7 +417,6 @@ sub merge_rawdata {
 	    my $count = 0;
 	    for my $name (keys %$raw_v) {
 		my $entry = $raw_v->{$name};
-		next if $entry->{merged};
 		if($spoc_v->{$name}) {
 		    errpr "Name clash for '$name' of $key from raw\n";
 		}
