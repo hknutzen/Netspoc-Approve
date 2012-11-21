@@ -16,8 +16,6 @@ use Netspoc::Approve::Parse_Cisco;
 
 # VERSION: inserted by DZP::OurPkgVersion
 
-my $handle_iptables = 1;
-
 my $config = {
     user => 'root',
     device_routing_file => '/etc/network/routing',
@@ -885,7 +883,7 @@ sub postprocess_routes {
 sub postprocess_config {
     my ($self, $config) = @_;
     $self->postprocess_routes($config);
-    $self->postprocess_iptables($config) if $handle_iptables;
+    $self->postprocess_iptables($config);
 } 
 
 sub compare_chains_semantically {
@@ -1023,7 +1021,7 @@ sub process_iptables {
 
 sub merge_rawdata {
     my ($self, $spoc_conf, $raw_conf) = @_;
-    $self->merge_iptables($spoc_conf, $raw_conf) if $handle_iptables;
+    $self->merge_iptables($spoc_conf, $raw_conf);
     $self->SUPER::merge_rawdata($spoc_conf, $raw_conf);
 }
 
@@ -1170,36 +1168,32 @@ sub transfer {
     $self->process_routing($conf, $spoc_conf);
 
     # Only compare, no changes.
-    if($handle_iptables) {
-	$self->process_iptables($conf, $spoc_conf);
-    }
+    $self->process_iptables($conf, $spoc_conf);
 
     if (not $self->{COMPARE}) {
 	my $tmp_file = $config->{tmp_file};
 	my $startup_file;
 
-	if($handle_iptables) {
-	    # Change iptables running + startup configuration of device.
-	    $startup_file = $config->{device_iptables_file};    
-	    $self->write_startup_iptables($spoc_conf, $tmp_file);
-	    if ($self->{CHANGE}->{ACL}) {
-		mypr "Changing iptables running config\n";
-		$self->cmd("chmod a+x $tmp_file");
-		$self->cmd($tmp_file);
-		mypr "Writing iptables startup config\n";  
-		$self->cmd("mv -f $tmp_file $startup_file");
-		mypr "...done\n";
+	# Change iptables running + startup configuration of device.
+	$startup_file = $config->{device_iptables_file};    
+	$self->write_startup_iptables($spoc_conf, $tmp_file);
+	if ($self->{CHANGE}->{ACL}) {
+	    mypr "Changing iptables running config\n";
+	    $self->cmd("chmod a+x $tmp_file");
+	    $self->cmd($tmp_file);
+	    mypr "Writing iptables startup config\n";  
+	    $self->cmd("mv -f $tmp_file $startup_file");
+	    mypr "...done\n";
+	}
+	else {
+	    mypr "No changes to save - check if iptables startup is uptodate\n";
+	    if($self->cmd_ok("cmp $tmp_file $startup_file")) {
+	        mypr "Startup is uptodate\n";
 	    }
 	    else {
-		mypr "No changes to save - check if iptables startup is uptodate\n";
-		if($self->cmd_ok("cmp $tmp_file $startup_file")) {
-		    mypr "Startup is uptodate\n";
-		}
-		else {
-		    warnpr "Iptables startup is *NOT* uptodate - trying to fix:\n";
-		    $self->cmd("mv -f $tmp_file $startup_file");
-		    mypr "...done\n";
-		}
+	        warnpr "Iptables startup is *NOT* uptodate - trying to fix:\n";
+	        $self->cmd("mv -f $tmp_file $startup_file");
+	        mypr "...done\n";
 	    }
 	}
 
