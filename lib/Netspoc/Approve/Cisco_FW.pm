@@ -852,41 +852,9 @@ sub attr_eq( $$$ ) {
 sub merge_rawdata {
     my ($self, $spoc_conf, $raw_conf) = @_;
 
-    # access-list 
     $self->merge_acls($spoc_conf, $raw_conf);
 
-    #static 
-    if ($raw_conf->{STATIC}) {
-	my @std_static = ();
-	my @remove = ();
-	my $spoc_v = $spoc_conf->{STATIC} ||= [];
-	for my $raw (@{ $raw_conf->{STATIC} }) {
-	    my $covered = 0;
-	    for (my $i = 0 ; $i < @$spoc_v ; $i++) {
-		my $spoc = $spoc_v->[$i];
-		if ($self->attr_eq($spoc, $raw)) {
-		    warnpr "RAW: ignoring useless: '$raw->{orig}'\n";
-		    $covered = 1;
-		}
-		elsif ($self->static_global_local_match($spoc, $raw)) {
-		    mypr "RAW: spoc line '$spoc->{orig}'",
-		    "\n   replaced by '$raw->{orig}'\n";
-		    push @remove, $i;
-		}
-	    }
-	    $covered or push @std_static, $raw;
-	}
-	for my $r (reverse sort @remove) {
-	    splice @$spoc_v, $r, 1;
-	}
-	push(@$spoc_v, @std_static),
-	mypr " attached static entries: " . scalar @std_static . "\n";
-    }
-
     for my $key (%$raw_conf) {
-
-	# static is already handled above.
-	next if $key eq 'STATIC';
 
 	my $raw_v = $raw_conf->{$key};
 
