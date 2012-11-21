@@ -385,19 +385,18 @@ sub postprocess_config {
                 else {
                     errpr "Crypto: no match-address entry found\n";
                 }
-                if (my $acl_name = $entry->{ACCESS_GROUP_IN}) {
-                    mypr "   access-group:  $acl_name\n";
-                    if ( my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
 
-                        # bind access group to crypto map
-                        $entry->{FILTER_ACL} = $acl;
+                # Bind access group to crypto map
+                for my $what (qw(IN OUT)) {
+                    if (my $acl_name = $entry->{"ACCESS_GROUP_$what"}) {
+                        mypr "   access-group:  $acl_name\n";
+                        if ( my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
+                            $entry->{FILTER_ACL} = $acl;
+                        }
+                        else {
+                            errpr "Crypto: ACL $acl_name does not exist!\n";
+                        }
                     }
-                    else {
-                        errpr "Crypto: ACL $acl_name does not exist!\n";
-                    }
-                }
-                if (my $acl_name = $entry->{ACCESS_GROUP_OUT}) {
-                    warnpr "Crypto: Ignoring outgoing filter-acl '$acl_name'\n";
                 }
 		if (my $peers = $entry->{PEER}) {
 		    $entry->{PEER} = [ sort { $a <=> $b } @$peers ];
