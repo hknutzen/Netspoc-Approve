@@ -470,13 +470,12 @@ sub normalize_proto {
     return($proto);
 }
 
-# Rawdata processing
 sub merge_acls {
     my ( $self, $spoc, $raw ) = @_;
 
     for my $intf_name ( keys %{ $raw->{IF} } ) {
 	mypr " interface: $intf_name \n";
-	my $raw_intf = $raw->{IF}->{$intf_name};
+	my $raw_intf = delete($raw->{IF}->{$intf_name});
 	my $spoc_intf = $spoc->{IF}->{$intf_name};
 
 	if ( ! $spoc_intf ) {
@@ -489,7 +488,7 @@ sub merge_acls {
 	for my $direction ( qw( IN OUT ) ) {
 	    my $access_group = "ACCESS_GROUP_$direction";
 	    if ( my $raw_name = $raw_intf->{$access_group} ) {
-		my $raw_acl = $raw->{ACCESS_LIST}->{$raw_name};
+		my $raw_acl = delete($raw->{ACCESS_LIST}->{$raw_name});
 
 		if(my $spoc_name = $spoc_intf->{$access_group}) {
 
@@ -509,11 +508,15 @@ sub merge_acls {
 		    $spoc->{ACCESS_LIST}->{$raw_name} = $raw_acl;
 		    $spoc_intf->{$access_group} = $raw_name;
 		}
-		$raw_acl->{merged} = 1;
 	    }
 	}
-	$raw_intf->{merged} = 1;
     }
+}
+
+sub merge_rawdata {
+    my ($self, $spoc_conf, $raw_conf) = @_;
+    $self->merge_acls($spoc_conf, $raw_conf);
+    $self->SUPER::merge_rawdata($spoc_conf, $raw_conf);
 }
 
 sub enter_conf_mode {

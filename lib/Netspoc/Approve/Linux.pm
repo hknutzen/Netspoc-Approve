@@ -836,7 +836,10 @@ sub merge_iptables {
     my $raw_tables = $raw_conf->{IPTABLES};
     for my $table_name (keys %$raw_tables) {
 	info_msg "rawdata: table: $table_name";
-	my $raw_chains = $raw_tables->{$table_name};
+
+        # Delete entry from raw because it must not be processed again
+        # in generic merge_rawdata.
+	my $raw_chains = delete($raw_tables->{$table_name});
 	my $spoc_chains = $spoc_tables->{$table_name};
 	if(not $spoc_chains) {
 	    info_msg "Adding all chains of table '$table_name'";
@@ -1020,9 +1023,8 @@ sub process_iptables {
 
 sub merge_rawdata {
     my ($self, $spoc_conf, $raw_conf) = @_;
-
-    $self->merge_routing($spoc_conf, $raw_conf);
     $self->merge_iptables($spoc_conf, $raw_conf) if $handle_iptables;
+    $self->SUPER::merge_rawdata($spoc_conf, $raw_conf);
 }
 
 sub status_ok {

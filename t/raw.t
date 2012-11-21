@@ -23,6 +23,7 @@ $title = "Merge routing IOS";
 ############################################################
 $spoc = <<END;
 ip route 10.20.0.0 255.248.0.0 10.1.2.3
+ip route 10.22.0.0 255.255.0.0 10.1.2.4
 END
 
 $raw = <<END;
@@ -31,6 +32,7 @@ ip route 10.0.0.0 255.0.0.0 10.1.2.2
 END
 
 $out = <<END;
+ip route 10.22.0.0 255.255.0.0 10.1.2.4
 ip route 10.22.0.0 255.255.0.0 10.1.2.4
 ip route 10.20.0.0 255.248.0.0 10.1.2.3
 ip route 10.0.0.0 255.0.0.0 10.1.2.2
@@ -43,6 +45,7 @@ $title = "Merge routing ASA";
 ############################################################
 $spoc = <<END;
 route inside 10.20.0.0 255.248.0.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
 END
 
 $raw = <<END;
@@ -52,6 +55,7 @@ END
 
 $out = <<END;
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
 route inside 10.20.0.0 255.248.0.0 10.1.2.3
 route inside 10.0.0.0 255.0.0.0 10.1.2.2
 END
@@ -59,40 +63,26 @@ END
 eq_or_diff( approve('ASA', '', $spoc, $raw ), $out, $title );
 
 ############################################################
-$title = "Duplicate routing IOS";
+$title = "Merge routing Linux";
 ############################################################
 $spoc = <<END;
-ip route 10.20.0.0 255.255.0.0 10.1.2.3
+ip route add 10.20.0.0/19 via 10.1.2.3
+ip route add 10.22.0.0/16 via 10.1.2.4
 END
 
 $raw = <<END;
-ip route 10.20.0.0 255.255.0.0 10.1.2.3
+ip route add 10.22.0.0/16 via 10.1.2.4
+ip route add 10.0.0.0/8 via 10.1.2.2
 END
 
 $out = <<END;
-WARNING>>> RAW: double RE 'ip route 10.20.0.0 255.255.0.0 10.1.2.3' scheduled for remove from spocconf.
-ip route 10.20.0.0 255.255.0.0 10.1.2.3
+ip route add 10.20.0.0/19 via 10.1.2.3
+ip route add 10.22.0.0/16 via 10.1.2.4
+ip route add 10.22.0.0/16 via 10.1.2.4
+ip route add 10.0.0.0/8 via 10.1.2.2
 END
 
-eq_or_diff( approve('IOS', '', $spoc, $raw ), $out, $title );
-
-############################################################
-$title = "Duplicate routing ASA";
-############################################################
-$spoc = <<END;
-route inside 10.20.0.0 255.248.0.0 10.1.2.3
-END
-
-$raw = <<END;
-route inside 10.20.0.0 255.248.0.0 10.1.2.3
-END
-
-$out = <<END;
-route inside 10.20.0.0 255.248.0.0 10.1.2.3
-route inside 10.20.0.0 255.248.0.0 10.1.2.3
-END
-
-eq_or_diff( approve('ASA', '', $spoc, $raw ), $out, $title );
+eq_or_diff( approve('Linux', '', $spoc, $raw ), $out, $title );
 
 ############################################################
 $title = "Different next hop";
@@ -106,10 +96,8 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.4
 END
 
 $out = <<END;
-WARNING>>> RAW: inconsistent NEXT HOP in routing entries:
-WARNING>>>      spoc: ip route 10.20.0.0 255.255.0.0 10.1.2.3 (scheduled for remove)
-WARNING>>>      raw:  ip route 10.20.0.0 255.255.0.0 10.1.2.4 
 ip route 10.20.0.0 255.255.0.0 10.1.2.4
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 
 eq_or_diff( approve('IOS', '', $spoc, $raw ), $out, $title );

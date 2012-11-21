@@ -849,40 +849,6 @@ sub attr_eq( $$$ ) {
     return 1;
 }
 
-sub merge_rawdata {
-    my ($self, $spoc_conf, $raw_conf) = @_;
-
-    $self->merge_acls($spoc_conf, $raw_conf);
-
-    for my $key (%$raw_conf) {
-
-	my $raw_v = $raw_conf->{$key};
-
-	# Array of unnamed entries: ROUTING, STATIC, GLOBAL, NAT
-	if(ref $raw_v eq 'ARRAY') {
-	    my $spoc_v = $spoc_conf->{$key} ||= [];
-	    unshift(@$spoc_v, @$raw_v);
-	    my $count = @$raw_v;
-	    mypr " Prepended $count entries of $key from raw.\n" if $count;
-	}
-	# Hash of named entries: ACCESS_LIST, USERNAME, ...
-	else {
-	    my $spoc_v = $spoc_conf->{$key} ||= {};
-	    my $count = 0;
-	    for my $name (keys %$raw_v) {
-		my $entry = $raw_v->{$name};
-		next if $entry->{merged};
-		if($spoc_v->{$name}) {
-		    errpr "Name clash for '$name' of $key from raw\n";
-		}
-		$spoc_v->{$name} = $entry;
-		$count++;
-	    }
-	    mypr " added $count entries of $key from raw\n" if $count;
-	}
-    }
-}
-
 sub transfer_lines {
     my ($self, $conf, $spoc, $type) = @_;
     my %equal;

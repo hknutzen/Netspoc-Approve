@@ -477,16 +477,6 @@ sub get_config_from_device {
     $self->get_cmd_output('sh run');
 }
 
-##############################################################
-# rawdata processing
-##############################################################
-sub merge_rawdata {
-    my ($self, $spoc, $raw_conf) = @_;
-
-    $self->merge_routing($spoc, $raw_conf);
-    $self->merge_acls($spoc, $raw_conf);
-}
-
 my %known_status = 
     (
      'configure terminal' => [ qr/^Enter configuration commands/, ],
