@@ -115,4 +115,42 @@ END
 eq_or_diff( approve('IOS', '', $spoc, $raw ), $out, $title );
 
 ############################################################
+$title = "Duplicate static";
+############################################################
+$spoc = <<END;
+static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
+END
+
+$raw = <<END;
+static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
+END
+
+$out = <<END;
+WARNING>>> RAW: ignoring useless: 'static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0'
+static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
+END
+
+eq_or_diff( approve('ASA', '', $spoc, $raw ), $out, $title );
+
+############################################################
+$title = "Replacing static";
+############################################################
+$spoc = <<END;
+static (outside,inside) 10.7.0.0 172.29.0.0 netmask 255.255.0.0
+static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
+END
+
+$raw = <<END;
+static (outside,inside) 10.8.0.0 172.30.0.0 netmask 255.255.0.0
+static (outside,inside) 10.0.0.0 172.0.0.0 netmask 255.0.0.0
+END
+
+$out = <<END;
+static (outside,inside) 10.8.0.0 172.30.0.0 netmask 255.255.0.0
+static (outside,inside) 10.0.0.0 172.0.0.0 netmask 255.0.0.0
+END
+
+eq_or_diff( approve('ASA', '', $spoc, $raw ), $out, $title );
+
+############################################################
 done_testing;
