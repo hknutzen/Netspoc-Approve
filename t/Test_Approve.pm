@@ -1,12 +1,15 @@
 # $Id$
 package Test_Approve;
+
+use strict;
+use warnings;
+
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve check_parse_and_unchanged);
 
-
-use strict;
 use Test::More;
 use Test::Differences;
+use IPC::Run3;
 use File::Temp qw/ tempfile tempdir /;
 
 my $device_name = 'test';
@@ -26,7 +29,7 @@ sub write_file {
     close($fh);
 }
 
-sub approve {
+sub run {
     my($type, $conf, $spoc, $raw) = @_;
 
     # Header for all Netspoc input
@@ -47,38 +50,40 @@ END
     write_file($spoc_file, $spoc);
     write_file("$spoc_file.raw", $raw) if $raw;
 
-    my $cmd = 
-	"perl -I lib bin/drc3.pl $conf_file $spoc_file"
+    my $cmd = "perl -I lib bin/drc3.pl $conf_file $spoc_file";
+    my ($stdout, $stderr);
+    run3($cmd, \undef, \$stdout, \$stderr);
+    my $status = $? >> 1;
+    return($status, $stdout, $stderr);
+}
 
-	# redirect STDERR to STDOUT.
-	# disabled, because we can't debug tests.
-	# and because we die on error anyway.
-#	. " 2>&1"
-	;
-	
-    # Start file compare, get output.
-    open(my $approve, '-|', $cmd) or die "Can't execute drc3.pl: $!\n";
-    my @output = <$approve>;
-    if (not close($approve)) {
-	$! and  die "Syserr closing pipe from drc3.pl: $!\n";
-	my $exit_value = $? >> 8;
+my %ignore = 
+    (
+     'configure terminal' => 1,
+     'end' => 1,
+     'write memory' => 1,
+    );
 
-	# 0: Success, 1: compare found diffs
- 	$exit_value == 0 || $exit_value == 1 or 
-	    die "Status from drc3.pl: $exit_value\n";
-    }
+sub approve {
+    my($type, $conf, $spoc, $raw) = @_;
+    my ($status, $stdout, $stderr) = run($type, $conf, $spoc, $raw);
 
-    # Collect commands and messages from output.
-    my @cmds = 
-	map { m/^> (.*)/ } grep { m/^> |^(?:ERROR|WARNING)\>\>\>/} @output;
-    my %ignore = 
-	(
-	 'configure terminal' => 1,
-	 'end' => 1,
-	 'write memory' => 1,
-	 );
-    @cmds = grep { !$ignore{$_}} @cmds;
-    return(join("\n", @cmds, ''));
+    # 0: Success, 1: compare found diffs
+#    $status == 0 || $status == 1 or die "Unexpected status: $status\n";
+    $stderr and die "STDERR:\n$stderr\n";
+    my @output = split /\n/, $stdout;
+
+   # Collect commands and error/warning messages from output.
+   my @cmds = 
+      map { s/^> //; $_ } grep { m/^> |^(?:ERROR|WARNING)\>\>\>/} @output;
+   @cmds = grep { !$ignore{$_}} @cmds;
+   return(join("\n", @cmds, ''));
+}
+
+sub approve_err {
+    my($type, $conf, $spoc, $raw) = @_;
+    my ($status, $stdout, $stderr) = run($type, $conf, $spoc, $raw);
+    return($stderr);
 }
 
 # Check whether output is as expected with given input
