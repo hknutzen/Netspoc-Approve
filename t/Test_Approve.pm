@@ -33,12 +33,13 @@ END
     # Prepare input files.
     my $spoc_file = "$code_dir/spoc";
     my $conf_file = "$code_dir/conf";
-    open(FILE, '>', $spoc_file) or die "Can't open $spoc_file: $!\n";
-    print(FILE $spoc) or die "$!\n";
-    close(FILE);
-    open(FILE, '>', $conf_file) or die "Can't open $conf_file: $!\n";
-    print(FILE $conf) or die "$!\n";
-    close(FILE);
+    my $fh;
+    open($fh, '>', $spoc_file) or die "Can't open $spoc_file: $!\n";
+    print($fh $spoc) or die "$!\n";
+    close($fh);
+    open($fh, '>', $conf_file) or die "Can't open $conf_file: $!\n";
+    print($fh $conf) or die "$!\n";
+    close($fh);
 
     my $cmd = 
 	"perl -I lib bin/drc3.pl $conf_file $spoc_file"
@@ -50,9 +51,9 @@ END
 	;
 	
     # Start file compare, get output.
-    open(APPROVE, '-|', $cmd) or die "Can't execute drc3.pl: $!\n";
-    my @output = <APPROVE>;
-    if (not close(APPROVE)) {
+    open($approve, '-|', $cmd) or die "Can't execute drc3.pl: $!\n";
+    my @output = <$approve>;
+    if (not close($approve)) {
 	$! and  die "Syserr closing pipe from drc3.pl: $!\n";
 	my $exit_value = $? >> 8;
 
