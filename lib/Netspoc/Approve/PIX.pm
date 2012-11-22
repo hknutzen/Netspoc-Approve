@@ -86,22 +86,6 @@ sub leave_conf_mode {
     $self->cmd('exit');
 }
 
-sub prepare {
-    my ($self) = @_;
-    $self->SUPER::prepare();
-    my $output = $self->shcmd('sh fixup');
-    if ($output =~ /\n\s*fixup\s+protocol\s+smtp\s+25/) {
-	unless ($self->{COMPARE}) {
-	    $self->cmd('configure terminal');
-
-	    # Needed for enhanced SMTP features.
-	    $self->cmd('no fixup protocol smtp 25');
-	    info("fixup for protocol smtp at port 25 now disabled");
-	    $self->cmd('quit');
-	}
-    }
-}
-
 # Packages must return a true value;
 1;
 
