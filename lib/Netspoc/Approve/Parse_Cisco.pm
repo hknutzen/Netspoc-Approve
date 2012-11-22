@@ -33,7 +33,7 @@ sub err_at_line {
     # using negative lookahead.
     my @arg0 = split(/[ ](?![+])/, $arg->{args}->[0]);
     my $pos = $arg->{pos} + @arg0 - 1;
-    die @msg, " at line $line, pos $pos:\n>>$arg->{orig}<<\n";
+    abort( @msg, " at line $line, pos $pos:\n>>$arg->{orig}<<");
 }
 
 sub check_token {

@@ -11,6 +11,7 @@ use strict;
 use warnings;
 use Carp;
 use Fcntl;
+use Netspoc::Approve::Helper;
 
 # VERSION: inserted by DZP::OurPkgVersion
 
@@ -26,13 +27,13 @@ sub new {
     my $fullpath = "$path/$device";
     if (-f $fullpath) {
         sysopen($fh, $fullpath, O_RDWR)
-          or die "Can't open file: $fullpath: $!\n";
+          or abort("Can't open file: $fullpath: $!");
     }
     else {
         sysopen($fh, "$fullpath", O_RDWR | O_CREAT)
-          or die "Can't create file: $fullpath: $!\n";
+          or abort("Can't create file: $fullpath: $!");
         defined chmod 0644, "$fullpath"
-          or die "Can't chmod $fullpath: $!\n";
+          or abort("Can't chmod $fullpath: $!");
     }
     $attributes{fh} = $fh;
 
@@ -124,7 +125,7 @@ sub write {
     }
     seek $fh, 0, 0;
     print join ';', @$stat;
-    truncate $fh, tell $fh or die "could not truncate $self->{device}\n";
+    truncate $fh, tell $fh or abort("Could not truncate $self->{device}");
     $| = $oldbuffmode;
     select $oldselect;
 }
@@ -143,7 +144,7 @@ sub getall {
 
 sub getindex {
     my ($self, $field) = @_;
-    exists($statfields{$field}) || die "Unknown status field $field\n";
+    exists($statfields{$field}) || abort("Unknown status field $field");
     return $statfields{$field};
 }
 

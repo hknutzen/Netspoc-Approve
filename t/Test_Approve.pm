@@ -50,7 +50,7 @@ END
     write_file($spoc_file, $spoc);
     write_file("$spoc_file.raw", $raw) if $raw;
 
-    my $cmd = "perl -I lib bin/drc3.pl $conf_file $spoc_file";
+    my $cmd = "perl -I lib bin/drc3.pl -q $conf_file $spoc_file";
     my ($stdout, $stderr);
     run3($cmd, \undef, \$stdout, \$stderr);
     my $status = $? >> 1;
@@ -73,11 +73,10 @@ sub approve {
     $stderr and die "STDERR:\n$stderr\n";
     my @output = split /\n/, $stdout;
 
-   # Collect commands and error/warning messages from output.
-   my @cmds = 
-      map { s/^> //; $_ } grep { m/^> |^(?:ERROR|WARNING)\>\>\>/} @output;
-   @cmds = grep { !$ignore{$_}} @cmds;
-   return(join("\n", @cmds, ''));
+    # Collect commands from output.
+    my @cmds = map { s/^> //; $_ } @output;
+    @cmds = grep { !$ignore{$_}} @cmds;
+    return(join("\n", @cmds, ''));
 }
 
 sub approve_err {

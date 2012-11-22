@@ -44,7 +44,8 @@ Compare / approve file with device or compare two files.
  -C                   compare device with netspoc
  -L <logdir>          path for saving telnet-logs
  -t <seconds>         timeout for telnet
- --LOGFILE <fullpath> path for print output (default is STDOUT)
+ -q                   Suppress info messages to STDERR
+ --LOGFILE <fullpath> Path to redirect STDOUT and STDERR
  --LOGAPPEND          if logfile already exists, append logs
  --LOGVERSIONS        do not overwrite existing logfiles
  --NOLOGMESSAGE       supress output about logfile Names
@@ -65,6 +66,7 @@ my %opts;
     'C',
     'L=s',
     't=i',
+    'q',
     'LOGFILE=s',
     'LOGAPPEND',
     'LOGVERSIONS',
@@ -74,9 +76,10 @@ my %opts;
 );
 
 if ($opts{v}) {
-    print STDERR "$version\n";
+    info $version;
     exit;
 }
+delete($opts{q}) and quiet();
 
 my $file1 = shift or usage();
 my $file2 = shift;
@@ -88,11 +91,11 @@ my $file2 = shift;
 # Get type and IP addresses from spoc file.
 my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($file2 || $file1);
 
-$type or die "Can't get type from $file1\n";
+$type or abort("Can't get type from $file1");
 
 # Get class from type.
 my $class = $type2class{$type}
-  or die "Can't find class for spoc type '$type'\n";
+  or abort("Can't find class for spoc type '$type'");
 
 my $job = $class->new(
     NAME   => $name,
@@ -105,21 +108,18 @@ my $job = $class->new(
 # Handle file compare first, which doesn't need device's IP and password.
 if ($file2) {
     keys %opts and usage;
-
-    # tell the Helper that we only compare
-    errpr_mode("COMPARE");
     exit($job->compare_files($file1, $file2) ? 1 : 0)
 }
 
 $opts{t} ||= 300;
-$job->{IP} or die "Can't get IP from spoc file\n";
+$job->{IP} or abort("Can't get IP from spoc file");
 
 # Enable logging if configured.
 $job->logging();
 
 if (!$job->{OPTS}->{NOREACH}) {
     if (!$job->check_device()) {
-        errpr "$job->{NAME}: reachability test failed\n";
+        abort("$job->{NAME}: reachability test failed");
     }
 }
 
@@ -128,13 +128,13 @@ $job->{PASS} = $job->get_cw_password($name);
 
 # Compare or approve device.
 
-mypr "\n";
-mypr "********************************************************************\n";
-mypr " START: at > ", scalar localtime, " <\n";
-mypr "********************************************************************\n";
-mypr "\n";
+info("");
+info("********************************************************************");
+info(" START: at > ", scalar localtime, " <");
+info("********************************************************************");
+info("");
 
-$job->lock($name) or die "Approve in progress for $name\n";
+$job->lock($name) or abort("Approve in progress for $name");
 
 # Start compare / approve.
 if ($opts{C}) {
@@ -146,10 +146,10 @@ else {
 
 $job->unlock($name);
 
-mypr "\n";
-mypr "********************************************************************\n";
-mypr " STOP: at > ", scalar localtime, " <\n";
-mypr "********************************************************************\n";
-mypr "\n";
+info("");
+info("********************************************************************");
+info(" STOP: at > ", scalar localtime, " <");
+info("********************************************************************");
+info("");
 
 

@@ -253,14 +253,6 @@ sub parse_rule {
     return $rule;
 }
 
-sub err_msg {
-    errpr("@_\n");
-}
-
-sub info_msg {
-    print("@_\n");
-}
-
 # Convert string to internal representation and vice versa.
 sub mode2intern {
     my($token) = @_;
@@ -282,16 +274,16 @@ sub prefix2intern {
     my($addr, $prefix) = split(m'/', $token, 2);
     my $base = quad2int($addr);
     my $mask;
-    defined $base or err_msg("Expected IP: $addr");
+    defined $base or abort("Expected IP: $addr");
     if(defined $prefix) {
 	if($prefix =~ /^\d+$/) {
 	    $prefix <= 32 or
-		err_msg("Expected IP prefix: $prefix");
+		abort("Expected IP prefix: $prefix");
 	    $mask = 2**32 - 2**(32 - $prefix);
 	}
 	else {
 	    $mask = quad2int($prefix);
-	    defined $mask or err_msg("Expected IP mask: $mask");
+	    defined $mask or abort("Expected IP mask: $mask");
 	}
     }
     else {
@@ -323,7 +315,7 @@ sub mask2prefix {
     my($mask) = @_;
     my $prefix = 0;
     while($mask) {
-	($mask & 0x80000000) or err_msg("Invalid mask: ", int2quad($mask));
+	($mask & 0x80000000) or abort("Invalid mask: ", int2quad($mask));
 	$mask &= 0x7fffffff;
 	$mask <<= 1;
 	$prefix++;
@@ -539,7 +531,7 @@ sub normalize {
 	    my $size = $spec->{size};
 	    defined $size or $size = 1;
 	    @{[ split(' ', $v) ]} == $size or 
-		err_msg("$key needs $size arguments but got '$v'");
+		abort("$key needs $size arguments but got '$v'");
 	    my $negate = '';
 	    if($v =~/^!/) {
 
@@ -701,13 +693,13 @@ sub expand_chain {
 	    for (my $j = $i+1; $j < @$rules; $j++) {
 		my $next = $rules->[$j];
 		disjoint($rule->{intern}, $next->{intern}) or
-		    err_msg "Unsupported '-g' for rules",
-		    "\n '$rule->{orig}', '$next->{orig}'";
+		    abort("Unsupported '-g' for rules",
+                          "'$rule->{orig}', '$next->{orig}'");
 	    }
 	}
 
 	my $target = $rule->{'-j'} || $rule->{'-g'} or 
-	    err_msg "Missing target in rule";
+	    abort("Missing target in rule");
 
 	# Ignore LOG target; it can't be compared currently.
 	next if $target eq 'LOG';
@@ -719,7 +711,7 @@ sub expand_chain {
 	}
 	my $called_chain = $chains->{$target};
 	$called_chain->{NON_COMPARABLE} and
-	    err_msg "Expand: Must not call '$target' from '$chain->{name}'";
+	    abort("Expand: Must not call '$target' from '$chain->{name}'");
 	my $expanded = expand_chain($called_chain, $chains);
 	for my $erule (@$expanded) {
 	    push @result, intersect_rule($rule->{intern}, $erule);
@@ -762,8 +754,8 @@ sub convert_rules {
 		$converted->{$conv_key} = $value;
 	    }
 	    else {
-		err_msg "Key $key not supported in",
-		" chain '$chain->{name}' of iptables";
+		abort("Key $key not supported in" .
+                      " chain '$chain->{name}' of iptables");
 	    }
 	}
 	for my $spec (values %iptables2intern) {
@@ -833,14 +825,14 @@ sub merge_iptables {
     my $spoc_tables = $spoc_conf->{IPTABLES};
     my $raw_tables = $raw_conf->{IPTABLES};
     for my $table_name (keys %$raw_tables) {
-	info_msg "rawdata: table: $table_name";
+	info("rawdata: table: $table_name");
 
         # Delete entry from raw because it must not be processed again
         # in generic merge_rawdata.
 	my $raw_chains = delete($raw_tables->{$table_name});
 	my $spoc_chains = $spoc_tables->{$table_name};
 	if(not $spoc_chains) {
-	    info_msg "Adding all chains of table '$table_name'";
+	    info("Adding all chains of table '$table_name'");
 	    $spoc_tables->{$table_name} = $raw_chains;
 	    next;
 	}
@@ -848,14 +840,14 @@ sub merge_iptables {
 	    my $chain_name = $raw_chain->{name};
 	    my $spoc_chain = $spoc_chains->{$chain_name};
 	    if(not $spoc_chain) {
-		info_msg "Adding chain '$chain_name' of table '$table_name'";
+		info("Adding chain '$chain_name' of table '$table_name'");
 		$spoc_chains->{$chain_name} = $raw_chain;
 		next;
 	    }
 	    if(not $spoc_chain->{POLICY}) {
-		err_msg "rawdata: Must not redefine chain '$spoc_chain' from rawdata";
+		abort("Must not redefine chain '$spoc_chain' from rawdata");
 	    }
-	    info_msg "Prepending chain '$chain_name' of table '$table_name'";
+	    info("Prepending chain '$chain_name' of table '$table_name'");
 	    unshift @{ $spoc_chain->{RULES} }, @{$raw_chain->{RULES} };
 	}
     }
@@ -944,12 +936,12 @@ sub chains_equal {
     my $conf_count = @$conf_rules;
     my $spoc_count = @$spoc_rules;
     my $msg = ($c_name eq $s_name) 
-	    ? "chains '$c_name'" 
-	    : "chains '$c_name' and '$s_name";
-    info_msg "Comparing $msg textually";
+	    ? "Chains '$c_name'" 
+	    : "Chains '$c_name' and '$s_name";
+    info("Comparing $msg textually");
     if($conf_count != $spoc_count) {
-	info_msg "#### $msg of $context have different",
-	"length: $conf_count at device, $spoc_count at netspoc";
+	info("$msg of $context have different",
+             " length: $conf_count at device, $spoc_count at netspoc");
 	return 0;
     }
     my $equal = 1;
@@ -967,14 +959,14 @@ sub chains_equal {
 	    }
 	    elsif($c_target ne $s_target) {
 		my $which = $i+1;
-		info_msg "#### Rules $which of $msg of $context",
-		" have different target '$c_target' vs. '$s_target'";
+		info("Rules $which of $msg of $context",
+                     " have different target '$c_target' vs. '$s_target'");
 		$equal = 0;
 	    }
 	}
 	else {
 	    my $which = $i+1;
-	    info_msg "#### Rules $which of $msg of $context are different";
+	    info("Rules $which of $msg of $context are different");
 	    $equal = 0;
 	}
     }
@@ -992,12 +984,12 @@ sub process_iptables {
     my $spoc_tables = $spoc->{IPTABLES};
     my $changed = 0;
     for my $tname (keys %$conf_tables) {
-	info_msg "Comparing table '$tname'";
+	info("Comparing table '$tname'");
 	my $conf_chains = $conf_tables->{$tname};
 	my $spoc_chains = $spoc_tables->{$tname};
 	if(not $spoc_chains) {
 	  $changed = 1;
-	  info_msg "#### Extra table on device: $tname";
+	  info("Extra table on device: $tname");
 	  next;
 	}
 	for my $cname (keys %$conf_chains) {
@@ -1008,7 +1000,7 @@ sub process_iptables {
 	    my $spoc_chain = $spoc_chains->{$cname};
 	    if(not $spoc_chain) {
 		$changed = 1;
-		info_msg "#### Extra chain on device: $cname";
+		info("Extra chain on device: $cname");
 		next;
 	    }
 	    $self->chains_equal($conf_chains, $spoc_chains,
@@ -1034,7 +1026,7 @@ sub status_ok {
 sub cmd_ok {
     my ($self, $cmd) = @_;
     if ( $self->{CMD2STDOUT} ) {
-	mypr "$cmd\n";
+	print($cmd, "\n");
 	return 1;
     }
     else {
@@ -1054,14 +1046,11 @@ sub cmd_check_error($$) {
     if(@$lines) {
 	my $valid = $valid_cmd_output{$cmd};
 	if(not(@$lines == 1 and $valid and $lines->[0] eq $valid)) {
-	    errpr "$cmd failed\n";
-	    for my $line (@$lines) {
-		errpr "$line\n";
-	    }
+	    abort("$cmd failed", @$lines);
 	}
     }
     elsif(not $self->status_ok) {
-	errpr "$cmd failed (exit status)\n";
+	abort("$cmd failed (exit status)");
     }
 }
 
@@ -1107,11 +1096,11 @@ sub do_scp( $$$$ ) {
 	     ? ($src, "$user\@$ip:$dst")
 	     : ($mode eq 'get')
 	     ? ("$user\@$ip:$src", $dst)
-	     :  die "undefined mode $mode for secure copy\n";
+	     :  abort("undefined mode $mode for secure copy");
     unshift @args, 'scp', '-q';
-    mypr join(' ', @args);
+    info(join(' ', 'Executing:', @args));
     system(@args) == 0
-	or die "system(@args) failed: $?\n";
+	or abort("system(@args) failed: $?");
 }
 
 sub write_startup_routing {
@@ -1120,7 +1109,7 @@ sub write_startup_routing {
 
     # Create and open temporary file. 
     # File is automatically removed when the program exits.
-    my ($fh, $tmpname) = tempfile(UNLINK => 1) or die "Can't create tempfile: $!\n";
+    my ($fh, $tmpname) = tempfile(UNLINK => 1) or abort("Can't create tempfile: $!");
     print $fh '#!/bin/sh';
     print $fh '# Generated by NetSPoC';
     for my $entry (@{ $spoc->{ROUTING} }) {
@@ -1128,14 +1117,15 @@ sub write_startup_routing {
 	chomp $cmd;
 	print $fh $cmd;
     }
-    close $fh or die "Can't close $tmpname: $!\n";
+    close $fh or abort("Can't close $tmpname: $!");
     $self->do_scp('put', $tmpname, $file);
 }
 
 sub write_startup_iptables {
     my ($self, $spoc, $file) = @_;
     local $\ = "\n";
-    my ($fh, $tmpname) = tempfile(UNLINK => 1) or die "Can't create tempfile: $!\n";
+    my ($fh, $tmpname) = tempfile(UNLINK => 1) or 
+        abort("Can't create tempfile: $!");
     print $fh "#!$config->{iptables_restore_cmd}";
     print $fh '# Generated by NetSPoC';
     my $iptables = $spoc->{IPTABLES};
@@ -1157,7 +1147,7 @@ sub write_startup_iptables {
 	}
 	print $fh 'COMMIT';
     }
-    close $fh or die "Can't close $tmpname: $!\n";
+    close $fh or abort("Can't close $tmpname: $!");
     $self->do_scp('put', $tmpname, $file);
 }
 
@@ -1178,22 +1168,21 @@ sub transfer {
 	$startup_file = $config->{device_iptables_file};    
 	$self->write_startup_iptables($spoc_conf, $tmp_file);
 	if ($self->{CHANGE}->{ACL}) {
-	    mypr "Changing iptables running config\n";
+	    info("Changing iptables running config");
 	    $self->cmd("chmod a+x $tmp_file");
 	    $self->cmd($tmp_file);
-	    mypr "Writing iptables startup config\n";  
+	    info("Writing iptables startup config");  
 	    $self->cmd("mv -f $tmp_file $startup_file");
-	    mypr "...done\n";
 	}
 	else {
-	    mypr "No changes to save - check if iptables startup is uptodate\n";
+	    info("No changes to save,",
+                 " checking if iptables startup is uptodate");
 	    if($self->cmd_ok("cmp $tmp_file $startup_file")) {
-	        mypr "Startup is uptodate\n";
+	        info("Startup is uptodate");
 	    }
 	    else {
-	        warnpr "Iptables startup is *NOT* uptodate - trying to fix:\n";
+	        warn_info("Iptables startup is *NOT* uptodate - trying to fix");
 	        $self->cmd("mv -f $tmp_file $startup_file");
-	        mypr "...done\n";
 	    }
 	}
 
@@ -1203,32 +1192,29 @@ sub transfer {
         if ($self->{CHANGE}->{ROUTING}) {
 
 	    # Running config has already been changed differentially.
-            mypr "Writing routing startup config\n";  
+            info("Writing routing startup config");  
 	    $self->cmd("mv -f $tmp_file $startup_file");
-            mypr "...done\n";
         }
         else {
-            mypr "No changes to save - check if routing startup is uptodate\n";
+            info("No changes to save, checking if routing startup is uptodate");
 	    if($self->cmd_ok("cmp $tmp_file $startup_file")) {
-                mypr "Startup is uptodate\n";
+                info("Startup is uptodate");
             }
             else {
-                warnpr "Routing startup is *NOT* uptodate - trying to fix:\n";
+                warn_info("Routing startup is *NOT* uptodate - trying to fix");
 		$self->cmd("mv -f $tmp_file $startup_file");
-		mypr "...done\n";
 	    }
         }
 
 	# Always write configuration to flash.
 	# Someone may have changed it.
 	if(my $cmd = $config->{store_flash_cmd}) {
-            mypr "Saving config to flash\n";  
+            info("Saving config to flash");  
 	    $self->cmd($cmd);
-            mypr "...done\n";
 	}
     }
     else {
-        mypr "compare finish\n";
+        info("Compare finished");
     }
     return 1;
 }
@@ -1252,7 +1238,6 @@ sub checkidentity {
 sub prepare {
     my ($self) = @_;
     $self->login_enable();
-    mypr "logged in\n";
 
     # Force new prompt by issuing empty command.
     # Read hostname from prompt.
@@ -1274,13 +1259,13 @@ sub login_enable {
     my $std_prompt = qr/[\%\>\$\#]/;
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
     $con->{EXPECT}->spawn('ssh', '-l', $config->{user}, $ip)
-	or errpr "Cannot spawn ssh: $!\n";
+	or abort("Cannot spawn ssh: $!");
     my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
     $con->con_wait($prompt) or $con->con_error();
     if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 	$prompt = qr/$std_prompt|password:/i;
 	$con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
-	errpr_info "SSH key for $ip permanently added to known hosts\n";
+	info("SSH key for $ip permanently added to known hosts");
     }
 
     # Password prompt comes only if no ssh keys are in use.
@@ -1289,7 +1274,7 @@ sub login_enable {
 	$prompt = qr/$std_prompt|password:/i;
 	$con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
 	if ($con->{RESULT}->{MATCH} !~ $std_prompt) {
-	    errpr "Authentication failed\n";
+	    abort("Authentication failed");
 	}
     }
     $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};

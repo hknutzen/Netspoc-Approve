@@ -610,11 +610,11 @@ sub postprocess_config {
 	my ($map_name, $seq_nr) = split(/:/, $name);
 	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
 	my $peer = $map->{PEER} || $map->{DYNAMIC_MAP} or 
-	    errpr "Missing peer or dynamic in crypto map $map_name $seq_nr\n";
+	    abort("Missing peer or dynamic in crypto map $map_name $seq_nr");
 	$map->{SEQ} = $seq_nr;
 	$peers{$peer} and 
-	    errpr "Duplicate peer or dynamic $peer in" .
-	    " crypto map $map_name $seq_nr\n";
+	    abort("Duplicate peer or dynamic $peer in" .
+                  " crypto map $map_name $seq_nr");
 	$peers{$peer} = $map;
 	push @{ $lists->{$map_name}->{PEERS} }, $name;
     }
@@ -623,7 +623,7 @@ sub postprocess_config {
     for my $key (%$p) {
 	my $v = $p->{$key};
 	my $count = (ref $v eq 'ARRAY') ? @$v : keys %$v;
-	mypr "Found $count $key\n" if $count;
+	info("Found $count $key") if $count;
     }
 }
 
@@ -711,15 +711,13 @@ sub cmd_check_error {
 	}
 	for my $regex (@known_warning) {
 	    if($line =~ $regex) {
-                warnpr $line, "\n";
+                warn_info($line);
 		next LINE;
 	    }
 	}
 	push @err_lines, "$cmd: $line\n";
     }
-    for my $err_line (@err_lines) {
-	errpr $err_line;
-    }
+    abort(@err_lines) if @err_lines;
 }
 
 sub checkidentity {
@@ -761,24 +759,21 @@ sub prepare {
     if ($output !~ /no pager/) {
 	$self->set_pager();
     }
-    mypr "---\n";
     $output = $self->shcmd('sh ver');
     if($output =~ /Version +(\d+\.\d+)/i) {	
 	$self->{VERSION} = $1;
     }
     else {
-	errpr "Could not identify version number from 'sh ver'\n";
+	abort("Could not identify version number from 'sh ver'");
     }
     if($output =~ /Hardware:\s+(\S+),/i) {	
 	$self->{HARDWARE} = $1;
     }
     else {
-	warnpr "could not identify hardware type from 'sh ver'\n";
+	warn_info("Could not identify hardware type from 'sh ver'");
 	$self->{HARDWARE} = 'unknown';
     }
-    mypr "-----------------------------------------------------------\n";
-    mypr " DINFO: $self->{HARDWARE} $self->{VERSION}\n";
-    mypr "-----------------------------------------------------------\n";
+    info(" DINFO: $self->{HARDWARE} $self->{VERSION}");
 
     # Max. term width is 511 for PIX.
     $output = $self->shcmd('sh term');
@@ -788,7 +783,7 @@ sub prepare {
 
             # Only warn. Otherwise the generated configure message 
 	    # triggers IDS at night.
-            errpr "Terminal width should be 511\n";
+            abort("Terminal width should be 511");
         }
         else {
             $self->device_cmd('term width 511');
@@ -803,7 +798,7 @@ sub get_config_from_device( $ ) {
     my @conf = split(/\r\n/, $output);
     my $echo = shift(@conf);
     $echo =~ /^\s*$cmd\s*$/ or 
-	errpr "Got unexpected echo in response to '$cmd': '$echo'\n";
+	abort("Got unexpected echo in response to '$cmd': '$echo'");
     return(\@conf);
 }
 
@@ -948,7 +943,6 @@ sub equalize_attributes {
 
     # Equalize "normal" (normal=non-next) attributes.
     for my $attr ( @{$parse->{attributes}} ) {
-	#mypr "Check attribute $attr ... \n";
 	my $spoc_attr = $spoc_value->{$attr};
 	my $conf_attr = $conf_value->{$attr};
 	if ( $spoc_attr  &&  $conf_attr ) { 
@@ -981,25 +975,23 @@ sub equalize_attributes {
 	    }
 	    else {
 		if ( $spoc_attr ne $conf_attr ) {
-#		mypr " < " . $conf_value->{name} . " > " .
-#		    " --> ATTR:$attr  DEV:$conf_attr  SPOC:$spoc_attr \n";
 		    $modified = 1;
 		    $spoc_value->{change_attr}->{$attr} = $spoc_attr;
 		}
 	    }
 	}
 	elsif ( $spoc_attr  &&  ! $conf_attr ) {
-	    #mypr "Attribute $attr present only in netspoc. \n";
+	    #info("Attribute $attr present only in netspoc. ");
 	    $modified = 1;
 	    $spoc_value->{change_attr}->{$attr} = $spoc_attr;
 	}
 	elsif ( ! $spoc_attr  &&  $conf_attr ) {
-	    #mypr "Attribute $attr present only on device. \n";
+	    #info("Attribute $attr present only on device. ");
 	    $modified = 1;
 	    $conf_value->{remove_attr}->{$attr} = $conf_attr;
 	}
 	else {
-	    #warnpr "Attribute '$attr' not on device and not in Netspoc! \n";
+	    #warn_info("Attribute '$attr' not on device and not in Netspoc");
 	}
     }
 
@@ -1066,8 +1058,8 @@ sub equalize_obj_group {
     if(my $other_conf_group_name = $spoc_group->{name_on_dev}) {
 	# Change has already been marked.
 	if($conf_group->{name} ne $other_conf_group_name) {
-	    mypr " ACL changes because $conf_group->{name} and" . 
-		" $other_conf_group_name are merged to $spoc_group->{name}\n";
+	    info(" ACL changes because $conf_group->{name} and",
+                 " $other_conf_group_name are merged to $spoc_group->{name}");
 	    return 1;
 	}
 	else {
@@ -1083,14 +1075,14 @@ sub equalize_obj_group {
     if(my $other_spoc_group = $conf_group->{needed}) {
 	$spoc_group->{transfer} = 1;
 	$self->mark_as_changed('OBJECT_GROUP');
-	mypr " ACL changes because $conf_group->{name} is split" . 
-	    " into $spoc_group->{name} and $other_spoc_group->{name}\n";
+	info(" ACL changes because $conf_group->{name} is split",
+             " into $spoc_group->{name} and $other_spoc_group->{name}");
 	return 1;
     }	
 
     if ($conf_group->{TYPE} ne $spoc_group->{TYPE}) {
-	mypr " ACL changes because $conf_group->{name} and" .
-            " $spoc_group->{name} have different type\n";
+	info(" ACL changes because $conf_group->{name} and",
+             " $spoc_group->{name} have different type");
 	return 1;
     }
 
@@ -1119,8 +1111,8 @@ sub equalize_obj_group {
 	$conf_group->{needed} = $spoc_group;
 	$self->mark_as_unchanged('OBJECT_GROUP');
 	if($spoc_group->{transfer}) {
-	    mypr " Canceled transfer of $spoc_group->{name}," . 
-		" because $conf_group->{name} was found on device\n";
+	    info(" Canceled transfer of $spoc_group->{name},",
+                 " because $conf_group->{name} was found on device");
 	    undef $spoc_group->{transfer};
 	}
 	return 0;
@@ -1130,7 +1122,7 @@ sub equalize_obj_group {
     elsif($change_lines >= @$spoc_networks) {
 	$spoc_group->{transfer} = 1;
 	$self->mark_as_changed('OBJECT_GROUP');
-	mypr " ACL changes because $spoc_group->{name} is transferred\n";
+	info(" ACL changes because $spoc_group->{name} is transferred");
 	return 1;
     }
 
@@ -1144,10 +1136,10 @@ sub equalize_obj_group {
 	push(@{$spoc_group->{add_entries}}, $diff->Items(2));
     }			    
     $self->mark_as_changed('OBJECT_GROUP');
-    mypr " $conf_group->{name} is changed to values of $spoc_group->{name}\n";
+    info(" $conf_group->{name} is changed to values of $spoc_group->{name}");
     if($spoc_group->{transfer}) {
-	mypr " Canceled transfer of $spoc_group->{name}," . 
-	    " because $conf_group->{name} now has its values\n";
+	info(" Canceled transfer of $spoc_group->{name},",
+             " because $conf_group->{name} now has its values");
 	undef $spoc_group->{transfer};
     }
     return 0;
@@ -1259,10 +1251,10 @@ sub equalize_acl {
 	    }
 
 	    if(my $count = $diff->Items(1)) {
-		mypr " $count extra lines on device\n";
+		info(" $count extra lines on device");
 	    }
 	    if(my $count = $diff->Items(2)) {
-		mypr " $count extra lines from Netspoc\n";
+		info(" $count extra lines from Netspoc");
 	    }
 	}
     }
@@ -1348,10 +1340,10 @@ sub equalize_crypto {
 	}
 	
 	if ( my $count = $diff->Items(1) ) {
-	    mypr " CRYPTO: $count extra lines on device\n";
+	    info(" CRYPTO: $count extra lines on device");
 	}
 	if ( my $count = $diff->Items(2) ) {
-	    mypr " CRYPTO: $count extra lines from Netspoc\n";
+	    info(" CRYPTO: $count extra lines from Netspoc");
 	}
     }
     return $modified;
@@ -1363,7 +1355,7 @@ sub make_equal {
 
     return undef unless ( $spoc_name  ||  $conf_name );
 
-#    mypr "\nMAKE EQUAL( $parse_name ) => CONF:$conf_name, SPOC:$spoc_name \n";
+#    info("MAKE EQUAL( $parse_name ) => CONF:$conf_name, SPOC:$spoc_name ");
 
     my $modified;
     my $conf_value = object_for_name( $conf, $parse_name,
@@ -1388,7 +1380,7 @@ sub make_equal {
     #   must not be changed.
     if ( $spoc_value && (!$conf_value || $conf_value && $conf_value->{needed}) ) {
 
-#	mypr "$parse_name => $spoc_name on spoc but not on dev. \n";
+#	info("$parse_name => $spoc_name on spoc but not on dev. ");
 	$modified = 1;
 	$spoc_value->{transfer} = 1;
 
@@ -1425,7 +1417,7 @@ sub make_equal {
     elsif ( $conf_value && $spoc_value ) {
 	# On both, compare attributes.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
-	    mypr "Comparing $conf_name $spoc_name\n";
+	    info("Comparing $conf_name $spoc_name");
 	    if ( $modified = $self->equalize_acl( $conf, $spoc, 
 						  $conf_value, $spoc_value, ) )
 	    {
@@ -1461,7 +1453,7 @@ sub make_equal {
 
     # On dev but not on spoc. Unused, will be removed later.
     elsif ( $conf_value  &&  !$spoc_value ) {
-#	mypr "$parse_name => $conf_name on dev but not on spoc. \n";
+#	info("$parse_name => $conf_name on dev but not on spoc. ");
 	$modified = 1;
     }
 
@@ -1525,7 +1517,7 @@ sub unify_anchors {
     for my $key ( keys %$structure ) {
         my $value = $structure->{$key};
         next if not $value->{anchor};
-#	mypr "\n\nProcessing anchor $key ... \n";
+#	info("Processing anchor $key ... ");
         my $conf_anchor = $conf->{$key};
         my $spoc_anchor = $spoc->{$key};
 	my %seen;
@@ -1585,7 +1577,7 @@ sub change_modified_attributes {
 sub transfer1 {
     my ( $self, $spoc, $parse_name, $spoc_name, $structure ) = @_;
 
-#    mypr "PROCESS $parse_name:$spoc_name\n"; 
+#    info("PROCESS $parse_name:$spoc_name"); 
     my $spoc_value = object_for_name( $spoc, $parse_name,
 				      $spoc_name, 'no_err' );
 
@@ -1601,7 +1593,7 @@ sub transfer1 {
 	my $method = $parse->{transfer};
 	if ( $spoc_value->{transfer} and $method ) {
 	    if ( my $transfered_as = $spoc_value->{transfered_as} ) {
-		#mypr "$spoc_name ALREADY TRANSFERED AS $transfered_as! \n";
+		#info("$spoc_name already transfered as $transfered_as! ");
 	    }
 	    else {
 		$self->$method( $spoc, $structure, $parse_name, $spoc_name );
@@ -1619,7 +1611,7 @@ sub transfer1 {
 sub traverse_netspoc_tree {
     my ( $self, $spoc, $structure ) = @_;
 
-    mypr "\n##### Transfer objects to device ##### \n";
+    info("Transfer objects to device");
 
     # Transfer items ...
 
@@ -1633,7 +1625,7 @@ sub traverse_netspoc_tree {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
 	    if ( $spoc_value->{transfer} ) {
 		if ( my $transfered_as = $spoc_value->{transfered_as} ) {
-		    #mypr "$spoc_name ALREADY TRANSFERED AS $transfered_as! \n";
+		    #info("$spoc_name already transfered as $transfered_as! ");
 		}
 		else {
 		    $self->$method( $spoc, $structure,
@@ -1649,7 +1641,7 @@ sub traverse_netspoc_tree {
         my $value = $structure->{$key};
         next if not $value->{anchor};
 
-	#mypr "\nITERATING over netspoc-anchor $key ... \n";
+	#info("Iterating over netspoc-anchor $key ... ");
         my $spoc_anchor = $spoc->{$key};
 
 	# Iterate over anchors in netspoc.
@@ -1659,7 +1651,7 @@ sub traverse_netspoc_tree {
 	}
     }
 
-    mypr "\n##### Modify objects on device ##### \n";
+    info("Modify objects on device");
     # Change attributes of items in place.
     for my $key ( keys %$structure ) {
         my $value = $structure->{$key};
@@ -1702,7 +1694,7 @@ sub remove_unneeded_on_device {
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
 
-    mypr "\n##### Remove unneeded objects from device ##### \n";
+    info("Remove unneeded objects from device");
 	
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
@@ -1748,7 +1740,7 @@ sub remove_spare_objects_on_device {
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
     
-    mypr "\n##### Remove SPARE objects from device ##### \n";
+    info("Remove SPARE objects from device");
 
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
@@ -1780,8 +1772,8 @@ sub mark_connected {
 	for my $pair (get_next_names($parse, $object)) {
 	    my ($next_parse_name, $next_name) = @$pair;
 	    my $next_obj = $conf->{$next_parse_name}->{$next_name} or
-		errpr "Can't find $next_parse_name $next_name " .
-		"referenced by $object->{name}\n";
+		abort("Can't find $next_parse_name $next_name" .
+                      " referenced by $object->{name}");
 	    $self->mark_connected( $conf, $next_parse_name,
 				   $next_obj, $structure );
 	}
@@ -1811,7 +1803,7 @@ sub mark_connected_objects {
 	my $objects = $conf->{$key};
         for my $object ( values %$objects ) {
 	    next if $object->{connected};
-	    warnpr "Spare $key: $object->{name}\n";
+	    warn_info("Spare $key: $object->{name}");
 	}
     }    
 }
@@ -1823,7 +1815,7 @@ sub change_attributes {
     return if $parse_name =~ /^(CERT_ANCHOR)$/;
     return if ( $spoc_value->{change_done} );
 
-    mypr "### CHANGE ATTRIBUTES of $parse_name -> $spoc_name \n";
+    info("Change attributes of $parse_name -> $spoc_name");
     if ( my $name = $spoc_value->{name_on_dev} ) {
 	$spoc_name = $name; 
     }
@@ -1910,7 +1902,7 @@ sub change_attributes {
 sub remove_attributes {
     my ( $self, $parse_name, $item_name, $attributes ) = @_;
 
-    mypr " ### remove attributes for $item_name! \n";
+    info("Remove attributes for $item_name");
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
@@ -1949,25 +1941,21 @@ sub remove_attributes {
 }
 
 sub transfer_interface {
-    my ( $self, $spoc, $structure,
-	 $parse_name, $intf ) = @_;
-    errpr "transfer_interface $intf: interfaces MUST be same " .
-	"on device and in netspoc!\n";
+    my ( $self, $spoc, $structure, $parse_name, $intf ) = @_;
+    abort("Transfer $intf: Interfaces MUST be same" .
+          " on device and in netspoc");
 }
 
 sub remove_interface {
-    my ( $self, $conf, $structure,
-	 $parse_name, $intf ) = @_;
-    errpr "remove_interface $intf: interfaces MUST be same " .
-	"on device and in netspoc!\n";
+    my ( $self, $conf, $structure, $parse_name, $intf ) = @_;
+    abort("Remove $intf: Interfaces MUST be same" .
+          " on device and in netspoc");
 }
 
 sub transfer_crypto_map_seq {
     my ( $self, $spoc, $structure, $parse_name, $name_seq ) = @_;
 
     my $object = object_for_name( $spoc, $parse_name, $name_seq );
-    mypr "### transfer crypto map $name_seq to device\n";
-    
     my @cmds;
     push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $object, 'attributes' );
@@ -1980,8 +1968,6 @@ sub remove_crypto_map_seq {
     my $object = object_for_name( $conf, $parse_name, $name_seq );
     my ($name, $seq) = split(':', $object->{name});
     my $prefix = "crypto map $name $seq";
-    mypr "### remove $prefix from device \n";
-
     my $cmd = "clear configure $prefix";
     $self->cmd( $cmd );
 }
@@ -1991,9 +1977,6 @@ sub transfer_ca_cert_map {
 
     my $object = object_for_name( $spoc, $parse_name, $cert_map );
     my $new_cert_map = $object->{new_name};
-    mypr "### transfer ca-cert-map $cert_map to device as " .
-	"$new_cert_map \n";
-    
     my @cmds;
     push @cmds, item_conf_mode_cmd( $parse_name, $new_cert_map );
     push @cmds, add_attribute_cmds( $structure, $parse_name, $object, 'attributes' );
@@ -2002,33 +1985,23 @@ sub transfer_ca_cert_map {
 
 sub remove_ca_cert_map {
     my ( $self, $conf, $structure, $parse_name, $cert_map ) = @_;
-
-    mypr "### remove ca-cert-map $cert_map from device \n";
     my $object = object_for_name( $conf, $parse_name, $cert_map );
-
     my $cmd = "clear configure crypto ca certificate map $cert_map";
     $self->cmd( $cmd );
 }
 
 sub transfer_default_group {
     my ( $self, $spoc, $structure, $parse_name, $default ) = @_;
-
     my $object = $spoc->{$parse_name}->{$default};
     my $tunnel_group_name = $object->{TUNNEL_GROUP};
     my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
     my $new_default_group = $tunnel_group->{new_name};
-    mypr "### transfer default-group to device as $new_default_group \n";
-
     my $cmd = "tunnel-group-map default-group $new_default_group";
     $self->cmd( $cmd );
 }
 
 sub remove_default_group {
-    my ( $self, $conf, $structure,
-	 $parse_name, $default ) = @_;
-
-    mypr "### remove default-group $default from device \n";
-
+    my ( $self, $conf, $structure, $parse_name, $default ) = @_;
     my $object = $conf->{$parse_name}->{$default};
     my @cmds;
     push @cmds, "no " . $object->{orig};
@@ -2037,25 +2010,19 @@ sub remove_default_group {
 
 sub transfer_user {
     my ( $self, $spoc, $structure, $parse_name, $username ) = @_;
-
-    mypr "### transfer username $username to device \n";
-
     my $user = $spoc->{$parse_name}->{$username};
-    errpr "No user-object found for $username!" unless $user;
-
+    abort("No user-object found for $username") unless $user;
     my @cmds;
     push @cmds, define_item_cmd( $parse_name, $username );
     push @cmds, item_conf_mode_cmd( $parse_name, $username );
-    push @cmds, add_attribute_cmds( $structure, $parse_name, $user, 'attributes' );
+    push @cmds, add_attribute_cmds( $structure, $parse_name, $user, 
+                                    'attributes' );
     push @cmds, 'exit' if $parse_name eq 'USERNAME';
     map { $self->cmd( $_ ) } @cmds;
 }
 
 sub remove_user {
     my ( $self, $conf, $structure, $parse_name, $username ) = @_;
-
-    mypr "### remove username $username from device \n";
-
     my @cmds;
     my $cmd = "clear configure username $username";
     $self->cmd( $cmd );
@@ -2065,7 +2032,7 @@ sub transfer_tunnel_group {
     my ( $self, $spoc, $structure, $parse_name, $tg_name ) = @_;
 
     my $tunnel_group = $spoc->{$parse_name}->{$tg_name} or
-	errpr "No $parse_name found for $tg_name!";
+	abort("No $parse_name found for $tg_name");
     my $tg = $spoc->{TUNNEL_GROUP}->{$tg_name};
     my $new_tg = is_ip( $tg_name ) 
                ? $tg_name
@@ -2073,8 +2040,6 @@ sub transfer_tunnel_group {
                # Use same name for tg xxx-attributes if tg is already
                # on device.
                : $tg->{name_on_dev} || $tg->{new_name};
-    mypr "### transfer $parse_name $tg_name to device as $new_tg\n";
-
     my @cmds;
     if ( $parse_name =~ /^TUNNEL_GROUP(?:_IPNAME)?$/ ) {
 	push @cmds, define_item_cmd($parse_name, $new_tg);
@@ -2089,28 +2054,20 @@ sub transfer_tunnel_group {
 
 sub remove_tunnel_group {
     my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
-    mypr "### remove tunnel-group $tg_name from device \n";
     $self->cmd("clear configure tunnel-group $tg_name");
 }
 
 sub remove_tunnel_group_xxx {
     my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
     my $cmd = item_conf_mode_cmd($parse_name, $tg_name);
-    mypr "### remove tunnel-group $tg_name xxx from device \n";
     $self->cmd("no $cmd");
 }
 
 sub transfer_group_policy {
     my ( $self, $spoc, $structure, $parse_name, $gp_name ) = @_;
-
     my $group_policy = $spoc->{$parse_name}->{$gp_name};
     my $new_gp = $group_policy->{new_name};
-    mypr "### transfer group-policy $gp_name to device " .
-	"as $new_gp \n";
-
-    errpr "No group-policy-object found for $gp_name!"
-	unless $group_policy;
-
+    abort("No group-policy-object found for $gp_name") unless $group_policy;
     my @cmds;
     push @cmds, define_item_cmd( $parse_name, $new_gp );
     push @cmds, item_conf_mode_cmd( $parse_name, $new_gp );
@@ -2122,18 +2079,14 @@ sub transfer_group_policy {
 
 sub remove_group_policy {
     my ( $self, $spoc, $structure, $parse_name, $gp_name ) = @_;
-
-    mypr "### remove group-policy $gp_name from device \n";
     my $cmd = "clear configure group-policy $gp_name";
     $self->cmd( $cmd );
 }
 
 sub transfer_ip_local_pool {
     my ( $self, $spoc, $structure, $parse_name, $pool_name ) = @_;
-
     my $pool = $spoc->{$parse_name}->{$pool_name};
     my $new_name = $pool->{new_name};
-    mypr "### transfer ip local pool $pool_name to device as $new_name \n";
     my $cmd = $pool->{orig}; 
     $cmd =~ s/ip local pool $pool_name(?!\S)/ip local pool $new_name/;
     $self->cmd( $cmd );
@@ -2141,9 +2094,6 @@ sub transfer_ip_local_pool {
 
 sub remove_ip_local_pool {
     my ( $self, $conf, $structure, $parse_name, $pool_name ) = @_;
-
-    mypr "### remove ip local pool $pool_name from device \n";
-
     my $pool = $conf->{$parse_name}->{$pool_name};
     my $cmd = "no " . $pool->{orig};
     $self->cmd( $cmd );
@@ -2161,8 +2111,6 @@ sub remove_no_sysopt_connection_permit_vpn {
     
 sub transfer_object_group {
     my ( $self, $spoc, $structure, $parse_name, $object_group ) = @_;
-
-    mypr "### transfer object-group $object_group to device\n";
     my $group = object_for_name( $spoc, $parse_name, $object_group );
     my $new_name = $group->{new_name};
     my $cmd = $group->{orig};
@@ -2173,9 +2121,6 @@ sub transfer_object_group {
 
 sub modify_object_group {
     my ( $self, $spoc, $conf_name ) = @_;
-    
-
-    mypr "### modify object-group $conf_name on device\n";
     my $cmd = "object-group $spoc->{TYPE} $conf_name";
     $self->cmd($cmd);
     if($spoc->{add_entries}) {
@@ -2188,9 +2133,6 @@ sub modify_object_group {
 
 sub remove_object_group {
     my ( $self, $conf, $structure, $parse_name, $object_group ) = @_;
-    
-    mypr "### remove object-group $object_group from device \n";
-	
     my $og = object_for_name( $conf, $parse_name, $object_group );
     my $cmd = "no $og->{orig}";
     $self->cmd( $cmd );
@@ -2201,9 +2143,6 @@ sub transfer_acl {
 
     my $acl = $spoc->{$parse_name}->{$acl_name};
     my $new_name = $acl->{new_name};
-    
-    mypr "### transfer access-list $acl_name to device as $new_name \n";
-
     my @cmds;
     for my $ace ( @{ $acl->{LIST} } ) {
 	my $cmd = $ace->{orig};
@@ -2213,7 +2152,7 @@ sub transfer_acl {
 	    if (my $gid = ref($what) && $what->{OBJECT_GROUP}) {
 		my $group = object_for_name( $spoc, 'OBJECT_GROUP', $gid );
 		my $new_gid = $group->{transfered_as} || $group->{name_on_dev} or
-		    die "Expected group $gid already on device";
+		    abort("Expected group $gid already on device");
 		$cmd =~ s/object-group $gid(?!\S)/object-group $new_gid/;
 		$ace->{$where}->{OBJECT_GROUP} = $new_gid;  
 	    }
@@ -2225,8 +2164,6 @@ sub transfer_acl {
 
 sub remove_acl {
     my ( $self, $conf, $structure, $parse_name, $acl ) = @_;
-
-    mypr "### remove access-list $acl from device \n";
     my $cmd = $self->acl_removal_cmd( $acl );
     $self->cmd( $cmd );
 }
@@ -2318,11 +2255,11 @@ sub transfer {
     $self->process_routing( $conf, $spoc );
     generate_names_for_transfer( $conf, $spoc, $structure );
 
-    mypr "### Mark connected objects of device\n";
+    info("Mark connected objects of device");
     $self->mark_connected_objects( $conf, $structure );
 
     # Result isn't needed, but run it anyway to check for consistent references.
-    mypr "### Mark connected objects of Netspoc\n";
+    info("Mark connected objects of Netspoc");
     $self->mark_connected_objects( $spoc, $structure );
     $self->unify_anchors( $conf, $spoc, $structure );
     $self->enter_conf_mode();
@@ -2339,11 +2276,11 @@ sub transfer {
 
     # Only write memory on device if there have been changes.
     if ( grep { $_ } values %{ $self->{CHANGE} } ) {
-	mypr "### saving config to flash .....\n";
+	info("Saving config to flash");
 	$self->cmd('write memory');
     }
     else {
-	mypr "### no changes to save\n";
+	info("No changes to save");
     }
 
     return 1;

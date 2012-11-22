@@ -247,9 +247,9 @@ sub analyze_conf_lines {
 		$level = $sub_level;
 	    }
 	    else {
-		die "Expected indentation '$level' but got '$sub_level'",
-		" at line $counter:\n",
-		">>$line<<\n";
+		abort("Expected indentation '$level' but got '$sub_level'" .
+                      " at line $counter:\n",
+                      ">>$line<<");
 	    }
 	}
 	else {
@@ -263,9 +263,9 @@ sub analyze_conf_lines {
 		    # Skip certificate data.
 		}
 		else {
-		    die "Expected indentation '$level' but got '$sub_level'",
-		    " at line $counter:\n",
-		    ">>$line<<\n";
+		    abort("Expected indentation '$level' but got '$sub_level'" .
+                          " at line $counter:\n",
+                          ">>$line<<");
 		}
 	    }
 	}
@@ -428,7 +428,7 @@ sub parse_port_spec {
         $spec = 'range';
     }
     elsif ($spec eq 'neq') {
-        errpr "port specifier 'neq' not implemented\n";
+        abort("port specifier 'neq' not implemented");
     }
     elsif ($spec eq 'range') {
         $low = $port;
@@ -474,13 +474,13 @@ sub merge_acls {
     my ( $self, $spoc, $raw ) = @_;
 
     for my $intf_name ( keys %{ $raw->{IF} } ) {
-	mypr " interface: $intf_name \n";
+	info(" Interface: $intf_name ");
 	my $raw_intf = delete($raw->{IF}->{$intf_name});
 	my $spoc_intf = $spoc->{IF}->{$intf_name};
 
 	if ( ! $spoc_intf ) {
-	    warnpr "Interface $intf_name referenced in raw does " .
-		"not exist in Netspoc.\n";
+	    warn_info("Interface $intf_name referenced in raw doesn't",
+                      " exist in Netspoc");
 	    $spoc_intf = $spoc->{IF}->{$intf_name} = { name => $intf_name };
 	}
 
@@ -497,14 +497,14 @@ sub merge_acls {
 		    unshift(@{$spoc->{ACCESS_LIST}->{$spoc_name}->{LIST}}, 
 			    @$raw_entries);
 		    my $count = @$raw_entries;
-		    mypr "  Prepended $count entries to $access_group.\n";
+		    info(" Prepended $count entries to $access_group");
 		}
 		else {
 
 		    # Copy raw acl.
 		    $spoc->{ACCESS_LIST}->{$raw_name} and
-			errpr "Name clash for '$raw_name' of ACCESS_LIST" .
-			" from raw\n";
+			abort("Name clash for '$raw_name' of ACCESS_LIST" .
+                              " from raw");
 		    $spoc->{ACCESS_LIST}->{$raw_name} = $raw_acl;
 		    $spoc_intf->{$access_group} = $raw_name;
 		}
@@ -549,7 +549,6 @@ sub route_del {
 sub prepare {
     my ($self) = @_;
     $self->login_enable();
-    mypr "logged in\n";
 
     # Force new prompt by issuing empty command.
     # Read hostname from prompt.
@@ -581,15 +580,15 @@ sub login_enable {
         );
         if ($server) {
             $server->close();
-            mypr "Using SSH with username for login\n";
+            info("Using SSH with username for login");
             $con->{EXPECT}->spawn("ssh", "-l", "$user", "$ip")
-              or errpr "Cannot spawn ssh: $!\n";
+              or abort("Cannot spawn ssh: $!");
             my $prompt = qr/password:|\(yes\/no\)\?/i;
             $con->con_wait($prompt) or $con->con_error();
             if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 		$prompt = qr/password:/i;
                 $con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
-                warnpr "SSH key for $ip permanently added to known hosts\n";
+                info("SSH key for $ip permanently added to known hosts");
             }
 	    $pass ||= $self->get_user_password($user);
 	    $prompt = qr/password:|$std_prompt/i;
@@ -597,9 +596,9 @@ sub login_enable {
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
         }
         else {
-            mypr "Using telnet with username for login\n";
+            info("Using telnet with username for login");
             $con->{EXPECT}->spawn("telnet", ($ip))
-              or errpr "Cannot spawn telnet: $!\n";
+              or abort("Cannot spawn telnet: $!");
             my $prompt = qr/username:/i;
             $con->con_wait($prompt) or $con->con_error();
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
@@ -611,10 +610,10 @@ sub login_enable {
         }
     }
     else {
-        mypr "Using simple telnet for login\n";
+        info("Using simple telnet for login");
         $pass = $self->{PASS};
         $con->{EXPECT}->spawn("telnet", ($ip))
-          or errpr "Cannot spawn telnet: $!\n";
+          or abort("Cannot spawn telnet: $!");
         my $prompt = qr/PIX passwd:|password:/i;
         $con->con_wait($prompt) or $con->con_error();
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
@@ -634,11 +633,11 @@ sub login_enable {
 	    $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
 	}
 	if ($con->{RESULT}->{MATCH} ne '#') {
-	    errpr "Authentication for enable mode failed\n";
+	    abort("Authentication for enable mode failed");
 	}
     }
     elsif ($match ne '#') {
-	errpr "Authentication failed\n";
+	abort("Authentication failed");
     }
 }
 
@@ -669,7 +668,7 @@ sub checkinterfaces {
 		     " Conf: $conf_inspect, Netspoc: $spoc_inspect");
 	}
 	else {
-            warnpr "Interface $name on device is not known by Netspoc.\n";
+            warn_info("Interface $name on device is not known by Netspoc");
         }
     }
     for my $name (sort keys %{ $spoc->{IF} }) {
@@ -677,9 +676,9 @@ sub checkinterfaces {
 	    push(@errors, "Interface $name from Netspoc not known on device");
     }
     if (@errors) {
-        my $last = pop @errors;
-        errpr_info "$_\n" for @errors;
-	errpr("$last\n");
+        my $last_msg = pop @errors;
+        err_info($_) for @errors;
+	abort($last_msg);
     }
 }
 

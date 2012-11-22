@@ -68,7 +68,7 @@ sub postprocess_config {
 sub checkbanner {
     my ($self) = @_;
     if($self->{VERSION} < 6.3) {
-	mypr "Banner check disabled for PIX $self->{VERSION}\n";
+	info("Banner check disabled for PIX $self->{VERSION}");
     }
     else {
 	$self->SUPER::checkbanner;
@@ -77,7 +77,7 @@ sub checkbanner {
 
 sub set_pager {
     my ($self) = @_;
-    errpr "Pager is not disabled - issue 'no pager' manually to continue\n";
+    abort("Pager is not disabled - issue 'no pager' manually to continue");
 }
 
 # PIX doesn't like 'end'.
@@ -96,7 +96,7 @@ sub prepare {
 
 	    # Needed for enhanced SMTP features.
 	    $self->cmd('no fixup protocol smtp 25');
-	    mypr "fixup for protocol smtp at port 25 now disabled!\n";
+	    info("fixup for protocol smtp at port 25 now disabled");
 	    $self->cmd('quit');
 	}
     }

@@ -46,7 +46,7 @@ sub get_cw_password ($$) {
     my ($self, $name) = @_;
     my $path = "$self->{CONFIG}->{passwdpath}" or return;
 
-    open(my $csv, '<', $path) or die "Can't open $path: $!\n";
+    open(my $csv, '<', $path) or abort("Can't open $path: $!");
     for my $line (<$csv>) {
         chomp $line;
         $line =~ /^[;#]/ and next;
@@ -69,14 +69,14 @@ sub get_aaa_password {
 
 	# Use AAA credentials.
 	my $aaa_credential = $self->{CONFIG}->{aaa_credentials}
-            or die "Must configure AAA_CREDENTIALS together with SYSTEMUSER\n";
+            or abort("Must configure AAA_CREDENTIALS together with SYSTEMUSER");
 	open(my $file, '<', $aaa_credential)
-	    or die "Could not open $aaa_credential: $!\n";
+	    or abort("Could not open $aaa_credential: $!");
 	my $credentials = <$file>;
 	close($file);
 	($user, $pass) = $credentials =~ (/^\s*(\S+)\s*(\S+)\s*$/)
-	    or die "No AAA credential found\n";
-	mypr "User $user extracted from aaa credentials\n";
+	    or abort("No AAA credential found");
+	info("User $user extracted from aaa credentials");
     }
     return ($user, $pass);
 }
@@ -86,7 +86,7 @@ sub get_user_password {
     my $pass;
 
     # Write directly to tty, because STDOUT may be redirected.
-    open(my $tty, '>:unix', '/dev/tty') or die "Can't open /dev/tty: $!\n";
+    open(my $tty, '>:unix', '/dev/tty') or abort("Can't open /dev/tty: $!");
     print $tty "Running in non privileged mode and no "
 	. "password found in database.\n";
     print $tty "Password for $user?";
@@ -106,7 +106,7 @@ sub get_spoc_data {
     my ($self, $spocfile) = @_;
     my $type;
     my @ip;
-    open(my $file, '<', $spocfile) or die "Can't open $spocfile: $!\n";
+    open(my $file, '<', $spocfile) or abort("Can't open $spocfile: $!");
     while (my $line = <$file>) {
         if ($line =~ /\[ Model = (\S+) ]/) {
             $type = $1;
@@ -124,12 +124,12 @@ sub load_spocfile {
     my ($self, $path) = @_;
     my @result;
 
-    open(my $file, '<', $path) or die "Could not open spocfile $path: $!\n";
+    open(my $file, '<', $path) or abort("Could not open spocfile $path: $!");
     @result = <$file>;
     close($file);
 
     my $count = @result;
-    mypr "### Read config file $path with $count lines\n";
+    info("Read config file $path with $count lines");
     return \@result;
 }
 
@@ -138,12 +138,12 @@ sub load_raw {
     my $raw = "$path.raw";
     my @result;
     if (-f $raw) {
-        open(my $file, '<', $raw) or die "Could not open $raw: $!\n";
+        open(my $file, '<', $raw) or abort("Could not open $raw: $!");
         @result = <$file>;
         close $file;
     }
     my $count = @result;
-    mypr "### Read rawdata file $raw with $count lines\n" if $count;
+    info("Read rawdata file $raw with $count lines") if $count;
     return \@result;
 }
 
@@ -160,7 +160,7 @@ sub load_spoc {
 sub load_device {
     my ($self) = @_;
     my $device_lines = $self->get_config_from_device();
-    mypr "### Parsing device config\n";
+    info("Parsing device config");
     my $conf  = $self->parse_config($device_lines);
     return($conf);
 }
@@ -409,7 +409,7 @@ sub merge_rawdata {
 	    my $spoc_v = $spoc_conf->{$key} ||= [];
 	    unshift(@$spoc_v, @$raw_v);
 	    my $count = @$raw_v;
-	    mypr " Prepended $count entries of $key from raw.\n" if $count;
+	    info("Prepended $count entries of $key from raw") if $count;
 	}
 	# Hash of named entries: ACCESS_LIST, USERNAME, ...
 	else {
@@ -418,12 +418,12 @@ sub merge_rawdata {
 	    for my $name (keys %$raw_v) {
 		my $entry = $raw_v->{$name};
 		if($spoc_v->{$name}) {
-		    errpr "Name clash for '$name' of $key from raw\n";
+		    abort("Name clash for '$name' of $key from raw");
 		}
 		$spoc_v->{$name} = $entry;
 		$count++;
 	    }
-	    mypr " added $count entries of $key from raw\n" if $count;
+	    info("Added $count entries of $key from raw") if $count;
 	}
     }
 }
@@ -453,7 +453,7 @@ sub process_routing {
     my $spoc_routing = $spoc_conf->{ROUTING};
     my $conf_routing = $conf->{ROUTING} ||= [];
     if (not $spoc_routing) {
-        mypr "no routing entries specified - leaving routes untouched\n";
+        info("No routing entries specified - leaving routes untouched");
 	return;
     }
 
@@ -493,7 +493,7 @@ sub process_routing {
 	push(@cmds, $self->route_del($r));
     }
     if(@cmds) {
-	mypr "### Change routing entries on device\n";
+	info("Changing routing entries on device");
 	$self->schedule_reload(5);
 	$self->enter_conf_mode;
 	map { $self->cmd($_); } @cmds;
@@ -772,8 +772,8 @@ sub acl_array_compare_a_in_b {
 	for my $deny (@ad) {
 	    my $result = $self->acl_line_a_in_b($s, $deny);
 	    if ($result == 1) {
-                print "**** USELESS **** ($s->{line}) : $s->{orig}";
-                print " denied by ($deny->{line}) : $deny->{orig}\n";
+                info("**** USELESS **** ($s->{line}) : $s->{orig}",
+                     " denied by ($deny->{line}) : $deny->{orig}");
 		next OUTER;
 	    }
 	    elsif ($result == 2) {
@@ -816,13 +816,13 @@ sub acl_array_compare_a_in_b {
 			    }
 			}
 
-                        print "+++ DENY MISMATCH +++";
-                        print " ($p->{line}): $p->{orig}";
-                        print " at right side has predecessor";
-                        print " ($deny->{line}): $deny->{orig}";
-                        print " which has no full match at left side\n";
-                        print "+++ While searching for match:";
-                        print " ($s->{line}): $s->{orig}\n";
+                        info("+++ DENY MISMATCH +++",
+                             " ($p->{line}): $p->{orig}",
+                             " at right side has predecessor",
+                             " ($deny->{line}): $deny->{orig}",
+                             " which has no full match at left side");
+                        info("+++ While searching for match:",
+                             " ($s->{line}): $s->{orig}");
 			$deny_match = 'DMIS';
 		    }
 		    if ($deny_match eq 'DMIS') {
@@ -839,8 +839,8 @@ sub acl_array_compare_a_in_b {
 		    }
 		}
 		if ($lm) {
-		    print "**** LOG MISMATCH **** ($s->{line}): $s->{orig}";
-		    print " in ($p->{line}): $p->{orig}\n";
+		    info("**** LOG MISMATCH **** ($s->{line}): $s->{orig}",
+                         " in ($p->{line}): $p->{orig}");
 		}
 		next OUTER;
 	    }
@@ -860,17 +860,17 @@ sub acl_array_compare_a_in_b {
 	$clean = 0;
         unless ($deny_match eq 'DMIS') {
             if (@perm_int) {
-                print " **** DENY **** ($s->{line}): $s->{orig}";
-                print " by ($deny_line_nr): $deny_line\n";
-                my @intersec = sort { $a->{line} <=> $b->{line } }
-                (@deny_int, @perm_int);
+                info(" **** DENY **** ($s->{line}): $s->{orig}",
+                     " by ($deny_line_nr): $deny_line");
+                my @intersec = sort({ $a->{line} <=> $b->{line } }
+                                    (@deny_int, @perm_int));
                 for my $p (@intersec) {
-                    print " **** INTERSEC **** $p->{line} : $p->{orig}\n";
+                    info("**** INTERSEC **** $p->{line} : $p->{orig}");
                 }
             }
             else {
-                print "**** DENY **** ($s->{line}): $s->{orig}";
-                print " by ($deny_line_nr): $deny_line\n";
+                info("**** DENY **** ($s->{line}): $s->{orig}",
+                     " by ($deny_line_nr): $deny_line");
             }
 	}
     }
@@ -879,57 +879,45 @@ sub acl_array_compare_a_in_b {
 
 sub acl_equal {
     my ($self, $conf_acl, $spoc_acl, $conf_name, $spoc_name, $context) = @_;
-    my $diff = 0;
-    mypr "compare ACLs OLD=$conf_name NEW=$spoc_name for $context\n";
+    info("Compare ACLs OLD=$conf_name NEW=$spoc_name for $context");
 
-    ### textual compare
-    if (@{$conf_acl} == @{$spoc_acl}) {
-        mypr "length equal: ", scalar @{$conf_acl}, "\n";
-        mypr "compare line by line: ";
+    if (@$conf_acl == @$spoc_acl) {
+        info("ACL length is equal, comparing line by line");
+        my $diff = 0;
         for (my $i = 0 ; $i < scalar @{$conf_acl} ; $i++) {
-            if ($self->acl_line_a_eq_b($$conf_acl[$i], $$spoc_acl[$i])) {
+            if ($self->acl_line_a_eq_b($conf_acl->[$i], $spoc_acl->[$i])) {
                 next;
             }
             else {
-
-                # acls differ
-                mypr " diff at ", $i + 1;
                 $diff = 1;
                 last;
             }
         }
-        mypr "\n";
+        if (!$diff) {
+            info("ACLs textually identical");
+            return 1;
+        }
     }
     else {
-        $diff = 1;
-        mypr "lenght differ:" .
-	    " OLD: " . scalar @{$conf_acl} . 
-	    " NEW: " . scalar @{$spoc_acl} . "\n";
-    }
-    ### textual compare finished
-    if (!$diff) {
-        mypr "acl's textual identical!\n";
-	return 1;
+        info("ACL lenght differs");
     }
 
     my $newinold;
     my $oldinnew;
-    mypr "acl's differ textualy!\n";
-    mypr "begin semantic compare:\n";
-    mypr "#### BEGIN NEW in OLD - $context\n";
+    info("ACL differ textualy, comparing semantically");
+    info("#### BEGIN NEW in OLD - $context");
     $newinold = $self->acl_array_compare_a_in_b($spoc_acl, $conf_acl);
-    mypr "#### END   NEW in OLD - $context\n";
-    mypr "#### BEGIN OLD in NEW - $context\n";
+    info("#### END   NEW in OLD - $context");
+    info("#### BEGIN OLD in NEW - $context");
     $oldinnew = $self->acl_array_compare_a_in_b($conf_acl, $spoc_acl);
-    mypr "#### END   OLD in NEW - $context\n";
+    info("#### END   OLD in NEW - $context");
 
     if ($newinold and $oldinnew) {
-	$diff = 0;
-	mypr "#### ACLs equal ####\n";
+	info("ACLs equal");
 	return 1;
     }
     else {
-	mypr "acl's differ semanticaly!\n";
+	info("ACLs differ semantically");
 	return 0;
     }
 }
@@ -937,7 +925,7 @@ sub acl_equal {
 sub checkidentity {
     my ($self, $name) = @_;
     if($name ne $self->{NAME}) {
-	errpr "wrong device name: $name, expected: $self->{NAME}\n";
+	abort("Wrong device name: $name, expected: $self->{NAME}");
     }
 }
 
@@ -946,10 +934,10 @@ sub checkbanner {
     my $check = $self->{CONFIG}->{checkbanner} or return;
     if ( $self->{PRE_LOGIN_LINES} !~ /$check/) {
         if ($self->{COMPARE}) {
-            warnpr "Missing banner at NetSPoC managed device.\n";
+            warn_info("Missing banner at NetSPoC managed device");
         }
         else {
-            errpr "Missing banner at NetSPoC managed device.\n";
+            abort("Missing banner at NetSPoC managed device.");
         }
     }
 }
@@ -991,7 +979,7 @@ sub cmd {
     my ($self, $cmd) = @_;
 
     if ( $self->{COMPARE} ) {
-	mypr "> $cmd\n";
+	print("> $cmd\n");
     }
     else {
 	$self->device_cmd($cmd);
@@ -1038,7 +1026,7 @@ sub two_cmd {
     my ($self, $cmd1, $cmd2) = @_;
 
     if ( $self->{COMPARE} ) {
-	mypr "> $cmd1\\N $cmd2\n";
+	print("> $cmd1\\N $cmd2\n");
     }
     else {
 	my $con = $self->{CONSOLE};
@@ -1072,7 +1060,7 @@ sub two_cmd {
 sub abort_cmd {
     my ($self, $msg) = @_;
     $self->cancel_reload('force');
-    errpr "$msg\n";
+    abort("$msg");
 }
 
 # Return 0 if no answer.
@@ -1103,10 +1091,10 @@ sub approve {
     my $device_conf = $self->load_device();
 
     if ($self->transfer($device_conf, $spoc_conf)) {
-        mypr "approve done\n";
+        info("Approve done");
     }
     else {
-        errpr "approve failed\n";
+        abort("Approve failed");
     }
     $time = localtime();
     $self->con_shutdown("STOP: at > $time <");
@@ -1115,13 +1103,12 @@ sub approve {
 sub get_change_status {
     my ($self) = @_;
     my $time = localtime();
-    mypr "comp: $time\n";
     for my $key (sort keys %{$self->{CHANGE}}) {
 	if($self->{CHANGE}->{$key}) { 
-	    mypr "comp: $self->{NAME} *** $key changed ***\n";
+	    info("comp: *** $key changed ***");
 	}
 	else {
-	    mypr "comp: $self->{NAME} $key unchanged\n";
+	    info("comp: $key unchanged");
 	}
     }
     return(grep { $_ } values %{ $self->{CHANGE} });
@@ -1145,10 +1132,10 @@ sub compare {
     my $device_conf = $self->load_device();
 
     if ($self->transfer($device_conf, $spoc_conf)) {
-        mypr "compare done\n";
+        info("Compare done");
     }
     else {
-        errpr "compare failed\n";
+        abort("Compare failed");
     }
 
     $time = localtime();
@@ -1164,10 +1151,10 @@ sub compare_files {
     my $conf2 = $self->load_spoc($path2);
 
     if ($self->transfer($conf1, $conf2)) {
-        mypr "compare done\n";
+        info("Compare done");
     }
     else {
-        errpr "compare failed\n";
+        abort("Compare failed");
     }
     return($self->get_change_status());
 }
@@ -1182,13 +1169,13 @@ sub logging {
     if ($dirname && ! -d $dirname) {
         if (mkdir($dirname, 0755)) {
 	    defined(chmod(0755, $dirname))
-		or die "Couldn't chmod logdir $dirname: $!\n";
+		or abort("Couldn't chmod logdir $dirname: $!");
 	}
 
 	# Check -d again, because some other process may have created 
 	# the directory in the meantime.
 	elsif (! -d $dirname) {
-	    die "Couldn't create $dirname: $!\n";
+	    abort("Couldn't create $dirname: $!");
 	}
     }
     my $appmode;
@@ -1201,59 +1188,59 @@ sub logging {
             if (-f "$logfile") {
                 my $date = time();
                 system("mv $logfile $logfile.$date") == 0
-                  or die "Could not backup $logfile: $!\n";
+                  or abort("Could not backup $logfile: $!");
                 $self->{OPTS}->{NOLOGMESSAGE}
-                  or mypr "Existing logfile saved as '$logfile.$date'\n";
+                  or info("Existing logfile saved as '$logfile.$date'");
             }
         }
     }
     $self->{OPTS}->{NOLOGMESSAGE}
-      or mypr "--- output redirected to $logfile\n";
+      or info("Output redirected to $logfile");
 
     # Print the above message *before* redirecting!
     unless (-f $logfile) {
         (open(STDOUT, $appmode, $logfile))
-          or die "Could not open $logfile: $!\n";
+          or abort("Could not open $logfile: $!");
         defined chmod 0644, "$logfile"
-          or die "Couldn't chmod $logfile: $!\n";
+          or abort("Couldn't chmod $logfile: $!");
     }
     else {
         (open(STDOUT, $appmode, $logfile))
-          or die "Could not open $logfile: $!\n";
+          or abort("Could not open $logfile: $!");
     }
     (open(STDERR, ">&STDOUT"))
-      or die "STDERR redirect: could not open $logfile: $!\n";
+      or abort("STDERR redirect: could not open $logfile: $!");
 }
 
 {
 
-    # A closure, beause we need the lock in both functions.
+    # A closure, because we need the lock in both functions.
     my $lock;
 
     sub lock( $$ ) {
         my ($self, $name) = @_;
 
-        # set lock for exclusive approval
+        # Set lock for exclusive approval
         my $lockfile = "$self->{CONFIG}->{lockfiledir}/$name";
         unless (-f "$lockfile") {
             open($lock->{$name}, '>', "$lockfile")
-              or die "Could not aquire lock file $lockfile: $!\n";
+              or abort("Could not aquire lock file $lockfile: $!");
             defined chmod 0666, "$lockfile"
-              or die "Couldn't chmod lockfile $lockfile: $!\n";
+              or abort("Couldn't chmod lockfile $lockfile: $!");
         }
         else {
             open($lock->{$name}, '>', "$lockfile")
-              or die "Could not aquire lock file $lockfile: $!\n";
+              or abort("Could not aquire lock file $lockfile: $!");
         }
         unless (flock($lock->{$name}, LOCK_EX | LOCK_NB)) {
-            mypr "$!\n";
+            info("$!");
             return 0;
         }
     }
 
     sub unlock( $$ ) {
         my ($self, $name) = @_;
-        close($lock->{$name}) or die "could not unlock lockfile\n$!\n";
+        close($lock->{$name}) or abort("Could not unlock lockfile: $!");
     }
 }
 
