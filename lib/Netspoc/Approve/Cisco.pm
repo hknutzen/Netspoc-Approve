@@ -546,22 +546,29 @@ sub route_del {
     return("no $entry->{orig}");
 }
 
+# Read hostname from prompt
+sub get_identity {
+    my ($self) = @_;
+
+    # Force new prompt by issuing empty command.
+    my $result = $self->issue_cmd('');
+    $result->{MATCH} =~ m/^\r\n\s*(\S+)\#\s?$/;
+    return $1;
+}
+
 sub prepare {
     my ($self) = @_;
     $self->login_enable();
 
     # Force new prompt by issuing empty command.
-    # Read hostname from prompt.
+    # Set prompt again because of performance impact of standard prompt.
     $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
     my $result = $self->issue_cmd('');
     $result->{MATCH} =~ m/^(\r\n\s?\S+)\#\s?$/;
-    my $prompt_prefix = $1;
-    $prompt_prefix =~ /\s*(.*)$/;
-    my $name = $1;
-    $self->checkidentity($name);
+    my $prefix = $1;
+    $self->{ENAPROMPT} = qr/$prefix\S*\#\s?/;
 
-    # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/$prompt_prefix\S*\#\s?/;
+    $self->checkidentity();
 }
 
 sub login_enable {

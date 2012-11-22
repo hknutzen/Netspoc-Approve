@@ -720,12 +720,13 @@ sub cmd_check_error {
     abort(@err_lines) if @err_lines;
 }
 
-sub checkidentity {
+sub get_identity {
     my ($self, $name) = @_;
+    my $name = $self->SUPER::get_identity();
     
     # Ignore customized prompt extensions following the first slash "/".
     $name =~ s(/.*)();
-    $self->SUPER::checkidentity($name);
+    return($name);
 }
 
 sub check_firewall {

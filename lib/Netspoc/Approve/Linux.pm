@@ -1227,12 +1227,9 @@ sub get_config_from_device {
     return [ map({ "ip route add $_" } @$route_lines), @$iptables_lines ];
 }
 
-sub checkidentity {
-    my ($self, $name) = @_;
-    
-    # Ignore username in user@host.
-    $name =~ s(^.*@)();
-    $self->SUPER::checkidentity($name);
+sub get_identity {
+    my ($self) = @_;
+    return ($self->get_cmd_output('hostname -s'))->[0];
 }
 
 sub prepare {
@@ -1240,18 +1237,17 @@ sub prepare {
     $self->login_enable();
 
     # Force new prompt by issuing empty command.
-    # Read hostname from prompt.
+    # Set prompt again because of performance impact of standard prompt.
     $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
     my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^\r\n(\S+):.*\#\s?$/;
-    my $name = $1;
-    $self->checkidentity($name);
-
-    # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/\r\n$name:.*\#\s?$/;
+    $result->{MATCH} =~ m/^(\r\n\S+):.*\#\s?$/;
+    my $prefix = $1;
+    $self->{ENAPROMPT} = qr/$prefix:.*\#\s?$/;
 
     # Parameter --noediting prevents \r to be inserted in echoed commands.
     $self->issue_cmd('exec /bin/bash --noediting');
+
+    $self->checkidentity();
 }
 
 sub login_enable {

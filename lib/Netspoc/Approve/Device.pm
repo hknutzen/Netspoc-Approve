@@ -923,10 +923,10 @@ sub acl_equal {
 }
 
 sub checkidentity {
-    my ($self, $name) = @_;
-    if($name ne $self->{NAME}) {
+    my ($self) = @_;
+    my $name = $self->get_identity();
+    $name eq $self->{NAME} or
 	abort("Wrong device name: $name, expected: $self->{NAME}");
-    }
 }
 
 sub checkbanner {
