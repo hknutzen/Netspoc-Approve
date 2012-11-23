@@ -348,7 +348,8 @@ sub get_parse_info {
                 },
 	    }
 	},
-        'object-group protocol' => {store => 'OBJECT_GROUP',
+        'object-group protocol' => {
+            store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'protocol', },],
 	    subcmd => {
