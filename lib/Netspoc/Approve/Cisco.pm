@@ -556,21 +556,6 @@ sub get_identity {
     return $1;
 }
 
-sub prepare {
-    my ($self) = @_;
-    $self->login_enable();
-
-    # Force new prompt by issuing empty command.
-    # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
-    my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^(\r\n\s?\S+)\#\s?$/;
-    my $prefix = $1;
-    $self->{ENAPROMPT} = qr/$prefix\S*\#\s?/;
-
-    $self->checkidentity();
-}
-
 sub login_enable {
     my ($self) = @_;
     my $std_prompt = qr/[\>\#]/;
@@ -646,6 +631,14 @@ sub login_enable {
     elsif ($match ne '#') {
 	abort("Authentication failed");
     }
+
+    # Force new prompt by issuing empty command.
+    # Set prompt again because of performance impact of standard prompt.
+    $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
+    my $result = $self->issue_cmd('');
+    $result->{MATCH} =~ m/^(\r\n\s?\S+)\#\s?$/;
+    my $prefix = $1;
+    $self->{ENAPROMPT} = qr/$prefix\S*\#\s?/;
 }
 
 # All active interfaces on device must be known by Netspoc.

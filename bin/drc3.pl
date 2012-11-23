@@ -126,30 +126,22 @@ if (!$job->{OPTS}->{NOREACH}) {
 # Try to get password from CiscoWorks.
 $job->{PASS} = $job->get_cw_password($name);
 
-# Compare or approve device.
-
-info("");
-info("********************************************************************");
-info(" START: at > ", scalar localtime, " <");
-info("********************************************************************");
-info("");
-
 $job->lock($name) or abort("Approve in progress for $name");
 
 # Start compare / approve.
+info("********************************************************************");
+info(" START: at > ", scalar localtime, " <");
+info("********************************************************************");
 if ($opts{C}) {
     $job->compare($file1);
 }
 else {
     $job->approve($file1);
 }
-
-$job->unlock($name);
-
-info("");
 info("********************************************************************");
 info(" STOP: at > ", scalar localtime, " <");
 info("********************************************************************");
-info("");
+
+$job->unlock($name);
 
 

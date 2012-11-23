@@ -922,46 +922,6 @@ sub acl_equal {
     }
 }
 
-sub checkidentity {
-    my ($self) = @_;
-    my $name = $self->get_identity();
-    $name eq $self->{NAME} or
-	abort("Wrong device name: $name, expected: $self->{NAME}");
-}
-
-sub checkbanner {
-    my ($self) = @_;
-    my $check = $self->{CONFIG}->{checkbanner} or return;
-    if ( $self->{PRE_LOGIN_LINES} !~ /$check/) {
-        if ($self->{COMPARE}) {
-            warn_info("Missing banner at NetSPoC managed device");
-        }
-        else {
-            abort("Missing banner at NetSPoC managed device.");
-        }
-    }
-}
-
-sub con_setup {
-    my ($self, $startup_message) = @_;
-    my $logfile;
-    if (my $logdir = $self->{OPTS}->{L}) {
-        $logfile = "$logdir/$self->{NAME}.tel";
-    }
-    my $con = $self->{CONSOLE} =
-	Netspoc::Approve::Console->new_console($self, $logfile,
-                                               $startup_message);
-    $con->{TIMEOUT} = $self->{OPTS}->{t};
-}
-
-sub con_shutdown {
-    my ($self, $shutdown_message) = @_;
-    my $con = $self->{CONSOLE};
-    $con->{TIMEOUT} = 5;
-    $con->con_issue_cmd("exit\n", eof);
-    $con->shutdown_console("$shutdown_message");
-}
-
 sub issue_cmd {
     my ($self, $cmd) = @_;
 
@@ -1063,7 +1023,7 @@ sub abort_cmd {
     abort("$msg");
 }
 
-# Return 0 if no answer.
+# Check reachability of device.
 sub check_device {
     my ($self) = @_;
     for my $i (1 ..3) {
@@ -1073,36 +1033,71 @@ sub check_device {
     return 0;
 }
 
-sub approve {
-    my ($self, $spoc_path) = @_;
-    $self->{COMPARE} = undef;
+sub checkidentity {
+    my ($self) = @_;
+    my $name = $self->get_identity();
+    $name eq $self->{NAME} or
+	abort("Wrong device name: $name, expected: $self->{NAME}");
+}
 
-    # set up console
+sub checkbanner {
+    my ($self) = @_;
+    my $check = $self->{CONFIG}->{checkbanner} or return;
+    if ( $self->{PRE_LOGIN_LINES} !~ /$check/) {
+        if ($self->{COMPARE}) {
+            warn_info("Missing banner at NetSPoC managed device");
+        }
+        else {
+            abort("Missing banner at NetSPoC managed device");
+        }
+    }
+}
+
+sub get_version {
+    my ($self) = @_;
+    $self->parse_version();
+    if (! defined($self->{VERSION})) {
+	abort("Could not identify device version ");
+    }
+    $self->{HARDWARE} ||= 'unknown';
+    info("DINFO: $self->{HARDWARE} $self->{VERSION}");
+}
+
+sub con_setup {
+    my ($self) = @_;
     my $time = localtime();
-    $self->con_setup("START: at > $time <");
+    my $startup_message = "START: at > $time <";
+    my $logfile;
+    if (my $logdir = $self->{OPTS}->{L}) {
+        $logfile = "$logdir/$self->{NAME}.tel";
+    }
+    my $con = $self->{CONSOLE} =
+	Netspoc::Approve::Console->new_console($self, $logfile,
+                                               $startup_message);
+    $con->{TIMEOUT} = $self->{OPTS}->{t};
+}
 
-    # prepare device for configuration
-    $self->prepare();
+sub con_shutdown {
+    my ($self) = @_;
+    my $time = localtime();
+    my $shutdown_message = "STOP: at > $time <";
+    my $con = $self->{CONSOLE};
+    $con->{TIMEOUT} = 5;
+    $con->con_issue_cmd("exit\n", eof);
+    $con->shutdown_console("$shutdown_message");
+}
 
-    # Check for Netspoc message in device banner.
+sub prepare_device {
+    my ($self) = @_;
+    $self->login_enable();
+    $self->set_terminal();
+    $self->get_version();
+    $self->checkidentity();
     $self->checkbanner();
-
-    my $spoc_conf = $self->load_spoc($spoc_path);
-    my $device_conf = $self->load_device();
-
-    if ($self->transfer($device_conf, $spoc_conf)) {
-        info("Approve done");
-    }
-    else {
-        abort("Approve failed");
-    }
-    $time = localtime();
-    $self->con_shutdown("STOP: at > $time <");
 }
 
 sub get_change_status {
     my ($self) = @_;
-    my $time = localtime();
     for my $key (sort keys %{$self->{CHANGE}}) {
 	if($self->{CHANGE}->{$key}) { 
 	    info("comp: *** $key changed ***");
@@ -1114,42 +1109,9 @@ sub get_change_status {
     return(grep { $_ } values %{ $self->{CHANGE} });
 }
 
-sub compare {
-    my ($self, $spoc_path) = @_;
+sub compare_common  {
+    my ($self, $conf1, $conf2) = @_;
     $self->{COMPARE} = 1;
-
-    # set up console
-    my $time = localtime();
-    $self->con_setup("START: at > $time <");
-
-    # prepare device for configuration
-    $self->prepare();
-
-    # check if Netspoc message in device banner
-    $self->checkbanner();
-
-    my $spoc_conf = $self->load_spoc($spoc_path);
-    my $device_conf = $self->load_device();
-
-    if ($self->transfer($device_conf, $spoc_conf)) {
-        info("Compare done");
-    }
-    else {
-        abort("Compare failed");
-    }
-
-    $time = localtime();
-    $self->con_shutdown("STOP: at > $time <");
-    return($self->get_change_status());
-}
-
-sub compare_files {
-    my ($self, $path1, $path2) = @_;
-    $self->{COMPARE} = 1;
-
-    my $conf1 = $self->load_spoc($path1);
-    my $conf2 = $self->load_spoc($path2);
-
     if ($self->transfer($conf1, $conf2)) {
         info("Compare done");
     }
@@ -1157,6 +1119,39 @@ sub compare_files {
         abort("Compare failed");
     }
     return($self->get_change_status());
+}
+
+sub compare {
+    my ($self, $spoc_path) = @_;
+    $self->con_setup();
+    $self->prepare_device();
+    my $spoc_conf = $self->load_spoc($spoc_path);
+    my $device_conf = $self->load_device();
+    my $result = $self->compare_common($device_conf, $spoc_conf);
+    $self->con_shutdown();
+    return($result);
+}
+
+sub compare_files {
+    my ($self, $path1, $path2) = @_;
+    my $conf1 = $self->load_spoc($path1);
+    my $conf2 = $self->load_spoc($path2);
+    return $self->compare_common($conf1, $conf2);
+}
+
+sub approve {
+    my ($self, $spoc_path) = @_;
+    $self->con_setup();
+    $self->prepare_device();
+    my $spoc_conf = $self->load_spoc($spoc_path);
+    my $device_conf = $self->load_device();
+    if ($self->transfer($device_conf, $spoc_conf)) {
+        info("Approve done");
+    }
+    else {
+        abort("Approve failed");
+    }
+    $self->con_shutdown();
 }
 
 sub logging {

@@ -503,28 +503,33 @@ sub cmd_check_error($$) {
     }
 }
 
-#######################################################
-# telnet login, check CHECKHOSTname and set convenient options
-#######################################################
+sub parse_version {
+    my ($self) = @_;
+    my $output = $self->shcmd('sh ver');
+    if($output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/) {	
+	$self->{VERSION} = $1;
+    }
+    if($output =~ /(cisco\s+\S+) .*memory/i) {	
+	$self->{HARDWARE} = $1;
+    }
+}
+
+# Set terminal length and width
+sub set_terminal {
+    my ($self) = @_;
+    $self->device_cmd('term len 0');
+
+    # Max. term width is 512 for IOS.
+    $self->device_cmd('term width 512');
+}
+
+
 sub prepare {
     my ($self) = @_;
     my $name = $self->SUPER::prepare();
 
-    $self->device_cmd('term len 0');
-    my $output = $self->shcmd('sh ver');
-    $output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/i
-      or abort("Could not identify version number from 'sh ver'");
-    $self->{VERSION} = $1;
-    $output =~ /(cisco\s+\S+) .*memory/i
-      or abort("Could not identify hardware info: $output");
-    $self->{HARDWARE} = $1;
-
-    # Max. term width is 512 for ios
-    $self->device_cmd('term width 512');
     unless ($self->{COMPARE}) {
         $self->enter_conf_mode();
-
-	# No longing to
 
 	# Don't slow down the system by looging to console.
         $self->cmd('no logging console');
@@ -546,15 +551,8 @@ sub prepare {
         $self->cmd('ip classless');
         info("Enabled 'ip classless'");
         $self->leave_conf_mode();
-
     }
-
-    info(" DINFO: $self->{HARDWARE} $self->{VERSION}");
 }
-
-#######################################################
-# *** ios transfer ***
-#######################################################
 
 # Output of "write mem":
 # Building configuration...

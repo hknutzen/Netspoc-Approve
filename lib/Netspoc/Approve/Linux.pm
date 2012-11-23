@@ -1232,22 +1232,14 @@ sub get_identity {
     return ($self->get_cmd_output('hostname -s'))->[0];
 }
 
-sub prepare {
+sub parse_version {
     my ($self) = @_;
-    $self->login_enable();
+    $self->{VERSION} = ($self->get_cmd_output('uname -r'))->[0];
+    $self->{HARDWARE} = ($self->get_cmd_output('uname -m'))->[0];
+}
 
-    # Force new prompt by issuing empty command.
-    # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
-    my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^(\r\n\S+):.*\#\s?$/;
-    my $prefix = $1;
-    $self->{ENAPROMPT} = qr/$prefix:.*\#\s?$/;
-
-    # Parameter --noediting prevents \r to be inserted in echoed commands.
-    $self->issue_cmd('exec /bin/bash --noediting');
-
-    $self->checkidentity();
+sub set_terminal {
+    my ($self) = @_;
 }
 
 sub login_enable {
@@ -1274,6 +1266,17 @@ sub login_enable {
 	}
     }
     $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+
+    # Force new prompt by issuing empty command.
+    # Set prompt again because of performance impact of standard prompt.
+    $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
+    my $result = $self->issue_cmd('');
+    $result->{MATCH} =~ m/^(\r\n\S+):.*\#\s?$/;
+    my $prefix = $1;
+    $self->{ENAPROMPT} = qr/$prefix:.*\#\s?$/;
+
+    # Parameter --noediting prevents \r to be inserted in echoed commands.
+    $self->issue_cmd('exec /bin/bash --noediting');
 }
 
 # Packages must return a true value;

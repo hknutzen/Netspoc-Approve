@@ -721,7 +721,7 @@ sub cmd_check_error {
 }
 
 sub get_identity {
-    my ($self, $name) = @_;
+    my ($self) = @_;
     my $name = $self->SUPER::get_identity();
     
     # Ignore customized prompt extensions following the first slash "/".
@@ -748,47 +748,31 @@ sub cancel_reload {
     # No op; not implemented for Cisco firewall products.
 }
 
-#######################################################
-# telnet login, check name and set convenient options
-#######################################################
-sub prepare {
+sub parse_version {
     my ($self) = @_;
-    $self->SUPER::prepare();
+    my $output = $self->shcmd('sh ver');
+    if($output =~ /Version +(\d+\.\d+)/i) {	
+	$self->{VERSION} = $1;
+    }
+    if($output =~ /Hardware:\s+(\S+),/i) {	
+	$self->{HARDWARE} = $1;
+    }
+}
+
+# Set terminal length and width
+sub set_terminal {
+    my ($self) = @_;
 
     # Check pager settings.
     my $output = $self->shcmd('sh pager');
     if ($output !~ /no pager/) {
 	$self->set_pager();
     }
-    $output = $self->shcmd('sh ver');
-    if($output =~ /Version +(\d+\.\d+)/i) {	
-	$self->{VERSION} = $1;
-    }
-    else {
-	abort("Could not identify version number from 'sh ver'");
-    }
-    if($output =~ /Hardware:\s+(\S+),/i) {	
-	$self->{HARDWARE} = $1;
-    }
-    else {
-	warn_info("Could not identify hardware type from 'sh ver'");
-	$self->{HARDWARE} = 'unknown';
-    }
-    info(" DINFO: $self->{HARDWARE} $self->{VERSION}");
 
     # Max. term width is 511 for PIX.
     $output = $self->shcmd('sh term');
     if ($output !~ /511/) {
-
-        if ($self->{VERSION} >= 6.3) {
-
-            # Only warn. Otherwise the generated configure message 
-	    # triggers IDS at night.
-            abort("Terminal width should be 511");
-        }
-        else {
-            $self->device_cmd('term width 511');
-        }
+        abort("Terminal width should be 511");
     }
 }
 
@@ -801,35 +785,6 @@ sub get_config_from_device( $ ) {
     $echo =~ /^\s*$cmd\s*$/ or 
 	abort("Got unexpected echo in response to '$cmd': '$echo'");
     return(\@conf);
-}
-
-##############################################################
-# Rawdata processing
-##############################################################
-
-# We want to kick out the netspoc static,
-# if the raw entry fully covers the netspoc entry.
-#        - used to overwrite netspoc generated statics
-# Possible results:
-#        0 - no match
-#        1 - spoc is included in raw
-sub static_global_local_match {
-    my ($self, $spoc, $raw) = @_;
-    my $result = 0;
-    $spoc->{LOCAL_IF} eq $raw->{LOCAL_IF} and 
-	$spoc->{GLOBAL_IF} eq $raw->{GLOBAL_IF}
-    or return 0;
-
-    # Default value has been set to 0xffffffff by parser.
-    my $spoc_addr = { MASK => $spoc->{NETMASK} };
-    my $raw_addr = { MASK => $raw->{NETMASK} };
-
-    for my $key (qw(LOCAL_IP GLOBAL_IP)) {
-	$spoc_addr->{BASE} = $spoc->{$key};
-	$raw_addr->{BASE} = $raw->{$key};
-	($self->ip_netz_a_in_b($spoc_addr, $raw_addr) == 1) or return 0;
-    }
-    return 1;
 }
 
 sub attr_eq( $$$ ) {
