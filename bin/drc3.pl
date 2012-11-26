@@ -89,13 +89,14 @@ my $file2 = shift;
 (my $name = $file1) =~ s|^.*/||;
 
 # Get type and IP addresses from spoc file.
-my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($file2 || $file1);
+my $spoc_file = $file2 || $file1;
+my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($spoc_file);
 
-$type or abort("Can't get type from $file1");
+$type or abort("Can't get device type from $spoc_file");
 
 # Get class from type.
 my $class = $type2class{$type}
-  or abort("Can't find class for spoc type '$type'");
+  or abort("Can't find class for Model '$type' from $spoc_file");
 
 my $job = $class->new(
     NAME   => $name,
@@ -112,7 +113,7 @@ if ($file2) {
 }
 
 $opts{t} ||= 300;
-$job->{IP} or abort("Can't get IP from spoc file");
+$job->{IP} or abort("Can't get IP from $spoc_file");
 
 # Enable logging if configured.
 $job->logging();
