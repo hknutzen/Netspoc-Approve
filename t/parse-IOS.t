@@ -141,16 +141,16 @@ eq_or_diff(approve('IOS', $device, $device), $out, $title);
 ############################################################
 $title = "Change routing";
 ############################################################
-$in = <<END;
-ip route 10.10.0.0 255.255.0.0 10.1.2.3
-ip route 10.20.0.0 255.255.0.0 10.1.2.3
-ip route 10.40.0.0 255.255.0.0 10.1.2.4
-END
-
 $device = <<END;
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 ip route 10.30.0.0 255.255.0.0 10.1.2.3
 ip route 10.40.0.0 255.255.0.0 10.1.2.3
+END
+
+$in = <<END;
+ip route 10.10.0.0 255.255.0.0 10.1.2.3
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+ip route 10.40.0.0 255.255.0.0 10.1.2.4
 END
 
 $out = <<END;
@@ -165,21 +165,6 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 ############################################################
 $title = "Change ACL";
 ############################################################
-$in = <<END;
-ip access-list extended test
- permit icmp any host 10.0.1.11 3 3
- permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
- permit 50 10.0.5.0 0.0.0.255 host 10.0.1.11
- permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
- permit udp host 10.0.12.3 host 10.0.1.11 eq 80
-! permit tcp any host 10.0.1.11 range 7937 8999
- permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
- deny ip any any log-input
-
-interface Ethernet1
- ip access-group test in
-END
-
 $device = <<END;
 ip access-list extended test
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq ntp
@@ -190,6 +175,21 @@ ip access-list extended test
  permit tcp any host 10.0.1.11 range 7937 8999
  permit icmp any host 10.0.1.11 3 3
  deny ip any any
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$in = <<END;
+ip access-list extended test
+ permit icmp any host 10.0.1.11 3 3
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+ permit 50 10.0.5.0 0.0.0.255 host 10.0.1.11
+ permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
+ permit udp host 10.0.12.3 host 10.0.1.11 eq 80
+! permit tcp any host 10.0.1.11 range 7937 8999
+ permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
+ deny ip any any log-input
 
 interface Ethernet1
  ip access-group test in
