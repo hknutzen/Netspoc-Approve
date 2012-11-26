@@ -325,6 +325,48 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Move successive ACL entries downwards";
+############################################################
+$device = <<END;
+ip access-list extended test
+ permit ip any host 1.1.1.1
+ permit ip any host 2.2.2.2
+ permit ip any host 3.3.3.3
+ permit ip any host 4.4.4.4
+ permit ip any host 5.5.5.5
+ permit ip any host 6.6.6.6
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$in = <<END;
+ip access-list extended test
+ permit ip any host 3.3.3.3
+ permit ip any host 4.4.4.4
+ permit ip any host 5.5.5.5
+ permit ip any host 1.1.1.1
+ permit ip any host 2.2.2.2
+ permit ip any host 7.7.7.7
+ permit ip any host 6.6.6.6
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+ip access-list resequence test 10000 10000
+ip access-list extended test
+50003 permit ip any host 7.7.7.7
+no 20000\\N 50002 permit ip any host 2.2.2.2
+no 10000\\N 50001 permit ip any host 1.1.1.1
+exit
+ip access-list resequence test 10 10
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Don't change ACL line which permit administrative access";
 ############################################################
 $device = <<END;
