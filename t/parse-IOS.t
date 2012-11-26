@@ -213,19 +213,19 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 ############################################################
 $title = "Add lines at end of ACL";
 ############################################################
-$in = <<END;
+$device = <<END;
 ip access-list extended test
  permit ip any host 10.0.1.1
- permit ip any host 10.0.1.2
- permit ip any host 10.0.1.3
 
 interface Ethernet1
  ip access-group test in
 END
 
-$device = <<END;
+$in = <<END;
 ip access-list extended test
  permit ip any host 10.0.1.1
+ permit ip any host 10.0.1.2
+ permit ip any host 10.0.1.3
 
 interface Ethernet1
  ip access-group test in
@@ -248,23 +248,23 @@ $title = "Change ACL, prevent lockout";
 # ACL lines must be deleted in reversed order,
 # otherwise Netspoc server would be locked out.
 ############################################################
-$in = <<END;
-ip access-list extended test
- permit tcp host 10.2.3.4 host 10.3.4.5
-! Network management to interface of device
- permit ip 10.0.11.0 0.0.0.255 host 10.9.9.1
- deny ip any any
-
-interface Ethernet1
- ip access-group test in
-END
-
 $device = <<END;
 ip access-list extended test
 ! Netspoc server to interface of device
  permit ip host 10.0.11.111 host 10.9.9.1
  deny ip any host 10.9.9.1
  permit tcp host 10.2.3.4 host 10.3.4.5
+ deny ip any any
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$in = <<END;
+ip access-list extended test
+ permit tcp host 10.2.3.4 host 10.3.4.5
+! Network management to interface of device
+ permit ip 10.0.11.0 0.0.0.255 host 10.9.9.1
  deny ip any any
 
 interface Ethernet1
@@ -290,23 +290,23 @@ $title = "Change ACL, prevent ephemeral permit";
 # Upward moves are handled together with added lines.
 # Downward moves are handled together with deleted lines.
 ############################################################
-$in = <<END;
+$device = <<END;
 ip access-list extended test
- deny ip host 10.1.2.3 host 10.1.1.1
  permit udp host 10.2.3.4 host 10.3.4.5
- permit ip any host 10.1.1.1
  permit tcp host 10.2.3.4 host 10.3.4.5
+ deny ip host 10.1.2.3 host 10.1.1.1
  permit ip any any
 
 interface Ethernet1
  ip access-group test in
 END
 
-$device = <<END;
+$in = <<END;
 ip access-list extended test
- permit udp host 10.2.3.4 host 10.3.4.5
- permit tcp host 10.2.3.4 host 10.3.4.5
  deny ip host 10.1.2.3 host 10.1.1.1
+ permit udp host 10.2.3.4 host 10.3.4.5
+ permit ip any host 10.1.1.1
+ permit tcp host 10.2.3.4 host 10.3.4.5
  permit ip any any
 
 interface Ethernet1
@@ -327,22 +327,22 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 ############################################################
 $title = "Don't change ACL line which permit administrative access";
 ############################################################
-$in = <<END;
+$device = <<END;
 ip access-list extended test
- permit tcp any host 10.1.13.33
  permit tcp any host 10.1.13.31
  permit tcp any host 10.1.13.32
+ permit tcp any host 10.1.13.33
  deny ip any any
 
 interface Ethernet1
  ip access-group test in
 END
 
-$device = <<END;
+$in = <<END;
 ip access-list extended test
+ permit tcp any host 10.1.13.33
  permit tcp any host 10.1.13.31
  permit tcp any host 10.1.13.32
- permit tcp any host 10.1.13.33
  deny ip any any
 
 interface Ethernet1
@@ -366,13 +366,13 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 ############################################################
 $title = "Change incoming crypto filter ACL";
 ############################################################
-$in = <<END;
+$device = <<END;
 crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1
-! permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
- permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+! permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
  deny ip any any
 crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
@@ -384,13 +384,13 @@ interface Ethernet1
  crypto map crypto-Ethernet1
 END
 
-$device = <<END;
+$in = <<END;
 crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1
- permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
-! permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+! permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
  deny ip any any
 crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
@@ -417,13 +417,13 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 ############################################################
 $title = "Change outgoing crypto filter ACL";
 ############################################################
-$in = <<END;
+$device = <<END;
 crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1
-! permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
- permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+! permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
  deny ip any any
 crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
@@ -435,13 +435,13 @@ interface Ethernet1
  crypto map crypto-Ethernet1
 END
 
-$device = <<END;
+$in = <<END;
 crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1
- permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
-! permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+! permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
  deny ip any any
 crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
@@ -468,24 +468,6 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 ############################################################
 $title = "Move incoming to outgoing crypto filter ACL";
 ############################################################
-$in = <<END;
-crypto ipsec transform-set Trans esp-3des esp-sha-hmac
-ip access-list extended crypto-Ethernet1-1
- permit ip any 10.127.18.0 0.0.0.255
-ip access-list extended crypto-out-filter-Ethernet1-1
- permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
- permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
- deny ip any any
-crypto map crypto-Ethernet1 1 ipsec-isakmp
- match address crypto-Ethernet1-1
- set ip access-group crypto-out-filter-Ethernet1-1 out
- set peer 10.156.4.206
- set transform-set Trans
-
-interface Ethernet1
- crypto map crypto-Ethernet1
-END
-
 $device = <<END;
 crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
@@ -497,6 +479,24 @@ ip access-list extended crypto-in-filter-Ethernet1-1
 crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
  set ip access-group crypto-in-filter-Ethernet1-1 in
+ set peer 10.156.4.206
+ set transform-set Trans
+
+interface Ethernet1
+ crypto map crypto-Ethernet1
+END
+
+$in = <<END;
+crypto ipsec transform-set Trans esp-3des esp-sha-hmac
+ip access-list extended crypto-Ethernet1-1
+ permit ip any 10.127.18.0 0.0.0.255
+ip access-list extended crypto-out-filter-Ethernet1-1
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+ deny ip any any
+crypto map crypto-Ethernet1 1 ipsec-isakmp
+ match address crypto-Ethernet1-1
+ set ip access-group crypto-out-filter-Ethernet1-1 out
  set peer 10.156.4.206
  set transform-set Trans
 
@@ -522,12 +522,12 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 ############################################################
 $title = "Find differences in transform-set";
 ############################################################
-$in = <<END;
-crypto ipsec transform-set Trans esp-des esp-sha-hmac
-END
-
 $device = <<END;
 crypto ipsec transform-set Trans esp-3des esp-md5-hmac
+END
+
+$in = <<END;
+crypto ipsec transform-set Trans esp-des esp-sha-hmac
 END
 
 $out = <<END;
