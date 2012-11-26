@@ -574,9 +574,22 @@ sub postprocess_config {
     # This simplifies later processing because we can add 
     # auxiliary elements to the hash element.
     my $access_lists = $p->{ACCESS_LIST};
+    my $object_groups =  $p->{OBJECT_GROUP};
     for my $acl_name (keys %$access_lists) {
 	my $entries = $access_lists->{$acl_name};
 	$access_lists->{$acl_name} = { name => $acl_name, LIST => $entries };
+        
+        # Change object-group NAME to object-group OBJECT in ACL entries.
+        for my $entry (@$entries) {
+            for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
+                my $what = $entry->{$where};
+                my $group_name = ref($what) && $what->{GROUP_NAME} or next;
+                my $group = $object_groups->{$group_name} or
+                    abort("Can't find OBJECT_GROUP $group_name" .
+                          " referenced by $acl_name");
+                $what->{GROUP} = $group;
+            }
+        }
     }
 
     # Link interfaces to access lists via attribute ACCESS_GROUP_XXX.
@@ -636,7 +649,7 @@ sub dev_cor ($$) {
 sub parse_object_group  {
     my ($self, $arg) = @_;
     if(check_regex('object-group', $arg)) {
-	return { OBJECT_GROUP => get_token($arg) };
+	return { GROUP_NAME => get_token($arg) };
     }
     else {
         return undef;
@@ -1104,7 +1117,7 @@ sub equalize_obj_group {
 
 sub check_object_group {
     my ($attr) = @_;
-    (ref($attr) && $attr->{OBJECT_GROUP}) ? 'object-group' : undef;
+    (ref($attr) && $attr->{GROUP}) ? 'object-group' : undef;
 }
 
 # Build textual representation from ACL entry for use with Algorithm::Diff.
@@ -1142,7 +1155,7 @@ sub acl_entry2key {
 }
 
 sub equalize_acl {
-    my($self, $conf, $spoc, $conf_acl, $spoc_acl) = @_;
+    my($self, $conf_acl, $spoc_acl) = @_;
     my $conf_entries = $conf_acl->{LIST};
     my $spoc_entries = $spoc_acl->{LIST};
     my $modified;
@@ -1160,18 +1173,9 @@ sub equalize_acl {
 		my $spoc_entry = $spoc_entries->[$spoc_min+$i];
 		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
                     my $what = $conf_entry->{$where};
-		    if(my $conf_group_name = 
-                       ref($what) && $what->{OBJECT_GROUP}) 
-		    {
+		    if(my $conf_group = ref($what) && $what->{GROUP}) {
                         $what = $spoc_entry->{$where};
-			my $spoc_group_name = 
-                            ref($what) && $what->{OBJECT_GROUP};
-			my $conf_group = 
-			    object_for_name( $conf, 'OBJECT_GROUP', 
-					     $conf_group_name );
-			my $spoc_group = 
-			    object_for_name( $spoc, 'OBJECT_GROUP', 
-							  $spoc_group_name );
+			my $spoc_group = ref($what) && $what->{GROUP};
 			if($self->equalize_obj_group($conf_group, $spoc_group))
 			{
 			    $modified = 1;
@@ -1193,12 +1197,7 @@ sub equalize_acl {
 	    for my $spoc_entry ($diff->Items(2)) {
 		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
                     my $what = $spoc_entry->{$where};
-		    if(my $spoc_group_name = 
-                       ref($what) && $what->{OBJECT_GROUP})
-                    {
-			my $spoc_group = object_for_name( $spoc, 
-                                                          'OBJECT_GROUP', 
-							  $spoc_group_name );
+		    if(my $spoc_group = ref($what) && $what->{GROUP}) {
 			if(not $spoc_group->{name_on_dev}) {
 			    $spoc_group->{transfer} = 1;
 			    $self->mark_as_changed('OBJECT_GROUP');
@@ -1347,11 +1346,7 @@ sub make_equal {
 	    for my $spoc_entry (@{ $spoc_value->{LIST} }) {
 		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
                     my $what = $spoc_entry->{$where};
-		    if(my $spoc_group_name = 
-                       ref($what) && $what->{OBJECT_GROUP})
-                    {
-			my $spoc_group = object_for_name( $spoc, 'OBJECT_GROUP', 
-							  $spoc_group_name );
+		    if(my $spoc_group = ref($what) && $what->{GROUP}) {
 			if(not $spoc_group->{name_on_dev}) {
 			    $spoc_group->{transfer} = 1;
 			    $self->mark_as_changed('OBJECT_GROUP');
@@ -1375,9 +1370,7 @@ sub make_equal {
 	# On both, compare attributes.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
 	    info("Comparing $conf_name $spoc_name");
-	    if ( $modified = $self->equalize_acl( $conf, $spoc, 
-						  $conf_value, $spoc_value, ) )
-	    {
+	    if ($modified = $self->equalize_acl($conf_value, $spoc_value)) {
 		$spoc_value->{transfer} = 1;
 	    }
 	    else {
@@ -2106,12 +2099,12 @@ sub transfer_acl {
 	$cmd =~ s/^access-list\s+\S+/access-list $new_name/;
 	for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
             my $what = $ace->{$where};
-	    if (my $gid = ref($what) && $what->{OBJECT_GROUP}) {
-		my $group = object_for_name( $spoc, 'OBJECT_GROUP', $gid );
+	    if (my $group = ref($what) && $what->{GROUP}) {
+                my $gid = $group->{name};
 		my $new_gid = $group->{transfered_as} || $group->{name_on_dev} or
 		    abort("Expected group $gid already on device");
 		$cmd =~ s/object-group $gid(?!\S)/object-group $new_gid/;
-		$ace->{$where}->{OBJECT_GROUP} = $new_gid;  
+		$ace->{$where}->{GROUP} = $new_gid;  
 	    }
 	}
 	push @cmds, $cmd;
