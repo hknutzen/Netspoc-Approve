@@ -1115,20 +1115,55 @@ sub equalize_obj_group {
     return 0;
 }
 
+# Renumber line numbers in mapping from acl entries to line numbers.
+sub change_acl_numbers {
+    my ($self, $hash, $start, $incr) = @_;
+    for my $line (values %$hash) {
+        if ($line >= $start) {
+            $line += $incr;
+        }
+    }
+}
+
+# ASA ACL lines start at 1, increment by 1.
+# When adding lines in front of some line n
+# start at n+0 and subsequent lines at n+0+0, n+0+0+0, ...
+sub ACL_line_discipline {
+    return (1, 1, 0, 0);            
+}
+
+# No limit for ASA.
+sub check_max_acl_entries {}
+
 sub check_object_group {
-    my ($attr) = @_;
-    (ref($attr) && $attr->{GROUP}) ? 'object-group' : undef;
+    my ($attr, $abstract) = @_;
+    if (ref($attr) && (my $group = $attr->{GROUP})) {
+        if ($abstract) {
+            return('object-group');
+        }
+        else {
+            my $name = $group->{name_on_dev} || 
+                ($group->{transfer} && $group->{new_name}) or
+                internal_err("Expected group $group->{name} already on device");
+            return("object-group $name");
+        }
+    }
+    else { 
+        return(undef);
+    }
 }
 
 # Build textual representation from ACL entry for use with Algorithm::Diff.
-# Ignore name of object-group. Object-groups are compared semantically later.
-sub acl_entry2key {
-    my ($e) = @_;
+# $abstract = 1: Ignore name of object-group.
+sub acl_entry2key0 {
+    my ($e, $abstract) = @_;
     my @r;
     push(@r, $e->{MODE});
     for my $where (qw(SRC DST)) {
 	my $what = $e->{$where};
-	push(@r, check_object_group($what) || "$what->{BASE}/$what->{MASK}");
+	push(@r, 
+             check_object_group($what, $abstract) 
+             || "$what->{BASE}/$what->{MASK}");
     }
     push(@r, check_object_group($e->{TYPE}) || $e->{TYPE});
     if ($e->{TYPE} eq 'icmp') {
@@ -1154,13 +1189,21 @@ sub acl_entry2key {
     return join(' ', @r);
 }
 
-sub equalize_acl {
-    my($self, $conf_acl, $spoc_acl) = @_;
-    my $conf_entries = $conf_acl->{LIST};
-    my $spoc_entries = $spoc_acl->{LIST};
+sub acl_entry_abstract2key {
+    my ($e) = @_;
+    acl_entry2key0($e, 1);
+}
+
+sub acl_entry2key {
+    my ($e) = @_;
+    acl_entry2key0($e, 0);
+}
+
+sub equalize_acl_groups {
+    my($self, $conf_entries, $spoc_entries) = @_;
     my $modified;
     my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
-				     { keyGen => \&acl_entry2key } );
+				     { keyGen => \&acl_entry_abstract2key } );
     while($diff->Next()) {
 
 	# ACL lines are equal, but object-group may change.
@@ -1215,6 +1258,227 @@ sub equalize_acl {
 	}
     }
     return $modified;
+}
+
+
+# Incrementally convert an ACL on device to the new ACL from netspoc.
+# Algorithm::Diff finds ACL lines which need to be added or to be deleted.
+# But an ACL line, which is already present on device can't be added again. 
+# Therefore we have add, delete and move operations.
+# We distinguish between move_up (from bottom to top) and
+# move_down (from top to bottom).
+#
+# The move operation is implemented specially:
+# The delete and add command are transferred together in one packet 
+# to minimize the time frame, where traffic is rejected.
+#
+# ACL is changed on device in 2 passes:
+# 1. Add new ACL entries and move entries upwards, top entries first.
+#  a) add new entries which are not already present on device.
+#  b) move entries upwards
+# 2. Delete old ACL entries and move entries downward, bottom entries first.
+#  a) delete entry which isn't used any longer.
+#  b) move entry downwards
+sub equalize_acl_entries {
+    my($self, $conf_acl, $spoc_acl) = @_;
+    my $conf_entries = $conf_acl->{LIST};
+    my $spoc_entries = $spoc_acl->{LIST};
+    my $acl_name = $conf_acl->{name};
+
+    my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries, 
+                                     { keyGen => 
+                                           \&acl_entry2key } );
+
+    # Hash for finding duplicates when comparing old and new entries.
+    my %dupl;
+
+    # ACL lines which are moved upwards. 
+    # Mapping from spoc entry to conf entry.
+    my %move_up;
+
+    # ACL lines which are moved downwards. 
+    # Mapping from conf entry to spoc entry.
+    my %move_down;
+
+    # Entry needs not to be deleted because it was moved earlier.
+    my %moved;
+
+    # Collect entries 
+    # - do be added on device (includes move_up)
+    # - to be deleted on device (includes move_down).
+    my (@add, @delete);
+
+    # Device line numbers of ACL entries, $entry => <nr>.
+    my %device_line;
+
+     # Conf line at which position a spoc line will be added.
+     my %add_before;
+ 
+    # Relative line numbers for added lines relativ to next conf line.
+    # For IOS: -9999, -9998, -9997, ...
+    # For ASA: 0, 0, 0, ...
+    my %spoc_line_offset;
+
+    my ($line_start, $line_incr, $add_offset, $add_incr) = 
+        $self->ACL_line_discipline();
+
+    # Add line numbers to ACL entries read from device.
+    for (my $i = 0; $i < @$conf_entries; $i++) {
+        $device_line{$conf_entries->[$i]} = $line_start + $i * $line_incr;
+    }
+    $device_line{LAST} = $line_start + @$conf_entries * $line_incr;
+
+    # 1. Process to be deleted entries.
+    while($diff->Next()) {
+        if ($diff->Diff() & 1) {
+            for my $conf_entry ($diff->Items(1)) {
+#               debug "R: $conf_entry->{orig}";
+                my $key = acl_entry2key($conf_entry);
+		$dupl{$key} and internal_err "Duplicate ACL entry on device";
+		$dupl{$key} = $conf_entry;
+                push @delete, $conf_entry;
+            }
+        }
+    }
+
+    # 2. Process to be added entries.
+    $diff->Reset();
+    while($diff->Next()) {
+        if ($diff->Diff() & 2) {
+            my $conf_next = $diff->Min(1);
+            my $next_conf_entry = $conf_entries->[$conf_next] || 'LAST';
+            my $prev_entry;
+            my $offset = $add_offset;
+	    for my $spoc_entry ($diff->Items(2)) {
+#               debug "A: $spoc_entry->{orig}";
+               
+                # Remember conf line where to add new line.
+                $add_before{$spoc_entry} = $next_conf_entry;
+
+                # Overwrite relation from previous entry to current entry.
+                $add_before{$prev_entry} = $spoc_entry if $prev_entry;
+
+                $spoc_line_offset{$spoc_entry} = $offset;
+                $offset += $add_incr;
+#               debug " next: ", 
+#               $next_conf_entry eq 'LAST' ? 'LAST' : $next_conf_entry->{orig};
+                
+                # Find lines already present on device
+                my $key = acl_entry2key($spoc_entry);
+                my $aref;
+                if (my $conf_entry = $dupl{$key}) {
+#                   debug "D: $conf_entry->{orig}";
+                    
+                    # Move upwards, to lower line number.
+                    if ($device_line{$next_conf_entry} < 
+                        $device_line{$conf_entry}) 
+                    {
+                        $move_up{$spoc_entry} = $conf_entry;
+                        $moved{$conf_entry} = 1;
+                        push @add, $spoc_entry;
+                        $prev_entry = $spoc_entry;
+                    }
+                    
+                    # Move downwards, to higher line number.
+                    #
+                    # Attention:
+                    # Delete operations occur in reversed order, hence the
+                    # associated new entry must be added in front of
+                    # some other new entry, if this has already been
+                    # added before.
+                    # This is handled in sub $entry2line below.
+                    else {
+                        $move_down{$conf_entry} = $spoc_entry;
+                        $prev_entry = $spoc_entry;
+                    }
+                }
+
+                # Add.
+                else {
+                    push @add, $spoc_entry;
+                    $prev_entry = $spoc_entry;
+                }
+            }
+        }
+    }
+    
+    return undef if not (@add || @delete);
+
+    $self->check_max_acl_entries($conf_acl);
+    $self->check_max_acl_entries($spoc_acl);
+
+    # Collect commands to change ACL in place.
+    my @vcmds;
+
+    my $entry2line = sub {
+        my ($entry) = @_;
+#        debug "Search line for $entry->{orig}";
+        my $line;
+        while(my $next_entry = $add_before{$entry}) {
+            if($line = $device_line{$next_entry}) {
+#                debug "$line from $next_entry->{orig}" if ref($next_entry);
+                last;
+            }
+            $entry = $next_entry;
+        }
+        return($line);
+    };
+
+    # 1. Add lines from netspoc and move lines upwards.
+    for my $spoc_entry (@add) {
+        my $vcmd1;
+        if (my $conf_entry = $move_up{$spoc_entry}) {
+            my $line = $device_line{$conf_entry};
+            $vcmd1 = { ace => $conf_entry, delete => 1, line => $line};
+            $self->change_acl_numbers(\%device_line, $line+1, -1);
+        }
+        my $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
+        my $line = $entry2line->($spoc_entry) + $spoc_line_offset{$spoc_entry};
+        $vcmd2->{line} = $line;
+        $self->change_acl_numbers(\%device_line, $line, +1);
+        $device_line{$spoc_entry} = $line;
+        push(@vcmds, $vcmd1 ? [ $vcmd1, $vcmd2] : $vcmd2);
+    }
+
+    # 2. Delete lines on device and move lines downwards.
+    # Work from bottom to top. Otherwise
+    # - we could lock out ourselves (on IOS only) or
+    # - permit too much traffic for some time range.
+    for my $conf_entry (reverse @delete) {
+        next if $moved{$conf_entry};
+        my $line = $device_line{$conf_entry};
+        my $vcmd1 = { ace => $conf_entry, delete => 1, line => $line};
+        $self->change_acl_numbers(\%device_line, $line+1, -1);
+        my $vcmd2;
+        if (my $spoc_entry = $move_down{$conf_entry}) {
+            $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
+            my $line2 = 
+                $entry2line->($spoc_entry) + $spoc_line_offset{$spoc_entry};
+            $vcmd2->{line} = $line2;
+            $self->change_acl_numbers(\%device_line, $line2, +1);
+            $device_line{$spoc_entry} = $line2;
+        }
+        push(@vcmds, $vcmd2 ? [ $vcmd1, $vcmd2] : $vcmd1);
+    }
+
+    return \@vcmds;
+}
+
+sub equalize_acl {
+    my($self, $conf_acl, $spoc_acl) = @_;
+    my $conf_entries = $conf_acl->{LIST};
+    my $spoc_entries = $spoc_acl->{LIST};
+    if($self->equalize_acl_groups($conf_entries, $spoc_entries)) {
+        if(my $vcmds = $self->equalize_acl_entries($conf_acl, $spoc_acl)) {                
+
+            # ACL will be modified incrementally.
+            $spoc_acl->{modify_cmds} = $vcmds;
+
+            # ACL will be changed.
+            return 1;
+        }
+    }
+    return 0;
 }
 
 # PEER value is IP address.
@@ -1370,13 +1634,9 @@ sub make_equal {
 	# On both, compare attributes.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
 	    info("Comparing $conf_name $spoc_name");
-	    if ($modified = $self->equalize_acl($conf_value, $spoc_value)) {
-		$spoc_value->{transfer} = 1;
-	    }
-	    else {
-		$conf_value->{needed} = $spoc_value;
-		$spoc_value->{name_on_dev} = $conf_name;
-	    }
+	    $modified = $self->equalize_acl($conf_value, $spoc_value);
+            $conf_value->{needed} = $spoc_value;
+            $spoc_value->{name_on_dev} = $conf_name;
 	}
 	elsif ( $parse_name eq 'CRYPTO_MAP_LIST' ) {
 	    $modified = $self->equalize_crypto( $conf, $spoc, 
@@ -1622,7 +1882,9 @@ sub traverse_netspoc_tree {
 	my $spoc_hash = $spoc->{$parse_name};
 	for my $spoc_name ( keys %$spoc_hash ) {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
-	    if($spoc_value->{add_entries} || $spoc_value->{del_entries}) {
+	    if($spoc_value->{add_entries} || $spoc_value->{del_entries} 
+               || $spoc_value->{modify_cmds}) 
+            {
 		my $method = $structure->{$parse_name}->{modify};
 		my $conf_name = $spoc_value->{name_on_dev};
 		$self->$method( $spoc_value, $conf_name );
@@ -2088,28 +2350,69 @@ sub remove_object_group {
     $self->cmd( $cmd );
 }
 
+sub subst_ace_name_og {
+    my ($self, $ace, $new_name) = @_;
+    my $cmd = $ace->{orig};
+    $cmd =~ s/^access-list\s+\S+/access-list $new_name/;
+    for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
+        my $what = $ace->{$where};
+        if (my $group = ref($what) && $what->{GROUP}) {
+            my $gid = $group->{name};
+            my $new_gid = $group->{name_on_dev} || 
+                ($group->{transfer} && $group->{new_name}) or
+                abort("Expected group $gid already on device");
+            $cmd =~ s/object-group $gid(?!\S)/object-group $new_gid/;
+        }
+    }
+    $cmd;
+}
+
 sub transfer_acl {
     my ( $self, $spoc, $structure, $parse_name, $acl_name ) = @_;
 
     my $acl = $spoc->{$parse_name}->{$acl_name};
     my $new_name = $acl->{new_name};
-    my @cmds;
-    for my $ace ( @{ $acl->{LIST} } ) {
-	my $cmd = $ace->{orig};
-	$cmd =~ s/^access-list\s+\S+/access-list $new_name/;
-	for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
-            my $what = $ace->{$where};
-	    if (my $group = ref($what) && $what->{GROUP}) {
-                my $gid = $group->{name};
-		my $new_gid = $group->{transfered_as} || $group->{name_on_dev} or
-		    abort("Expected group $gid already on device");
-		$cmd =~ s/object-group $gid(?!\S)/object-group $new_gid/;
-		$ace->{$where}->{GROUP} = $new_gid;  
-	    }
-	}
-	push @cmds, $cmd;
-    }
+    my @cmds = map({ $self->subst_ace_name_og($_, $new_name) } 
+                   @{ $acl->{LIST} });
     map { $self->cmd( $_ ) } @cmds;
+}
+
+sub modify_acl {
+    my ( $self, $spoc, $conf_name ) = @_;
+
+    my $gen_cmd = sub {
+        my ($hash) = @_;
+        my $ace = $hash->{ace};
+        my $line = $hash->{line};
+        my $cmd;
+        if ($hash->{delete}) {
+            $cmd = "no $ace->{orig}";
+        }
+        else {
+            my $name = $hash->{name};
+            $cmd = $self->subst_ace_name_og($ace, $name);
+        }
+
+        # Note: 
+        # access-list id [line line-number] [extended]
+        # access-list id standard [line line-num]
+        # (from Cisco Security Appliance Command Reference, Version 8.0(4))
+        $cmd =~ s/(access-list\s+\S+(:?\s+standard)?)/$1 line $line/;
+        $cmd;
+    };
+    
+    for my $hash (@{ $spoc->{modify_cmds} }) {
+        if (ref $hash eq 'ARRAY') {
+            my ($hash1, $hash2) = @$hash;
+            my $cmd1 = $gen_cmd->($hash1);
+            my $cmd2 = $gen_cmd->($hash2);
+            $self->two_cmd($cmd1, $cmd2);
+        }
+        else {
+            my $cmd = $gen_cmd->($hash);
+            $self->cmd($cmd);
+        }
+    }
 }
 
 sub remove_acl {
@@ -2249,6 +2552,7 @@ sub define_structure {
 #		      },
 	    transfer => 'transfer_acl',
 	    remove   => 'remove_acl',
+            modify => 'modify_acl',
 	},
 	OBJECT_GROUP => {
 	    attributes => [],
