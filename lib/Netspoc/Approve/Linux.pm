@@ -1173,9 +1173,9 @@ sub transfer {
 	# Change iptables running + startup configuration of device.
 	$startup_file = $config->{device_iptables_file};    
 	$self->write_startup_iptables($spoc_conf, $tmp_file);
+        $self->cmd("chmod a+x $tmp_file");
 	if ($self->{CHANGE}->{ACL}) {
 	    info("Changing iptables running config");
-	    $self->cmd("chmod a+x $tmp_file");
 	    $self->cmd($tmp_file);
 	    info("Writing iptables startup config");  
 	    $self->cmd("mv -f $tmp_file $startup_file");
