@@ -1085,6 +1085,7 @@ sub equalize_obj_group {
                  " because $conf_group->{name} was found on device");
 	    undef $spoc_group->{transfer};
 	}
+#       debug(" $conf_group->{name} and $spoc_group->{name} are equal");
 	return 0;
     }
 
@@ -1142,9 +1143,11 @@ sub check_object_group {
             return('object-group');
         }
         else {
-            my $name = $group->{name_on_dev} || 
-                ($group->{transfer} && $group->{new_name}) or
-                internal_err("Expected group $group->{name} already on device");
+            my $name = $group->{name_on_dev} 
+                || ($group->{transfer} && $group->{new_name}) 
+
+                # Take original name for group from device.
+                || $group->{name};
             return("object-group $name");
         }
     }
