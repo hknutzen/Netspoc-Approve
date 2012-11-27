@@ -1008,6 +1008,12 @@ sub process_iptables {
 		or $changed = 1;
 	}   
     }
+    for my $tname (keys %$spoc_tables) {
+        if (!$conf_tables->{$tname}) {
+          $changed = 1;
+	  info("Extra table from Netspoc: $tname");
+        }
+    }
     $self->{CHANGE}->{ACL} = $changed;
 }
 
