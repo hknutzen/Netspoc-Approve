@@ -126,7 +126,7 @@ sub get_parse_info {
 #           {args => [$cmd, @args], subcmd => [...]}
 #        ..]
 sub analyze_conf_lines {
-    my ($self, $lines, $parse_info) = @_;
+    my ($self, $lines, $parse_info, $strict) = @_;
     $self->add_prefix_info($parse_info);
     my @stack;
     my $config = [];

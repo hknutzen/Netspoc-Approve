@@ -152,7 +152,7 @@ sub load_spoc {
     my $lines     = $self->load_spocfile($path);
     my $conf      = $self->parse_config($lines);
     my $raw_lines = $self->load_raw($path);
-    my $raw_conf  = $self->parse_config($raw_lines);
+    my $raw_conf  = $self->parse_config($raw_lines, 'strict');
     $self->merge_rawdata($conf, $raw_conf);
     return($conf);
 }
@@ -390,10 +390,10 @@ sub parse_config1 {
 }
 
 sub parse_config {
-    my ($self, $lines) = @_;
+    my ($self, $lines, $strict) = @_;
 
     my $parse_info = $self->get_parse_info();
-    my $config = $self->analyze_conf_lines($lines, $parse_info);
+    my $config = $self->analyze_conf_lines($lines, $parse_info, $strict);
     my $result = $self->parse_config1($config, $parse_info);
     $self->postprocess_config($result);
     return $result;

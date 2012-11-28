@@ -192,7 +192,7 @@ our %PORT_Names_UDP = (
 #        ..]
 #           
 sub analyze_conf_lines {
-    my ($self, $lines, $parse_info) = @_;
+    my ($self, $lines, $parse_info, $strict) = @_;
     $self->add_prefix_info($parse_info);
     my @stack;
     my $level = 0;
@@ -354,6 +354,7 @@ sub analyze_conf_lines {
 	    $parse_info = undef;
 	    $level++;
 	    $first_subcmd = 1;
+            warn_info("Unknown command $cmd " . join(' ', @args)) if $strict;
 	}
     }
     while($level--) {
