@@ -1050,7 +1050,14 @@ sub equalize_obj_group {
 	return 1;
     }	
 
+    if ($spoc_group->{transfer} && $spoc_group->{fixed}) {
+	info(" ACL changes because $spoc_group->{name} has fixed transfer status");
+	return 1;
+    }	
+        
     if ($conf_group->{TYPE} ne $spoc_group->{TYPE}) {
+	$spoc_group->{transfer} = 1;
+	$self->mark_as_changed('OBJECT_GROUP');
 	info(" ACL changes because $conf_group->{name} and",
              " $spoc_group->{name} have different type");
 	return 1;
@@ -1202,6 +1209,40 @@ sub acl_entry2key {
     acl_entry2key0($e, 0);
 }
 
+# Set {fixed} attribute at object-group from netspoc, if
+# - acl entry references object-group,
+# - group is assumed to be transferred to device,
+# - there are to be deleted entries,
+# - there is a matching to be deleted entry.
+# The name of a fixed object-group isn't changed later,
+# even if a matching object-group is found, when other ACLs are compared.
+# This is only a workaround.
+# We should analyze all ACLs with object-groups in first pass
+# and operate with immutable group names in  second pass.
+sub fix_transfer_groups {
+    my ($entry, $dupl, $abstract) = @_;
+    return if ! keys %$dupl;
+    my @need_fix;
+    for my $where (qw(SRC DST)) {
+	my $what = $entry->{$where};
+        if (ref($what) && (my $group = $what->{GROUP})) {
+            if ($group->{transfer}) {
+                push(@need_fix, $group);
+            }
+        }
+    }
+    return if ! @need_fix;
+
+    if (! keys %$abstract) {
+        %$abstract = map { acl_entry_abstract2key($_) => $_ } values %$dupl;
+    }
+    my $key = acl_entry_abstract2key($entry);
+    return if not $abstract->{$key};
+    for my $group (@need_fix) {
+        $group->{fixed} = 1;
+    }
+}
+
 sub equalize_acl_groups {
     my($self, $conf_entries, $spoc_entries) = @_;
     my $modified;
@@ -1294,6 +1335,9 @@ sub equalize_acl_entries {
 
     # Hash for finding duplicates when comparing old and new entries.
     my %dupl;
+
+    # Used in fix_transfer_groups
+    my %abstract;
 
     # ACL lines which are moved upwards. 
     # Mapping from spoc entry to conf entry.
@@ -1398,6 +1442,16 @@ sub equalize_acl_entries {
 
                 # Add.
                 else {
+
+                    # If $spoc_entry references a group 
+                    # which is scheduled to be transferred to device
+                    # then don't change name of group later.
+                    # Otherwise we accidentally could get duplicate ACL entries
+                    # because we don't recognize the original entry as duplicate.
+                    # The name would be changed if the same group is referenced from another ACL
+                    # and a matching group is found on device when comparing the other ACL later.
+                    fix_transfer_groups($spoc_entry, \%dupl, \%abstract);
+
                     push @add, $spoc_entry;
                     $prev_entry = $spoc_entry;
                 }
