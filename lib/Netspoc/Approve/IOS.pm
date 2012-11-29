@@ -14,7 +14,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.061'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.062'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -524,9 +524,9 @@ sub set_terminal {
 }
 
 
-sub prepare {
+sub prepare_device {
     my ($self) = @_;
-    my $name = $self->SUPER::prepare();
+    $self->SUPER::prepare_device();
 
     unless ($self->{COMPARE}) {
         $self->enter_conf_mode();
