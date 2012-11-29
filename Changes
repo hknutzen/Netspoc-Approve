@@ -1,5 +1,10 @@
 {{$NEXT}}
 
+1.062     2012-11-29 17:14:56 Europe/Berlin
+
+- Fixed missing device initialization for IOS,
+  logging synchronous, etc.
+
 1.061     2012-11-29 10:51:47 Europe/Berlin
 
 - ACLs are changed incrementally for ASA and PIX now.
