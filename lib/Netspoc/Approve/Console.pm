@@ -13,7 +13,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '1.060'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.061'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
@@ -24,7 +24,7 @@ our @EXPORT = qw( open_con close_con  );
 
 sub new_console {
     my ($class, $job, $logfile, $startup_message) = @_;
-    $job->{CONSOLE} and die "console already created\n";
+    $job->{CONSOLE} and abort("Console already created");
 
     my $con = $job->{CONSOLE} = {};
     bless( $con, $class );
@@ -34,17 +34,15 @@ sub new_console {
     if ( $logfile ) {
         my $fh;
         unless ( -f "$logfile" ) {
-            ( open( $fh, ">>$logfile" ) )
-              or die "could not open $logfile\n$!\n";
+            open($fh, '>>', $logfile) or abort("Could not open $logfile: $!");
 
-            # because we create the file here, we have to chmod to
+            # Because we create the file here, we have to chmod to
             # allow access by group members!
-            defined chmod 0644, "$logfile"
-              or die " couldn't chmod $logfile\n$!\n";
+            defined chmod(0644, $logfile)
+              or abort("Couldn't chmod $logfile: $!");
         }
         else {
-            ( open( $fh, ">>$logfile" ) )
-              or die "could not open $logfile\n$!\n";
+            open($fh, '>>', $logfile) or abort("Could not open $logfile: $!");
         }
         print $fh "\n";
         print $fh "********************************************************\n";
@@ -73,10 +71,7 @@ sub shutdown_console ($$) {
         print $fh "********************************************************\n";
         print $fh "\n";
     }
-
-    # do the right thing... (maybe we have to close something else...)
-    #print $ssh->fileno()."\n";
-    $con->{EXPECT}->soft_close();    # or die $ssh->error();
+    $con->{EXPECT}->soft_close();
     delete $con->{PARENT}->{CONSOLE};
 }
 
@@ -124,12 +119,12 @@ sub con_wait_prompt1 {
     my $result = $con->{RESULT};
     my $exp = $con->{EXPECT};
     if ($result->{BEFORE} =~ /^(.*?)($prompt)(.*)$/) {
-	mypr "Found prompt1\n";
-	mypr "Before: $1\n";
+	debug("Found multiple prompts");
+#	debug("Before: $1");
 	$result->{BEFORE} = $1;
 	my $accum = $3 . $result->{MATCH} . $exp->clear_accum();
 	$exp->set_accum($accum);
-	mypr "Accum: $accum\n";
+	debug("Put back: $accum");
 	$result->{MATCH} = $2;
     }
     return 1;	    
@@ -153,7 +148,7 @@ sub con_error {
     my $result = $con->{RESULT};
     for my $key (keys %$result) {
         my $value = $result->{$key};
-        errpr_info "$key $value\n" if $value;
+        err_info "$key $value" if $value;
     }
     exit -1;
 }

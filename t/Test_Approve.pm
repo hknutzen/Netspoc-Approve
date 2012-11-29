@@ -1,10 +1,15 @@
 # $Id$
 package Test_Approve;
+
+use strict;
+use warnings;
+
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve check_parse_and_unchanged);
 
 use Test::More;
 use Test::Differences;
+use IPC::Run3;
 use File::Temp qw/ tempfile tempdir /;
 
 my $device_name = 'test';
@@ -16,8 +21,16 @@ mkdir($code_dir) or die "Can't create $code_dir: $!\n";
 mkdir($spoc_dir) or die "Can't create $spoc_dir: $!\n";
 mkdir($raw_dir) or die "Can't create $spoc_dir: $!\n";
 
-sub approve {
-    my($type, $conf, $spoc) = @_;
+sub write_file {
+    my($name, $data) = @_;
+    my $fh;
+    open($fh, '>', $name) or die "Can't open $name: $!\n";
+    print($fh $data) or die "$!\n";
+    close($fh);
+}
+
+sub run {
+    my($type, $conf, $spoc, $raw) = @_;
 
     # Header for all Netspoc input
     my $comment = $type eq 'Linux' ? '#' : '!';
@@ -31,47 +44,45 @@ END
     $spoc = $header . $spoc;
 
     # Prepare input files.
-    my $spoc_file = "$code_dir/spoc";
     my $conf_file = "$code_dir/conf";
-    open(FILE, '>', $spoc_file) or die "Can't open $spoc_file: $!\n";
-    print(FILE $spoc) or die "$!\n";
-    close(FILE);
-    open(FILE, '>', $conf_file) or die "Can't open $conf_file: $!\n";
-    print(FILE $conf) or die "$!\n";
-    close(FILE);
+    my $spoc_file = "$code_dir/spoc";
+    write_file($conf_file, $conf);
+    write_file($spoc_file, $spoc);
+    write_file("$spoc_file.raw", $raw) if $raw;
 
-    my $cmd = 
-	"perl -I lib bin/drc3.pl $conf_file $spoc_file"
+    my $cmd = "perl -I lib bin/drc3.pl -q $conf_file $spoc_file";
+    my ($stdout, $stderr);
+    run3($cmd, \undef, \$stdout, \$stderr);
+    my $status = $? >> 1;
+    return($status, $stdout, $stderr);
+}
 
-	# redirect STDERR to STDOUT.
-	# disabled, because we can't debug tests.
-	# and because we die on error anyway.
-#	. " 2>&1"
-	;
-	
-    # Start file compare, get output.
-    open(APPROVE, '-|', $cmd) or die "Can't execute drc3.pl: $!\n";
-    my @output = <APPROVE>;
-    if (not close(APPROVE)) {
-	$! and  die "Syserr closing pipe from drc3.pl: $!\n";
-	my $exit_value = $? >> 8;
+my %ignore = 
+    (
+     'configure terminal' => 1,
+     'end' => 1,
+     'write memory' => 1,
+    );
 
-	# 0: Success, 1: compare found diffs
- 	$exit_value == 0 || $exit_value == 1 or 
-	    die "Status from drc3.pl: $exit_value\n";
-    }
+sub approve {
+    my($type, $conf, $spoc, $raw) = @_;
+    my ($status, $stdout, $stderr) = run($type, $conf, $spoc, $raw);
 
-    # Collect commands and messages from output.
-    my @cmds = 
-	map { m/^> (.*)/ } grep { m/^> |^(?:ERROR|WARNING)\>\>\>/} @output;
-    my %ignore = 
-	(
-	 'configure terminal' => 1,
-	 'end' => 1,
-	 'write memory' => 1,
-	 );
+    # 0: Success, 1: compare found diffs
+#    $status == 0 || $status == 1 or die "Unexpected status: $status\n";
+    $stderr and die "STDERR:\n$stderr\n";
+    my @output = split /\n/, $stdout;
+
+    # Collect commands from output.
+    my @cmds = map { s/^> //; $_ } @output;
     @cmds = grep { !$ignore{$_}} @cmds;
     return(join("\n", @cmds, ''));
+}
+
+sub approve_err {
+    my($type, $conf, $spoc, $raw) = @_;
+    my ($status, $stdout, $stderr) = run($type, $conf, $spoc, $raw);
+    return($stderr);
 }
 
 # Check whether output is as expected with given input

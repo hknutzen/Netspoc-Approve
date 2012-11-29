@@ -14,7 +14,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.060'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.061'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -310,7 +310,6 @@ sub dev_cor {
 sub postprocess_config {
     my ($self, $p) = @_;
 
-    mypr "*** begin ***\n";
     my $crypto_map_found   = 0;
     my $ezvpn_client_found = 0;
     my %map_used;
@@ -331,11 +330,10 @@ sub postprocess_config {
             $crypto_map_found = 1;
             if (my $map = $p->{CRYPTO}->{MAP}->{$imap}) {
 		$map_used{$imap} = 1;
-                mypr " crypto map '$imap' bound to interface '$intf->{name}'\n";
             }
             else {
-                errpr "No definition found for crypto map '$imap' at"
-		    . " interface '$intf->{name}'\n";
+                abort("No definition found for crypto map '$imap' at"
+                      . " interface '$intf->{name}'");
             }
         }
         elsif ($intf->{EZVPN}) {
@@ -343,67 +341,59 @@ sub postprocess_config {
             my $ezvpn = $intf->{EZVPN}->{NAME};
             if (my $def = $p->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN}->{$ezvpn}) {
                 $ezvpn_used{$ezvpn} = 1;
-                mypr " crypto ipsec client '$ezvpn' bound to"
-		    . " interface '$intf->{name}'\n";
             }
             else {
-                errpr "No definition for ezvpn client '$ezvpn' at"
-		    . " interface '$intf->{name}' found\n";
+                abort("No definition for ezvpn client '$ezvpn' at"
+                      . " interface '$intf->{name}' found");
             }
         }
     }
     if ($crypto_map_found and $ezvpn_client_found) {
-        errpr
-          "ezvpn and crypto map at interfaces found - only one of them allowed\n";
+        abort("ezvpn and crypto map at interfaces found -" 
+              . " only one of them allowed");
     }
     if ($crypto_map_found) {
         for my $cm_name (keys %{ $p->{CRYPTO}->{MAP} }) {
             unless ($map_used{$cm_name}) {
-                warnpr "Unattached crypto map '$cm_name' found\n";
+                warn_info("Spare crypto map '$cm_name' found");
                 next;
             }
             my $cm = $p->{CRYPTO}->{MAP}->{$cm_name};
-            mypr " found crypto map '$cm_name' (instances:" 
-		. scalar @$cm . ")\n";
 	    $cm = [ sort { $a->{SEQU} <=> $b->{SEQU} } @$cm ];
 	    $p->{CRYPTO}->{MAP}->{$cm_name} = $cm;
             for my $entry (@$cm) {
                 my $sequ = $entry->{SEQU};
-                mypr "  seq: $sequ\n";
 		next if $entry->{GDOI};
                 if (my $acl_name = $entry->{MATCH_ADDRESS}) {
-                    mypr "   match-address: $acl_name\n";
                     if (my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
 
                         # bind match address to crypto map
                         $entry->{MATCH_ACL} = $acl;
                     }
                     else {
-                        errpr "Crypto: ACL $acl_name does not exist!\n";
+                        abort("Crypto: ACL $acl_name does not exist");
                     }
                 }
                 else {
-                    errpr "Crypto: no match-address entry found\n";
+                    abort("Crypto: no match-address entry found");
                 }
-                if (my $acl_name = $entry->{ACCESS_GROUP_IN}) {
-                    mypr "   access-group:  $acl_name\n";
-                    if ( my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
 
-                        # bind access group to crypto map
-                        $entry->{FILTER_ACL} = $acl;
+                # Bind access group to crypto map
+                for my $what (qw(IN OUT)) {
+                    if (my $acl_name = $entry->{"ACCESS_GROUP_$what"}) {
+                        if ( my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
+                            $entry->{FILTER_ACL} = $acl;
+                        }
+                        else {
+                            abort("Crypto: ACL $acl_name does not exist");
+                        }
                     }
-                    else {
-                        errpr "Crypto: ACL $acl_name does not exist!\n";
-                    }
-                }
-                if (my $acl_name = $entry->{ACCESS_GROUP_OUT}) {
-                    warnpr "Crypto: Ignoring outgoing filter-acl '$acl_name'\n";
                 }
 		if (my $peers = $entry->{PEER}) {
 		    $entry->{PEER} = [ sort { $a <=> $b } @$peers ];
 		}
 		else {
-		    errpr "Crypto: no peer found\n";
+		    abort("Crypto: no peer found");
 		}
                 if (my $trans_name = $entry->{TRANSFORM}) {
                     if (my $trans = 
@@ -412,11 +402,10 @@ sub postprocess_config {
 
                         # bind transform set to crypto map
                         $entry->{TRANSFORM_BIND} = $trans;
-                        mypr "   transform set: $trans_name\n";
                     }
                     else {
-                        errpr
-                          "Crypto: transform set $trans_name does not exist!\n";
+                        abort(
+                            "Crypto: transform set $trans_name does not exist");
                     }
                 }
             }
@@ -426,66 +415,51 @@ sub postprocess_config {
         my $ezvpn = $p->{CRYPTO}->{IPSEC}->{CLIENT_EZVPN};
         for my $ez_name (keys %{$ezvpn}) {
             unless ($ezvpn_used{$ez_name}) {
-                warnpr
-                  "Unattached crypto ipsec ezvpn client '$ez_name' found\n";
+                warn_info("Spare crypto ipsec ezvpn client '$ez_name' found");
                 next;
             }
-            mypr " found crypto ipsec client ezvpn '$ez_name'\n";
             my $entry = $ezvpn->{$ez_name};
 
             # checking for traffic match acl
             if (my $acl_name = $entry->{ACL}) {
-                mypr "  match-acl: $acl_name\n";
                 if (my $acl = $p->{ACCESS_LIST}->{$acl_name}) {
 
                     # bind match address to crypto map
                     $entry->{MATCH_ACL} = $acl
                 }
                 else {
-                    errpr "Crypto: ACL $acl_name does not exist!\n";
+                    abort("Crypto: ACL $acl_name does not exist");
                 }
             }
             else {
-                errpr "Crypto: no match-acl entry found\n";
+                abort("Crypto: no match-acl entry found");
             }
 
             # checking for virtual interface
             if (my $num = $entry->{V_INTERFACE}) {
 		my $intf = "Virtual-Template$num";
                 if ($p->{IF}->{$intf}) {
-                    mypr "  client terminates at \'$intf\'\n";
                 }
                 else {
-                    errpr "Crypto: virtual-interface $intf not found\n";
+                    abort("Crypto: virtual-interface $intf not found");
                 }
             }
             else {
-                errpr "Crypto: virtual-interface missing for ez_name\n";
+                abort("Crypto: virtual-interface missing for $ez_name");
             }
 	    if (my $peers = $entry->{PEER}) {
 		$entry->{PEER} = [ sort { $a <=> $b } @$peers ];
 	    }
 	    else {
-		errpr "Crypto: no peer found\n";
+		abort("Crypto: no peer found");
 	    }
         }
     }
-    mypr "*** end ***\n";
 }
 
 sub get_config_from_device {
     my ($self) = @_;
     $self->get_cmd_output('sh run');
-}
-
-##############################################################
-# rawdata processing
-##############################################################
-sub merge_rawdata {
-    my ($self, $spoc, $raw_conf) = @_;
-
-    $self->merge_routing($spoc, $raw_conf);
-    $self->merge_acls($spoc, $raw_conf);
 }
 
 my %known_status = 
@@ -514,73 +488,71 @@ sub cmd_check_error($$) {
 	}
 	for my $regex (@{ $known_warning{$cmd} }) {
 	    if($line =~ $regex) {
-                warnpr $line, "\n";
+                warn_info($line);
 		next LINE;
 	    }
 	}
 	$error = 1;
     }
     if ($error) {
-	errpr_info "$cmd\n";
+	err_info($cmd);
 	for my $line (@$lines) {
-	    errpr_info "$line\n";
+	    err_info($line);
 	}
 	$self->abort_cmd("Unexpected output for '$cmd'");
     }
 }
 
-#######################################################
-# telnet login, check CHECKHOSTname and set convenient options
-#######################################################
+sub parse_version {
+    my ($self) = @_;
+    my $output = $self->shcmd('sh ver');
+    if($output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/) {	
+	$self->{VERSION} = $1;
+    }
+    if($output =~ /(cisco\s+\S+) .*memory/i) {	
+	$self->{HARDWARE} = $1;
+    }
+}
+
+# Set terminal length and width
+sub set_terminal {
+    my ($self) = @_;
+    $self->device_cmd('term len 0');
+
+    # Max. term width is 512 for IOS.
+    $self->device_cmd('term width 512');
+}
+
+
 sub prepare {
     my ($self) = @_;
     my $name = $self->SUPER::prepare();
 
-    $self->device_cmd('term len 0');
-    my $output = $self->shcmd('sh ver');
-    $output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/i
-      or errpr "Could not identify version number from 'sh ver'\n";
-    $self->{VERSION} = $1;
-    $output =~ /(cisco\s+\S+) .*memory/i
-      or die "could not identify Hardware Info $output\n";
-    $self->{HARDWARE} = $1;
-
-    # Max. term width is 512 for ios
-    $self->device_cmd('term width 512');
     unless ($self->{COMPARE}) {
         $self->enter_conf_mode();
 
-	# No longing to
-
 	# Don't slow down the system by looging to console.
         $self->cmd('no logging console');
-        mypr "Disabled 'logging console'\n";
+        info("Disabled 'logging console'");
 
+        # Enable logging synchronous to get a fresh prompt after
+        # a reload banner is shown.
 	# Older IOS has only vty 0 4.
 	my $lines = $self->get_cmd_output('line vty 0 15');
 	@$lines && $self->cmd('line vty 0 4');
 	$self->cmd('logging synchronous level all');
-        mypr "Enabled 'logging synchronous'\n";
+        info("Enabled 'logging synchronous'");
 
 	# Needed for default route to work as expected.
         $self->cmd('ip subnet-zero');
-        mypr "Enabled 'ip subnet-zero'\n";
+        info("Enabled 'ip subnet-zero'");
 
 	# Needed for default route to work as expected.
         $self->cmd('ip classless');
-        mypr "Enabled 'ip classless'\n";
+        info("Enabled 'ip classless'");
         $self->leave_conf_mode();
-
     }
-
-    mypr "-----------------------------------------------------------\n";
-    mypr " DINFO: $self->{HARDWARE} $self->{VERSION}\n";
-    mypr "-----------------------------------------------------------\n";
 }
-
-#######################################################
-# *** ios transfer ***
-#######################################################
 
 # Output of "write mem":
 # Building configuration...
@@ -591,30 +563,31 @@ sub prepare {
 
 sub write_mem {
     my ($self, $retries, $seconds) = @_;
-    mypr "writing config to nvram\n";
+    info("Writing config to nvram");
     $retries++;
     while ($retries--) {
         my $lines = $self->get_cmd_output('write memory');
 	if ($lines->[0] =~ /^Building configuration/) {
 	    if ($lines->[-1] =~ /\[OK\]/) {
-		mypr "write mem: found [OK]\n";
+		info("write mem: found [OK]");
 		last;
 	    }
 	    else {
-		errpr "write mem: failed, config may be truncated\n";
+		abort("write mem: failed, config may be truncated");
 	    }
         }
         elsif (grep { $_ =~ /startup-config file open failed/i } @$lines) {
             if (not $retries) {
-                errpr "write mem: startup-config open failed - giving up\n";
+                abort("write mem: startup-config open failed - giving up");
             }
             else {
-                warnpr "write mem: startup-config open failed - trying again\n";
+                warn_info(
+                    "write mem: startup-config open failed - trying again");
                 sleep $seconds;
             }
         }
         else {
-            errpr "write mem: unexpected result\n";
+            abort("write mem: unexpected result");
         }
     }
 }
@@ -645,7 +618,7 @@ sub schedule_reload {
 
     # Banner message is handled by method "cmd" when issuing next command.
 
-    mypr "reload scheduled $minutes minutes\n";
+    info("Reload scheduled in $minutes minutes");
 }
 
 sub cancel_reload {
@@ -661,7 +634,7 @@ sub cancel_reload {
 	$self->{CONF_MODE} = 0;
     }
 
-    mypr "Try to cancel reload\n";
+    info("Try to cancel reload");
 
     # Wait for the
     # ***
@@ -714,9 +687,9 @@ sub handle_reload_banner {
 	my $prefix = $1;
 	my $msg = $2;
 	my $postfix = $3;
-	mypr "Found banner: $msg\n";
-#	mypr "Prefix: $prefix\n";
-#	mypr "Postfix: $postfix\n";
+	info("Found reload banner: $msg");
+#	info("Prefix: $prefix");
+#	info("Postfix: $postfix");
     
 	# Ignore $postfix if it's only a newline added by 'logging synchronous'
 	if ($prefix =~ / \n $/msx and $postfix eq '\r\n') {
@@ -727,10 +700,10 @@ sub handle_reload_banner {
 	# if the banner is the only output befor current prompt.
 	# Read next prompt and set $$output_ref to next output.
 	elsif(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
-	    mypr "Expecting prompt after banner\n";
+	    info("Expecting prompt after banner");
 	    my $con = $self->{CONSOLE};
 	    $con->con_wait($self->{ENAPROMPT});
-	    mypr "- found prompt\n";
+	    info("- Found prompt");
 	    $$output_ref = $con->{RESULT}->{BEFORE};
 	}
 
@@ -779,9 +752,9 @@ sub get_my_connection {
 	($vty, $s_ip) = ($1, $2);
     }
     else {
-	errpr "Can't determine my vty\n";
+	abort("Can't determine my vty");
     }
-    my $src_ip = quad2int($s_ip) or errpr "Can't parse src ip: $s_ip\n";
+    my $src_ip = quad2int($s_ip) or abort("Can't parse src ip: $s_ip");
 
     # Read tcp details for my connection.
     $lines = $self->get_cmd_output("sh tcp $vty | incl Local host:");
@@ -791,10 +764,10 @@ sub get_my_connection {
 	($d_ip, $port) = ($1, $2);
     }
     else {
-	errpr "Can't determine remote ip and port of my TCP session\n";
+	abort("Can't determine remote ip and port of my TCP session");
     }
-    my $dst_ip = quad2int($d_ip) or errpr "Can't parse remote ip: $d_ip\n";
-    mypr "My connection: $s_ip -> $d_ip:$port\n";
+    my $dst_ip = quad2int($d_ip) or abort("Can't parse remote ip: $d_ip");
+    info("My connection: $s_ip -> $d_ip:$port");
     my $src = { BASE => $src_ip, MASK => 0xffffffff };
     my $dst = { BASE => $dst_ip, MASK => 0xffffffff };
     my $range = { TYPE => 'tcp', 
@@ -934,10 +907,10 @@ sub equalize_acl {
 		    # Abort move operation, if this ACL line permits
 		    # our access to this device
 		    if ($self->is_device_access($conf_entry)) {
-			mypr "Can't modify $acl_name.\n";
-			mypr "Some entry must be moved and is assumed" .
-			    " to allow device access:\n";
-			mypr " $conf_entry->{orig}\n";
+			info("Can't modify $acl_name.");
+			info("Some entry must be moved and is assumed",
+                             " to allow device access:");
+			info(" $conf_entry->{orig}");
 			return 0;
 		    }
 
@@ -965,11 +938,11 @@ sub equalize_acl {
     return 1 if not (@add || @delete);
 
     if (@$conf_entries >= 10000) {
-	errpr "Can't handle device ACL $acl_name with 10000 or more entries\n";
+	abort("Can't handle device ACL $acl_name with 10000 or more entries");
     }
     if (@$spoc_entries >= 10000) {
 	my $spoc_name = $spoc_acl->{name};
-	errpr "Can't handle netspoc ACL $spoc_name with 10000 or more entries\n";
+	abort("Can't handle netspoc ACL $spoc_name with 10000 or more entries");
     }
 
     $self->{CHANGE}->{ACL} = 1;
@@ -1040,15 +1013,11 @@ sub define_acl {
 
 sub process_interface_acls( $$$ ){
     my ($self, $conf, $spoc) = @_;
-    mypr "======================================================\n";
-    mypr "SMART: establish new acls for device\n";
-    mypr "======================================================\n";
-
     $self->{CHANGE}->{ACL} = 0;
     for my $intf (values %{$spoc->{IF}}){
 	my $name = $intf->{name};
         my $conf_intf = $conf->{IF}->{$name}
-	   or errpr "interface not found on device: $name\n";
+	   or abort("Interface not found on device: $name");
 	for my $in_out (qw(IN OUT)) {
 	    my $direction = lc($in_out);
 	    my $confacl_name = $conf_intf->{"ACCESS_GROUP_$in_out"} || '';
@@ -1076,13 +1045,10 @@ sub process_interface_acls( $$$ ){
 		    }
 		}
 		my $aclname = "$spocacl_name-DRC-$aclindex";
-
-		# begin transfer
-		mypr "creating ACL $aclname\n";
 		$self->define_acl($aclname, $spoc_acl->{LIST});
 
 		# Assign new acl to interface.
-		mypr "assigning new $in_out ACL to interface $name\n";
+		info("Assigning new $in_out ACL $aclname to interface $name");
 		$self->schedule_reload(5);
 		$self->enter_conf_mode();
 		$self->cmd("interface $name");
@@ -1097,21 +1063,16 @@ sub process_interface_acls( $$$ ){
 		$self->schedule_reload(5);
 		$self->enter_conf_mode();
 		if (not $spoc_acl) {
-		    mypr "unassigning $in_out ACL from interface $name\n";
+		    info("Unassigning $in_out ACL from interface $name");
 		    $self->cmd("interface $name");
 		    $self->cmd("no ip access-group $confacl_name $direction");
 		}
 		$self->cancel_reload();
-		mypr "removing ACL $confacl_name on device\n";
 		$self->cmd("no ip access-list extended $confacl_name");
 		$self->leave_conf_mode();
 	    }		
 	}
     }
-
-    mypr "======================================================\n";
-    mypr "SMART: done\n";
-    mypr "======================================================\n";
 }
 
 ###############################
@@ -1133,7 +1094,7 @@ sub crypto_struct_equal {
             my $type = ref $spoc;
             internal_err "Can't compare scalar $conf with type $type\n";
         }
-        mypr "${indent}diff $conf <=> $spoc\n";
+        info("${indent}diff $conf <=> $spoc");
         return 0;
     }
     elsif (ref $conf eq 'SCALAR') {
@@ -1145,7 +1106,7 @@ sub crypto_struct_equal {
             my $type = ref $spoc;
             internal_err "Can't compare scalar ref $conf with type $type\n";
         }
-        mypr "${indent}diff $conf <=> $spoc\n";
+        info("${indent}diff $conf <=> $spoc");
         return 0;
     }
     elsif (ref $conf eq 'ARRAY') {
@@ -1161,14 +1122,14 @@ sub crypto_struct_equal {
                         )
                       )
                     {
-                        mypr "${indent}diff array element $i\n";
+                        info("${indent}diff array element $i");
                         $equal = 0;
                     }
                 }
                 return $equal;
             }
             else {
-                mypr "${indent}diff array lenght\n";
+                info("${indent}diff array lenght");
             }
         }
         else {
@@ -1226,7 +1187,7 @@ sub crypto_struct_equal {
 						 )
 				)
                         {
-                            mypr "${indent}diff ACL of $key\n";
+                            info("${indent}diff ACL of $key");
                             $equal = 0;
                         }
                     }
@@ -1238,13 +1199,13 @@ sub crypto_struct_equal {
                             )
                           )
                         {
-                            mypr "${indent}diff hash element $key\n";
+                            info("${indent}diff hash element $key");
                             $equal = 0;
                         }
                     }
                 }
                 else {
-                    mypr "${indent}missing hash-key $key in device config\n";
+                    info("${indent}missing hash-key $key in device config");
                     $equal = 0;
                 }
             }
@@ -1264,7 +1225,7 @@ sub crypto_struct_equal {
 		    # Do not check these artificial keys.
 		}
                 else {
-                    mypr "${indent}missing hash-key $key in netspoc config\n";
+                    info("${indent}missing hash-key $key in netspoc config");
                     $equal = 0;
                 }
             }
@@ -1285,21 +1246,14 @@ sub crypto_struct_equal {
 
 sub crypto_processing {
     my ($self, $conf, $spoc) = @_;
-    mypr "====                         ====\n";
-    mypr "==== begin crypto processing ====\n";
-    mypr "====                         ====\n";
 
-    # only proceed if netspoc crypto config present!!!
-    if (exists $spoc->{CRYPTO}) {
-        mypr " +++ spocfile contains crypto definitions!\n";
-    }
-    else {
-        mypr " +++ no crypto definitions in spocfile - skipping\n";
-        return;
-    }
+    # Only proceed if netspoc crypto config present
+    $spoc->{CRYPTO} or return;
+
+    info("Spocfile contains crypto definitions");
     $self->{CHANGE}->{CRYPTO} = 0;
     if (my $spoc_isakmp = $spoc->{CRYPTO}->{ISAKMP}) {
-        mypr " --- begin compare crypto isakmp ---\n";
+        info(" Compare crypto isakmp");
 	my $changes;
         if (my $conf_isakmp = $conf->{CRYPTO}->{ISAKMP}) {
             if (
@@ -1308,17 +1262,16 @@ sub crypto_processing {
                 )
               )
             {
-                mypr "    no diffs found\n";
+                info("    no diffs found");
             }
             else {
-                errpr "severe diffs in crypto isakmp detected\n";
-		$self->{CHANGE}->{CRYPTO} = 1;
+                abort("Severe diffs in crypto isakmp detected");
             }
         }
         else {
-            errpr "missing isakmp config at device\n";
+            abort("Missing isakmp config at device");
         }
-        mypr " --- end compare crypto isakmp ---\n";
+        info(" --- end compare crypto isakmp ---");
     }
     if ($spoc->{CRYPTO}->{MAP}) {
         my %remove_acls;
@@ -1327,15 +1280,15 @@ sub crypto_processing {
         for my $intf (keys %{ $spoc->{IF} }) {
 
             my $changes = {};
-            mypr " --- interface $intf ---\n";
+            info(" --- interface $intf ---");
             if ($spoc->{IF}->{$intf}->{CRYPTO_MAP}) {
-                mypr " crypto map in spocfile found\n";
+                info(" crypto map in spocfile found");
             }
             else {
-                mypr " no crypto map in spocfile found\n";
+                info(" no crypto map in spocfile found");
                 if ($conf->{IF}->{$intf}->{CRYPTO_MAP}) {
-                    warnpr " crypto map at device found\n";
-                    $self->{CHANGE}->{CRYPTO}   = 1;
+                    warn_info(" crypto map at device found");
+                    $self->{CHANGE}->{CRYPTO} = 1;
                 }
                 next;
             }
@@ -1344,12 +1297,12 @@ sub crypto_processing {
             # ok. There should be a crypto map on this interface
             my $conf_map_name = $conf->{IF}->{$intf}->{CRYPTO_MAP};
             unless ($conf_map_name) {
-                errpr "no crypto map at device - leaving crypto untouched\n";
+                warn_info("no crypto map at device");
                 $self->{CHANGE}->{CRYPTO}   = 1;
                 next;
             }
-            mypr " --- begin compare crypto maps---\n";
-            mypr " $spoc_map_name <-> $conf_map_name\n";
+            info(" --- begin compare crypto maps---");
+            info(" $spoc_map_name <-> $conf_map_name");
             unless (
                 $self->crypto_struct_equal(
                     $conf->{CRYPTO}->{MAP}->{$conf_map_name},
@@ -1358,20 +1311,19 @@ sub crypto_processing {
                 )
               )
             {
-                errpr
-                  "severe diffs in crypto map detected\n";
+                abort("Severe diffs in crypto map detected");
 		$self->{CHANGE}->{CRYPTO} = 1;
                 next;
             }
-            mypr " --- end compare crypto maps---\n";
+            info(" --- end compare crypto maps---");
 
 	    # process crypto filter ACLs.
 	    for my $access_group (keys %$changes) {
 		$self->{CHANGE}->{CRYPTO} = 1;
 		my $inout = $access_group =~ /_IN$/ ? 'in' : 'out';
 		for my $sequ (keys %{ $changes->{$access_group} }) {
-		    mypr "Processing crypto filter changes at crypto map" .
-			" $conf_map_name $sequ\n";
+		    info("Processing crypto filter changes at crypto map",
+                         " $conf_map_name $sequ");
 		    my $change = $changes->{$access_group}->{$sequ};
 		    my $conf_acl = $change->{CONF};
 		    my $spoc_acl = $change->{SPOC};
@@ -1392,13 +1344,13 @@ sub crypto_processing {
 			$self->schedule_reload(5);
 
 			# begin transfer
-			mypr "Creating new ACL\n";
+			info("Creating new ACL");
 			$self->define_acl($new_acl,
 					  $spoc->{ACCESS_LIST}
 					  ->{$spoc_acl}->{LIST});
 
 			# assign new acl to interfaces
-			mypr "Assigning new acl\n";
+			info("Assigning new acl");
 			$self->enter_conf_mode();
 			$self->cmd("crypto map $conf_map_name $sequ");
 			$self->cmd("set ip access-group $new_acl $inout");
@@ -1413,7 +1365,7 @@ sub crypto_processing {
         }
 
 	if (keys %remove_acls) {
-	    mypr "Removing old ACLs\n";
+	    info("Removing old ACLs");
 	
 	    $self->schedule_reload(3);
 	    $self->enter_conf_mode();
@@ -1430,7 +1382,7 @@ sub crypto_processing {
         # In ezvpn mode we grant that the tunnel is terminated at some
         # virtual interface. This interface holds an ACL.
         # The ACL is checked by standard ACL code
-        mypr " --- begin compare crypto ezvpn ---\n";
+        info(" --- begin compare crypto ezvpn ---");
         if (exists $conf->{CRYPTO}->{IPSEC}) {
 	    my $changes;
             if (
@@ -1441,23 +1393,20 @@ sub crypto_processing {
                 )
               )
             {
-                mypr "    no diffs found\n";
+                info("    no diffs found");
             }
             else {
-                errpr "severe diffs in crypto ipsec detected\n";
+                abort("Severe diffs in crypto ipsec detected");
 		$self->{CHANGE}->{CRYPTO} = 1;
             }
         }
         else {
-            errpr "missing ezvpn config at device\n";
+            abort("Missing ezvpn config at device");
         }
-        mypr " --- end compare crypto ezvpn ---\n";
+        info(" --- end compare crypto ezvpn ---");
     }
-
-    mypr "====                       ====\n";
-    mypr "==== end crypto processing ====\n";
-    mypr "====                       ====\n";
 }
+
 ###############################
 #
 # END crypto processing
@@ -1482,11 +1431,11 @@ sub transfer {
         if (grep { $_ } values %{ $self->{CHANGE} }) {
 
             # Save config.
-            mypr "Configuration changed\n";
+            info("Configuration changed");
             $self->write_mem(5, 3);    # 5 retries, 3 seconds intervall
         }
         else {
-            mypr "No changes to save\n";
+            info("No changes to save");
         }
     }
     return 1;

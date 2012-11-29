@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.060'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.061'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -317,7 +317,7 @@ sub postprocess_config {
     my ( $self, $p ) = @_;
 
     if( $p->{NAT_CONTROL} ) {
-	errpr "Please disable 'nat-control'\n";
+	abort("Please disable 'nat-control'");
     }
 
     for my $name (keys %{$p->{OBJECT}}) {
@@ -332,8 +332,8 @@ sub postprocess_config {
         my $entry = $p->{OBJECT}->{$name};
         my ($s, $r, $h) = @{$entry}{qw(SUBNET RANGE HOST)};
         if (!($s || $r || $h) || $s && $r || $s && $h || $r && $h) {
-            errpr "Must only use exactly one subcmd of subnet|range|host in" .
-                " $entry->{orig}";
+            abort("Must use exactly one subcmd of subnet|range|host in" .
+                  " $entry->{orig}");
         }
     }        
 
@@ -376,7 +376,7 @@ sub postprocess_config {
 	    $p->{TUNNEL_GROUP_IPNAME_IPSEC}->{$tg_ipsec_name} =
                 delete $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
             if ($p->{TUNNEL_GROUP}->{$tg_ipsec_name}) {
-                errpr "tunnel-group <ip> general-attributes is not supported\n";
+                abort("tunnel-group <ip> general-attributes is not supported");
             }
 	}
 	else {
@@ -403,7 +403,7 @@ sub postprocess_config {
 	}
 	else {
 	    $anchor = $p->{CA_CERT_MAP}->{$tgm_name} or
-		errpr "'$tgm->{orig}' references unknown ca cert map '$tgm_name'\n";
+		abort("'$tgm->{orig}' references unknown ca cert map '$tgm_name'");
 	}
         $anchor->{TUNNEL_GROUP} = $tg_name;
         $p->{TUNNEL_GROUP_IPSEC}->{$tg_name} and
@@ -416,7 +416,7 @@ sub postprocess_config {
 		$p->{TUNNEL_GROUP}->{$tg_name} ||= { name => $tg_name };
 	    }
 	    else {
-		errpr "'$tgm->{orig}' references unknown tunnel-group $tg_name\n";
+		abort("'$tgm->{orig}' references unknown tunnel-group $tg_name");
 	    }
 	}
     }
@@ -430,10 +430,10 @@ sub postprocess_config {
         for my $cgm (values %$hash) {
             my $ca_map_name = $cgm->{name};
             my $cert = $p->{CA_CERT_MAP}->{$ca_map_name} or 
-                errpr "'$cgm->{orig}' references unknown ca cert map '$ca_map_name'\n";
+                abort("'$cgm->{orig}' references unknown ca cert map '$ca_map_name'");
             my $tg_name = $cgm->{TUNNEL_GROUP};
             $p->{TUNNEL_GROUP}->{$tg_name} or
-                errpr "'$cgm->{orig}' references unknown tunnel-group $tg_name\n";
+                abort("'$cgm->{orig}' references unknown tunnel-group $tg_name");
             $cert->{WEB_TUNNEL_GROUP} = $tg_name;
             $p->{TUNNEL_GROUP_IPSEC}->{$tg_name} and
                 $cert->{WEB_TUNNEL_GROUP_IPSEC} = $tg_name;
@@ -457,8 +457,8 @@ sub postprocess_config {
 	    if(my $old_cert = $p->{CERT_ANCHOR}->{$id}) {
 		my $old_name = $old_cert->{name};
 		my $new_name = $cert->{name};
-		errpr "Two ca cert map items use" .
-		    " identical subject-name: '$old_name', '$new_name'\n";
+		abort("Two ca cert map items use" .
+                      " identical subject-name: '$old_name', '$new_name'");
 	    }
 	    $p->{CERT_ANCHOR}->{$id} = { CA_CERT_MAP => $cert->{name},
 					 name => $id };

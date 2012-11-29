@@ -30,7 +30,11 @@ suid-support/Makefile
 suid-support/README
 suid-support/diamonds
 suid-support/diamonds.c
+t/ASA-modify-ACL.t
+t/ASA-modify-ACL.t~
 t/Linux.t
 t/Test_Approve.pm
 t/parse-ASA.t
 t/parse-IOS.t
+t/raw.t
+t/raw.t~

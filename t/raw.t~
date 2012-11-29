@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+
+use strict;
+use Test::More;
+use Test::Differences;
+use lib 't';
+use Test_Approve;
+
+# Minimal configuration of device.
+my $minimal_device = <<END;
+interface Ethernet0/0
+ nameif inside
+interface Ethernet0/1
+ nameif outside
+END
+
+# Input from Netspoc, from raw, output from approve.
+my($in, $raw, $out);
+my $device_type = 'ASA';
+my $title;
+
+############################################################
+$title = "Merge routing";
+############################################################
+$in = <<END;
+route outside 10.20.0.0 255.255.0.0 10.1.2.3
+END
+
+$raw = <<END
+END
+
+$out = <<END;
+route outside 10.20.0.0 255.255.0.0 10.1.2.3
+END
+
+# Check whether output is as expected with given input
+# AND whether output is empty for identical input.
+check_parse_and_unchanged('ASA', $minimal_device, $in, $out, $title );
+
+
+############################################################
+done_testing;

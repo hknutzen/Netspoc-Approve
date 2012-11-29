@@ -12,7 +12,7 @@ use Netspoc::Approve::Helper;
 
 require Exporter;
 
-our $VERSION = '1.060'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.061'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = 
@@ -33,7 +33,7 @@ sub err_at_line {
     # using negative lookahead.
     my @arg0 = split(/[ ](?![+])/, $arg->{args}->[0]);
     my $pos = $arg->{pos} + @arg0 - 1;
-    die @msg, " at line $line, pos $pos:\n>>$arg->{orig}<<\n";
+    abort( @msg, " at line $line, pos $pos:\n>>$arg->{orig}<<");
 }
 
 sub check_token {

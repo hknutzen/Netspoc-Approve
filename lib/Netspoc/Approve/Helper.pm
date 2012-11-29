@@ -12,59 +12,45 @@ require Exporter;
 use strict;
 use warnings;
 
-our $VERSION = '1.060'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.061'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
-our @EXPORT = qw( mypr errpr check_erro errpr_mode errpr_info
-  warnpr check_warn internal_err debug quad2int int2quad is_ip
+our @EXPORT = qw(info abort err_info warn_info internal_err debug
+                 quiet quad2int int2quad is_ip
 );
 
-my $warn     = "NO";      # sorry its global...
-my $erro     = "NO";      # same applies to this :(
-my $err_mode = "";
+my $verbose = 1;
 
-sub mypr {
-    print STDOUT @_;
+sub quiet { $verbose = 0; }
+
+sub info {
+    say_stderr(@_) if $verbose;
 }
 
-sub errpr {
-    $erro = "YES";
-    print STDERR "ERROR>>> ", @_;
-#    unless ($err_mode eq "COMPARE") {
-#        print STDERR "ERROR>>> --- approve aborted ---\n";
-        exit -1;
-#    }
-}
-
-sub errpr_mode( $ ) {
-    $err_mode = shift;
-    $err_mode eq "COMPARE" or die "COMPARE expected\n";
-}
-
-sub check_erro() {
-    return $erro;
-}
-
-sub errpr_info {
-    print STDERR "ERROR>>> ", @_;
-}
-
-sub warnpr {
-    $warn = "YES";
-    print STDOUT "WARNING>>> ", @_;
-}
-
-sub check_warn() {
-    return $warn;
-}
-
-sub internal_err( @ ) {
-    my ($package, $file, $line, $sub) = caller 1;
-    errpr "Internal error in $sub: ", @_, "\n";
-}
-
-sub debug ( @ ) {
+sub say_stderr {
     print STDERR @_, "\n";
+}
+
+sub abort {
+    say_stderr("ERROR>>> ", $_) for @_;
+    exit -1;
+}
+
+sub err_info {
+    say_stderr("ERROR>>> ", @_);
+}
+
+sub warn_info {
+    say_stderr("WARNING>>> ", @_);
+}
+
+sub internal_err {
+    my ($package, $file, $line, $sub) = caller 1;
+    abort("Internal error in $sub: ", @_);
+}
+
+sub debug {
+    info(@_);
 }
 
 sub quad2int ($) {

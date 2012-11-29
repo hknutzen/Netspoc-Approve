@@ -1,3 +1,15 @@
+1.061     2012-11-29 10:51:47 Europe/Berlin
+
+- ACLs are changed incrementally for ASA and PIX now.
+  Added test cases especially for ACL with object-group.
+- Parser aborts now on unknown command in raw file.
+- Simplified merging of route and static commands from raw file.
+  Entries are simply prepended to Netspoc data now.
+- Added test cases for merging raw files.
+- Fixed bug in handling outgoing crypto filter ACL.
+- Check for extra tables from Netspoc when comparing Linux.
+- No longer issue "no fixup protocol smtp 25" when confuguring PIX.
+
 1.060     2012-11-12 12:36:47 Europe/Berlin
 
 - No longer compare running with startup config
