@@ -524,9 +524,9 @@ sub set_terminal {
 }
 
 
-sub prepare {
+sub prepare_device {
     my ($self) = @_;
-    my $name = $self->SUPER::prepare();
+    $self->SUPER::prepare_device();
 
     unless ($self->{COMPARE}) {
         $self->enter_conf_mode();
