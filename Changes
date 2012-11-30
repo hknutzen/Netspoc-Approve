@@ -1,3 +1,7 @@
+1.063     2012-11-30 13:50:07 Europe/Berlin
+
+- Standard ACL can't be changed incrementally on ASA
+
 1.062     2012-11-29 17:14:56 Europe/Berlin
 
 - Fixed missing device initialization for IOS,
