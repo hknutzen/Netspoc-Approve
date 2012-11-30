@@ -1692,8 +1692,20 @@ sub make_equal {
 	if ( $parse_name eq 'ACCESS_LIST' ) {
 	    info("Comparing $conf_name $spoc_name");
 	    $modified = $self->equalize_acl($conf_value, $spoc_value);
-            $conf_value->{needed} = $spoc_value;
-            $spoc_value->{name_on_dev} = $conf_name;
+
+            # Standard access-list can't be changed incrementally
+            # on ASA 8.0 and 8.4
+            if (grep({ (ref($_) eq 'ARRAY' ? $_->[0] : $_)->{ace}->{orig} 
+                       =~ /standard/ } 
+                     @{ $spoc_value->{modify_cmds} }))
+            {
+                $spoc_value->{transfer} = 1;
+                $spoc_value->{modify_cmds} = undef;
+            }
+            else {
+                $conf_value->{needed} = $spoc_value;
+                $spoc_value->{name_on_dev} = $conf_name;
+            }
 	}
 	elsif ( $parse_name eq 'CRYPTO_MAP_LIST' ) {
 	    $modified = $self->equalize_crypto( $conf, $spoc, 
