@@ -12,7 +12,7 @@ use Netspoc::Approve::Helper;
 
 require Exporter;
 
-our $VERSION = '1.063'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.064'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = 
