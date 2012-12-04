@@ -1111,7 +1111,6 @@ sub get_change_status {
 
 sub compare_common  {
     my ($self, $conf1, $conf2) = @_;
-    $self->{COMPARE} = 1;
     if ($self->transfer($conf1, $conf2)) {
         info("Compare done");
     }
@@ -1123,6 +1122,7 @@ sub compare_common  {
 
 sub compare {
     my ($self, $spoc_path) = @_;
+    $self->{COMPARE} = 1;
     $self->con_setup();
     $self->prepare_device();
     my $spoc_conf = $self->load_spoc($spoc_path);
@@ -1134,6 +1134,7 @@ sub compare {
 
 sub compare_files {
     my ($self, $path1, $path2) = @_;
+    $self->{COMPARE} = 1;
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
     return $self->compare_common($conf1, $conf2);
