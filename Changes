@@ -1,8 +1,12 @@
 {{$NEXT}}
 
+1.064     2012-12-04 14:17:15 Europe/Berlin
+
+- Bugfix: Don't enter configuration mode when comparing.
+
 1.063     2012-11-30 13:50:07 Europe/Berlin
 
-- Standard ACL can't be changed incrementally on ASA
+- Bugfix: Standard ACL can't be changed incrementally on ASA
 
 1.062     2012-11-29 17:14:56 Europe/Berlin
 
