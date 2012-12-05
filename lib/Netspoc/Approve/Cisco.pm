@@ -219,7 +219,7 @@ sub analyze_conf_lines {
 	next if $line =~ /^ *!/;
 
 	# Ignore empty lines.
-	next if $line =~ /^ *$/;
+	next if $line =~ /^\s*$/;
 
 	# Get number of leading spaces.
 	my ($indent, $rest) = $line =~ /^( *)(.*)$/;
