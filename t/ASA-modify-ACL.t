@@ -308,6 +308,40 @@ END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
+############################################################
+$title = "Object-group with identical names from netspoc and from device";
+############################################################
+
+# Must not mix up name 'g26' from netspoc and from device.
+
+$device = $minimal_device2;
+$device .= <<'END';
+object-group network g2
+ network-object host 10.2.4.6
+object-group network g26
+ network-object host 10.3.3.3
+access-list in extended permit tcp object-group g2 object-group g26
+access-list out extended permit tcp object-group g2 object-group g26 eq 25 
+access-group in in interface inside
+access-group out in interface outside
+END
+
+$in = <<'END';
+object-group network g26
+ network-object host 10.2.4.6
+object-group network g1
+ network-object host 10.3.3.3
+access-list in extended permit tcp object-group g26 object-group g1
+access-list out extended permit tcp object-group g1 object-group g26 eq 25
+access-group in in interface inside
+access-group out in interface outside
+END
+
+$out = <<'END';
+access-list out line 1 extended permit tcp object-group g26 object-group g2 eq 25
+no access-list out line 2 extended permit tcp object-group g2 object-group g26 eq 25
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 done_testing;

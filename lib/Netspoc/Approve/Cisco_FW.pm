@@ -1907,9 +1907,17 @@ sub subst_ace_name_og {
             my $new_gid = $group->{name_on_dev} || 
                 ($group->{transfer} && $group->{new_name}) or
                 abort("Expected group $gid already on device");
-            $cmd =~ s/object-group $gid(?!\S)/object-group $new_gid/;
+
+            # Add marker '!' in front of inserted names.
+            # This prevents accidental renaming of an already renamed group.
+            # This situation can occur if identical names are used 
+            # for different groups in device and in netspoc configuration.
+            $cmd =~ s/object-group $gid(?!\S)/object-group !$new_gid/;
         }
     }
+
+    # Remove marker '!' of substitution above.
+    $cmd =~ s/!//g;
     $cmd;
 }
 
