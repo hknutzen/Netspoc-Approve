@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.064'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -1094,6 +1094,19 @@ sub prepare_device {
     $self->get_version();
     $self->checkidentity();
     $self->checkbanner();
+}
+
+sub mark_as_changed {
+    my ( $self, $parse_name ) = @_;
+    $self->{CHANGE}->{$parse_name} = 1;
+}
+
+# Create hash entry with false value, so that
+# get_change_status outputs status for
+# unchanged object types too.
+sub mark_as_unchanged {
+    my ( $self, $parse_name ) = @_;
+    $self->{CHANGE}->{$parse_name} ||= 0;
 }
 
 sub get_change_status {

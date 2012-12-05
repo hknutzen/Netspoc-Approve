@@ -1,3 +1,14 @@
+1.065     2012-12-05 17:11:54 Europe/Berlin
+
+- Fixed bug when generating object-group name in ACL.
+  There was a bug,
+  - when transferring an ACL
+  - which references two object-groups,
+  - where both object-groups are already available on device
+  - and the netspoc name of dst object is identical to 
+    the device name of the src object.
+  In this case a wrong ACL was transferred: src and dst were swapped.
+
 1.064     2012-12-04 14:17:15 Europe/Berlin
 
 - Bugfix: Don't enter configuration mode when comparing.
