@@ -1096,6 +1096,19 @@ sub prepare_device {
     $self->checkbanner();
 }
 
+sub mark_as_changed {
+    my ( $self, $parse_name ) = @_;
+    $self->{CHANGE}->{$parse_name} = 1;
+}
+
+# Create hash entry with false value, so that
+# get_change_status outputs status for
+# unchanged object types too.
+sub mark_as_unchanged {
+    my ( $self, $parse_name ) = @_;
+    $self->{CHANGE}->{$parse_name} ||= 0;
+}
+
 sub get_change_status {
     my ($self) = @_;
     for my $key (sort keys %{$self->{CHANGE}}) {
