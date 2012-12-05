@@ -733,8 +733,8 @@ sub equalize_obj_group {
     if(my $other_conf_group_name = $spoc_group->{name_on_dev}) {
 	# Change has already been marked.
 	if($conf_group->{name} ne $other_conf_group_name) {
-	    info(" ACL changes because $conf_group->{name} and",
-                 " $other_conf_group_name are merged to $spoc_group->{name}");
+	    info(" ACL changes because $conf_group->{name} changes to",
+                 " $other_conf_group_name (netspoc $spoc_group->{name})");
 	    return 1;
 	}
 	else {
@@ -797,7 +797,7 @@ sub equalize_obj_group {
                  " because $conf_group->{name} was found on device");
 	    undef $spoc_group->{transfer};
 	}
-#       debug(" $conf_group->{name} and $spoc_group->{name} are equal");
+        info(" equal: $conf_group->{name} $spoc_group->{name}");
 	return 0;
     }
 
