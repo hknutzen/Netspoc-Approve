@@ -11,6 +11,7 @@ use base "Netspoc::Approve::Device";
 use strict;
 use warnings;
 use IO::Socket ();
+use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
