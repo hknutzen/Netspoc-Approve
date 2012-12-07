@@ -743,13 +743,6 @@ sub get_identity {
     return($name);
 }
 
-sub check_firewall {
-    my ($self, $conf) = @_; 
-
-    # NoOp
-    # ToDo: check for active fixup
-}
-
 sub parse_version {
     my ($self) = @_;
     my $output = $self->shcmd('sh ver');
