@@ -692,11 +692,7 @@ sub checkinterfaces {
 	$conf->{IF}->{$name} or
 	    push(@errors, "Interface $name from Netspoc not known on device");
     }
-    if (@errors) {
-        my $last_msg = pop @errors;
-        err_info($_) for @errors;
-	abort($last_msg);
-    }
+    @errors and abort(@errors);
 }
 
 my %object2key_sub = (
