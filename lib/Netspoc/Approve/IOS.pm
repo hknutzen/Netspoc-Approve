@@ -559,9 +559,10 @@ sub prepare_device {
 #
 # Building configuration...
 # [OK]
-
 sub write_mem {
-    my ($self, $retries, $seconds) = @_;
+    my ($self) = @_;
+    # 5 retries, 3 seconds intervall
+    my ($retries, $seconds) = 5, 3;
     info("Writing config to nvram");
     $retries++;
     while ($retries--) {
@@ -1292,7 +1293,7 @@ sub transfer {
 
             # Save config.
             info("Configuration changed");
-            $self->write_mem(5, 3);    # 5 retries, 3 seconds intervall
+            $self->write_mem();
         }
         else {
             info("No changes to save");
