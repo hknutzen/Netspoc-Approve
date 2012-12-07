@@ -985,9 +985,6 @@ sub ACL_line_discipline {
     return (1, 1, 0, 0);            
 }
 
-# No limit for ASA.
-sub check_max_acl_entries {}
-
 # Access to ASA and PIX isn't controlled by ACL.
 sub is_device_access {
     my ($self, $conf_entry) = @_;

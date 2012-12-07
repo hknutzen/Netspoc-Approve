@@ -1011,6 +1011,15 @@ sub equalize_acl_groups {
 }
 
 
+sub check_max_acl_entries {
+    my ($self, $acl) = @_;
+    my $entries = $acl->{LIST};
+    my (undef, $incr) = $self->ACL_line_discipline();
+    if ($incr > 1 && @$entries >= $incr) {
+        abort("Can't handle ACL $acl->{name} with $incr or more entries");
+    }
+}
+
 # Incrementally convert an ACL on device to the new ACL from netspoc.
 # Algorithm::Diff finds ACL lines which need to be added or to be deleted.
 # But an ACL line, which is already present on device can't be added again. 

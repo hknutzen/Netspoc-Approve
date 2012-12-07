@@ -797,15 +797,6 @@ sub ACL_line_discipline {
     return (10000, 10000, -9999, 1);        
 }
 
-sub check_max_acl_entries {
-    my ($self, $acl) = @_;
-    my $entries = $acl->{LIST};
-    my (undef, $incr) = $self->ACL_line_discipline();
-    if (@$entries >= $incr) {
-        abort("Can't handle ACL $acl->{name} with $incr or more entries");
-    }
-}
-
 sub define_acl {
     my ($self, $name, $entries) = @_;
     $self->enter_conf_mode();
