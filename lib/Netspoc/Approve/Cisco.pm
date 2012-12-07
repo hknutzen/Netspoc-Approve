@@ -538,6 +538,11 @@ sub check_conf_mode {
     $self->{CONF_MODE};
 }
 
+sub write_mem {
+    my($self) = @_;
+    $self->cmd('copy running-config startup-config');
+}
+
 sub route_add {
     my($self, $entry) = @_;
     return($entry->{orig});
