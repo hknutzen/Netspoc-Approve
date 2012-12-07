@@ -17,7 +17,8 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = 
     qw(err_at_line
-       get_token get_regex get_int get_ip get_eol get_ip_pair get_ip_prefix
+       get_token get_regex get_int get_ip get_eol unread
+       get_ip_pair get_ip_prefix
        check_token check_regex check_int check_ip
        get_name_in_out get_paren_token test_ne skip get_to_eol
  );
@@ -55,6 +56,11 @@ sub get_eol {
     my $result = check_token($arg);
     defined($result) and err_at_line($arg, "Unexpected token '$result'");
     return 1;
+}
+
+sub unread {
+    my($arg) = @_;
+    $arg->{pos}--;
 }
 
 sub get_regex {
@@ -113,7 +119,7 @@ sub get_ip_pair {
     return($ip1, $ip2);
 }
 
-# <ip>[/<prefix>] | <ip>/<mask> | default
+# <ip>[/<prefix>] | default
 sub get_ip_prefix {
     my($arg) = @_;
     my $pair = get_token($arg);
@@ -126,15 +132,9 @@ sub get_ip_prefix {
 	$base = quad2int($addr);
 	defined $base or err_at_line($arg, "Expected IP: $addr");
 	if(defined $prefix) {
-	    if($prefix =~ /^\d+$/) {
-		$prefix <= 32 or
-		    err_at_line($arg, "Expected IP prefix: $prefix");
-		$mask = 2**32 - 2**(32 - $prefix);
-	    }
-	    else {
-		$mask = quad2int($prefix);
-		defined $mask or err_at_line($arg, "Expected IP mask: $mask");
-	    }
+	    $prefix =~ /^\d+$/ && $prefix <= 32 or
+                err_at_line($arg, "Expected IP prefix: $prefix");
+            $mask = 2**32 - 2**(32 - $prefix);
 	}
 	else {
 	    $mask = 0xffffffff;
