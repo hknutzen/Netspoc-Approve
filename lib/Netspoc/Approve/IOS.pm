@@ -562,7 +562,7 @@ sub prepare_device {
 sub write_mem {
     my ($self) = @_;
     # 5 retries, 3 seconds intervall
-    my ($retries, $seconds) = 5, 3;
+    my ($retries, $seconds) = (5, 3);
     info("Writing config to nvram");
     $retries++;
     while ($retries--) {
