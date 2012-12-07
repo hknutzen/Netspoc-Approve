@@ -750,18 +750,6 @@ sub check_firewall {
     # ToDo: check for active fixup
 }
 
-sub schedule_reload {
-    my ($self, $minutes) = @_;
-
-    # No op; not implemented for Cisco firewall products.
-}
-
-sub cancel_reload {
-    my ($self) = @_;
-
-    # No op; not implemented for Cisco firewall products.
-}
-
 sub parse_version {
     my ($self) = @_;
     my $output = $self->shcmd('sh ver');
