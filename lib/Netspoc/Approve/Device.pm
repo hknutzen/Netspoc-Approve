@@ -457,7 +457,7 @@ sub process_routing {
 	return;
     }
 
-    $self->{CHANGE}->{ROUTE} = 0;
+    $self->{CHANGE}->{ROUTING} = 0;
     for my $c (@$conf_routing) {
 	for my $s (@$spoc_routing) {
 	    if ($self->route_line_a_eq_b($c, $s)) {
@@ -474,7 +474,7 @@ sub process_routing {
     # new routes available before deleting the old default route.
     for my $r ( sort {$b->{MASK} <=> $a->{MASK}} @{ $spoc_conf->{ROUTING} }) {
 	next if $r->{DELETE};
-	$self->{CHANGE}->{ROUTE} = 1;
+	$self->{CHANGE}->{ROUTING} = 1;
 
 	# PIX and ASA don't allow two routes to identical destination.
 	# Remove old route immediatly before adding the new one.
@@ -489,7 +489,7 @@ sub process_routing {
     }
     for my $r (@$conf_routing) {
 	next if $r->{DELETE};
-	$self->{CHANGE}->{ROUTE} = 1;
+	$self->{CHANGE}->{ROUTING} = 1;
 	push(@cmds, $self->route_del($r));
     }
     if(@cmds) {
@@ -1109,7 +1109,7 @@ sub mark_as_unchanged {
     $self->{CHANGE}->{$parse_name} ||= 0;
 }
 
-sub get_change_status {
+sub print_change_status {
     my ($self) = @_;
     for my $key (sort keys %{$self->{CHANGE}}) {
 	if($self->{CHANGE}->{$key}) { 
@@ -1119,18 +1119,18 @@ sub get_change_status {
 	    info("comp: $key unchanged");
 	}
     }
+}
+
+sub found_changes {
+    my ($self) = @_;
     return(grep { $_ } values %{ $self->{CHANGE} });
 }
 
 sub compare_common  {
     my ($self, $conf1, $conf2) = @_;
-    if ($self->transfer($conf1, $conf2)) {
-        info("Compare done");
-    }
-    else {
-        abort("Compare failed");
-    }
-    return($self->get_change_status());
+    $self->transfer($conf1, $conf2);
+    $self->print_change_status();
+    return($self->found_changes());
 }
 
 sub compare {
@@ -1159,12 +1159,12 @@ sub approve {
     $self->prepare_device();
     my $spoc_conf = $self->load_spoc($spoc_path);
     my $device_conf = $self->load_device();
-    if ($self->transfer($device_conf, $spoc_conf)) {
-        info("Approve done");
+    $self->transfer($device_conf, $spoc_conf);
+    if($self->found_changes()) {
+        info("Saving config to flash");
+        $self->write_mem();
     }
-    else {
-        abort("Approve failed");
-    }
+    info("Approve done");
     $self->con_shutdown();
 }
 

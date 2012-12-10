@@ -773,13 +773,7 @@ sub set_terminal {
 
 sub get_config_from_device( $ ) {
     my ($self) = @_;
-    my $cmd = 'write term';
-    my $output = $self->shcmd($cmd);
-    my @conf = split(/\r\n/, $output);
-    my $echo = shift(@conf);
-    $echo =~ /^\s*$cmd\s*$/ or 
-	abort("Got unexpected echo in response to '$cmd': '$echo'");
-    return(\@conf);
+    $self->get_cmd_output('write term');
 }
 
 sub attr_eq( $$$ ) {
@@ -2029,6 +2023,11 @@ sub object_for_name {
     return $c_value;
 }
 
+sub write_mem {
+    my ($self) = @_;
+    $self->cmd('write memory');
+}
+
 sub transfer {
     my ( $self, $conf, $spoc, $structure ) = @_;
 
@@ -2058,17 +2057,6 @@ sub transfer {
     }
     $self->delete_object_lines($conf, $spoc);
     $self->leave_conf_mode();
-
-    # Only write memory on device if there have been changes.
-    if ( grep { $_ } values %{ $self->{CHANGE} } ) {
-	info("Saving config to flash");
-	$self->cmd('write memory');
-    }
-    else {
-	info("No changes to save");
-    }
-
-    return 1;
 }
 
 sub define_structure {
