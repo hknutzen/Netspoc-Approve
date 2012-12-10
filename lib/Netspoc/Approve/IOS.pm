@@ -561,12 +561,18 @@ sub prepare_device {
 # [OK]
 sub write_mem {
     my ($self) = @_;
+    my $cmd = 'write memory';
+    if ( $self->{COMPARE} ) {
+	print("> $cmd\n");
+        return;
+    }
+
     # 5 retries, 3 seconds intervall
     my ($retries, $seconds) = (5, 3);
     info("Writing config to nvram");
     $retries++;
     while ($retries--) {
-        my $lines = $self->get_cmd_output('write memory');
+        my $lines = $self->get_cmd_output($cmd);
 	if ($lines->[0] =~ /^Building configuration/) {
 	    if ($lines->[-1] =~ /\[OK\]/) {
 		info("write mem: found [OK]");
@@ -1276,19 +1282,14 @@ sub transfer {
     $self->crypto_processing($conf, $spoc);
     $self->process_routing($conf, $spoc);
 
-    #
-    # *** CLEANUP
-    #
-    if (!$self->{COMPARE}) {
-        if (grep { $_ } values %{ $self->{CHANGE} }) {
-
-            # Save config.
-            info("Configuration changed");
-            $self->write_mem();
-        }
-        else {
-            info("No changes to save");
-        }
+    if (grep { $_ } values %{ $self->{CHANGE} }) {
+        
+        # Save config.
+        info("Configuration changed");
+        $self->write_mem();
+    }
+    else {
+        info("No changes to save");
     }
     return 1;
 }
