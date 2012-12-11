@@ -30,7 +30,9 @@ sub ACL_line_discipline {
 sub define_acl {
     my ($self, $name, $spoc_acl) = @_;
     my $entries = $spoc_acl->{LIST};
+    my $old_name = $spoc_acl->{name};
     my $cmd = $spoc_acl->{orig};
+    $cmd =~ s/$old_name\s*/$name/;
 
     # Possibly there is an old acl with $aclname:
     # first remove old entries because acl should be empty - 
