@@ -1018,9 +1018,9 @@ sub two_cmd {
 }
 
 sub abort_cmd {
-    my ($self, $msg) = @_;
+    my ($self, @msg) = @_;
     $self->cancel_reload('force');
-    abort("$msg");
+    abort(@msg);
 }
 
 # Check reachability of device.
