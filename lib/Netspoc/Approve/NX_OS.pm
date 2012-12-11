@@ -62,6 +62,17 @@ sub get_parse_info {
                        { parse => qr/name/, },
                        { parse => \&get_token, store => 'HOPNAME' }],],
         },
+        'object-group ip address' => {
+            store => 'OBJECT_GROUP',
+	    named => 1,
+            subcmd => {
+                'network-object' => {
+		    store => 'OBJECT', 
+		    multi => 1,
+		    parse => 'parse_address',
+                }
+            }
+        },
 
 # permit protocol source destination
 #        [dscp dscp | precedence precedence] 
@@ -82,41 +93,42 @@ sub get_parse_info {
                 permit => {
 		    store => 'LIST',
 		    multi => 1,
-		    parse => ['seq',
-			      { store => 'MODE', default => 'permit' },
-			      ['or',
-			       ['cond1',
-				{ store => 'TYPE', parse => qr/ip/ },
-				{ store => 'SRC', parse => 'parse_address' },
-				{ store => 'DST', parse => 'parse_address' } ],
-			       ['cond1',
-				{ store => 'TYPE', parse => qr/udp|tcp/ },
-				{ store => 'SRC', parse => 'parse_address' },
-				{ store => 'SRC_PORT', 
-				  parse => 'parse_port_spec', 
-				  params => ['$TYPE'] },
-				{ store => 'DST', parse => 'parse_address' },
-				{ store => 'DST_PORT', 
-				  parse => 'parse_port_spec', 
-				  params => ['$TYPE'] },
-				{ store => 'ESTA', 
-				  parse => qr/established/ }, ],
-			       ['cond1',
-				{ store => 'TYPE', parse => qr/icmp/ },
-				{ store => 'SRC', parse => 'parse_address' },
-				{ store => 'DST', parse => 'parse_address' },
-				{ store => 'SPEC', 
-				  parse => 'parse_icmp_spec' }, ],
-			       ['seq',
-				{ store => 'TYPE', parse => \&get_token },
-				{ store => 'TYPE' ,
-				  parse => 'normalize_proto', 
-				  params => [ '$TYPE' ] },
-				{ store => 'SRC', parse => 'parse_address' },
-				{ store => 'DST', parse => 'parse_address' } ]],
-			      { store => 'LOG', parse => qr/log/ } ]
+		    parse => [
+                        'seq',
+                        { store => 'MODE', default => 'permit' },
+                        ['or',
+                         ['cond1',
+                          { store => 'TYPE', parse => qr/ip/ },
+                          { store => 'SRC', parse => 'parse_address' },
+                          { store => 'DST', parse => 'parse_address' } ],
+                         ['cond1',
+                          { store => 'TYPE', parse => qr/udp|tcp/ },
+                          { store => 'SRC', parse => 'parse_address' },
+                          { store => 'SRC_PORT', 
+                            parse => 'parse_port_spec', 
+                            params => ['$TYPE'] },
+                          { store => 'DST', parse => 'parse_address' },
+                          { store => 'DST_PORT', 
+                            parse => 'parse_port_spec', 
+                            params => ['$TYPE'] },
+                          { store => 'ESTA', 
+                            parse => qr/established/ }, ],
+                         ['cond1',
+                          { store => 'TYPE', parse => qr/icmp/ },
+                          { store => 'SRC', parse => 'parse_address' },
+                          { store => 'DST', parse => 'parse_address' },
+                          { store => 'SPEC', 
+                            parse => 'parse_icmp_spec' }, ],
+                         ['seq',
+                          { store => 'TYPE', parse => \&get_token },
+                          { store => 'TYPE' ,
+                            parse => 'normalize_proto', 
+                            params => [ '$TYPE' ] },
+                          { store => 'SRC', parse => 'parse_address' },
+                          { store => 'DST', parse => 'parse_address' } ]],
+                        { store => 'LOG', parse => qr/log/ } 
+                        ],
 		},
-
 	    },
 	},
     };
@@ -131,15 +143,18 @@ sub get_parse_info {
     $result;
 }
                 
-                      
+# addrgroup <name>
 # ip/prefixlen
-# host ip
+# host <ip>
 # any
 sub parse_address {
     my ($self, $arg) = @_;
     my ($ip, $mask);
     my $token = get_token($arg);
-    if ($token eq 'any') {
+    if ($token eq 'addrgroup') {
+        return { GROUP_NAME => get_token($arg) };
+    }
+    elsif ($token eq 'any') {
         $ip = $mask = 0;
     }
     elsif ($token eq 'host') {
@@ -153,6 +168,26 @@ sub parse_address {
     return ({ BASE => $ip, MASK => $mask });
 }
 
+sub postprocess_config {
+    my ($self, $p) = @_;
+
+    # Change object-group NAME to object-group OBJECT in ACL entries.
+    my $access_lists = $p->{ACCESS_LIST};
+    my $object_groups =  $p->{OBJECT_GROUP};
+    for my $acl (values %$access_lists) {
+        for my $entry (@{ $acl->{LIST} }) {
+            for my $where (qw(SRC DST)) {
+                my $what = $entry->{$where};
+                my $group_name = ref($what) && $what->{GROUP_NAME} or next;
+                my $group = $object_groups->{$group_name} or
+                    abort("Can't find OBJECT_GROUP $group_name" .
+                          " referenced by $acl->{name}");
+                $what->{GROUP} = $group;
+            }
+        }
+    }
+}
+        
 sub get_config_from_device {
     my ($self) = @_;
     $self->get_cmd_output('show running-config');
