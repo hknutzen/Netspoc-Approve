@@ -23,15 +23,15 @@ sub get_parse_info {
 	'interface' => {
             store => 'IF',
             named => 'from_parser',
-            parse => { 
-                parse => sub { 
+            parse => [
+                'seq',
+                { parse => sub { 
                     my ($arg) = @_;
-
+                    
                     # Use concatenation "ethernet 2/1" as name.
                     return(get_token($arg) . ' ' . get_token($arg));
-                },
-                store => 'name', 
-            },
+                  },
+                  store => 'name', } ],
             subcmd => {
                 'ip access-group _skip in' => {
                     parse => \&get_token, 
@@ -90,11 +90,12 @@ sub get_parse_info {
 	    store =>  'ACCESS_LIST',
 	    named => 1,
 	    subcmd => {
-                permit => {
+                '_skip permit' => {
 		    store => 'LIST',
 		    multi => 1,
 		    parse => [
                         'seq',
+                        { parse => \&get_int, },
                         { store => 'MODE', default => 'permit' },
                         ['or',
                          ['cond1',
@@ -135,7 +136,7 @@ sub get_parse_info {
 
     # Copy 'permit' entry and substitute 'permit' by 'deny';
     my $entry = $result->{'ip access-list'}->{subcmd};
-    $entry = $entry->{deny} = { %{$entry->{permit}} };
+    $entry = $entry->{'_skip deny'} = { %{$entry->{'_skip permit'}} };
     $entry = $entry->{parse} = [ @{$entry->{parse}} ];
     $entry = $entry->[1] = { %{$entry->[1]} };
     $entry->{default} = 'deny';
@@ -171,11 +172,13 @@ sub parse_address {
 sub postprocess_config {
     my ($self, $p) = @_;
 
+    # Remove line numbers from {orig} of ACL entries.
     # Change object-group NAME to object-group OBJECT in ACL entries.
     my $access_lists = $p->{ACCESS_LIST};
     my $object_groups =  $p->{OBJECT_GROUP};
     for my $acl (values %$access_lists) {
         for my $entry (@{ $acl->{LIST} }) {
+            $entry->{orig} =~ s/^\d+ //;
             for my $where (qw(SRC DST)) {
                 my $what = $entry->{$where};
                 my $group_name = ref($what) && $what->{GROUP_NAME} or next;
