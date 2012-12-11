@@ -1023,6 +1023,16 @@ sub abort_cmd {
     abort(@msg);
 }
 
+# Default: No op.
+sub schedule_reload {
+    my ($self, $minutes) = @_;
+}
+
+# Default: No op.
+sub cancel_reload {
+    my ($self, $force) = @_;
+}
+
 # Check reachability of device.
 sub check_device {
     my ($self) = @_;

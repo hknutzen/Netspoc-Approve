@@ -553,16 +553,6 @@ sub route_del {
     return("no $entry->{orig}");
 }
 
-# Default: No op.
-sub schedule_reload {
-    my ($self, $minutes) = @_;
-}
-
-# Default: No op.
-sub cancel_reload {
-    my ($self) = @_;
-}
-
 # Read hostname from prompt
 sub get_identity {
     my ($self) = @_;

@@ -715,7 +715,7 @@ sub cmd_check_error {
     # - known status messages
     # - known warning messages
     # - unknown messages, handled as error messages.
-    my @err_lines;
+    my $error;
   LINE:
     for my $line (@$lines) {
 	for my $regex (@known_status) {
@@ -729,9 +729,11 @@ sub cmd_check_error {
 		next LINE;
 	    }
 	}
-	push @err_lines, "$cmd: $line\n";
+	$error = 1;
     }
-    abort(@err_lines) if @err_lines;
+    if ($error) {
+	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
+    }
 }
 
 sub get_identity {

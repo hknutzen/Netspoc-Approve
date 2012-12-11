@@ -17,6 +17,7 @@ use Netspoc::Approve::Cisco;
 use Netspoc::Approve::IOS;
 use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
+use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
 # VERSION: inserted by DZP::OurPkgVersion
@@ -24,10 +25,11 @@ my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
 my %type2class = (
-    Linux  => 'Netspoc::Approve::Linux',
-    IOS    => 'Netspoc::Approve::IOS',
-    ASA    => 'Netspoc::Approve::ASA',
-    PIX    => 'Netspoc::Approve::PIX',
+    Linux   => 'Netspoc::Approve::Linux',
+    IOS     => 'Netspoc::Approve::IOS',
+    ASA     => 'Netspoc::Approve::ASA',
+    PIX     => 'Netspoc::Approve::PIX',
+    'NX-OS' => 'Netspoc::Approve::NX_OS',
 );
 
 ####################################################################

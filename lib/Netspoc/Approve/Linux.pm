@@ -1053,22 +1053,12 @@ sub cmd_check_error($$) {
     if(@$lines) {
 	my $valid = $valid_cmd_output{$cmd};
 	if(not(@$lines == 1 and $valid and $lines->[0] eq $valid)) {
-	    abort("$cmd failed", @$lines);
+	    abort("Unexpected output of '$cmd'", @$lines);
 	}
     }
     elsif(not $self->status_ok) {
 	abort("$cmd failed (exit status)");
     }
-}
-
-# NoOp.
-sub schedule_reload {
-    my($self, $time) = @_;
-}
-
-# NoOp.
-sub cancel_reload {
-    my($self) = @_;
 }
 
 # NoOp.
