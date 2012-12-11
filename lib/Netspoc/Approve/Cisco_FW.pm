@@ -1105,17 +1105,8 @@ sub make_equal {
 
 	# Mark object-groups referenced by acl lines.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
-
 	    for my $spoc_entry (@{ $spoc_value->{LIST} }) {
-		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
-                    my $what = $spoc_entry->{$where};
-		    if(my $spoc_group = ref($what) && $what->{GROUP}) {
-			if(not $spoc_group->{name_on_dev}) {
-			    $spoc_group->{transfer} = 1;
-			    $self->mark_as_changed('OBJECT_GROUP');
-			}
-		    }
-		}
+                $self->mark_object_group_from_acl($spoc_entry);
 	    }
 	}
 

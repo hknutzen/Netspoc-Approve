@@ -117,6 +117,7 @@ sub process_interface_acls( $$$ ){
 
 	    # Add ACL to device.
 	    if ($spoc_acl) {
+                $self->mark_object_group_from_acl($spoc_acl);
 		$self->{CHANGE}->{ACCESS_LIST} = 1;
 
 		# New and old ACLs must use different names.

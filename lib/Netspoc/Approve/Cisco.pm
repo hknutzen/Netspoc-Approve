@@ -850,6 +850,19 @@ sub check_object_group {
     }
 }
 
+sub mark_object_group_from_acl {
+    my ($self, $acl_entry) = @_;
+    for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
+        my $what = $acl_entry->{$where};
+        if(my $group = ref($what) && $what->{GROUP}) {
+            if(not $group->{name_on_dev}) {
+                $group->{transfer} = 1;
+                $self->mark_as_changed('OBJECT_GROUP');
+            }
+        }
+    }
+}
+
 # Build textual representation from ACL entry for use with Algorithm::Diff.
 # $abstract = 1: Ignore name of object-group.
 sub acl_entry2key0 {
@@ -974,15 +987,7 @@ sub equalize_acl_groups {
 	    # Mark object-groups referenced by acl lines from spoc 
 	    # but not on device.
 	    for my $spoc_entry ($diff->Items(2)) {
-		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
-                    my $what = $spoc_entry->{$where};
-		    if(my $spoc_group = ref($what) && $what->{GROUP}) {
-			if(not $spoc_group->{name_on_dev}) {
-			    $spoc_group->{transfer} = 1;
-			    $self->mark_as_changed('OBJECT_GROUP');
-			}
-		    }
-		}
+                $self->mark_object_group_from_acl($spoc_entry);
 	    }
 
 	    if(my $count = $diff->Items(1)) {
