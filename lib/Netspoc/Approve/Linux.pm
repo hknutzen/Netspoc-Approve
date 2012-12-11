@@ -1033,7 +1033,7 @@ sub status_ok {
 sub cmd_ok {
     my ($self, $cmd) = @_;
     if ( $self->{COMPARE} ) {
-	print($cmd, "\n");
+	print("> $cmd\n");
 	return 1;
     }
     else {
