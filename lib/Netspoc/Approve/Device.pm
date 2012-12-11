@@ -185,17 +185,12 @@ sub add_prefix_info {
     my $result = {};
     for my $key (keys %$parse_info) {
 	my @split = split(' ', $key);
-	if (@split > 1) {
-	    my $hash = $result;
-	    while(@split) {
-		my $word = shift(@split);
-		$hash->{$word} ||= {};
-		$hash = $hash->{$word};
-	    }
-	}
-	elsif ($key eq '_any') {
-	    $result->{_any} = 1;
-	}
+        my $hash = $result;
+        while(@split) {
+            my $word = shift(@split);
+            $hash->{$word} ||= {};
+            $hash = $hash->{$word};
+        }
 	if(my $subcmd = $parse_info->{$key}->{subcmd}) {
 	    $self->add_prefix_info($subcmd);
 	}
