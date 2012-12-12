@@ -920,7 +920,7 @@ sub acl_entry2key {
 # We should analyze all ACLs with object-groups in a first pass
 # and operate with immutable group names in second pass.
 sub fix_transfer_groups {
-    my ($entry, $dupl, $abstract) = @_;
+    my ($self, $entry, $dupl, $abstract) = @_;
     return if ! keys %$dupl;
     my @need_fix;
     for my $where (qw(SRC DST)) {
@@ -1177,7 +1177,7 @@ sub equalize_acl_entries {
                     # changed if the same group is referenced from
                     # another ACL and a matching group is found on
                     # device when comparing the other ACL later.
-                    fix_transfer_groups($spoc_entry, \%dupl, \%abstract);
+                    $self->fix_transfer_groups($spoc_entry, \%dupl, \%abstract);
 
                     push @add, $spoc_entry;
                 }
