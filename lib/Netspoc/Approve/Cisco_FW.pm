@@ -1106,7 +1106,7 @@ sub make_equal {
 	# Mark object-groups referenced by acl lines.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
 	    for my $spoc_entry (@{ $spoc_value->{LIST} }) {
-                $self->mark_object_group_from_acl($spoc_entry);
+                $self->mark_object_group_from_acl_entry($spoc_entry);
 	    }
 	}
 
