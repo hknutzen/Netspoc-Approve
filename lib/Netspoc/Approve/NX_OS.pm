@@ -19,19 +19,10 @@ sub get_parse_info {
     my ($self) = @_;
     my $result =
     { 
-        # interface ethernet 2/1
+        # interface Ethernet2/1
 	'interface' => {
             store => 'IF',
-            named => 'from_parser',
-            parse => [
-                'seq',
-                { parse => sub { 
-                    my ($arg) = @_;
-                    
-                    # Use concatenation "ethernet 2/1" as name.
-                    return(get_token($arg) . ' ' . get_token($arg));
-                  },
-                  store => 'name', } ],
+            named => 1,
             subcmd => {
                 'ip access-group _skip in' => {
                     parse => \&get_token, 
