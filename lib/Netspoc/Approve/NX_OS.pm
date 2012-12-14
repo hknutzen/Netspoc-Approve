@@ -24,6 +24,12 @@ sub get_parse_info {
             store => 'IF',
             named => 1,
             subcmd => {
+                'ip address' => {
+                    parse =>  ['seq',
+                               { parse => \&get_ip_prefix, 
+                                 store_multi => ['BASE', 'MASK'] }],
+                    store => 'ADDRESS',
+                },
                 'ip access-group _skip in' => {
                     parse => \&get_token, 
                     store => 'ACCESS_GROUP_IN', 
@@ -35,7 +41,7 @@ sub get_parse_info {
             },
         },
 
-# ip route ip-prefix/mask {[interface] next-hop} 
+# ip route ip/prefix {[interface] next-hop} 
 #          [preference] [tag id] [name nexthop-name] 
 	'ip route' => { 
 	    store => 'ROUTING',
@@ -56,7 +62,8 @@ sub get_parse_info {
         'object-group ip address' => {
             store => 'OBJECT_GROUP',
 	    named => 1,
-            parse => ['seq', { store => 'TYPE', default => 'address', },],
+            parse => ['seq', { store => 'TYPE', default => 'network', },],
+            strict => 'err',
             subcmd => {
                 '_any' => {
 		    store => 'OBJECT', 
@@ -68,7 +75,8 @@ sub get_parse_info {
         'object-group ip port' => {
             store => 'OBJECT_GROUP',
 	    named => 1,
-            parse => ['seq', { store => 'TYPE', default => 'port', },],
+            parse => ['seq', { store => 'TYPE', default => 'tcp-udp', },],
+            strict => 'err',
             subcmd => {
                 '_any' => {
 		    store => 'OBJECT', 
@@ -93,6 +101,7 @@ sub get_parse_info {
 	'ip access-list' => {
 	    store =>  'ACCESS_LIST',
 	    named => 1,
+            strict => 'err',
 	    subcmd => {
                 '_skip permit' => {
 		    store => 'LIST',
