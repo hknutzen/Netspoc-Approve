@@ -62,6 +62,7 @@ sub define_acl {
         my $subcmd = $entry->{orig};
         $self->cmd($subcmd);
     }
+    $self->cmd('exit');
 }
 
 sub modify_object_groups {
