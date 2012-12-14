@@ -310,7 +310,8 @@ sub parse_config1 {
 	    $name = get_token($arg);
 	}
 	my $parser = $cmd_info->{parse};
-        my @params = $cmd_info->{params} ? @{ $cmd_info->{params} } : ();
+        my @params = map({ $_ eq '_cmd' ? $cmd : $_ }
+                         $cmd_info->{params} ? @{ $cmd_info->{params} } : ());
 	my $value;
 	$value = parse_line($self, $arg, $parser, @params) if $parser;
 	get_eol($arg);
