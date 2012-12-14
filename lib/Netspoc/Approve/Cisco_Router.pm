@@ -62,7 +62,6 @@ sub define_acl {
         my $subcmd = $entry->{orig};
         $self->cmd($subcmd);
     }
-    $self->cmd('exit');
 }
 
 sub modify_object_groups {
@@ -83,7 +82,6 @@ sub modify_object_groups {
         if($del) {
             map( { $self->cmd( "no $_->{orig}" ) } @$del );
         }
-        $self->cmd('exit');
     }
 }
 
@@ -113,7 +111,6 @@ sub transfer_object_groups {
         $cmd =~ s/ $name $ /$new_name/x;
         $self->cmd($cmd);
         map( { $self->cmd( $_->{orig} ) } @{ $group->{OBJECT} } );
-        $self->cmd('exit');
     }
 }
 
@@ -209,7 +206,7 @@ sub process_interface_acls( $$$ ){
                     # abort if this command isn't available on old IOS version.
                     $self->resequence_cmd($acl_name, $line_start, $line_incr);
                     $self->schedule_reload(5);
-                    $self->cmd("ip access-list extended $acl_name");
+                    $self->cmd($conf_acl->{orig});
                     for my $vcmd (@$vcmds) {
                         if (ref $vcmd eq 'ARRAY') {
                             my ($vcmd1, $vcmd2) = @$vcmd;
@@ -222,7 +219,6 @@ sub process_interface_acls( $$$ ){
                             $self->cmd($cmd);
                         }
                     }
-                    $self->cmd('exit');
                     $self->cancel_reload();
                     $self->resequence_cmd($acl_name, 10, 10);
                     next;
