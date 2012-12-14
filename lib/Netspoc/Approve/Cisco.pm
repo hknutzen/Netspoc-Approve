@@ -232,7 +232,7 @@ sub analyze_conf_lines {
 	}
 	elsif($sub_level > $level) {
 
-	    # Some older IOS versions use sub commands, 
+	    # NX-OS and Some older IOS versions use sub commands, 
 	    # which have a higher indentation level than 1.
 	    # This is only applicable for the first sub command.
 	    if($first_subcmd) {
@@ -241,7 +241,7 @@ sub analyze_conf_lines {
 		# indented deeper and following commands to be indented
 		# only by one.		
 		if (not $parse_info or not keys %$parse_info) {
-		    push @stack, [ $config, $parse_info, $level ];
+		    push @stack, [ $config, $parse_info, $level, $strict ];
 		    $config = undef;
 		    $parse_info = undef;
 		}
@@ -255,7 +255,7 @@ sub analyze_conf_lines {
 	}
 	else {
 	    while($sub_level < $level && @stack) {
-		($config, $parse_info, $level) = @{ pop @stack };
+		($config, $parse_info, $level, $strict) = @{ pop @stack };
 	    }
 	    
 	    # All sub commands need to use the same indentation level.
@@ -333,10 +333,11 @@ sub analyze_conf_lines {
 			};
 	    push(@$config, $new_cmd);
 	    if (my $subcmd = $cmd_info->{subcmd}) {
-		push @stack, [ $config, $parse_info, $level ];
+		push @stack, [ $config, $parse_info, $level, $strict ];
 		$level++;
 		$parse_info = $subcmd;
 		$config = [];
+                $strict ||= $cmd_info->{strict};
 		$new_cmd->{subcmd} = $config;
 		$first_subcmd = 1;
 	    }
@@ -350,16 +351,20 @@ sub analyze_conf_lines {
 	# Ignore unknown command.
 	# Prepare to ignore subcommands as well.
 	else {
-	    push @stack, [ $config, $parse_info, $level ];
+	    push @stack, [ $config, $parse_info, $level, $strict ];
 	    $config = undef;
 	    $parse_info = undef;
 	    $level++;
 	    $first_subcmd = 1;
-            warn_info("Unknown command $cmd " . join(' ', @args)) if $strict;
+            if ($strict) {
+                my $msg = "Unknown command $cmd " . join(' ', @args);
+                abort($msg) if $strict eq 'err';
+                warn_info($msg);
+            }
 	}
     }
     while($level--) {
-	($config, $parse_info, $level) = @{ pop @stack };
+	($config, $parse_info, $level, $strict) = @{ pop @stack };
     }
     return $config;
 }  
