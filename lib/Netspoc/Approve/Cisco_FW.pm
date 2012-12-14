@@ -411,7 +411,8 @@ sub get_parse_info {
 		   { parse => qr/compiled/ },
 		   ['cond1',
 		    { parse => qr/remark/ },
-		    { parse => \&skip } ],
+		    { parse => \&skip,
+                      error => "'remark' not supported in ACL compare",} ],
 		   
 		   ['or', # standard or extended access-list
 		    ['cond1',
