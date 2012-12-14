@@ -82,6 +82,7 @@ sub modify_object_groups {
         if($del) {
             map( { $self->cmd( "no $_->{orig}" ) } @$del );
         }
+        $self->cmd('exit');
     }
 }
 
@@ -111,6 +112,7 @@ sub transfer_object_groups {
         $cmd =~ s/ $name $ /$new_name/x;
         $self->cmd($cmd);
         map( { $self->cmd( $_->{orig} ) } @{ $group->{OBJECT} } );
+        $self->cmd('exit');
     }
 }
 
