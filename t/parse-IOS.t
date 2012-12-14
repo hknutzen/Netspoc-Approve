@@ -204,7 +204,6 @@ no 60000\\N 1 permit icmp any host 10.0.1.11 3 3
 no 70000
 no 50000
 no 30000\\N 40002 permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
-exit
 ip access-list resequence test 10 10
 END
 
@@ -236,7 +235,6 @@ ip access-list resequence test 10000 10000
 ip access-list extended test
 10001 permit ip any host 10.0.1.2
 10002 permit ip any host 10.0.1.3
-exit
 ip access-list resequence test 10 10
 END
 
@@ -277,7 +275,6 @@ ip access-list extended test
 30001 permit ip 10.0.11.0 0.0.0.255 host 10.9.9.1
 no 20000
 no 10000
-exit
 ip access-list resequence test 10 10
 END
 
@@ -318,7 +315,6 @@ ip access-list resequence test 10000 10000
 ip access-list extended test
 no 30000\\N 1 deny ip host 10.1.2.3 host 10.1.1.1
 10001 permit ip any host 10.1.1.1
-exit
 ip access-list resequence test 10 10
 END
 
@@ -360,7 +356,6 @@ ip access-list extended test
 50003 permit ip any host 7.7.7.7
 no 20000\\N 50002 permit ip any host 2.2.2.2
 no 10000\\N 50001 permit ip any host 1.1.1.1
-exit
 ip access-list resequence test 10 10
 END
 
