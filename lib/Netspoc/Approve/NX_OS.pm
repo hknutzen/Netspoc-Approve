@@ -56,11 +56,24 @@ sub get_parse_info {
         'object-group ip address' => {
             store => 'OBJECT_GROUP',
 	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'address', },],
             subcmd => {
-                'network-object' => {
+                '_any' => {
 		    store => 'OBJECT', 
 		    multi => 1,
-		    parse => 'parse_address',
+		    parse =>  'parse_numbered_address', params => [ '_cmd' ],
+                }
+            }
+        },
+        'object-group ip port' => {
+            store => 'OBJECT_GROUP',
+	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'port', },],
+            subcmd => {
+                '_any' => {
+		    store => 'OBJECT', 
+		    multi => 1,
+		    parse => 'parse_numbered_port_spec', params => [ '_cmd' ],
                 }
             }
         },
@@ -97,11 +110,11 @@ sub get_parse_info {
                           { store => 'TYPE', parse => qr/udp|tcp/ },
                           { store => 'SRC', parse => 'parse_address' },
                           { store => 'SRC_PORT', 
-                            parse => 'parse_port_spec', 
+                            parse => 'parse_og_port_spec', 
                             params => ['$TYPE'] },
                           { store => 'DST', parse => 'parse_address' },
                           { store => 'DST_PORT', 
-                            parse => 'parse_port_spec', 
+                            parse => 'parse_og_port_spec', 
                             params => ['$TYPE'] },
                           { store => 'ESTA', 
                             parse => qr/established/ }, ],
@@ -142,22 +155,52 @@ sub get_parse_info {
 sub parse_address {
     my ($self, $arg) = @_;
     my ($ip, $mask);
-    my $token = get_token($arg);
-    if ($token eq 'addrgroup') {
+    if (check_regex('addrgroup', $arg)) {
         return { GROUP_NAME => get_token($arg) };
     }
-    elsif ($token eq 'any') {
+    elsif (check_regex('any', $arg)) {
         $ip = $mask = 0;
     }
-    elsif ($token eq 'host') {
+    elsif (check_regex('host', $arg)) {
         $ip   = get_ip($arg);
         $mask = 0xffffffff;
     }
     else {
-        unread($arg);
         ($ip, $mask) = get_ip_prefix($arg);
     }
     return ({ BASE => $ip, MASK => $mask });
+}
+
+sub parse_og_port_spec {
+    my ($self, $arg, $type) = @_;
+    if(check_regex('portgroup', $arg)) {
+	return { GROUP_NAME => get_token($arg) };
+    }
+    return $self->SUPER::parse_port_spec($arg, $type);
+}
+
+sub check_line_nr {
+    my ($arg, $line_nr) = @_;
+    if ($line_nr !~ /^\d+/) {
+        unread($arg);
+        err_at_line($arg, "Missing line number");
+    }
+}
+
+# <line_nr> <ip>/<prefixlen>
+# <line_nr> host <ip>
+# <line_nr> any
+sub parse_numbered_address {
+    my ($self, $arg, $line_nr) = @_;
+    check_line_nr($arg, $line_nr);
+    $self->parse_address($arg);
+}
+
+# <line_nr> <port_spec>
+sub parse_numbered_port_spec {
+    my ($self, $arg, $line_nr) = @_;
+    check_line_nr($arg, $line_nr);
+    $self->parse_port_spec($arg, 'tcp-udp');
 }
 
 sub postprocess_config {
@@ -178,6 +221,13 @@ sub postprocess_config {
                           " referenced by $acl->{name}");
                 $what->{GROUP} = $group;
             }
+        }
+    }
+
+    # Remove line numbers from {orig} of object-group entries.
+    for my $acl (values %$object_groups) {
+        for my $entry (@{ $acl->{OBJECT} }) {
+            $entry->{orig} =~ s/^\d+ //;
         }
     }
 }
