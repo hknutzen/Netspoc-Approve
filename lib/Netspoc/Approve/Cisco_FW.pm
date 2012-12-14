@@ -268,6 +268,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'network', },],
+            strict => 'err',
 	    subcmd => {
 		'network-object' => {
 		    store => 'OBJECT', 
@@ -283,6 +284,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'tcp', },],
+            strict => 'err',
 	    subcmd => {
                 'port-object' => {
 		    store => 'OBJECT', 
@@ -298,6 +300,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'udp', },],
+            strict => 'err',
 	    subcmd => {
                 'port-object' => {
 		    store => 'OBJECT', 
@@ -328,6 +331,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'service', },],
+            strict => 'err',
 	    subcmd => {
                 'service-object' => {
                     store => 'OBJECT',
@@ -352,6 +356,7 @@ sub get_parse_info {
             store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'protocol', },],
+            strict => 'err',
 	    subcmd => {
                 'protocol-object' => {
                     store => 'OBJECT',
