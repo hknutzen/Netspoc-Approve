@@ -38,7 +38,17 @@ sub get_parse_info {
                     parse => \&get_token, 
                     store => 'ACCESS_GROUP_OUT', 
                 },
+                'vrf member' => {
+                    parse => \&get_token,
+                    store => 'VRF',
+                }
             },
+        },
+
+# subcmd 'ip route' will be copied from toplevel 'ip route' command.
+        'vrf context' => {
+            store => 'VRF_CONTEXT',
+            named => 1,
         },
 
 # ip route ip/prefix {[interface] next-hop} 
@@ -154,6 +164,9 @@ sub get_parse_info {
     $entry = $entry->[1] = { %{$entry->[1]} };
     $entry->{default} = 'deny';
 
+    # Copy 'ip route' entry as subcmd to 'vrf context'
+    $result->{'vrf context'}->{subcmd}->{'ip route'} = $result->{'ip route'};
+
     $result;
 }
                 
@@ -214,6 +227,14 @@ sub parse_numbered_port_spec {
 
 sub postprocess_config {
     my ($self, $p) = @_;
+
+    # Collect routing of default VRF and explicit VRFs.
+    $p->{ROUTING_VRF}->{''} = $p->{ROUTING};
+    for my $entry (values %{ $p->{VRF_CONTEXT} }) {
+        my $vrf = $entry->{name};
+        $_->{VRF} = $vrf for @{ $entry->{ROUTING} };
+        $p->{ROUTING_VRF}->{$vrf} = $entry->{ROUTING};
+    }
 
     # Remove line numbers from {orig} of ACL entries.
     # Change object-group NAME to object-group OBJECT in ACL entries.
@@ -339,6 +360,23 @@ sub is_device_access {
 sub resequence_cmd {
     my ($self, $acl_name, $start, $incr) = @_;
     $self->cmd("resequence ip access-list $acl_name $start $incr");
+}
+
+sub vrf_route_mode {
+    my ($self, $vrf) = @_;
+    $self->cmd("vrf context $vrf") if $vrf;
+}
+
+sub route_add {
+    my($self, $entry, $vrf) = @_;
+    my $indent = $vrf ? ' ' : '';
+    return("$indent$entry->{orig}");
+}
+
+sub route_del {
+    my($self, $entry, $vrf) = @_;
+    my $indent = $vrf ? ' ' : '';
+    return("${indent}no $entry->{orig}");
 }
 
 sub write_mem {

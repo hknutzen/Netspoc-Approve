@@ -575,6 +575,9 @@ sub get_parse_info {
 sub postprocess_config {
     my ($self, $p) = @_;
 
+    # ASA has only default VRF.
+    $p->{ROUTING_VRF}->{''} = $p->{ROUTING};
+
     # For each access list, change array of access list entries to
     # hash element with attribute 'LIST'.
     # This simplifies later processing because we can add 

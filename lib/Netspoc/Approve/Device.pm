@@ -444,57 +444,75 @@ sub route_line_destination_a_eq_b {
     return($a->{BASE} == $b->{BASE} && $a->{MASK} == $b->{MASK});
 }
 
+# Unique union of all elements.
+# Preserves original order.
+sub unique(@) {
+    my %seen;
+    return grep { !$seen{$_}++ } @_;
+}
+
+# Process routing separately for each VRF.
+# VRF is empty string for default VRF.
 sub process_routing {
     my ($self, $conf, $spoc_conf) = @_;
-    my $spoc_routing = $spoc_conf->{ROUTING};
-    my $conf_routing = $conf->{ROUTING} ||= [];
-    if (not $spoc_routing) {
-        info("No routing entries specified - leaving routes untouched");
-	return;
-    }
 
-    $self->{CHANGE}->{ROUTING} = 0;
-    for my $c (@$conf_routing) {
-	for my $s (@$spoc_routing) {
-	    if ($self->route_line_a_eq_b($c, $s)) {
-		$c->{DELETE} = $s->{DELETE} = 1;
-		last;
-	    }
-	}
-    }
+    my $spoc_vrf = $spoc_conf->{ROUTING_VRF};
+    my $conf_vrf = $conf->{ROUTING_VRF} ||= [];
+    
+    for my $vrf (sort unique(keys %$spoc_vrf, keys %$conf_vrf)) {
+        my $spoc_routing = $spoc_vrf->{$vrf};
+        my $conf_routing = $conf_vrf->{$vrf} ||= [];
+        if (not $spoc_routing) {
+            my $for = $vrf ? ' VRf $vrf' : '';
+            info("No routing specified$for - leaving routes untouched");
+            next;
+        }
+        
+        $self->{CHANGE}->{ROUTING} = 0;
+        for my $c (@$conf_routing) {
+            for my $s (@$spoc_routing) {
+                if ($self->route_line_a_eq_b($c, $s)) {
+                    $c->{DELETE} = $s->{DELETE} = 1;
+                    last;
+                }
+            }
+        }
 
-    my @cmds;
+        my @cmds;
 
-    # Add routes with long mask first.
-    # If we switch the default route, this ensures, that we have the
-    # new routes available before deleting the old default route.
-    for my $r ( sort {$b->{MASK} <=> $a->{MASK}} @{ $spoc_conf->{ROUTING} }) {
-	next if $r->{DELETE};
-	$self->{CHANGE}->{ROUTING} = 1;
-
-	# PIX and ASA don't allow two routes to identical destination.
-	# Remove old route immediatly before adding the new one.
-	for my $c (@$conf_routing) {
-	    next if $c->{DELETE};
-	    if($self->route_line_destination_a_eq_b($r, $c)){
-		push(@cmds, $self->route_del($c));
-		$c->{DELETE} = 1; # Must not delete again.
-	    }
-	}
-	push(@cmds, $self->route_add($r));
-    }
-    for my $r (@$conf_routing) {
-	next if $r->{DELETE};
-	$self->{CHANGE}->{ROUTING} = 1;
-	push(@cmds, $self->route_del($r));
-    }
-    if(@cmds) {
-	info("Changing routing entries on device");
-	$self->schedule_reload(5);
-	$self->enter_conf_mode;
-	map { $self->cmd($_); } @cmds;
-	$self->leave_conf_mode;
-	$self->cancel_reload();
+        # Add routes with long mask first.
+        # If we switch the default route, this ensures, that we have the
+        # new routes available before deleting the old default route.
+        for my $r (sort {$b->{MASK} <=> $a->{MASK}} @{ $spoc_conf->{ROUTING} })
+        {
+            next if $r->{DELETE};
+            $self->{CHANGE}->{ROUTING} = 1;
+            
+            # PIX and ASA don't allow two routes to identical destination.
+            # Remove old route immediatly before adding the new one.
+            for my $c (@$conf_routing) {
+                next if $c->{DELETE};
+                if($self->route_line_destination_a_eq_b($r, $c)){
+                    push(@cmds, $self->route_del($c));
+                    $c->{DELETE} = 1; # Must not delete again.
+                }
+            }
+            push(@cmds, $self->route_add($r, $vrf));
+        }
+        for my $r (@$conf_routing) {
+            next if $r->{DELETE};
+            $self->{CHANGE}->{ROUTING} = 1;
+            push(@cmds, $self->route_del($r, $vrf));
+        }
+        if(@cmds) {
+            info("Changing routing entries on device");
+            $self->schedule_reload(5);
+            $self->enter_conf_mode;
+            $self->vrf_route_mode($vrf);
+            map { $self->cmd($_); } @cmds;
+            $self->leave_conf_mode;
+            $self->cancel_reload();
+        }
     }
 }
 
