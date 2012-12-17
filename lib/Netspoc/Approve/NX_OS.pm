@@ -233,10 +233,12 @@ sub postprocess_config {
 
     # Collect routing of default VRF and explicit VRFs.
     $p->{ROUTING_VRF}->{''} = delete $p->{ROUTING} if $p->{ROUTING};
-    for my $entry (values %{ delete $p->{VRF_CONTEXT} }) {
-        my $vrf = $entry->{name};
-        $_->{VRF} = $vrf for @{ $entry->{ROUTING} };
-        $p->{ROUTING_VRF}->{$vrf} = $entry->{ROUTING};
+    if ($p->{VRF_CONTEXT}) {
+        for my $entry (values %{ delete $p->{VRF_CONTEXT} }) {
+            my $vrf = $entry->{name};
+            $_->{VRF} = $vrf for @{ $entry->{ROUTING} };
+            $p->{ROUTING_VRF}->{$vrf} = $entry->{ROUTING};
+        }
     }
 
     # Remove line numbers from {orig} of ACL entries.
