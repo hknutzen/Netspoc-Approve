@@ -593,11 +593,15 @@ sub login_enable {
 		$prompt = qr/password:/i;
                 $con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
                 info("SSH key for $ip permanently added to known hosts");
+                $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+            }
+            else {
+                $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
             }
 	    $pass ||= $self->get_user_password($user);
 	    $prompt = qr/password:|$std_prompt/i;
             $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
-            $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+            $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
         }
         else {
             info("Using telnet with username for login");
