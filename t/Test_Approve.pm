@@ -61,6 +61,9 @@ my %ignore =
     (
      'configure terminal' => 1,
      'end' => 1,
+     'configure session Netspoc' => 1,
+     'verify' => 1,
+     'commit' => 1,
      'write memory' => 1,
     );
 
