@@ -59,8 +59,11 @@ sub get_parse_info {
 	    parse => ['seq',
 		      { parse => \&get_ip_prefix, 
 			store_multi => ['BASE', 'MASK'] },
-                      # [interface] isn't implemeted
-                      { parse => \&get_ip, store => 'NEXTHOP' },
+		      ['or',
+		       { store => 'NEXTHOP', parse => \&check_ip, },
+		       ['seq',
+			{ store => 'NIF',  parse => \&get_token, },
+			{ store => 'NEXTHOP', parse => \&check_ip, },],],
                       { parse => \&check_int, store => 'PREFERENCE' },
                       ['cond1',
                        { parse => qr/tag/, },
