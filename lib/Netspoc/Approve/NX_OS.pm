@@ -232,7 +232,7 @@ sub postprocess_config {
     my ($self, $p) = @_;
 
     # Collect routing of default VRF and explicit VRFs.
-    $p->{ROUTING_VRF}->{''} = $p->{ROUTING};
+    $p->{ROUTING_VRF}->{''} = $p->{ROUTING} if $p->{ROUTING};
     for my $entry (values %{ $p->{VRF_CONTEXT} }) {
         my $vrf = $entry->{name};
         $_->{VRF} = $vrf for @{ $entry->{ROUTING} };

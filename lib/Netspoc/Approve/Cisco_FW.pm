@@ -576,7 +576,7 @@ sub postprocess_config {
     my ($self, $p) = @_;
 
     # ASA has only default VRF.
-    $p->{ROUTING_VRF}->{''} = $p->{ROUTING};
+    $p->{ROUTING_VRF}->{''} = $p->{ROUTING} if $p->{ROUTING};
 
     # For each access list, change array of access list entries to
     # hash element with attribute 'LIST'.

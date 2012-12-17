@@ -320,7 +320,7 @@ sub postprocess_config {
         my $vrf = $entry->{VRF} || '';
         push @{ $hash->{$vrf} }, $entry;
     }
-    $p->{ROUTING_VRF} = $hash;
+    $p->{ROUTING_VRF} = $hash if keys %$hash;
 
     # Set default value for subcommand 'hash' of 'crypto isakmp policy'
     # because it isn't shown in some (all ?) IOS versions.
