@@ -482,7 +482,7 @@ sub process_routing {
         my $spoc_routing = $spoc_vrf->{$vrf};
         my $conf_routing = $conf_vrf->{$vrf} ||= [];
         if (not $spoc_routing) {
-            my $for = $vrf ? "for VRf $vrf" : '';
+            my $for = $vrf ? " for VRf $vrf" : '';
             info("No routing specified$for - leaving routes untouched");
             next;
         }
