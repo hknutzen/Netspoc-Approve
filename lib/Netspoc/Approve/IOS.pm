@@ -315,12 +315,14 @@ sub postprocess_config {
     my %ezvpn_used;
 
     # Store routing separately for each VRF
-    my $hash;
-    for my $entry (@{ $p->{ROUTING} }) {
-        my $vrf = $entry->{VRF} || '';
-        push @{ $hash->{$vrf} }, $entry;
+    if ($p->{ROUTING}) {
+        my $hash;
+        for my $entry (@{ delete $p->{ROUTING} }) {
+            my $vrf = $entry->{VRF} || '';
+            push @{ $hash->{$vrf} }, $entry;
+        }
+        $p->{ROUTING_VRF} = $hash if keys %$hash;
     }
-    $p->{ROUTING_VRF} = $hash if keys %$hash;
 
     # Set default value for subcommand 'hash' of 'crypto isakmp policy'
     # because it isn't shown in some (all ?) IOS versions.

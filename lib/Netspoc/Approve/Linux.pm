@@ -856,12 +856,13 @@ sub merge_iptables {
     
 sub postprocess_routes {
     my ($self, $config) = @_;
+    return if ! $config->{ROUTING};
 
     # Ignore entries with 'scope link'.
     # Ignore entries with 'proto xxx' except 'proto static'.
     # Ignore attribute 'dev', if 'via' is provided.
     my @routes;
-    for my $entry (@{ $config->{ROUTING} }) {
+    for my $entry (@{ delete $config->{ROUTING} }) {
 	next if $entry->{SCOPE} && $entry->{SCOPE} eq 'link';
 	next if $entry->{PROTO} && $entry->{PROTO} ne 'static';
 	if($entry->{NEXTHOP}) {
@@ -869,8 +870,7 @@ sub postprocess_routes {
 	}
 	push(@routes, $entry);
     }
-    $config->{ROUTING} = \@routes;
-    return($config);
+    $config->{ROUTING_VRF}->{''} = \@routes;
 }    
 
 sub postprocess_config {

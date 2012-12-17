@@ -400,14 +400,27 @@ sub merge_rawdata {
     for my $key (%$raw_conf) {
 	my $raw_v = $raw_conf->{$key};
 
-	# Array of unnamed entries: ROUTING, STATIC, GLOBAL, NAT
-	if(ref $raw_v eq 'ARRAY') {
+        if ($key eq 'ROUTING_VRF') {
+	    my $spoc_v = $spoc_conf->{$key} ||= {};
+	    my $count = 0;
+	    for my $vrf (keys %$raw_v) {
+		my $raw_routes = $raw_v->{$vrf};
+                my $spoc_routes = $spoc_v->{$vrf} ||= [];
+                unshift(@$spoc_routes, @$raw_routes);
+                my $count = @$raw_routes;
+                my $for = $vrf ? " for VRF $vrf" : $vrf;
+                info("Prepended $count routes${for} from raw") if $count;
+            }
+	}
+            
+	# Array of unnamed entries: STATIC, GLOBAL, NAT
+	elsif(ref $raw_v eq 'ARRAY') {
 	    my $spoc_v = $spoc_conf->{$key} ||= [];
 	    unshift(@$spoc_v, @$raw_v);
 	    my $count = @$raw_v;
 	    info("Prepended $count entries of $key from raw") if $count;
 	}
-	# Hash of named entries: ACCESS_LIST, USERNAME, ...
+	# Hash of named entries: USERNAME, ...
 	else {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
 	    my $count = 0;
@@ -464,11 +477,12 @@ sub process_routing {
     my $spoc_vrf = $spoc_conf->{ROUTING_VRF};
     my $conf_vrf = $conf->{ROUTING_VRF};
     
-    for my $vrf (sort unique(keys %$spoc_vrf, keys %$conf_vrf)) {
+    my @vrfs = unique(keys %$spoc_vrf, keys %$conf_vrf);
+    for my $vrf (sort @vrfs) {
         my $spoc_routing = $spoc_vrf->{$vrf};
         my $conf_routing = $conf_vrf->{$vrf} ||= [];
         if (not $spoc_routing) {
-            my $for = $vrf ? ' VRf $vrf' : '';
+            my $for = $vrf ? 'for VRf $vrf' : '';
             info("No routing specified$for - leaving routes untouched");
             next;
         }
