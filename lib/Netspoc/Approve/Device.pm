@@ -482,7 +482,7 @@ sub process_routing {
         my $spoc_routing = $spoc_vrf->{$vrf};
         my $conf_routing = $conf_vrf->{$vrf} ||= [];
         if (not $spoc_routing) {
-            my $for = $vrf ? 'for VRf $vrf' : '';
+            my $for = $vrf ? "for VRf $vrf" : '';
             info("No routing specified$for - leaving routes untouched");
             next;
         }
@@ -1007,7 +1007,7 @@ sub get_cmd_output {
     my $need_reload;
     $self->{RELOAD_SCHEDULED} and 
 	$self->handle_reload_banner(\$out) and $need_reload = 1;
-    my @lines = split(/\r?\n/, $out);
+    my @lines = split(/\r?\n|\r/, $out);
     my $echo = shift(@lines);
     $self->cmd_check_echo($cmd, $echo, \@lines);
     $need_reload and $self->schedule_reload(2);
@@ -1032,7 +1032,7 @@ sub two_cmd {
 	my $out = $con->{RESULT}->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
-	my @lines1 = split(/\r?\n/, $out);
+	my @lines1 = split(/\r?\n|\r/, $out);
 	my $echo = shift(@lines1);
 	$self->cmd_check_echo($cmd1, $echo, \@lines1);
 
@@ -1041,7 +1041,7 @@ sub two_cmd {
 	$out = $con->{RESULT}->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
-	my @lines2 = split(/\r?\n/, $out);
+	my @lines2 = split(/\r?\n|\r/, $out);
 	$echo = shift(@lines2);
 	$self->cmd_check_echo($cmd2, $echo, \@lines2);
 
