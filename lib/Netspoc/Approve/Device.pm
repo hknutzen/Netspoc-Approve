@@ -451,13 +451,18 @@ sub unique(@) {
     return grep { !$seen{$_}++ } @_;
 }
 
+# Default: No op
+sub vrf_route_mode {
+    my ($self, $vrf) = @_;
+}
+
 # Process routing separately for each VRF.
 # VRF is empty string for default VRF.
 sub process_routing {
     my ($self, $conf, $spoc_conf) = @_;
 
     my $spoc_vrf = $spoc_conf->{ROUTING_VRF};
-    my $conf_vrf = $conf->{ROUTING_VRF} ||= [];
+    my $conf_vrf = $conf->{ROUTING_VRF};
     
     for my $vrf (sort unique(keys %$spoc_vrf, keys %$conf_vrf)) {
         my $spoc_routing = $spoc_vrf->{$vrf};
@@ -483,7 +488,7 @@ sub process_routing {
         # Add routes with long mask first.
         # If we switch the default route, this ensures, that we have the
         # new routes available before deleting the old default route.
-        for my $r (sort {$b->{MASK} <=> $a->{MASK}} @{ $spoc_conf->{ROUTING} })
+        for my $r (sort {$b->{MASK} <=> $a->{MASK}} @{ $spoc_routing })
         {
             next if $r->{DELETE};
             $self->{CHANGE}->{ROUTING} = 1;
