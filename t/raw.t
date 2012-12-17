@@ -63,6 +63,32 @@ END
 eq_or_diff( approve('ASA', '', $spoc, $raw ), $out, $title );
 
 ############################################################
+$title = "Merge routing NX-OS";
+############################################################
+$spoc = <<END;
+vrf context one
+ ip route 10.20.0.0/19 10.1.2.3
+ip route 10.22.0.0/16 10.1.2.4
+END
+
+$raw = <<END;
+ip route 10.22.0.0/16 10.1.2.4
+vrf context two
+ ip route 10.0.0.0/8 10.1.2.2
+END
+
+$out = <<END;
+ip route 10.22.0.0/16 10.1.2.4
+ip route 10.22.0.0/16 10.1.2.4
+vrf context one
+ ip route 10.20.0.0/19 10.1.2.3
+vrf context two
+ ip route 10.0.0.0/8 10.1.2.2
+END
+
+eq_or_diff( approve('NX-OS', '', $spoc, $raw ), $out, $title );
+
+############################################################
 $title = "Merge routing Linux";
 ############################################################
 $spoc = <<END;
