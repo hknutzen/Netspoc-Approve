@@ -44,6 +44,30 @@ sub mark_unneeded_object_group_from_acl_entry {
     }
 }
 
+sub subst_ace_name_og {
+    my ($self, $ace) = @_;
+    my $cmd = $ace->{orig};
+    for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
+        my $what = $ace->{$where};
+        if (my $group = ref($what) && $what->{GROUP}) {
+            my $gid = $group->{name};
+            my $new_gid = $group->{name_on_dev} || 
+                ($group->{transfer} && $group->{new_name}) or
+                abort("Expected group $gid already on device");
+
+            # Add marker '!' in front of inserted names.
+            # This prevents accidental renaming of an already renamed group.
+            # This situation can occur if identical names are used 
+            # for different groups in device and in netspoc configuration.
+            $cmd =~ s/group $gid(?!\S)/group !$new_gid/;
+        }
+    }
+
+    # Remove marker '!' of substitution above.
+    $cmd =~ s/!//g;
+    $cmd;
+}
+
 # Defines new ACL.
 # Assumes that conf mode is already enabled
 sub define_acl {
@@ -56,7 +80,7 @@ sub define_acl {
     $cmd =~ s/$spoc_name\s*/$name/;
     $self->cmd($cmd);
     for my $entry (@$entries) {
-        my $subcmd = $entry->{orig};
+        my $subcmd = $self->subst_ace_name_og($entry);
         $self->cmd($subcmd);
     }
     return $name;
@@ -67,11 +91,11 @@ sub modify_object_groups {
     my $hash = $spoc->{OBJECT_GROUP};
     for my $group (values %$hash) {
         my $add = $group->{add_entries};
-        my $del = $spoc->{del_entries};
+        my $del = $group->{del_entries};
         $add || $del or next;
         my $name = $group->{name};
         my $dev_name = $group->{name_on_dev};
-        my $cmd = $spoc->{orig};
+        my $cmd = $group->{orig};
         $cmd =~ s/ $name $ /$dev_name/x;
         $self->cmd($cmd);
         if($add) {
@@ -136,8 +160,8 @@ sub process_interface_acls( $$$ ){
             $self->mark_unneeded_object_group_from_acl_entry($hash->{ace});
         }
         else {
-            $cmd = $hash->{ace}->{orig};
-            $cmd = "$line $cmd" if defined $line;
+            $cmd = $self->subst_ace_name_og($hash->{ace});
+            $cmd = "$line $cmd";
         }
         $cmd;
     };
