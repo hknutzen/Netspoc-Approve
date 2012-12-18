@@ -265,6 +265,11 @@ sub postprocess_config {
             $entry->{orig} =~ s/^\d+ //;
         }
     }
+
+    # Interface mgmt0 is located in management VRF by default.
+    if (my $intf = $p->{IF}->{mgmt0}) {
+        $intf->{VRF} ||= 'management';
+    }
 }
         
 sub get_config_from_device {
@@ -281,6 +286,8 @@ my %known_status =
        'Enter configuration commands, one per line.  End with CNTL/Z.', ],
      'verify' => [ 'Verification Successful', ],
      'commit' => [ 'Commit Successful', ],
+     'copy running-config startup-config' => [
+         qr/^\[.*\] 100%$/, qr/^Copy complete/ ],
      );
 
 my %known_warning = 
@@ -386,7 +393,7 @@ sub route_del {
 
 sub write_mem {
     my ($self) = @_;
-    $self->cmd('copy startup-config running-config');
+    $self->cmd('copy running-config startup-config');
 }
 
 # Packages must return a true value;
