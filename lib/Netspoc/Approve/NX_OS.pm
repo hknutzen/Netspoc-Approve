@@ -367,6 +367,16 @@ sub leave_conf_mode {
     }
 }
 
+sub check_session {
+    my($self) = @_;
+    return if $self->{COMPARE};
+    my $lines = $self->get_cmd_output('show configuration session');
+    my $line = pop @$lines or return;
+    if ($line =~ /^Number of active configuration sessions/) {
+        abort("There already is an open configuration session", @$lines);
+    }
+}
+    
 # No op; we can't lock out from Netspoc,
 # because we use "configure session xx". 
 sub is_device_access {
@@ -398,6 +408,12 @@ sub route_del {
 sub write_mem {
     my ($self) = @_;
     $self->cmd('copy running-config startup-config');
+}
+
+sub transfer {
+    my ($self, $conf, $spoc) = @_;
+    $self->check_session();
+    $self->SUPER::transfer($conf, $spoc);
 }
 
 # Packages must return a true value;
