@@ -1005,13 +1005,6 @@ sub equalize_acl_groups {
 	    for my $spoc_entry ($diff->Items(2)) {
                 $self->mark_object_group_from_acl_entry($spoc_entry);
 	    }
-
-	    if(my $count = $diff->Items(1)) {
-		info(" $count extra lines on device");
-	    }
-	    if(my $count = $diff->Items(2)) {
-		info(" $count extra lines from Netspoc");
-	    }
 	}
     }
     return !$acl_modified;
