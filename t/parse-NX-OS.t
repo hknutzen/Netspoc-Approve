@@ -59,7 +59,7 @@ deny ip any any
 interface Ethernet0/0
 ip access-group inside_in-DRC-0 in
 ip access-list outside_in-DRC-0
-permit udp addrgroup g0 host 10.0.1.11 eq sip
+permit udp addrgroup g0-DRC-0 host 10.0.1.11 eq sip
 permit tcp any host 10.0.1.11 range 7937 8999
 deny ip any any
 interface Ethernet0/1
@@ -90,6 +90,7 @@ END
 $in = <<'END';
 object-group ip address g1
  10 host 2.2.2.2
+ 20 host 3.3.3.3
 ip access-list inside 
  10 permit ip addrgroup g1 any
  20 permit ip host 1.1.1.1 any
@@ -102,9 +103,11 @@ interface Ethernet0/1
 END
 
 $out = <<'END';
+object-group ip address g1-0
+host 3.3.3.3
 resequence ip access-list inside 10000 10000
 ip access-list inside
-1 permit ip addrgroup g1 any
+1 permit ip addrgroup g1-0 any
 resequence ip access-list inside 10 10
 END
 eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
