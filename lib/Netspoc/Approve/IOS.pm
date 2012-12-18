@@ -1052,28 +1052,16 @@ sub crypto_processing {
 		    my $change = $changes->{$access_group}->{$sequ};
 		    my $conf_acl = $change->{CONF};
 		    my $spoc_acl = $change->{SPOC};
-		    my $aclindex;
 		    if ($conf_acl) {
 			$remove_acls{$conf_acl} = 1;
-			
-			if ($conf_acl =~ /-DRC-([01])$/) {
-
-			    # Active ACL matches name convention
-			    $aclindex = (not $1) + 0;
-			}
-		    }
+                    }
 		    if ($spoc_acl) {
-			$aclindex ||= 0;
-			my $new_acl = "$spoc_acl-DRC-$aclindex";
-
 			$self->schedule_reload(5);
 			info("Creating new ACL");
 			$self->enter_conf_mode();
-			$self->define_acl($new_acl,
-					  $spoc->{ACCESS_LIST}->{$spoc_acl});
-
-			# Assign new acl to crypto map
-			info("Assigning new acl");
+			my $new_acl = $self->define_acl($conf, $spoc, 
+                                                        $spoc_acl);
+			info("Assigning $new_acl");
 			$self->cmd("crypto map $conf_map_name $sequ");
 			$self->cmd("set ip access-group $new_acl $inout");
 			$self->leave_conf_mode();

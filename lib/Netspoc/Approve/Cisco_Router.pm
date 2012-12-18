@@ -45,23 +45,21 @@ sub mark_unneeded_object_group_from_acl_entry {
 }
 
 # Defines new ACL.
-# Assumes that conf mode is already enabled.
+# Assumes that conf mode is already enabled
 sub define_acl {
-    my ($self, $name, $spoc_acl) = @_;
+    my ($self, $conf, $spoc, $spoc_name) = @_;
+    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spoc_name};
     my $entries = $spoc_acl->{LIST};
-    my $old_name = $spoc_acl->{name};
+    my $name = $self->generate_name_for_transfer($spoc_name, 
+                                                 $conf->{ACCESS_LIST});
     my $cmd = $spoc_acl->{orig};
-    $cmd =~ s/$old_name\s*/$name/;
-
-    # Possibly there is an old acl with $aclname:
-    # first remove old entries because acl should be empty - 
-    # otherwise new entries would be appended only.
-    $self->cmd("no $cmd");
+    $cmd =~ s/$spoc_name\s*/$name/;
     $self->cmd($cmd);
     for my $entry (@$entries) {
         my $subcmd = $entry->{orig};
         $self->cmd($subcmd);
     }
+    return $name;
 }
 
 sub modify_object_groups {
@@ -231,19 +229,8 @@ sub process_interface_acls( $$$ ){
 	    if ($spoc_acl) {
                 $self->mark_object_group_from_acl($spoc_acl);
                 $self->{CHANGE}->{ACCESS_LIST} = 1;
-
-                # New and old ACLs must use different names.
-                # We toggle between -DRC-0 and DRC-1.
-                my $aclindex = 0;
-                if ($conf_acl) {
-                    if ($confacl_name =~ /-DRC-([01])$/) {
-                        $aclindex = (not $1) + 0;
-                    }
-                }
-                my $aclname = "$spocacl_name-DRC-$aclindex";
-
                 $self->schedule_reload(5);
-                $self->define_acl($aclname, $spoc_acl);
+                my $aclname = $self->define_acl($conf, $spoc, $spocacl_name);
 
                 # Assign new acl to interface.
                 info("Assigning new $in_out ACL $aclname to interface $name");
