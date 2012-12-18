@@ -54,12 +54,10 @@ object-group ip address g0-DRC-0
 10.0.6.0/24
 10.0.5.0/24
 host 10.0.12.3
-no ip access-list inside_in-DRC-0
 ip access-list inside_in-DRC-0
 deny ip any any
 interface Ethernet0/0
 ip access-group inside_in-DRC-0 in
-no ip access-list outside_in-DRC-0
 ip access-list outside_in-DRC-0
 permit udp addrgroup g0 host 10.0.1.11 eq sip
 permit tcp any host 10.0.1.11 range 7937 8999
