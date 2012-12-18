@@ -287,7 +287,7 @@ my %known_status =
      'verify' => [ 'Verification Successful', ],
      'commit' => [ 'Commit Successful', ],
      'copy running-config startup-config' => [
-         qr/^\[.*\] 100%$/, qr/^Copy complete/ ],
+         qr/^\[.*\] +\d+%$/, qr/^Copy complete/ ],
      );
 
 my %known_warning = 
@@ -303,6 +303,10 @@ sub cmd_check_error($$) {
     my $error;
   LINE:
     for my $line (@$lines) {
+        
+        # Ignore empty line
+        next LINE if $line =~ /^\s*$/;
+
 	for my $pattern (@{ $known_status{$cmd} }) {
 	    if(ref($pattern) ? $line =~ $pattern : $line eq $pattern) {
 		next LINE;
