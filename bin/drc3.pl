@@ -122,8 +122,7 @@ $job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 $job->logging();
 
 $job->check_reachability();
-
-$job->lock($name) or abort("Approve in progress for $name");
+$job->lock($name);
 
 # Start compare / approve.
 info("********************************************************************");

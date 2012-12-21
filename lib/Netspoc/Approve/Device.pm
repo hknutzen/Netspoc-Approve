@@ -1270,32 +1270,27 @@ sub logging {
 {
 
     # A closure, because we need the lock in both functions.
-    my $lock;
+    my $lock_fh;
 
-    sub lock( $$ ) {
+    # Set lock for exclusive approval
+    sub lock {
         my ($self, $name) = @_;
-
-        # Set lock for exclusive approval
         my $lockfile = "$self->{CONFIG}->{lockfiledir}/$name";
-        unless (-f "$lockfile") {
-            open($lock->{$name}, '>', "$lockfile")
-              or abort("Could not aquire lock file $lockfile: $!");
-            defined chmod 0666, "$lockfile"
-              or abort("Couldn't chmod lockfile $lockfile: $!");
-        }
-        else {
-            open($lock->{$name}, '>', "$lockfile")
-              or abort("Could not aquire lock file $lockfile: $!");
-        }
-        unless (flock($lock->{$name}, LOCK_EX | LOCK_NB)) {
-            info("$!");
-            return 0;
-        }
+        my $file_exists = -f $lockfile;
+        open($lock_fh, '>', $lockfile)
+          or abort("Couldn't aquire lock file $lockfile: $!");
+
+        # Make newly created lock file writable for other users.
+        $file_exists 
+          or chmod(0666, $lockfile)
+          or abort("Couldn't chmod lockfile $lockfile: $!");
+        flock($lock_fh, LOCK_EX | LOCK_NB)
+          or abort($!, "Approve in progress for $name");
     }
 
-    sub unlock( $$ ) {
+    sub unlock {
         my ($self, $name) = @_;
-        close($lock->{$name}) or abort("Could not unlock lockfile: $!");
+        close($lock_fh) or abort("Could not unlock lockfile: $!");
     }
 }
 
