@@ -58,7 +58,6 @@ END
     exit -1;
 }
 
-my $config = Netspoc::Approve::Load_Config::load();
 Getopt::Long::Configure("no_ignore_case");
 
 my %opts;
@@ -103,12 +102,13 @@ my $class = $type2class{$type}
 my $job = $class->new(
     NAME   => $name,
     OPTS   => \%opts,
-    CONFIG => $config,
     IP     => shift(@ip),
 );
 
 
-# Handle file compare first, which doesn't need device's IP and password.
+# Handle file compare first, which can be run
+# - without device's IP and password
+# - without calling Load_Config (so we can use compare_files for testing).
 if ($file2) {
     keys %opts and usage;
     exit($job->compare_files($file1, $file2) ? 1 : 0)
@@ -116,6 +116,7 @@ if ($file2) {
 
 $opts{t} ||= 300;
 $job->{IP} or abort("Can't get IP from $spoc_file");
+$job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 
 # Enable logging if configured.
 $job->logging();
