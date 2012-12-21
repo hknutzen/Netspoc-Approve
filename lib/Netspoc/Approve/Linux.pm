@@ -1265,7 +1265,7 @@ sub login_enable {
 
     # Password prompt comes only if no ssh keys are in use.
     if($con->{RESULT}->{MATCH} =~ qr/password:/i) {
-	my $pass = $self->get_password();
+	my $pass = $self->get_user_password('device');
 	$prompt = qr/$std_prompt|password:/i;
 	$con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
 	if ($con->{RESULT}->{MATCH} !~ $std_prompt) {
