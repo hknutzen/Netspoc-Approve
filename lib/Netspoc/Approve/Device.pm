@@ -1067,14 +1067,16 @@ sub cancel_reload {
     my ($self, $force) = @_;
 }
 
-# Check reachability of device.
-sub check_device {
+sub check_reachability {
     my ($self) = @_;
-    for my $i (1 ..3) {
+    return if $self->{OPTS}->{NOREACH};
+    for my $i (1 .. 3) {
+
+        # -q: quiet, -w $i: wait for 1,2,3 seconds, -c 1: try once
         my $result = `ping -q -w $i -c 1 $self->{IP}`;
-	return $i if $result =~ /1 received/;
+	return if $result =~ /1 received/;
     }
-    return 0;
+    abort('Reachability test failed');
 }
 
 sub checkidentity {

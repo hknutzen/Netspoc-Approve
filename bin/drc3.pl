@@ -97,7 +97,7 @@ $type or abort("Can't get device type from $spoc_file");
 
 # Get class from type.
 my $class = $type2class{$type}
-  or abort("Can't find class for Model '$type' from $spoc_file");
+  or abort("Can't find class for [ Model = $type ] from $spoc_file");
 
 my $job = $class->new(
     NAME   => $name,
@@ -121,11 +121,7 @@ $job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 # Enable logging if configured.
 $job->logging();
 
-if (!$job->{OPTS}->{NOREACH}) {
-    if (!$job->check_device()) {
-        abort("$job->{NAME}: reachability test failed");
-    }
-}
+$job->check_reachability();
 
 # Try to get password from CiscoWorks.
 $job->{PASS} = $job->get_cw_password($name);
