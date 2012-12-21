@@ -1,7 +1,7 @@
 #!/bin/sh
 # missing-approve -- Show devices with missing approve.
 # http://netspoc.berlios.de
-# (c) 2011 by Heinz Knutzen <heinzknutzen@users.berlios.de>
+# (c) 2012 by Heinz Knutzen <heinzknutzen@users.berlios.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,6 +21,8 @@
 #
 # $Id$
 
+# Abort on unexpected errors.
+set -e
 
 DIR=/home/diamonds
 POLICYDB=$DIR/netspoc
@@ -33,33 +35,45 @@ exit_code=0;
 error () { echo "Error: $1" >&2; exit_code=1; }
 missing () { echo $1; }
 
-cd $CODE || error 
+cd $CODE 
 for device in * ; do
     case $device in *.raw) continue;; esac
     file=$STATUS/$device
     if [ ! -r $file ] ; then
+        # Device has never been approved
 	missing $device
 	continue
     fi
+    # Check status of last approve
+    # OK|***WARNINGS***|***ERRORS***|***UNFINISHED APPROVE***
     case $(cut -d';' -f4 $file) in
 	OK|\*\*\*WARNINGS\*\*\*) ;;
 	*)
+            # There had been errors during last approve
 	    missing $device
 	    continue
     esac
+    # This policy has been approved to device
     approved=$(cut -d';' -f3 $file)
     last=$approved
     anum=$(echo $approved | sed 's/[^0-9]//g')
+
+    # Check, if a newer policy has been successfully compared
+    # Check status of last Compare: DIFF|UPTODATE
     case $(cut -d';' -f13 $file) in
 	UPTODATE)
+            # This policy was used during compare.
 	    compared=$(cut -d';' -f14 $file)
 	    cnum=$(echo $compared | sed 's/[^0-9]//g')
 	    [ $cnum -gt $anum ] && last=$compared
 	    ;;
     esac
     
+    # If device' policy is equal to current policy, we are finished.
     [ $last = $POLICY ] && continue
 
+    # Compare Netspoc code of device policy with Netspoc code of current policy.
+    # If both are equal, we are finished.
     lcode=$POLICYDB/$last/code/$device
     
     if [ -f $lcode ] ; then 
@@ -77,4 +91,5 @@ for device in * ; do
     missing $device; 
 done
 
+# Exit with status 1, if at least one error occured.
 exit $exit_code
