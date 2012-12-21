@@ -123,9 +123,6 @@ $job->logging();
 
 $job->check_reachability();
 
-# Try to get password from CiscoWorks.
-$job->{PASS} = $job->get_cw_password($name);
-
 $job->lock($name) or abort("Approve in progress for $name");
 
 # Start compare / approve.

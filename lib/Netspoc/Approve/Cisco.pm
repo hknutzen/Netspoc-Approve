@@ -571,9 +571,11 @@ sub get_identity {
 sub login_enable {
     my ($self) = @_;
     my $std_prompt = qr/[\>\#]/;
-    my($con, $ip, $pass) = @{$self}{qw(CONSOLE IP PASS)};
-    my $user;
+    my($con, $ip) = @{$self}{qw(CONSOLE IP)};
 
+    # Try to get password from CiscoWorks.
+    my $pass = $job->get_cw_password($name);
+    my $user;
     if(not $pass) {
 	($user, $pass) = $self->get_aaa_password();
     }
@@ -593,13 +595,10 @@ sub login_enable {
 		$prompt = qr/password:/i;
                 $con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
                 info("SSH key for $ip permanently added to known hosts");
-                $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
             }
-            else {
-                $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-            }
+            $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+	    $prompt = qr/$prompt|$std_prompt/i;
 	    $pass ||= $self->get_user_password($user);
-	    $prompt = qr/password:|$std_prompt/i;
             $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
             $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
         }
@@ -612,20 +611,20 @@ sub login_enable {
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	    $prompt = qr/password:/i;
             $con->con_issue_cmd("$user\n", $prompt) or $con->con_error();
-	    $pass ||= $self->get_user_password($user);
 	    $prompt = qr/username:|password:|$std_prompt/i;
+	    $pass ||= $self->get_user_password($user);
             $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
         }
     }
     else {
         info("Using simple telnet for login");
-        $pass = $self->{PASS};
         $con->{EXPECT}->spawn("telnet", ($ip))
           or abort("Cannot spawn telnet: $!");
         my $prompt = qr/PIX passwd:|password:/i;
         $con->con_wait($prompt) or $con->con_error();
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	$prompt = qr/$prompt|$std_prompt/;
+        $pass ||= $self->get_user_password('device');
         $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
     }
     my $match = $con->{RESULT}->{MATCH};
