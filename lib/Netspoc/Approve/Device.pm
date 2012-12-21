@@ -961,8 +961,7 @@ sub issue_cmd {
     my $con = $self->{CONSOLE};
     $con->con_issue_cmd("$cmd\n",
 			$self->{ENAPROMPT},
-			$self->{RELOAD_SCHEDULED}) or 
-	$con->con_error();
+			$self->{RELOAD_SCHEDULED});
     return($con->{RESULT});
 }
 
@@ -1029,7 +1028,7 @@ sub two_cmd {
 	my $need_reload;
 
 	# Read first prompt and check output of first command.
-	$con->con_wait_prompt1($prompt) or $con->con_error();
+	$con->con_wait_prompt1($prompt);
 	my $out = $con->{RESULT}->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
@@ -1038,7 +1037,7 @@ sub two_cmd {
 	$self->cmd_check_echo($cmd1, $echo, \@lines1);
 
 	# Read second prompt and check output of second command.
-	$con->con_wait_prompt1($prompt) or $con->con_error();
+	$con->con_wait_prompt1($prompt);
 	$out = $con->{RESULT}->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;

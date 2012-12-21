@@ -590,16 +590,16 @@ sub login_enable {
             $con->{EXPECT}->spawn("ssh", "-l", "$user", "$ip")
               or abort("Cannot spawn ssh: $!");
             my $prompt = qr/password:|\(yes\/no\)\?/i;
-            $con->con_wait($prompt) or $con->con_error();
+            $con->con_wait($prompt);
             if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 		$prompt = qr/password:/i;
-                $con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
+                $con->con_issue_cmd("yes\n", $prompt);
                 info("SSH key for $ip permanently added to known hosts");
             }
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	    $prompt = qr/$prompt|$std_prompt/i;
 	    $pass ||= $self->get_user_password($user);
-            $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+            $con->con_issue_cmd("$pass\n", $prompt);
             $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
         }
         else {
@@ -607,13 +607,13 @@ sub login_enable {
             $con->{EXPECT}->spawn("telnet", ($ip))
               or abort("Cannot spawn telnet: $!");
             my $prompt = qr/username:/i;
-            $con->con_wait($prompt) or $con->con_error();
+            $con->con_wait($prompt);
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	    $prompt = qr/password:/i;
-            $con->con_issue_cmd("$user\n", $prompt) or $con->con_error();
+            $con->con_issue_cmd("$user\n", $prompt);
 	    $prompt = qr/username:|password:|$std_prompt/i;
 	    $pass ||= $self->get_user_password($user);
-            $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+            $con->con_issue_cmd("$pass\n", $prompt);
         }
     }
     else {
@@ -621,23 +621,23 @@ sub login_enable {
         $con->{EXPECT}->spawn("telnet", ($ip))
           or abort("Cannot spawn telnet: $!");
         my $prompt = qr/PIX passwd:|password:/i;
-        $con->con_wait($prompt) or $con->con_error();
+        $con->con_wait($prompt);
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	$prompt = qr/$prompt|$std_prompt/;
         $pass ||= $self->get_user_password('device');
-        $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+        $con->con_issue_cmd("$pass\n", $prompt);
     }
     my $match = $con->{RESULT}->{MATCH};
     if ($match eq '>') {
 
 	# Enter enable mode. 
 	my $prompt = qr/password:|\#/i;
-	$con->con_issue_cmd("enable\n", $prompt) or $con->con_error();
+	$con->con_issue_cmd("enable\n", $prompt);
 	if ($con->{RESULT}->{MATCH} ne '#') {
 	    
 	    # Enable password required.
 	    $pass = $self->{ENABLE_PASS} || $pass;
-	    $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+	    $con->con_issue_cmd("$pass\n", $prompt);
 	}
 	if ($con->{RESULT}->{MATCH} ne '#') {
 	    abort("Authentication for enable mode failed");

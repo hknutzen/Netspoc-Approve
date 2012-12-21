@@ -1256,10 +1256,10 @@ sub login_enable {
     $con->{EXPECT}->spawn('ssh', '-l', $config->{user}, $ip)
 	or abort("Cannot spawn ssh: $!");
     my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
-    $con->con_wait($prompt) or $con->con_error();
+    $con->con_wait($prompt);
     if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 	$prompt = qr/$std_prompt|password:/i;
-	$con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
+	$con->con_issue_cmd("yes\n", $prompt);
 	info("SSH key for $ip permanently added to known hosts");
     }
 
@@ -1267,7 +1267,7 @@ sub login_enable {
     if($con->{RESULT}->{MATCH} =~ qr/password:/i) {
 	my $pass = $self->get_user_password('device');
 	$prompt = qr/$std_prompt|password:/i;
-	$con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+	$con->con_issue_cmd("$pass\n", $prompt);
 	if ($con->{RESULT}->{MATCH} !~ $std_prompt) {
 	    abort("Authentication failed");
 	}
