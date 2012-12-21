@@ -58,6 +58,14 @@ END
     exit -1;
 }
 
+sub banner_msg {
+    my ($msg) = @_;
+    my $time = localtime;
+    info('*' x 68);
+    info(" $msg: at > $time <");
+    info('*' x 68);
+}
+
 Getopt::Long::Configure("no_ignore_case");
 
 my %opts;
@@ -125,18 +133,14 @@ $job->check_reachability();
 $job->lock($name);
 
 # Start compare / approve.
-info("********************************************************************");
-info(" START: at > ", scalar localtime, " <");
-info("********************************************************************");
+banner_msg('START');
 if ($opts{C}) {
     $job->compare($file1);
 }
 else {
     $job->approve($file1);
 }
-info("********************************************************************");
-info(" STOP: at > ", scalar localtime, " <");
-info("********************************************************************");
+banner_msg('STOP');
 
 $job->unlock($name);
 
