@@ -136,7 +136,7 @@ sub con_send_cmd {
 
 sub con_issue_cmd {
     my ($con, $cmd, $prompt, $check_prompt1) = @_;
-    $con->con_send_cmd($cmd);
+    $con->con_send_cmd("$cmd\n");
     $check_prompt1 
 	? $con->con_wait_prompt1($prompt) 
 	: $con->con_wait( $prompt );

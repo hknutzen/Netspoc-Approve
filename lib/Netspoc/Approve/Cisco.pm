@@ -593,13 +593,13 @@ sub login_enable {
             $con->con_wait($prompt);
             if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 		$prompt = qr/password:/i;
-                $con->con_issue_cmd("yes\n", $prompt);
+                $con->con_issue_cmd('yes', $prompt);
                 info("SSH key for $ip permanently added to known hosts");
             }
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	    $prompt = qr/$prompt|$std_prompt/i;
 	    $pass ||= $self->get_user_password($user);
-            $con->con_issue_cmd("$pass\n", $prompt);
+            $con->con_issue_cmd($pass, $prompt);
             $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
         }
         else {
@@ -610,10 +610,10 @@ sub login_enable {
             $con->con_wait($prompt);
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	    $prompt = qr/password:/i;
-            $con->con_issue_cmd("$user\n", $prompt);
+            $con->con_issue_cmd($user, $prompt);
 	    $prompt = qr/username:|password:|$std_prompt/i;
 	    $pass ||= $self->get_user_password($user);
-            $con->con_issue_cmd("$pass\n", $prompt);
+            $con->con_issue_cmd($pass, $prompt);
         }
     }
     else {
@@ -625,19 +625,19 @@ sub login_enable {
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	$prompt = qr/$prompt|$std_prompt/;
         $pass ||= $self->get_user_password('device');
-        $con->con_issue_cmd("$pass\n", $prompt);
+        $con->con_issue_cmd($pass, $prompt);
     }
     my $match = $con->{RESULT}->{MATCH};
     if ($match eq '>') {
 
 	# Enter enable mode. 
 	my $prompt = qr/password:|\#/i;
-	$con->con_issue_cmd("enable\n", $prompt);
+	$con->con_issue_cmd('enable', $prompt);
 	if ($con->{RESULT}->{MATCH} ne '#') {
 	    
 	    # Enable password required.
 	    $pass = $self->{ENABLE_PASS} || $pass;
-	    $con->con_issue_cmd("$pass\n", $prompt);
+	    $con->con_issue_cmd($pass, $prompt);
 	}
 	if ($con->{RESULT}->{MATCH} ne '#') {
 	    abort("Authentication for enable mode failed");

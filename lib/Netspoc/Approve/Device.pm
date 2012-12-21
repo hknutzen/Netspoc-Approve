@@ -959,9 +959,7 @@ sub issue_cmd {
     my ($self, $cmd) = @_;
 
     my $con = $self->{CONSOLE};
-    $con->con_issue_cmd("$cmd\n",
-			$self->{ENAPROMPT},
-			$self->{RELOAD_SCHEDULED});
+    $con->con_issue_cmd($cmd, $self->{ENAPROMPT}, $self->{RELOAD_SCHEDULED});
     return($con->{RESULT});
 }
 
@@ -1128,8 +1126,8 @@ sub con_shutdown {
     my $shutdown_message = "STOP: at > $time <";
     my $con = $self->{CONSOLE};
     $con->{TIMEOUT} = 5;
-    $con->con_issue_cmd("exit\n", eof);
-    $con->shutdown_console("$shutdown_message");
+    $con->con_issue_cmd('exit', eof);
+    $con->shutdown_console($shutdown_message);
 }
 
 sub prepare_device {

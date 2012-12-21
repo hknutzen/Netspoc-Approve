@@ -1259,7 +1259,7 @@ sub login_enable {
     $con->con_wait($prompt);
     if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 	$prompt = qr/$std_prompt|password:/i;
-	$con->con_issue_cmd("yes\n", $prompt);
+	$con->con_issue_cmd('yes', $prompt);
 	info("SSH key for $ip permanently added to known hosts");
     }
 
@@ -1267,7 +1267,7 @@ sub login_enable {
     if($con->{RESULT}->{MATCH} =~ qr/password:/i) {
 	my $pass = $self->get_user_password('device');
 	$prompt = qr/$std_prompt|password:/i;
-	$con->con_issue_cmd("$pass\n", $prompt);
+	$con->con_issue_cmd($pass, $prompt);
 	if ($con->{RESULT}->{MATCH} !~ $std_prompt) {
 	    abort("Authentication failed");
 	}
