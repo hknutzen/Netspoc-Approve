@@ -573,8 +573,8 @@ sub login_enable {
     my $std_prompt = qr/[\>\#]/;
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
 
-    # Try to get password from CiscoWorks.
-    my $pass = $job->get_cw_password($name);
+    # First, try to get password from CiscoWorks.
+    my $pass = $self->get_cw_password($self->{NAME});
     my $user;
     if(not $pass) {
 	($user, $pass) = $self->get_aaa_password();
