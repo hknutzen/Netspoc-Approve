@@ -385,7 +385,7 @@ sub parse_address {
     }
     else {
         $ip   = quad2int($token);
-        $mask = $self->get_ip($arg);
+        $mask = get_ip($arg);
     }
     return ({ BASE => $ip, MASK => $mask });
 }
