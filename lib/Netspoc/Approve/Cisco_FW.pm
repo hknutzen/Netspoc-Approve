@@ -650,11 +650,6 @@ sub postprocess_config {
     }
 }
 
-sub dev_cor ($$) {
-    my ($self, $addr) = @_;
-    return $addr;
-}
-
 sub parse_object_group  {
     my ($self, $arg) = @_;
     if(check_regex('object-group', $arg)) {

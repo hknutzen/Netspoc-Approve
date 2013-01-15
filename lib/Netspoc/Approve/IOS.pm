@@ -301,11 +301,6 @@ sub parse_encryption {
     $name;
 }
 
-sub dev_cor {
-    my ($self, $addr) = @_;
-    return ~$addr & 0xffffffff;
-}
-
 sub postprocess_config {
     my ($self, $p) = @_;
 
