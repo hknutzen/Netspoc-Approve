@@ -79,9 +79,10 @@ sub get_parse_info {
             strict => 'err',
             subcmd => {
                 '_any' => {
+                    leave_cmd_as_arg => 1,
 		    store => 'OBJECT', 
 		    multi => 1,
-		    parse =>  'parse_numbered_address', params => [ '_cmd' ],
+		    parse =>  'parse_numbered_address',
                 }
             }
         },
@@ -92,9 +93,10 @@ sub get_parse_info {
             strict => 'err',
             subcmd => {
                 '_any' => {
+                    leave_cmd_as_arg => 1,
 		    store => 'OBJECT', 
 		    multi => 1,
-		    parse => 'parse_numbered_port_spec', params => [ '_cmd' ],
+		    parse => 'parse_numbered_port_spec',
                 }
             }
         },
@@ -204,27 +206,19 @@ sub parse_og_port_spec {
     return $self->SUPER::parse_port_spec($arg, $type);
 }
 
-sub check_line_nr {
-    my ($arg, $line_nr) = @_;
-    if ($line_nr !~ /^\d+/) {
-        unread($arg);
-        err_at_line($arg, "Missing line number");
-    }
-}
-
 # <line_nr> <ip>/<prefixlen>
 # <line_nr> host <ip>
 # <line_nr> any
 sub parse_numbered_address {
-    my ($self, $arg, $line_nr) = @_;
-    check_line_nr($arg, $line_nr);
+    my ($self, $arg) = @_;
+    get_int($arg);
     $self->parse_address($arg);
 }
 
 # <line_nr> <port_spec>
 sub parse_numbered_port_spec {
-    my ($self, $arg, $line_nr) = @_;
-    check_line_nr($arg, $line_nr);
+    my ($self, $arg) = @_;
+    get_int($arg);
     $self->parse_port_spec($arg, 'tcp-udp');
 }
 
