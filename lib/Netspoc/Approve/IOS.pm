@@ -26,6 +26,8 @@ use Netspoc::Approve::Parse_Cisco;
 # - named: first argument is name which is used as key when storing result
 # - multi: multiple occurences of this command may occur 
 #          and are stored as an array.
+# - leave_cmd_as_arg: This attribute will be used together with "_any".
+#          If set, the command will be left as an argument to be parsed.
 # - parse: description how to parse arguments of command; possible values:
 #   - regexp, used as argument for check_regex
 #   - function ref. which parses one or more arguments and returns a value
@@ -127,6 +129,23 @@ sub get_parse_info {
 			{ store => 'TAG', parse => \&get_token, },],
 		       { store => 'PERMANENT', parse => qr/permanent/, },],],
 	},
+	'object-group network' => {
+	    store => 'OBJECT_GROUP',
+	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'network', },],
+            strict => 'err',
+	    subcmd => {
+		'group-object' => { 
+		    error => 'Nested object group not supported' 
+                },
+		'_any' => {
+                    leave_cmd_as_arg => 1,
+		    store => 'OBJECT', 
+		    multi => 1,
+		    parse => 'parse_address',
+		},
+            }
+        },
 	'ip access-list extended' => {
 	    store =>  'ACCESS_LIST',
 	    named => 1,
@@ -292,6 +311,22 @@ sub get_parse_info {
     $result;
 }
 
+sub parse_object_group  {
+    my ($self, $arg) = @_;
+    if(check_regex('object-group', $arg)) {
+	return { GROUP_NAME => get_token($arg) };
+    }
+    else {
+        return undef;
+    }
+}
+
+sub parse_address {
+    my ($self, $arg) = @_;
+    return 
+        $self->parse_object_group($arg) || $self->SUPER::parse_address($arg);
+}
+
 sub parse_encryption { 
     my ($arg) = @_;
     my $name = get_token($arg);
@@ -317,6 +352,22 @@ sub postprocess_config {
             push @{ $hash->{$vrf} }, $entry;
         }
         $p->{ROUTING_VRF} = $hash if keys %$hash;
+    }
+
+    # Change object-group NAME to object-group OBJECT in ACL entries.
+    my $access_lists = $p->{ACCESS_LIST};
+    my $object_groups =  $p->{OBJECT_GROUP};
+    for my $acl (values %$access_lists) {
+        for my $entry (@{ $acl->{LIST} }) {
+            for my $where (qw(SRC DST)) {
+                my $what = $entry->{$where};
+                my $group_name = ref($what) && $what->{GROUP_NAME} or next;
+                my $group = $object_groups->{$group_name} or
+                    abort("Can't find OBJECT_GROUP $group_name" .
+                          " referenced by $acl->{name}");
+                $what->{GROUP} = $group;
+            }
+        }
     }
 
     # Set default value for subcommand 'hash' of 'crypto isakmp policy'
