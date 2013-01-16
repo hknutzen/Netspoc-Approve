@@ -299,11 +299,14 @@ sub parse_config1 {
     my($self, $config, $parse_info) = @_;
     my $result = {};
     for my $arg (@$config) {
-	my $cmd = get_token($arg);
         my $cmd_info = $arg->{cmd_info};
 	if(my $msg = $cmd_info->{error}) {
 	    err_at_line($arg, $msg);
 	}
+	my $cmd;
+        if (!$cmd_info->{leave_cmd_as_arg}) {
+            $cmd = get_token($arg);
+        }
 	my $named = $cmd_info->{named};
 	my $name;
 	if($named and $named ne 'from_parser') {
