@@ -1233,38 +1233,19 @@ sub logging {
 	    abort("Couldn't create $dirname: $!");
 	}
     }
-    my $appmode;
-    if ($self->{OPTS}->{LOGAPPEND}) {
-        $appmode = ">>";    # append
-    }
-    else {
-        $appmode = ">";     # clobber
-        if ($self->{OPTS}->{LOGVERSIONS}) {
-            if (-f "$logfile") {
-                my $date = time();
-                system("mv $logfile $logfile.$date") == 0
-                  or abort("Could not backup $logfile: $!");
-                $self->{OPTS}->{NOLOGMESSAGE}
-                  or info("Existing logfile saved as '$logfile.$date'");
-            }
-        }
-    }
-    $self->{OPTS}->{NOLOGMESSAGE}
-      or info("Output redirected to $logfile");
 
-    # Print the above message *before* redirecting!
-    unless (-f $logfile) {
-        (open(STDOUT, $appmode, $logfile))
-          or abort("Could not open $logfile: $!");
-        defined chmod 0644, "$logfile"
-          or abort("Couldn't chmod $logfile: $!");
+    # Move existing logfile
+    if (-f $logfile) {
+        my $date = time();
+        system("mv $logfile $logfile.$date") == 0
+            or abort("Could not backup $logfile: $!");
     }
-    else {
-        (open(STDOUT, $appmode, $logfile))
-          or abort("Could not open $logfile: $!");
-    }
-    (open(STDERR, ">&STDOUT"))
-      or abort("STDERR redirect: could not open $logfile: $!");
+
+    open(STDOUT, '>', $logfile) or abort("Could not open $logfile: $!");
+    chmod(0644, $logfile) or abort("Could not chmod $logfile: $!");
+
+    open(STDERR, ">&STDOUT")
+        or abort("STDERR redirect: could not open $logfile: $!");
 }
 
 {

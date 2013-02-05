@@ -48,9 +48,6 @@ Compare / approve file with device or compare two files.
  -t <seconds>         timeout for telnet
  -q                   Suppress info messages to STDERR
  --LOGFILE <fullpath> Path to redirect STDOUT and STDERR
- --LOGAPPEND          if logfile already exists, append logs
- --LOGVERSIONS        do not overwrite existing logfiles
- --NOLOGMESSAGE       supress output about logfile Names
  --NOREACH            do not check if device is reachable
  -v                   show version info
 
@@ -77,9 +74,6 @@ my %opts;
     't=i',
     'q',
     'LOGFILE=s',
-    'LOGAPPEND',
-    'LOGVERSIONS',
-    'NOLOGMESSAGE',
     'NOREACH',
     'v',
 );
