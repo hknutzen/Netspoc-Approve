@@ -20,9 +20,6 @@ use Netspoc::Approve::Load_Config;
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
 delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 
-# Use old drc2.pl for devices matching this pattern
-my $old_device_pattern = qr/^vpn3k_/;
-
 sub usage {
     print "Usage:\n";
     print "$0 approve <device-name>\n";
@@ -108,21 +105,11 @@ else{
     usage();
 }
 
-my $cmd;
-if ($device =~ $old_device_pattern) {
-    my $compare_option = $is_compare ? '-C 0' : '';
-    $cmd = 
-        "drc2.pl $compare_option -P $policy -I $running_for_user" .
-        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
-        " -N $codefile $device";
-}
-else {
-    my $compare_option = $is_compare ? '-C' : '';
-    $cmd = 
-        "drc3.pl $compare_option" .
-        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
-        " $codefile";
-}
+my $compare_option = $is_compare ? '-C' : '';
+my $cmd = 
+    "drc3.pl $compare_option" .
+    " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
+    " $codefile";
 
 init_history_logging($device, $arguments, $running_for_user);
 log_history("START: $cmd");
