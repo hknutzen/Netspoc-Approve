@@ -4,17 +4,16 @@ package Netspoc::Approve::IOS;
 # Authors: Arne Spetzler, Heinz Knutzen, Daniel Brunkhorst
 #
 # Description:
-# Remote configure cisco ios router
+# Remote configure cisco IOS router
 #
 
-use base "Netspoc::Approve::Cisco";
+use base "Netspoc::Approve::Cisco_Router";
 use strict;
 use warnings;
-use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -27,6 +26,8 @@ our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
 # - named: first argument is name which is used as key when storing result
 # - multi: multiple occurences of this command may occur 
 #          and are stored as an array.
+# - leave_cmd_as_arg: This attribute will be used together with "_any".
+#          If set, the command will be left as an argument to be parsed.
 # - parse: description how to parse arguments of command; possible values:
 #   - regexp, used as argument for check_regex
 #   - function ref. which parses one or more arguments and returns a value
@@ -128,6 +129,23 @@ sub get_parse_info {
 			{ store => 'TAG', parse => \&get_token, },],
 		       { store => 'PERMANENT', parse => qr/permanent/, },],],
 	},
+	'object-group network' => {
+	    store => 'OBJECT_GROUP',
+	    named => 1,
+            parse => ['seq', { store => 'TYPE', default => 'network', },],
+            strict => 'err',
+	    subcmd => {
+		'group-object' => { 
+		    error => 'Nested object group not supported' 
+                },
+		'_any' => {
+                    leave_cmd_as_arg => 1,
+		    store => 'OBJECT', 
+		    multi => 1,
+		    parse => 'parse_address',
+		},
+            }
+        },
 	'ip access-list extended' => {
 	    store =>  'ACCESS_LIST',
 	    named => 1,
@@ -293,6 +311,22 @@ sub get_parse_info {
     $result;
 }
 
+sub parse_object_group  {
+    my ($self, $arg) = @_;
+    if(check_regex('object-group', $arg)) {
+	return { GROUP_NAME => get_token($arg) };
+    }
+    else {
+        return undef;
+    }
+}
+
+sub parse_address {
+    my ($self, $arg) = @_;
+    return 
+        $self->parse_object_group($arg) || $self->SUPER::parse_address($arg);
+}
+
 sub parse_encryption { 
     my ($arg) = @_;
     my $name = get_token($arg);
@@ -302,11 +336,6 @@ sub parse_encryption {
     $name;
 }
 
-sub dev_cor {
-    my ($self, $addr) = @_;
-    return ~$addr & 0xffffffff;
-}
-
 sub postprocess_config {
     my ($self, $p) = @_;
 
@@ -314,6 +343,32 @@ sub postprocess_config {
     my $ezvpn_client_found = 0;
     my %map_used;
     my %ezvpn_used;
+
+    # Store routing separately for each VRF
+    if ($p->{ROUTING}) {
+        my $hash;
+        for my $entry (@{ delete $p->{ROUTING} }) {
+            my $vrf = $entry->{VRF} || '';
+            push @{ $hash->{$vrf} }, $entry;
+        }
+        $p->{ROUTING_VRF} = $hash if keys %$hash;
+    }
+
+    # Change object-group NAME to object-group OBJECT in ACL entries.
+    my $access_lists = $p->{ACCESS_LIST};
+    my $object_groups =  $p->{OBJECT_GROUP};
+    for my $acl (values %$access_lists) {
+        for my $entry (@{ $acl->{LIST} }) {
+            for my $where (qw(SRC DST)) {
+                my $what = $entry->{$where};
+                my $group_name = ref($what) && $what->{GROUP_NAME} or next;
+                my $group = $object_groups->{$group_name} or
+                    abort("Can't find OBJECT_GROUP $group_name" .
+                          " referenced by $acl->{name}");
+                $what->{GROUP} = $group;
+            }
+        }
+    }
 
     # Set default value for subcommand 'hash' of 'crypto isakmp policy'
     # because it isn't shown in some (all ?) IOS versions.
@@ -495,11 +550,7 @@ sub cmd_check_error($$) {
 	$error = 1;
     }
     if ($error) {
-	err_info($cmd);
-	for my $line (@$lines) {
-	    err_info($line);
-	}
-	$self->abort_cmd("Unexpected output for '$cmd'");
+	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
     }
 }
 
@@ -560,13 +611,16 @@ sub prepare_device {
 #
 # Building configuration...
 # [OK]
-
 sub write_mem {
-    my ($self, $retries, $seconds) = @_;
+    my ($self) = @_;
+    my $cmd = 'write memory';
+
+    # 5 retries, 3 seconds intervall
+    my ($retries, $seconds) = (5, 3);
     info("Writing config to nvram");
     $retries++;
     while ($retries--) {
-        my $lines = $self->get_cmd_output('write memory');
+        my $lines = $self->get_cmd_output($cmd);
 	if ($lines->[0] =~ /^Building configuration/) {
 	    if ($lines->[-1] =~ /\[OK\]/) {
 		info("write mem: found [OK]");
@@ -787,153 +841,9 @@ sub is_device_access {
 	$self->services_a_in_b($device_proto, $conf_entry);
 }
 
-# ACL line numbers don't change during incremental ACL update.
-sub change_acl_numbers {}
-
-# IOS ACL lines start at 10000, increment by 10000.
-# When adding lines in front of some line n
-# start at n-9999 and subsequent lines at n-9999+1, n-9999+1+1, ...
-sub ACL_line_discipline {
-    return (10000, 10000, -9999, 1);        
-}
-
-sub check_max_acl_entries {
-    my ($self, $acl) = @_;
-    my $entries = $acl->{LIST};
-    my (undef, $incr) = $self->ACL_line_discipline();
-    if (@$entries >= $incr) {
-        abort("Can't handle ACL $acl->{name} with $incr or more entries");
-    }
-}
-
-sub define_acl {
-    my ($self, $name, $entries) = @_;
-    $self->enter_conf_mode();
-
-    # Possibly there is an old acl with $aclname:
-    # first remove old entries because acl should be empty - 
-    # otherwise new entries would be appended only.
-    $self->cmd("no ip access-list extended $name");
-    $self->cmd("ip access-list extended $name");
-    for my $c (@$entries) {
-        my $acl = $c->{orig};
-        $self->cmd($acl);
-    }
-    $self->leave_conf_mode();
-}
-
-sub process_interface_acls( $$$ ){
-    my ($self, $conf, $spoc) = @_;
-    $self->{CHANGE}->{ACCESS_LIST} = 0;
-
-    my $gen_cmd = sub {
-        my ($hash) = @_;
-        my $line = $hash->{line};
-        my $cmd;
-        if ($hash->{delete}) {
-            $cmd = "no $line";
-        }
-        else {
-            $cmd = $hash->{ace}->{orig};
-            $cmd = "$line $cmd" if defined $line;
-        }
-        $cmd;
-    };
-
-    my ($line_start, $line_incr) = $self->ACL_line_discipline();
-    $self->{CHANGE}->{ACCESS_LIST} = 0;
-    for my $intf (values %{$spoc->{IF}}){
-	my $name = $intf->{name};
-        my $conf_intf = $conf->{IF}->{$name}
-	   or abort("Interface not found on device: $name");
-	for my $in_out (qw(IN OUT)) {
-	    my $direction = lc($in_out);
-	    my $confacl_name = $conf_intf->{"ACCESS_GROUP_$in_out"} || '';
-	    my $spocacl_name = $intf->{"ACCESS_GROUP_$in_out"} || '';
-	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
-	    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
-	    
-	    # Try to change existing ACL on device.
-	    if ($conf_acl and $spoc_acl) {
-		my $ready = $self->equalize_acl($conf_acl, $spoc_acl);
-                next if $ready;
-                
-                if (my $vcmds = $spoc_acl->{modify_cmds} ) {
-                    $self->{CHANGE}->{ACCESS_LIST} = 1;
-                    my $acl_name = $conf_acl->{name};
-
-                    # Change line numbers of ACL entries on device to the same
-                    # values as used in ACL commands.
-                    # Do resequence before schedule reload, because it may
-                    # abort if this command isn't available on old IOS version.
-                    $self->enter_conf_mode();
-                    $self->cmd("ip access-list resequence $acl_name" .
-                               " $line_start $line_incr");
-                    $self->schedule_reload(5);
-                    $self->cmd("ip access-list extended $acl_name");
-                    for my $vcmd (@$vcmds) {
-                        if (ref $vcmd eq 'ARRAY') {
-                            my ($vcmd1, $vcmd2) = @$vcmd;
-                            my $cmd1 = $gen_cmd->($vcmd1);
-                            my $cmd2 = $gen_cmd->($vcmd2);
-                            $self->two_cmd($cmd1, $cmd2);
-                        }
-                        else {
-                            my $cmd = $gen_cmd->($vcmd);
-                            $self->cmd($cmd);
-                        }
-                    }
-                    $self->cmd('exit');
-                    $self->cancel_reload();
-                    $self->cmd("ip access-list resequence $acl_name 10 10");
-                    $self->leave_conf_mode();
-                    next;
-                }
-
-                # No modify_cmds: Fall through.
-	    }
-
-	    # Add ACL to device.
-	    if ($spoc_acl) {
-		$self->{CHANGE}->{ACCESS_LIST} = 1;
-
-		# New and old ACLs must use different names.
-		# We toggle between -DRC-0 and DRC-1.
-		my $aclindex = 0;
-		if ($conf_acl) {
-		    if ($confacl_name =~ /-DRC-([01])$/) {
-			$aclindex = (not $1) + 0;
-		    }
-		}
-		my $aclname = "$spocacl_name-DRC-$aclindex";
-		$self->define_acl($aclname, $spoc_acl->{LIST});
-
-		# Assign new acl to interface.
-		info("Assigning new $in_out ACL $aclname to interface $name");
-		$self->schedule_reload(5);
-		$self->enter_conf_mode();
-		$self->cmd("interface $name");
-		$self->cmd("ip access-group $aclname $direction");
-		$self->leave_conf_mode();
-		$self->cancel_reload();
-	    }
-
-	    # Remove ACL from device.
-	    if ($conf_acl) {
-		$self->{CHANGE}->{ACCESS_LIST} = 1;
-		$self->schedule_reload(5);
-		$self->enter_conf_mode();
-		if (not $spoc_acl) {
-		    info("Unassigning $in_out ACL from interface $name");
-		    $self->cmd("interface $name");
-		    $self->cmd("no ip access-group $confacl_name $direction");
-		}
-		$self->cancel_reload();
-		$self->cmd("no ip access-list extended $confacl_name");
-		$self->leave_conf_mode();
-	    }		
-	}
-    }
+sub resequence_cmd {
+    my ($self, $acl_name, $start, $incr) = @_;
+    $self->cmd("ip access-list resequence $acl_name $start $incr");
 }
 
 ###############################
@@ -1188,31 +1098,16 @@ sub crypto_processing {
 		    my $change = $changes->{$access_group}->{$sequ};
 		    my $conf_acl = $change->{CONF};
 		    my $spoc_acl = $change->{SPOC};
-		    my $aclindex;
 		    if ($conf_acl) {
 			$remove_acls{$conf_acl} = 1;
-			
-			if ($conf_acl =~ /-DRC-([01])$/) {
-
-			    # Active ACL matches name convention
-			    $aclindex = (not $1) + 0;
-			}
-		    }
+                    }
 		    if ($spoc_acl) {
-			$aclindex ||= 0;
-			my $new_acl = "$spoc_acl-DRC-$aclindex";
-
 			$self->schedule_reload(5);
-
-			# begin transfer
 			info("Creating new ACL");
-			$self->define_acl($new_acl,
-					  $spoc->{ACCESS_LIST}
-					  ->{$spoc_acl}->{LIST});
-
-			# assign new acl to interfaces
-			info("Assigning new acl");
 			$self->enter_conf_mode();
+			my $new_acl = $self->define_acl($conf, $spoc, 
+                                                        $spoc_acl);
+			info("Assigning $new_acl");
 			$self->cmd("crypto map $conf_map_name $sequ");
 			$self->cmd("set ip access-group $new_acl $inout");
 			$self->leave_conf_mode();
@@ -1276,32 +1171,9 @@ sub crypto_processing {
 
 sub transfer {
     my ($self, $conf, $spoc) = @_;
-
-    # Check for matching interfaces.
-    $self->checkinterfaces($conf, $spoc);
-
-    # *** BEGIN TRANSFER ***
-    $self->process_interface_acls($conf, $spoc);
+    $self->SUPER::transfer($conf, $spoc);
     $self->crypto_processing($conf, $spoc);
-    $self->process_routing($conf, $spoc);
-
-    #
-    # *** CLEANUP
-    #
-    if (!$self->{COMPARE}) {
-        if (grep { $_ } values %{ $self->{CHANGE} }) {
-
-            # Save config.
-            info("Configuration changed");
-            $self->write_mem(5, 3);    # 5 retries, 3 seconds intervall
-        }
-        else {
-            info("No changes to save");
-        }
-    }
-    return 1;
 }
 
 # Packages must return a true value;
 1;
-

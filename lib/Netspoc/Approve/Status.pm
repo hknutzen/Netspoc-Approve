@@ -13,7 +13,7 @@ use Carp;
 use Fcntl;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -58,12 +58,7 @@ my %statfields = (
     COMP_CTIME  => 14,    # seconds since 1970 Cleartext
     COMP_TIME   => 15,    # seconds since 1970
     COMP_DTIME  => 16,    # DEV_TIME in seconds
-    FC_FC       => 17,
-    FC_LAST_OK  => 18,    #last policy which seems to be identical to DEV_POLICY
-    FC_STATE    => 19,    # result of last file compare: DIFF or OK
-    FC_CTIME    => 20,    # seconds since 1970 Cleartext
-    FC_TIME     => 21,    # seconds since 1970 (last change in state)
-    MAX         => 21,              
+    MAX         => 16,              
 );
 
 sub format {
@@ -74,34 +69,25 @@ sub format {
             and $stat->[$i] ne 'undef')
         {
             if ($i == $statfields{APP_MESSAGE}) {
-                $stat->[ $statfields{APP_MESSAGE} ] = 'LAST_APPROVE';
+                $stat->[ $i ] = 'LAST_APPROVE';
             }
             elsif ($i == $statfields{DEV_MESSAGE}) {
-                $stat->[ $statfields{DEV_MESSAGE} ] = 'LAST_SUCCESS';
+                $stat->[ $i ] = 'LAST_SUCCESS';
             }
             elsif ($i == $statfields{DEV_POLICY}) {
-                $stat->[ $statfields{DEV_POLICY} ] = 'p0';
+                $stat->[ $i ] = 'p0';
             }
             elsif ($i == $statfields{COMP_COMP}) {
-                $stat->[ $statfields{COMP_COMP} ] = 'COMPARE';
+                $stat->[ $i ] = 'COMPARE';
             }
             elsif ($i == $statfields{COMP_POLICY}) {
-                $stat->[ $statfields{COMP_POLICY} ] = 'p0';
+                $stat->[ $i ] = 'p0';
             }
             elsif ($i == $statfields{COMP_TIME}) {
-                $stat->[ $statfields{COMP_TIME} ] = 0;
+                $stat->[ $i ] = 0;
             }
             elsif ($i == $statfields{COMP_DTIME}) {
-                $stat->[ $statfields{COMP_DTIME} ] = 0;
-            }
-            elsif ($i == $statfields{FC_FC}) {
-                $stat->[ $statfields{FC_FC} ] = 'FILE_COMPARE';
-            }
-            elsif ($i == $statfields{FC_LAST_OK}) {
-                $stat->[ $statfields{FC_LAST_OK} ] = 0;
-            }
-            elsif ($i == $statfields{FC_TIME}) {
-                $stat->[ $statfields{FC_TIME} ] = 0;
+                $stat->[ $i ] = 0;
             }
             else {
                 $stat->[$i] = 'undef';
@@ -136,6 +122,7 @@ sub getall {
     
     seek $fh, 0, 0;
     my $stat = [ split ';', <$fh> ];
+
     if (@$stat < $statfields{MAX} + 2) {
         $self->format($stat);
     }

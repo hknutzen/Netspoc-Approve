@@ -14,14 +14,15 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
     device_routing_file => '/etc/network/routing',
     iptables_restore_cmd => '/sbin/iptables-restore',
     device_iptables_file => '/etc/network/packet-filter',
-    tmp_file => '/tmp/netspoc',
+    tmp_routing => '/tmp/routing',
+    tmp_iptables => '/tmp/packet-filter',
     store_flash_cmd => '/usr/sbin/backup',
 };
 
@@ -855,12 +856,13 @@ sub merge_iptables {
     
 sub postprocess_routes {
     my ($self, $config) = @_;
+    return if ! $config->{ROUTING};
 
     # Ignore entries with 'scope link'.
     # Ignore entries with 'proto xxx' except 'proto static'.
     # Ignore attribute 'dev', if 'via' is provided.
     my @routes;
-    for my $entry (@{ $config->{ROUTING} }) {
+    for my $entry (@{ delete $config->{ROUTING} }) {
 	next if $entry->{SCOPE} && $entry->{SCOPE} eq 'link';
 	next if $entry->{PROTO} && $entry->{PROTO} ne 'static';
 	if($entry->{NEXTHOP}) {
@@ -868,8 +870,7 @@ sub postprocess_routes {
 	}
 	push(@routes, $entry);
     }
-    $config->{ROUTING} = \@routes;
-    return($config);
+    $config->{ROUTING_VRF}->{''} = \@routes;
 }    
 
 sub postprocess_config {
@@ -1031,8 +1032,8 @@ sub status_ok {
 
 sub cmd_ok {
     my ($self, $cmd) = @_;
-    if ( $self->{CMD2STDOUT} ) {
-	print($cmd, "\n");
+    if ( $self->{COMPARE} ) {
+	print("> $cmd\n");
 	return 1;
     }
     else {
@@ -1052,22 +1053,12 @@ sub cmd_check_error($$) {
     if(@$lines) {
 	my $valid = $valid_cmd_output{$cmd};
 	if(not(@$lines == 1 and $valid and $lines->[0] eq $valid)) {
-	    abort("$cmd failed", @$lines);
+	    abort("Unexpected output of '$cmd'", @$lines);
 	}
     }
     elsif(not $self->status_ok) {
 	abort("$cmd failed (exit status)");
     }
-}
-
-# NoOp.
-sub schedule_reload {
-    my($self, $time) = @_;
-}
-
-# NoOp.
-sub cancel_reload {
-    my($self) = @_;
 }
 
 # NoOp.
@@ -1106,7 +1097,7 @@ sub do_scp( $$$$ ) {
     unshift @args, 'scp', '-q';
     info(join(' ', 'Executing:', @args));
     system(@args) == 0
-	or abort("system(@args) failed: $?");
+	or abort("system(". join(' ', @args) .") failed: $?");
 }
 
 sub write_startup_routing {
@@ -1163,66 +1154,76 @@ sub transfer {
     # Change running configuration of device.
     $self->process_routing($conf, $spoc_conf);
 
-    # Only compare, no changes.
+    # This only compares.
     $self->process_iptables($conf, $spoc_conf);
 
-    if (not $self->{COMPARE}) {
-	my $tmp_file = $config->{tmp_file};
-	my $startup_file;
+    return if $self->{COMPARE};
 
-	# Change iptables running + startup configuration of device.
-	$startup_file = $config->{device_iptables_file};    
-	$self->write_startup_iptables($spoc_conf, $tmp_file);
-        $self->cmd("chmod a+x $tmp_file");
-	if ($self->{CHANGE}->{ACL}) {
-	    info("Changing iptables running config");
-	    $self->cmd($tmp_file);
-	    info("Writing iptables startup config");  
-	    $self->cmd("mv -f $tmp_file $startup_file");
-	}
-	else {
-	    info("No changes to save,",
-                 " checking if iptables startup is uptodate");
-	    if($self->cmd_ok("cmp $tmp_file $startup_file")) {
-	        info("Startup is uptodate");
-	    }
-	    else {
-	        warn_info("Iptables startup is *NOT* uptodate - trying to fix");
-	        $self->cmd("mv -f $tmp_file $startup_file");
-	    }
-	}
+    # Copy startup routing config to temporary file on device.
+    my $tmp_routing = $config->{tmp_routing}; 
+    $self->write_startup_routing($spoc_conf, $tmp_routing);
+    
+    # Copy startup iptables config to temporary file on device.
+    # Change iptables configuration of device.
+    my $tmp_iptables = $config->{tmp_iptables};
+    $self->write_startup_iptables($spoc_conf, $tmp_iptables); 
+    $self->cmd("chmod a+x $tmp_iptables");
+    if ($self->{CHANGE}->{ACL}) {
+        info("Changing iptables running config");
+        $self->cmd($tmp_iptables);
+    }
+}
 
-	# Change routing startup configuration of device.
-	$startup_file = $config->{device_routing_file};    
-	$self->write_startup_routing($spoc_conf, $tmp_file);
-        if ($self->{CHANGE}->{ROUTING}) {
+sub write_mem {
+    my ($self) = @_;
 
-	    # Running config has already been changed differentially.
-            info("Writing routing startup config");  
-	    $self->cmd("mv -f $tmp_file $startup_file");
-        }
-        else {
-            info("No changes to save, checking if routing startup is uptodate");
-	    if($self->cmd_ok("cmp $tmp_file $startup_file")) {
-                info("Startup is uptodate");
-            }
-            else {
-                warn_info("Routing startup is *NOT* uptodate - trying to fix");
-		$self->cmd("mv -f $tmp_file $startup_file");
-	    }
-        }
-
-	# Always write configuration to flash.
-	# Someone may have changed it.
-	if(my $cmd = $config->{store_flash_cmd}) {
-            info("Saving config to flash");  
-	    $self->cmd($cmd);
-	}
+    # Change routing startup configuration of device.
+    my $tmp_routing = $config->{tmp_routing};
+    my $startup_routing = $config->{device_routing_file};   
+    if ($self->{CHANGE}->{ROUTING}) {
+        
+        # Running config has already been changed differentially.
+        info("Writing routing startup config");  
+        $self->cmd("mv -f $tmp_routing $startup_routing");
     }
     else {
-        info("Compare finished");
+        info("No changes to save, checking if routing startup is uptodate");
+        if($self->cmd_ok("cmp $tmp_routing $startup_routing")) {
+            info("Startup is uptodate");
+            $self->cmd("rm $tmp_routing");
+        }
+        else {
+            warn_info("Routing startup is *NOT* uptodate - trying to fix");
+            $self->cmd("mv -f $tmp_routing $startup_routing");
+        }
     }
-    return 1;
+    
+    # Change iptables startup configuration of device.
+    my $tmp_iptables = $config->{tmp_iptables};
+    my $startup_iptables = $config->{device_iptables_file};
+    if ($self->{CHANGE}->{ACL}) {
+        info("Writing iptables startup config");  
+        $self->cmd("mv -f $tmp_iptables $startup_iptables");
+    }
+    else {
+        info("No changes to save,",
+             " checking if iptables startup is uptodate");
+        if($self->cmd_ok("cmp $tmp_iptables $startup_iptables")) {
+            info("Startup is uptodate");
+            $self->cmd("rm $tmp_iptables");
+        }
+        else {
+            warn_info("Iptables startup is *NOT* uptodate - trying to fix");
+            $self->cmd("mv -f $tmp_iptables $startup_iptables");
+        }
+    }
+    
+    # Always write configuration to flash.
+    # Someone may have changed it.
+    if(my $cmd = $config->{store_flash_cmd}) {
+        info("Saving config to flash");  
+        $self->cmd($cmd);
+    }
 }
 
 sub get_config_from_device {
@@ -1255,18 +1256,18 @@ sub login_enable {
     $con->{EXPECT}->spawn('ssh', '-l', $config->{user}, $ip)
 	or abort("Cannot spawn ssh: $!");
     my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
-    $con->con_wait($prompt) or $con->con_error();
+    $con->con_wait($prompt);
     if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 	$prompt = qr/$std_prompt|password:/i;
-	$con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
+	$con->con_issue_cmd('yes', $prompt);
 	info("SSH key for $ip permanently added to known hosts");
     }
 
     # Password prompt comes only if no ssh keys are in use.
     if($con->{RESULT}->{MATCH} =~ qr/password:/i) {
-	my $pass = $self->get_password();
+	my $pass = $self->get_user_password('device');
 	$prompt = qr/$std_prompt|password:/i;
-	$con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+	$con->con_issue_cmd($pass, $prompt);
 	if ($con->{RESULT}->{MATCH} !~ $std_prompt) {
 	    abort("Authentication failed");
 	}

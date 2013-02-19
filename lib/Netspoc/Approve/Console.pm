@@ -13,7 +13,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
@@ -101,7 +101,7 @@ sub con_wait {
     $result->{MATCH}   = $result[2];
     $result->{BEFORE}  = $result[3];
     $result->{AFTER}   = $result[4];
-    return not defined $con->{RESULT}->{ERROR};
+    $con->con_error() if $result->{ERROR};
 }
 
 # We might accidently have read multiple prompt strings.
@@ -112,7 +112,7 @@ sub con_wait {
 sub con_wait_prompt1 {
     my ($con, $prompt) = @_;
 
-    $con->con_wait($prompt) or return 0;
+    $con->con_wait($prompt);
 
     # Prompt was found.
     # Check for multiple prompts, find first one.
@@ -127,7 +127,6 @@ sub con_wait_prompt1 {
 	debug("Put back: $accum");
 	$result->{MATCH} = $2;
     }
-    return 1;	    
 }
 
 sub con_send_cmd {
@@ -137,14 +136,14 @@ sub con_send_cmd {
 
 sub con_issue_cmd {
     my ($con, $cmd, $prompt, $check_prompt1) = @_;
-    $con->con_send_cmd($cmd);
-    return $check_prompt1 
+    $con->con_send_cmd("$cmd\n");
+    $check_prompt1 
 	? $con->con_wait_prompt1($prompt) 
 	: $con->con_wait( $prompt );
 }
 
 sub con_error {
-    my $con  = shift;
+    my ($con) = @_;
     my $result = $con->{RESULT};
     for my $key (keys %$result) {
         my $value = $result->{$key};

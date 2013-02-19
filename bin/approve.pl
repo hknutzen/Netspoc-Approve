@@ -14,14 +14,11 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
 delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
-
-# Use old drc2.pl for devices matching this pattern
-my $old_device_pattern = qr/^vpn3k_/;
 
 sub usage {
     print "Usage:\n";
@@ -108,21 +105,8 @@ else{
     usage();
 }
 
-my $cmd;
-if ($device =~ $old_device_pattern) {
-    my $compare_option = $is_compare ? '-C 0' : '';
-    $cmd = 
-        "drc2.pl $compare_option -P $policy -I $running_for_user" .
-        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
-        " -N $codefile $device";
-}
-else {
-    my $compare_option = $is_compare ? '-C' : '';
-    $cmd = 
-        "drc3.pl $compare_option" .
-        " --LOGVERSIONS --NOLOGMESSAGE --LOGFILE $logfile -L $logpath" .
-        " $codefile";
-}
+my $compare_option = $is_compare ? '-C' : '';
+my $cmd = "drc3.pl $compare_option --LOGFILE $logfile -L $logpath $codefile";
 
 init_history_logging($device, $arguments, $running_for_user);
 log_history("START: $cmd");

@@ -3,6 +3,7 @@
 
 use strict;
 use Test::More;
+use Test::Differences;
 use lib 't';
 use Test_Approve;
 
@@ -105,7 +106,7 @@ ip route add 10.40.0.0/16 via 10.1.2.4
 ip route del 10.30.0.0/16 via 10.1.2.3
 END
 
-is_deeply(approve($type, $device, $in), $out, $title);
+eq_or_diff(approve($type, $device, $in), $out, $title);
 
 
 ############################################################

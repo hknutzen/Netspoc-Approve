@@ -17,17 +17,19 @@ use Netspoc::Approve::Cisco;
 use Netspoc::Approve::IOS;
 use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
+use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
 my %type2class = (
-    Linux  => 'Netspoc::Approve::Linux',
-    IOS    => 'Netspoc::Approve::IOS',
-    ASA    => 'Netspoc::Approve::ASA',
-    PIX    => 'Netspoc::Approve::PIX',
+    Linux   => 'Netspoc::Approve::Linux',
+    IOS     => 'Netspoc::Approve::IOS',
+    ASA     => 'Netspoc::Approve::ASA',
+    PIX     => 'Netspoc::Approve::PIX',
+    'NX-OS' => 'Netspoc::Approve::NX_OS',
 );
 
 ####################################################################
@@ -46,9 +48,6 @@ Compare / approve file with device or compare two files.
  -t <seconds>         timeout for telnet
  -q                   Suppress info messages to STDERR
  --LOGFILE <fullpath> Path to redirect STDOUT and STDERR
- --LOGAPPEND          if logfile already exists, append logs
- --LOGVERSIONS        do not overwrite existing logfiles
- --NOLOGMESSAGE       supress output about logfile Names
  --NOREACH            do not check if device is reachable
  -v                   show version info
 
@@ -56,7 +55,14 @@ END
     exit -1;
 }
 
-my $config = Netspoc::Approve::Load_Config::load();
+sub banner_msg {
+    my ($msg) = @_;
+    my $time = localtime;
+    info('*' x 68);
+    info(" $msg: at > $time <");
+    info('*' x 68);
+}
+
 Getopt::Long::Configure("no_ignore_case");
 
 my %opts;
@@ -68,9 +74,6 @@ my %opts;
     't=i',
     'q',
     'LOGFILE=s',
-    'LOGAPPEND',
-    'LOGVERSIONS',
-    'NOLOGMESSAGE',
     'NOREACH',
     'v',
 );
@@ -96,17 +99,18 @@ $type or abort("Can't get device type from $spoc_file");
 
 # Get class from type.
 my $class = $type2class{$type}
-  or abort("Can't find class for Model '$type' from $spoc_file");
+  or abort("Can't find class for [ Model = $type ] from $spoc_file");
 
 my $job = $class->new(
     NAME   => $name,
     OPTS   => \%opts,
-    CONFIG => $config,
     IP     => shift(@ip),
 );
 
 
-# Handle file compare first, which doesn't need device's IP and password.
+# Handle file compare first, which can be run
+# - without device's IP and password
+# - without calling Load_Config (so we can use compare_files for testing).
 if ($file2) {
     keys %opts and usage;
     exit($job->compare_files($file1, $file2) ? 1 : 0)
@@ -114,34 +118,23 @@ if ($file2) {
 
 $opts{t} ||= 300;
 $job->{IP} or abort("Can't get IP from $spoc_file");
+$job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 
 # Enable logging if configured.
 $job->logging();
 
-if (!$job->{OPTS}->{NOREACH}) {
-    if (!$job->check_device()) {
-        abort("$job->{NAME}: reachability test failed");
-    }
-}
-
-# Try to get password from CiscoWorks.
-$job->{PASS} = $job->get_cw_password($name);
-
-$job->lock($name) or abort("Approve in progress for $name");
+$job->check_reachability();
+$job->lock($name);
 
 # Start compare / approve.
-info("********************************************************************");
-info(" START: at > ", scalar localtime, " <");
-info("********************************************************************");
+banner_msg('START');
 if ($opts{C}) {
     $job->compare($file1);
 }
 else {
     $job->approve($file1);
 }
-info("********************************************************************");
-info(" STOP: at > ", scalar localtime, " <");
-info("********************************************************************");
+banner_msg('STOP');
 
 $job->unlock($name);
 

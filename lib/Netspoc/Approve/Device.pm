@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -44,7 +44,7 @@ sub new {
 #   - comment lines starting with ';' or #
 sub get_cw_password ($$) {
     my ($self, $name) = @_;
-    my $path = "$self->{CONFIG}->{passwdpath}" or return;
+    my $path = $self->{CONFIG}->{passwdpath} or return;
 
     open(my $csv, '<', $path) or abort("Can't open $path: $!");
     for my $line (<$csv>) {
@@ -185,17 +185,12 @@ sub add_prefix_info {
     my $result = {};
     for my $key (keys %$parse_info) {
 	my @split = split(' ', $key);
-	if (@split > 1) {
-	    my $hash = $result;
-	    while(@split) {
-		my $word = shift(@split);
-		$hash->{$word} ||= {};
-		$hash = $hash->{$word};
-	    }
-	}
-	elsif ($key eq '_any') {
-	    $result->{_any} = 1;
-	}
+        my $hash = $result;
+        while(@split) {
+            my $word = shift(@split);
+            $hash->{$word} ||= {};
+            $hash = $hash->{$word};
+        }
 	if(my $subcmd = $parse_info->{$key}->{subcmd}) {
 	    $self->add_prefix_info($subcmd);
 	}
@@ -304,18 +299,22 @@ sub parse_config1 {
     my($self, $config, $parse_info) = @_;
     my $result = {};
     for my $arg (@$config) {
-	my $cmd = get_token($arg);
         my $cmd_info = $arg->{cmd_info};
 	if(my $msg = $cmd_info->{error}) {
 	    err_at_line($arg, $msg);
 	}
+	my $cmd;
+        if (!$cmd_info->{leave_cmd_as_arg}) {
+            $cmd = get_token($arg);
+        }
 	my $named = $cmd_info->{named};
 	my $name;
 	if($named and $named ne 'from_parser') {
 	    $name = get_token($arg);
 	}
 	my $parser = $cmd_info->{parse};
-        my @params = $cmd_info->{params} ? @{ $cmd_info->{params} } : ();
+        my @params = map({ $_ eq '_cmd' ? $cmd : $_ }
+                         $cmd_info->{params} ? @{ $cmd_info->{params} } : ());
 	my $value;
 	$value = parse_line($self, $arg, $parser, @params) if $parser;
 	get_eol($arg);
@@ -404,14 +403,27 @@ sub merge_rawdata {
     for my $key (%$raw_conf) {
 	my $raw_v = $raw_conf->{$key};
 
-	# Array of unnamed entries: ROUTING, STATIC, GLOBAL, NAT
-	if(ref $raw_v eq 'ARRAY') {
+        if ($key eq 'ROUTING_VRF') {
+	    my $spoc_v = $spoc_conf->{$key} ||= {};
+	    my $count = 0;
+	    for my $vrf (keys %$raw_v) {
+		my $raw_routes = $raw_v->{$vrf};
+                my $spoc_routes = $spoc_v->{$vrf} ||= [];
+                unshift(@$spoc_routes, @$raw_routes);
+                my $count = @$raw_routes;
+                my $for = $vrf ? " for VRF $vrf" : $vrf;
+                info("Prepended $count routes${for} from raw") if $count;
+            }
+	}
+            
+	# Array of unnamed entries: STATIC, GLOBAL, NAT
+	elsif(ref $raw_v eq 'ARRAY') {
 	    my $spoc_v = $spoc_conf->{$key} ||= [];
 	    unshift(@$spoc_v, @$raw_v);
 	    my $count = @$raw_v;
 	    info("Prepended $count entries of $key from raw") if $count;
 	}
-	# Hash of named entries: ACCESS_LIST, USERNAME, ...
+	# Hash of named entries: USERNAME, ...
 	else {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
 	    my $count = 0;
@@ -448,57 +460,81 @@ sub route_line_destination_a_eq_b {
     return($a->{BASE} == $b->{BASE} && $a->{MASK} == $b->{MASK});
 }
 
+# Unique union of all elements.
+# Preserves original order.
+sub unique(@) {
+    my %seen;
+    return grep { !$seen{$_}++ } @_;
+}
+
+# Default: No op
+sub vrf_route_mode {
+    my ($self, $vrf) = @_;
+}
+
+# Process routing separately for each VRF.
+# VRF is empty string for default VRF.
 sub process_routing {
     my ($self, $conf, $spoc_conf) = @_;
-    my $spoc_routing = $spoc_conf->{ROUTING};
-    my $conf_routing = $conf->{ROUTING} ||= [];
-    if (not $spoc_routing) {
-        info("No routing entries specified - leaving routes untouched");
-	return;
-    }
 
-    $self->{CHANGE}->{ROUTE} = 0;
-    for my $c (@$conf_routing) {
-	for my $s (@$spoc_routing) {
-	    if ($self->route_line_a_eq_b($c, $s)) {
-		$c->{DELETE} = $s->{DELETE} = 1;
-		last;
-	    }
-	}
-    }
+    my $spoc_vrf = $spoc_conf->{ROUTING_VRF};
+    my $conf_vrf = $conf->{ROUTING_VRF};
+    
+    my @vrfs = unique(keys %$spoc_vrf, keys %$conf_vrf);
+    for my $vrf (sort @vrfs) {
+        my $spoc_routing = $spoc_vrf->{$vrf};
+        my $conf_routing = $conf_vrf->{$vrf} ||= [];
+        if (not $spoc_routing) {
+            my $for = $vrf ? " for VRF $vrf" : '';
+            info("No routing specified$for - leaving routes untouched");
+            next;
+        }
+        
+        $self->{CHANGE}->{ROUTING} = 0;
+        for my $c (@$conf_routing) {
+            for my $s (@$spoc_routing) {
+                if ($self->route_line_a_eq_b($c, $s)) {
+                    $c->{DELETE} = $s->{DELETE} = 1;
+                    last;
+                }
+            }
+        }
 
-    my @cmds;
+        my @cmds;
 
-    # Add routes with long mask first.
-    # If we switch the default route, this ensures, that we have the
-    # new routes available before deleting the old default route.
-    for my $r ( sort {$b->{MASK} <=> $a->{MASK}} @{ $spoc_conf->{ROUTING} }) {
-	next if $r->{DELETE};
-	$self->{CHANGE}->{ROUTE} = 1;
-
-	# PIX and ASA don't allow two routes to identical destination.
-	# Remove old route immediatly before adding the new one.
-	for my $c (@$conf_routing) {
-	    next if $c->{DELETE};
-	    if($self->route_line_destination_a_eq_b($r, $c)){
-		push(@cmds, $self->route_del($c));
-		$c->{DELETE} = 1; # Must not delete again.
-	    }
-	}
-	push(@cmds, $self->route_add($r));
-    }
-    for my $r (@$conf_routing) {
-	next if $r->{DELETE};
-	$self->{CHANGE}->{ROUTE} = 1;
-	push(@cmds, $self->route_del($r));
-    }
-    if(@cmds) {
-	info("Changing routing entries on device");
-	$self->schedule_reload(5);
-	$self->enter_conf_mode;
-	map { $self->cmd($_); } @cmds;
-	$self->leave_conf_mode;
-	$self->cancel_reload();
+        # Add routes with long mask first.
+        # If we switch the default route, this ensures, that we have the
+        # new routes available before deleting the old default route.
+        for my $r (sort {$b->{MASK} <=> $a->{MASK}} @{ $spoc_routing })
+        {
+            next if $r->{DELETE};
+            $self->{CHANGE}->{ROUTING} = 1;
+            
+            # PIX and ASA don't allow two routes to identical destination.
+            # Remove old route immediatly before adding the new one.
+            for my $c (@$conf_routing) {
+                next if $c->{DELETE};
+                if($self->route_line_destination_a_eq_b($r, $c)){
+                    push(@cmds, $self->route_del($c));
+                    $c->{DELETE} = 1; # Must not delete again.
+                }
+            }
+            push(@cmds, $self->route_add($r, $vrf));
+        }
+        for my $r (@$conf_routing) {
+            next if $r->{DELETE};
+            $self->{CHANGE}->{ROUTING} = 1;
+            push(@cmds, $self->route_del($r, $vrf));
+        }
+        if(@cmds) {
+            info("Changing routing entries on device");
+            $self->schedule_reload(5);
+            $self->enter_conf_mode;
+            $self->vrf_route_mode($vrf);
+            map { $self->cmd($_); } @cmds;
+            $self->leave_conf_mode;
+            $self->cancel_reload();
+        }
     }
 }
 
@@ -926,10 +962,7 @@ sub issue_cmd {
     my ($self, $cmd) = @_;
 
     my $con = $self->{CONSOLE};
-    $con->con_issue_cmd("$cmd\n",
-			$self->{ENAPROMPT},
-			$self->{RELOAD_SCHEDULED}) or 
-	$con->con_error();
+    $con->con_issue_cmd($cmd, $self->{ENAPROMPT}, $self->{RELOAD_SCHEDULED});
     return($con->{RESULT});
 }
 
@@ -950,7 +983,7 @@ sub cmd {
 sub device_cmd {
     my ($self, $cmd) = @_;
     my $lines = $self->get_cmd_output($cmd);
-    @$lines and $self->cmd_check_error($cmd, $lines);
+    $self->cmd_check_error($cmd, $lines);
 }
 
 sub shcmd {
@@ -974,7 +1007,8 @@ sub get_cmd_output {
     my $need_reload;
     $self->{RELOAD_SCHEDULED} and 
 	$self->handle_reload_banner(\$out) and $need_reload = 1;
-    my @lines = split(/\r?\n/, $out);
+    # NX-OS uses mixed line breaks: \r, \r\n, \r\r\n
+    my @lines = split(/\r{0,2}\n|\r/, $out);
     my $echo = shift(@lines);
     $self->cmd_check_echo($cmd, $echo, \@lines);
     $need_reload and $self->schedule_reload(2);
@@ -995,20 +1029,20 @@ sub two_cmd {
 	my $need_reload;
 
 	# Read first prompt and check output of first command.
-	$con->con_wait_prompt1($prompt) or $con->con_error();
+	$con->con_wait_prompt1($prompt);
 	my $out = $con->{RESULT}->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
-	my @lines1 = split(/\r?\n/, $out);
+	my @lines1 = split(/\r{0,2}\n|\r/, $out);
 	my $echo = shift(@lines1);
 	$self->cmd_check_echo($cmd1, $echo, \@lines1);
 
 	# Read second prompt and check output of second command.
-	$con->con_wait_prompt1($prompt) or $con->con_error();
+	$con->con_wait_prompt1($prompt);
 	$out = $con->{RESULT}->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
-	my @lines2 = split(/\r?\n/, $out);
+	my @lines2 = split(/\r{0,2}\n|\r/, $out);
 	$echo = shift(@lines2);
 	$self->cmd_check_echo($cmd2, $echo, \@lines2);
 
@@ -1018,19 +1052,31 @@ sub two_cmd {
 }
 
 sub abort_cmd {
-    my ($self, $msg) = @_;
+    my ($self, @msg) = @_;
     $self->cancel_reload('force');
-    abort("$msg");
+    abort(@msg);
 }
 
-# Check reachability of device.
-sub check_device {
+# Default: No op.
+sub schedule_reload {
+    my ($self, $minutes) = @_;
+}
+
+# Default: No op.
+sub cancel_reload {
+    my ($self, $force) = @_;
+}
+
+sub check_reachability {
     my ($self) = @_;
-    for my $i (1 ..3) {
+    return if $self->{OPTS}->{NOREACH};
+    for my $i (1 .. 3) {
+
+        # -q: quiet, -w $i: wait for 1,2,3 seconds, -c 1: try once
         my $result = `ping -q -w $i -c 1 $self->{IP}`;
-	return $i if $result =~ /1 received/;
+	return if $result =~ /1 received/;
     }
-    return 0;
+    abort('Reachability test failed');
 }
 
 sub checkidentity {
@@ -1083,8 +1129,8 @@ sub con_shutdown {
     my $shutdown_message = "STOP: at > $time <";
     my $con = $self->{CONSOLE};
     $con->{TIMEOUT} = 5;
-    $con->con_issue_cmd("exit\n", eof);
-    $con->shutdown_console("$shutdown_message");
+    $con->con_issue_cmd('exit', eof);
+    $con->shutdown_console($shutdown_message);
 }
 
 sub prepare_device {
@@ -1109,7 +1155,7 @@ sub mark_as_unchanged {
     $self->{CHANGE}->{$parse_name} ||= 0;
 }
 
-sub get_change_status {
+sub print_change_status {
     my ($self) = @_;
     for my $key (sort keys %{$self->{CHANGE}}) {
 	if($self->{CHANGE}->{$key}) { 
@@ -1119,18 +1165,18 @@ sub get_change_status {
 	    info("comp: $key unchanged");
 	}
     }
+}
+
+sub found_changes {
+    my ($self) = @_;
     return(grep { $_ } values %{ $self->{CHANGE} });
 }
 
 sub compare_common  {
     my ($self, $conf1, $conf2) = @_;
-    if ($self->transfer($conf1, $conf2)) {
-        info("Compare done");
-    }
-    else {
-        abort("Compare failed");
-    }
-    return($self->get_change_status());
+    $self->transfer($conf1, $conf2);
+    $self->print_change_status();
+    return($self->found_changes());
 }
 
 sub compare {
@@ -1159,12 +1205,12 @@ sub approve {
     $self->prepare_device();
     my $spoc_conf = $self->load_spoc($spoc_path);
     my $device_conf = $self->load_device();
-    if ($self->transfer($device_conf, $spoc_conf)) {
-        info("Approve done");
+    $self->transfer($device_conf, $spoc_conf);
+    if($self->found_changes()) {
+        info("Saving config to flash");
+        $self->write_mem();
     }
-    else {
-        abort("Approve failed");
-    }
+    info("Approve done");
     $self->con_shutdown();
 }
 
@@ -1187,69 +1233,45 @@ sub logging {
 	    abort("Couldn't create $dirname: $!");
 	}
     }
-    my $appmode;
-    if ($self->{OPTS}->{LOGAPPEND}) {
-        $appmode = ">>";    # append
-    }
-    else {
-        $appmode = ">";     # clobber
-        if ($self->{OPTS}->{LOGVERSIONS}) {
-            if (-f "$logfile") {
-                my $date = time();
-                system("mv $logfile $logfile.$date") == 0
-                  or abort("Could not backup $logfile: $!");
-                $self->{OPTS}->{NOLOGMESSAGE}
-                  or info("Existing logfile saved as '$logfile.$date'");
-            }
-        }
-    }
-    $self->{OPTS}->{NOLOGMESSAGE}
-      or info("Output redirected to $logfile");
 
-    # Print the above message *before* redirecting!
-    unless (-f $logfile) {
-        (open(STDOUT, $appmode, $logfile))
-          or abort("Could not open $logfile: $!");
-        defined chmod 0644, "$logfile"
-          or abort("Couldn't chmod $logfile: $!");
+    # Move existing logfile
+    if (-f $logfile) {
+        my $date = time();
+        system("mv $logfile $logfile.$date") == 0
+            or abort("Could not backup $logfile: $!");
     }
-    else {
-        (open(STDOUT, $appmode, $logfile))
-          or abort("Could not open $logfile: $!");
-    }
-    (open(STDERR, ">&STDOUT"))
-      or abort("STDERR redirect: could not open $logfile: $!");
+
+    open(STDOUT, '>', $logfile) or abort("Could not open $logfile: $!");
+    chmod(0644, $logfile) or abort("Could not chmod $logfile: $!");
+
+    open(STDERR, ">&STDOUT")
+        or abort("STDERR redirect: could not open $logfile: $!");
 }
 
 {
 
     # A closure, because we need the lock in both functions.
-    my $lock;
+    my $lock_fh;
 
-    sub lock( $$ ) {
+    # Set lock for exclusive approval
+    sub lock {
         my ($self, $name) = @_;
-
-        # Set lock for exclusive approval
         my $lockfile = "$self->{CONFIG}->{lockfiledir}/$name";
-        unless (-f "$lockfile") {
-            open($lock->{$name}, '>', "$lockfile")
-              or abort("Could not aquire lock file $lockfile: $!");
-            defined chmod 0666, "$lockfile"
-              or abort("Couldn't chmod lockfile $lockfile: $!");
-        }
-        else {
-            open($lock->{$name}, '>', "$lockfile")
-              or abort("Could not aquire lock file $lockfile: $!");
-        }
-        unless (flock($lock->{$name}, LOCK_EX | LOCK_NB)) {
-            info("$!");
-            return 0;
-        }
+        my $file_exists = -f $lockfile;
+        open($lock_fh, '>', $lockfile)
+          or abort("Couldn't aquire lock file $lockfile: $!");
+
+        # Make newly created lock file writable for other users.
+        $file_exists 
+          or chmod(0666, $lockfile)
+          or abort("Couldn't chmod lockfile $lockfile: $!");
+        flock($lock_fh, LOCK_EX | LOCK_NB)
+          or abort($!, "Approve in progress for $name");
     }
 
-    sub unlock( $$ ) {
+    sub unlock {
         my ($self, $name) = @_;
-        close($lock->{$name}) or abort("Could not unlock lockfile: $!");
+        close($lock_fh) or abort("Could not unlock lockfile: $!");
     }
 }
 

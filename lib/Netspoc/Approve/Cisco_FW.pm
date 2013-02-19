@@ -7,7 +7,7 @@ package Netspoc::Approve::Cisco_FW;
 # Base class for Cisco firewalls (ASA, PIX, FWSM)
 #
 
-our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -268,6 +268,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'network', },],
+            strict => 'err',
 	    subcmd => {
 		'network-object' => {
 		    store => 'OBJECT', 
@@ -283,6 +284,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'tcp', },],
+            strict => 'err',
 	    subcmd => {
                 'port-object' => {
 		    store => 'OBJECT', 
@@ -298,6 +300,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'udp', },],
+            strict => 'err',
 	    subcmd => {
                 'port-object' => {
 		    store => 'OBJECT', 
@@ -328,6 +331,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'service', },],
+            strict => 'err',
 	    subcmd => {
                 'service-object' => {
                     store => 'OBJECT',
@@ -352,6 +356,7 @@ sub get_parse_info {
             store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'protocol', },],
+            strict => 'err',
 	    subcmd => {
                 'protocol-object' => {
                     store => 'OBJECT',
@@ -406,7 +411,8 @@ sub get_parse_info {
 		   { parse => qr/compiled/ },
 		   ['cond1',
 		    { parse => qr/remark/ },
-		    { parse => \&skip } ],
+		    { parse => \&skip,
+                      error => "'remark' not supported in ACL compare",} ],
 		   
 		   ['or', # standard or extended access-list
 		    ['cond1',
@@ -569,6 +575,9 @@ sub get_parse_info {
 sub postprocess_config {
     my ($self, $p) = @_;
 
+    # ASA has only default VRF.
+    $p->{ROUTING_VRF}->{''} = delete $p->{ROUTING} if $p->{ROUTING};
+
     # For each access list, change array of access list entries to
     # hash element with attribute 'LIST'.
     # This simplifies later processing because we can add 
@@ -641,11 +650,6 @@ sub postprocess_config {
     }
 }
 
-sub dev_cor ($$) {
-    my ($self, $addr) = @_;
-    return $addr;
-}
-
 sub parse_object_group  {
     my ($self, $arg) = @_;
     if(check_regex('object-group', $arg)) {
@@ -715,7 +719,7 @@ sub cmd_check_error {
     # - known status messages
     # - known warning messages
     # - unknown messages, handled as error messages.
-    my @err_lines;
+    my $error;
   LINE:
     for my $line (@$lines) {
 	for my $regex (@known_status) {
@@ -729,9 +733,11 @@ sub cmd_check_error {
 		next LINE;
 	    }
 	}
-	push @err_lines, "$cmd: $line\n";
+	$error = 1;
     }
-    abort(@err_lines) if @err_lines;
+    if ($error) {
+	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
+    }
 }
 
 sub get_identity {
@@ -741,25 +747,6 @@ sub get_identity {
     # Ignore customized prompt extensions following the first slash "/".
     $name =~ s(/.*)();
     return($name);
-}
-
-sub check_firewall {
-    my ($self, $conf) = @_; 
-
-    # NoOp
-    # ToDo: check for active fixup
-}
-
-sub schedule_reload {
-    my ($self, $minutes) = @_;
-
-    # No op; not implemented for Cisco firewall products.
-}
-
-sub cancel_reload {
-    my ($self) = @_;
-
-    # No op; not implemented for Cisco firewall products.
 }
 
 sub parse_version {
@@ -792,13 +779,7 @@ sub set_terminal {
 
 sub get_config_from_device( $ ) {
     my ($self) = @_;
-    my $cmd = 'write term';
-    my $output = $self->shcmd($cmd);
-    my @conf = split(/\r\n/, $output);
-    my $echo = shift(@conf);
-    $echo =~ /^\s*$cmd\s*$/ or 
-	abort("Got unexpected echo in response to '$cmd': '$echo'");
-    return(\@conf);
+    $self->get_cmd_output('write term');
 }
 
 sub attr_eq( $$$ ) {
@@ -997,9 +978,6 @@ sub ACL_line_discipline {
     return (1, 1, 0, 0);            
 }
 
-# No limit for ASA.
-sub check_max_acl_entries {}
-
 # Access to ASA and PIX isn't controlled by ACL.
 sub is_device_access {
     my ($self, $conf_entry) = @_;
@@ -1131,17 +1109,8 @@ sub make_equal {
 
 	# Mark object-groups referenced by acl lines.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
-
 	    for my $spoc_entry (@{ $spoc_value->{LIST} }) {
-		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
-                    my $what = $spoc_entry->{$where};
-		    if(my $spoc_group = ref($what) && $what->{GROUP}) {
-			if(not $spoc_group->{name_on_dev}) {
-			    $spoc_group->{transfer} = 1;
-			    $self->mark_as_changed('OBJECT_GROUP');
-			}
-		    }
-		}
+                $self->mark_object_group_from_acl_entry($spoc_entry);
 	    }
 	}
 
@@ -2051,6 +2020,11 @@ sub object_for_name {
     return $c_value;
 }
 
+sub write_mem {
+    my ($self) = @_;
+    $self->cmd('write memory');
+}
+
 sub transfer {
     my ( $self, $conf, $spoc, $structure ) = @_;
 
@@ -2080,17 +2054,6 @@ sub transfer {
     }
     $self->delete_object_lines($conf, $spoc);
     $self->leave_conf_mode();
-
-    # Only write memory on device if there have been changes.
-    if ( grep { $_ } values %{ $self->{CHANGE} } ) {
-	info("Saving config to flash");
-	$self->cmd('write memory');
-    }
-    else {
-	info("No changes to save");
-    }
-
-    return 1;
 }
 
 sub define_structure {

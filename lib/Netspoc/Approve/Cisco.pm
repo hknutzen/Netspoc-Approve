@@ -11,10 +11,11 @@ use base "Netspoc::Approve::Device";
 use strict;
 use warnings;
 use IO::Socket ();
+use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.065'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -231,7 +232,7 @@ sub analyze_conf_lines {
 	}
 	elsif($sub_level > $level) {
 
-	    # Some older IOS versions use sub commands, 
+	    # NX-OS and Some older IOS versions use sub commands, 
 	    # which have a higher indentation level than 1.
 	    # This is only applicable for the first sub command.
 	    if($first_subcmd) {
@@ -240,7 +241,7 @@ sub analyze_conf_lines {
 		# indented deeper and following commands to be indented
 		# only by one.		
 		if (not $parse_info or not keys %$parse_info) {
-		    push @stack, [ $config, $parse_info, $level ];
+		    push @stack, [ $config, $parse_info, $level, $strict ];
 		    $config = undef;
 		    $parse_info = undef;
 		}
@@ -254,7 +255,7 @@ sub analyze_conf_lines {
 	}
 	else {
 	    while($sub_level < $level && @stack) {
-		($config, $parse_info, $level) = @{ pop @stack };
+		($config, $parse_info, $level, $strict) = @{ pop @stack };
 	    }
 	    
 	    # All sub commands need to use the same indentation level.
@@ -270,55 +271,55 @@ sub analyze_conf_lines {
 	    }
 	}
 	$first_subcmd = 0;
-	my @args;
-	(my $cmd, @args) = split(' ', $rest);
-        my $orig = join(' ', $cmd, @args);
+	my @args = split(' ', $rest);
+        my $orig = join(' ', @args);
+        my ($cmd, $lookup);
 
 	# Strip words from @args which belong to current command.
 	# - add found words to $cmd 
 	# - same for $lookup, but 
 	#   - use wildcard pattern "_any" instead of matched word,
 	#   - use "_skip" for skipped word, but no trailing "_skip".
-	my $lookup = $cmd;
 	if(my $prefix_info = $parse_info->{_prefix}) {
-	    if ($prefix_info = $prefix_info->{$cmd}) {
-		my $skip = 0;
-		my @a = @args;
-		my @c = ($cmd);
-		my @l = ($lookup);
-		my @skipped;
-		while(@a > $skip) {
-		    my $prefix = $a[$skip];
-		    my $next;
-		    if ($next = $prefix_info->{$prefix}) {
-			splice(@a, $skip, 1);
-			push @c, $prefix;
-			push @l, @skipped, $prefix;
-			@skipped = ();
-		    }
-		    elsif ($next = $prefix_info->{_any}) {
-			splice(@a, $skip, 1);
-			push @c, $prefix;
-			push @l, @skipped, '_any';
-			@skipped = ();
-		    }
-		    elsif ($next = $prefix_info->{_skip}) {
-			$skip++;
-			push @skipped, '_skip';
-		    }
-		    else {
-
-			# Take longest match, found so far.
-			last;
-		    }
-		    last if not keys %$next;
-		    $prefix_info = $next;
-		}
-		@args = @a;
-		$cmd = join(' ', @c);
-		$lookup = join(' ', @l);
-	    }
+            my $skip = 0;
+            my @a = @args;
+            my @c = ();
+            my @l = ();
+            my @skipped;
+            while(@a > $skip) {
+                my $prefix = $a[$skip];
+                my $next;
+                if ($next = $prefix_info->{$prefix}) {
+                    splice(@a, $skip, 1);
+                    push @c, $prefix;
+                    push @l, @skipped, $prefix;
+                    @skipped = ();
+                }
+                elsif ($next = $prefix_info->{_any}) {
+                    splice(@a, $skip, 1);
+                    push @c, $prefix;
+                    push @l, @skipped, '_any';
+                    @skipped = ();
+                }
+                elsif ($next = $prefix_info->{_skip}) {
+                    $skip++;
+                    push @skipped, '_skip';
+                }
+                else {
+                    
+                    # Take longest match, found so far.
+                    last;
+                }
+                last if not keys %$next;
+                $prefix_info = $next;
+            }
+            @args = @a;
+            $cmd = join(' ', @c);
+            $lookup = join(' ', @l);
 	}
+        if (!$lookup) {
+            $cmd = $lookup = shift @args;
+        }
 	if (my $cmd_info = ($parse_info->{$lookup} || $parse_info->{_any})) {
 
 	    # Remember current line number, set parse position.
@@ -332,10 +333,11 @@ sub analyze_conf_lines {
 			};
 	    push(@$config, $new_cmd);
 	    if (my $subcmd = $cmd_info->{subcmd}) {
-		push @stack, [ $config, $parse_info, $level ];
+		push @stack, [ $config, $parse_info, $level, $strict ];
 		$level++;
 		$parse_info = $subcmd;
 		$config = [];
+                $strict ||= $cmd_info->{strict};
 		$new_cmd->{subcmd} = $config;
 		$first_subcmd = 1;
 	    }
@@ -349,16 +351,20 @@ sub analyze_conf_lines {
 	# Ignore unknown command.
 	# Prepare to ignore subcommands as well.
 	else {
-	    push @stack, [ $config, $parse_info, $level ];
+	    push @stack, [ $config, $parse_info, $level, $strict ];
 	    $config = undef;
 	    $parse_info = undef;
 	    $level++;
 	    $first_subcmd = 1;
-            warn_info("Unknown command $cmd " . join(' ', @args)) if $strict;
+            if ($strict) {
+                my $msg = "Unknown command $cmd " . join(' ', @args);
+                abort($msg) if $strict eq 'err';
+                warn_info($msg);
+            }
 	}
     }
     while($level--) {
-	($config, $parse_info, $level) = @{ pop @stack };
+	($config, $parse_info, $level, $strict) = @{ pop @stack };
     }
     return $config;
 }  
@@ -379,7 +385,7 @@ sub parse_address {
     }
     else {
         $ip   = quad2int($token);
-        $mask = $self->dev_cor(get_ip($arg));
+        $mask = get_ip($arg);
     }
     return ({ BASE => $ip, MASK => $mask });
 }
@@ -537,6 +543,11 @@ sub check_conf_mode {
     $self->{CONF_MODE};
 }
 
+sub write_mem {
+    my($self) = @_;
+    $self->cmd('copy running-config startup-config');
+}
+
 sub route_add {
     my($self, $entry) = @_;
     return($entry->{orig});
@@ -560,9 +571,11 @@ sub get_identity {
 sub login_enable {
     my ($self) = @_;
     my $std_prompt = qr/[\>\#]/;
-    my($con, $ip, $pass) = @{$self}{qw(CONSOLE IP PASS)};
-    my $user;
+    my($con, $ip) = @{$self}{qw(CONSOLE IP)};
 
+    # First, try to get password from CiscoWorks.
+    my $pass = $self->get_cw_password($self->{NAME});
+    my $user;
     if(not $pass) {
 	($user, $pass) = $self->get_aaa_password();
     }
@@ -577,53 +590,54 @@ sub login_enable {
             $con->{EXPECT}->spawn("ssh", "-l", "$user", "$ip")
               or abort("Cannot spawn ssh: $!");
             my $prompt = qr/password:|\(yes\/no\)\?/i;
-            $con->con_wait($prompt) or $con->con_error();
+            $con->con_wait($prompt);
             if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 		$prompt = qr/password:/i;
-                $con->con_issue_cmd("yes\n", $prompt) or $con->con_error();
+                $con->con_issue_cmd('yes', $prompt);
                 info("SSH key for $ip permanently added to known hosts");
             }
-	    $pass ||= $self->get_user_password($user);
-	    $prompt = qr/password:|$std_prompt/i;
-            $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+	    $prompt = qr/$prompt|$std_prompt/i;
+	    $pass ||= $self->get_user_password($user);
+            $con->con_issue_cmd($pass, $prompt);
+            $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
         }
         else {
             info("Using telnet with username for login");
             $con->{EXPECT}->spawn("telnet", ($ip))
               or abort("Cannot spawn telnet: $!");
             my $prompt = qr/username:/i;
-            $con->con_wait($prompt) or $con->con_error();
+            $con->con_wait($prompt);
             $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	    $prompt = qr/password:/i;
-            $con->con_issue_cmd("$user\n", $prompt) or $con->con_error();
-	    $pass ||= $self->get_user_password($user);
+            $con->con_issue_cmd($user, $prompt);
 	    $prompt = qr/username:|password:|$std_prompt/i;
-            $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+	    $pass ||= $self->get_user_password($user);
+            $con->con_issue_cmd($pass, $prompt);
         }
     }
     else {
         info("Using simple telnet for login");
-        $pass = $self->{PASS};
         $con->{EXPECT}->spawn("telnet", ($ip))
           or abort("Cannot spawn telnet: $!");
         my $prompt = qr/PIX passwd:|password:/i;
-        $con->con_wait($prompt) or $con->con_error();
+        $con->con_wait($prompt);
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 	$prompt = qr/$prompt|$std_prompt/;
-        $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+        $pass ||= $self->get_user_password('device');
+        $con->con_issue_cmd($pass, $prompt);
     }
     my $match = $con->{RESULT}->{MATCH};
     if ($match eq '>') {
 
 	# Enter enable mode. 
 	my $prompt = qr/password:|\#/i;
-	$con->con_issue_cmd("enable\n", $prompt) or $con->con_error();
+	$con->con_issue_cmd('enable', $prompt);
 	if ($con->{RESULT}->{MATCH} ne '#') {
 	    
 	    # Enable password required.
 	    $pass = $self->{ENABLE_PASS} || $pass;
-	    $con->con_issue_cmd("$pass\n", $prompt) or $con->con_error();
+	    $con->con_issue_cmd($pass, $prompt);
 	}
 	if ($con->{RESULT}->{MATCH} ne '#') {
 	    abort("Authentication for enable mode failed");
@@ -676,11 +690,7 @@ sub checkinterfaces {
 	$conf->{IF}->{$name} or
 	    push(@errors, "Interface $name from Netspoc not known on device");
     }
-    if (@errors) {
-        my $last_msg = pop @errors;
-        err_info($_) for @errors;
-	abort($last_msg);
-    }
+    @errors and abort(@errors);
 }
 
 my %object2key_sub = (
@@ -848,6 +858,26 @@ sub check_object_group {
     }
 }
 
+sub mark_object_group_from_acl {
+    my ($self, $acl) = @_;
+    for my $entry (@{ $acl->{LIST} }) {
+        $self->mark_object_group_from_acl_entry($entry);
+    }
+}
+
+sub mark_object_group_from_acl_entry {
+    my ($self, $acl_entry) = @_;
+    for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
+        my $what = $acl_entry->{$where};
+        if(my $group = ref($what) && $what->{GROUP}) {
+            if(not $group->{name_on_dev}) {
+                $group->{transfer} = 1;
+                $self->mark_as_changed('OBJECT_GROUP');
+            }
+        }
+    }
+}
+
 # Build textual representation from ACL entry for use with Algorithm::Diff.
 # $abstract = 1: Ignore name of object-group.
 sub acl_entry2key0 {
@@ -905,7 +935,7 @@ sub acl_entry2key {
 # We should analyze all ACLs with object-groups in a first pass
 # and operate with immutable group names in second pass.
 sub fix_transfer_groups {
-    my ($entry, $dupl, $abstract) = @_;
+    my ($self, $entry, $dupl, $abstract) = @_;
     return if ! keys %$dupl;
     my @need_fix;
     for my $where (qw(SRC DST)) {
@@ -972,28 +1002,22 @@ sub equalize_acl_groups {
 	    # Mark object-groups referenced by acl lines from spoc 
 	    # but not on device.
 	    for my $spoc_entry ($diff->Items(2)) {
-		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
-                    my $what = $spoc_entry->{$where};
-		    if(my $spoc_group = ref($what) && $what->{GROUP}) {
-			if(not $spoc_group->{name_on_dev}) {
-			    $spoc_group->{transfer} = 1;
-			    $self->mark_as_changed('OBJECT_GROUP');
-			}
-		    }
-		}
-	    }
-
-	    if(my $count = $diff->Items(1)) {
-		info(" $count extra lines on device");
-	    }
-	    if(my $count = $diff->Items(2)) {
-		info(" $count extra lines from Netspoc");
+                $self->mark_object_group_from_acl_entry($spoc_entry);
 	    }
 	}
     }
     return !$acl_modified;
 }
 
+
+sub check_max_acl_entries {
+    my ($self, $acl) = @_;
+    my $entries = $acl->{LIST};
+    my (undef, $incr) = $self->ACL_line_discipline();
+    if ($incr > 1 && @$entries >= $incr) {
+        abort("Can't handle ACL $acl->{name} with $incr or more entries");
+    }
+}
 
 # Incrementally convert an ACL on device to the new ACL from netspoc.
 # Algorithm::Diff finds ACL lines which need to be added or to be deleted.
@@ -1161,7 +1185,7 @@ sub equalize_acl_entries {
                     # changed if the same group is referenced from
                     # another ACL and a matching group is found on
                     # device when comparing the other ACL later.
-                    fix_transfer_groups($spoc_entry, \%dupl, \%abstract);
+                    $self->fix_transfer_groups($spoc_entry, \%dupl, \%abstract);
 
                     push @add, $spoc_entry;
                 }
