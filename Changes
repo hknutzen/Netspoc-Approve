@@ -1,5 +1,17 @@
 {{$NEXT}}
 
+1.066     2013-02-19 14:29:54 Europe/Berlin
+
+- Added support for NX-OS of Cisco Nexus devices.
+  - ACL, object-groups, routing, VRF
+  - Uses "configure session"
+  - Interface mgmt0 is located in management VRF by default
+- Added support for object-groups of IOS.
+- No longer re-read config of IOS after "write mem".
+  It is sufficient to check the '[OK]' message.
+- missing-approve now compares .raw files if available.
+- Code cleanup.
+
 1.065     2012-12-05 17:11:54 Europe/Berlin
 
 - Fixed bug when generating object-group name in ACL.
