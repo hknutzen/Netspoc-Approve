@@ -1020,7 +1020,7 @@ sub crypto_processing {
     my ($self, $conf, $spoc) = @_;
 
     # Only proceed if netspoc crypto config present
-    $spoc->{CRYPTO} or return;
+    keys %{ $spoc->{CRYPTO} } or return;
 
     info("Spocfile contains crypto definitions");
     $self->{CHANGE}->{CRYPTO} = 0;
