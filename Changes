@@ -1,5 +1,12 @@
 {{$NEXT}}
 
+1.067     2013-03-06 15:50:23 Europe/Berlin
+
+- Ignore that VRFs of a device which are not found 
+  in the config file from Netspoc.
+  This allows to have mixed managed and unmanaged VRFs on the same device.
+- Ignore "crypto map ipv6" when parsing IOS config.
+
 1.066     2013-02-19 14:29:54 Europe/Berlin
 
 - Added support for NX-OS of Cisco Nexus devices.
