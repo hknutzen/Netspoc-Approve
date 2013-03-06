@@ -5,7 +5,7 @@ use strict;
 use warnings;
 
 our @ISA    = qw(Exporter);
-our @EXPORT = qw(approve check_parse_and_unchanged);
+our @EXPORT = qw(approve approve_err check_parse_and_unchanged);
 
 use Test::More;
 use Test::Differences;
