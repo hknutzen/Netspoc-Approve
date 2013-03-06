@@ -571,4 +571,46 @@ END
 
 
 ############################################################
+$title = "Unknown interface in VRF";
+############################################################
+$device = <<END;
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+ip access-list extended acl1
+ permit ip any host 10.0.1.1
+interface Ethernet1
+ ip address 10.0.9.1 255.255.255.0
+ ip access-group acl1 in
+ip route vrf 013 10.30.0.0 255.255.0.0 10.1.2.3
+ip access-list extended acl2
+ permit ip any host 10.0.1.1
+interface Ethernet2
+ ip address 10.0.0.1 255.255.255.0
+ ip vrf forwarding 013
+ ip access-group acl2 in
+END
+
+$in = <<END;
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+ip route vrf 013 10.30.0.0 255.255.0.0 10.1.2.3
+ip access-list extended acl2
+ permit ip any host 10.0.1.1
+interface Ethernet2
+ ip address 10.0.0.1 255.255.255.0
+ ip vrf forwarding 013
+ ip access-group acl2 in
+END
+
+$out = <<END;
+WARNING>>> Interface Ethernet1 on device is not known by Netspoc
+END
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Managed and unmanaged VRF in one device";
+############################################################
+
+$in =~ s/ip route 10.20.0.0 255.255.0.0 10.1.2.3//msg;
+$out = '';
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+############################################################
 done_testing;

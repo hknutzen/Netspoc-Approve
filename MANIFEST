@@ -1,6 +1,5 @@
 Changes
 INSTALL
-INSTALL~
 LICENSE
 MANIFEST
 META.yml
@@ -17,14 +16,12 @@ lib/Netspoc/Approve/ASA.pm
 lib/Netspoc/Approve/Cisco.pm
 lib/Netspoc/Approve/Cisco_FW.pm
 lib/Netspoc/Approve/Cisco_Router.pm
-lib/Netspoc/Approve/Cisco_Router.pm~
 lib/Netspoc/Approve/Console.pm
 lib/Netspoc/Approve/Device.pm
 lib/Netspoc/Approve/Helper.pm
 lib/Netspoc/Approve/IOS.pm
 lib/Netspoc/Approve/Linux.pm
 lib/Netspoc/Approve/Load_Config.pm
-lib/Netspoc/Approve/NX-OS.pm~
 lib/Netspoc/Approve/NX_OS.pm
 lib/Netspoc/Approve/PIX.pm
 lib/Netspoc/Approve/Parse_Cisco.pm
@@ -35,12 +32,9 @@ suid-support/README
 suid-support/diamonds
 suid-support/diamonds.c
 t/ASA-modify-ACL.t
-t/ASA-modify-ACL.t~
 t/Linux.t
 t/Test_Approve.pm
 t/parse-ASA.t
 t/parse-IOS.t
 t/parse-NX-OS.t
-t/parse-NX-OS.t~
 t/raw.t
-t/raw.t~

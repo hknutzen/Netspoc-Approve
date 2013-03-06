@@ -112,5 +112,45 @@ resequence ip access-list inside 10 10
 END
 eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
 
+
+############################################################
+$title = "Managed and unmanaged VRF in one device; add VRF route";
+############################################################
+$device = <<END;
+ip route 10.20.0.0/16 10.1.2.3
+ip access-list acl1
+ 10 permit ip any host 10.0.1.1
+interface Ethernet1
+ ip address 10.0.9.1/24
+ ip access-group acl1 in
+vrf context 013 
+ ip route 10.30.0.0/16 10.1.2.3
+ip access-list acl2
+ 10 permit ip any host 10.0.1.1
+interface Ethernet2
+ ip address 10.0.0.1/24
+ vrf member 013
+ ip access-group acl2 in
+END
+
+$in = <<END;
+vrf context 013 
+ ip route 10.30.0.0/16 10.1.2.3
+ ip route 10.40.0.0/16 10.1.2.4
+ip access-list acl2
+ 10 permit ip any host 10.0.1.1
+interface Ethernet2
+ ip address 10.0.0.1/24
+ vrf member 013
+ ip access-group acl2 in
+END
+
+$out = <<END;
+vrf context 013
+ ip route 10.40.0.0/16 10.1.2.4
+END
+
+eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+
 ############################################################
 done_testing;

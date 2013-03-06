@@ -13,7 +13,7 @@ use Carp;
 use Fcntl;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.067'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---

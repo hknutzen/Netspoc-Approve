@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.066'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.067'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -254,6 +254,7 @@ sub get_parse_info {
 	'crypto map _skip isakmp-profile' => { parse => \&skip, },
 	'crypto map _skip local-address'  => { parse => \&skip, },
 	'crypto map _skip redundancy'     => { parse => \&skip, },
+	'crypto map ipv6'                 => { parse => \&skip, },
 
 # crypto map <name> <seq> ipsec-isakmp
 #  <sub commands>
@@ -1019,7 +1020,7 @@ sub crypto_processing {
     my ($self, $conf, $spoc) = @_;
 
     # Only proceed if netspoc crypto config present
-    $spoc->{CRYPTO} or return;
+    keys %{ $spoc->{CRYPTO} } or return;
 
     info("Spocfile contains crypto definitions");
     $self->{CHANGE}->{CRYPTO} = 0;
