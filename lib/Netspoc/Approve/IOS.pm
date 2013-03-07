@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.067'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.068'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -799,7 +799,9 @@ sub get_my_connection {
     # Output seen from IOS 12.4(3f):
     # * vty 322      netspoc   idle                 00:00:00 10.11.12.13
     # ==> take first number as vty and IP at end of line.
-    my $lines = $self->get_cmd_output('sh users | incl ^\*');
+    my $cmd = 'sh users | incl ^\*';
+    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
+    my $lines = $self->get_cmd_output($cmd);
     my $line = $lines->[0];
     chomp $line;
     my ($vty, $s_ip);
@@ -812,7 +814,9 @@ sub get_my_connection {
     my $src_ip = quad2int($s_ip) or abort("Can't parse src ip: $s_ip");
 
     # Read tcp details for my connection.
-    $lines = $self->get_cmd_output("sh tcp $vty | incl Local host:");
+    $cmd = "sh tcp $vty | incl Local host:";
+    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
+    $lines = $self->get_cmd_output($cmd);
     $line = $lines->[0];
     my ($port, $d_ip);
     if ($line =~ /Local host:\s([\d.]+),\sLocal port:\s(\d+)/i) {

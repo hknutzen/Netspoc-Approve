@@ -15,7 +15,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.067'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.068'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -1069,7 +1069,7 @@ sub equalize_acl_entries {
     my %moved;
 
     # Collect entries 
-    # - do be added on device (includes move_up)
+    # - to be added on device (includes move_up)
     # - to be deleted on device (includes move_down).
     my (@add, @delete);
 

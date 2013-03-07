@@ -1,3 +1,11 @@
+1.068     2013-03-07 17:34:18 Europe/Berlin
+
+Bug fix realease
+
+- Fixed ACL approve for IOS.
+  Some IOS commands need to be called with "do" prefix,
+  because conf mode is entered earlier since support for NX-OS was added.
+
 1.067     2013-03-06 15:50:23 Europe/Berlin
 
 - Ignore that VRFs of a device which are not found 
