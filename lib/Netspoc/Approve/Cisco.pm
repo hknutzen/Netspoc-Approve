@@ -1069,7 +1069,7 @@ sub equalize_acl_entries {
     my %moved;
 
     # Collect entries 
-    # - do be added on device (includes move_up)
+    # - to be added on device (includes move_up)
     # - to be deleted on device (includes move_down).
     my (@add, @delete);
 
