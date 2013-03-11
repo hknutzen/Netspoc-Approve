@@ -254,7 +254,7 @@ sub get_parse_info {
 	'crypto map _skip isakmp-profile' => { parse => \&skip, },
 	'crypto map _skip local-address'  => { parse => \&skip, },
 	'crypto map _skip redundancy'     => { parse => \&skip, },
-	'crypto map ipv6'                 => { parse => \&skip, },
+	'crypto map ipv6'                 => { parse => \&skip, subcmd => {} },
 
 # crypto map <name> <seq> ipsec-isakmp
 #  <sub commands>
