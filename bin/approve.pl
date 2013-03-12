@@ -22,8 +22,8 @@ delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 
 sub usage {
     print "Usage:\n";
-    print "$0 approve <device-name>\n";
-    print "$0 compare <device-name>\n";
+    print "$0 approve [--brief] <device-name>\n";
+    print "$0 compare [--brief] <device-name>\n";
     exit -1;
 }
 
@@ -69,6 +69,7 @@ my $running_for_user = getpwuid($<) or die "Error: real UID is unknown\n";
 # Argument processing.
 my $arguments = join ' ', $0, @ARGV;
 my $command = shift(@ARGV) or usage();
+my $brief = $ARGV[0] eq '--brief' && shift(@ARGV);
 my $device = shift(@ARGV) or usage();
 @ARGV and usage();
 
@@ -139,7 +140,12 @@ if (open(my $log, '<', $logfile)) {
             $warnings++;
         }
         elsif (/ERROR>>>/) {
-            $errors++;
+            if ($brief && /Reachability test failed/) {
+                next;
+            }
+            else {
+                $errors++;
+            }
         }
         elsif (/^comp:.*\*\*\*/) {
             $changes++;
@@ -147,7 +153,7 @@ if (open(my $log, '<', $logfile)) {
         else {
             next; 
         }
-        print $_;
+        print $brief ? "$device:$_" : $_;
         chomp;
         log_history("RES: $_");
     }
@@ -168,7 +174,7 @@ else {
 # Print error messages to STDERR.
 my $fail_ok = $failed ? 'FAILED' : 'OK';
 log_history("END: $fail_ok");
-if ($failed || $warnings || $errors || $changes) {
+if (!$brief && ($failed || $warnings || $errors || $changes)) {
     print STDERR "$fail_ok; details in $netspocdir/$policy/$logfile\n";
 }
 exit $failed;
