@@ -25,7 +25,8 @@ my %WriteMakefileArgs = (
     "bin/drc3.pl",
     "bin/missing-approve",
     "bin/start-jobs",
-    "bin/approve.pl"
+    "bin/approve.pl",
+    "bin/approve-all"
   ],
   "LICENSE" => "gpl",
   "NAME" => "Netspoc::Approve",
@@ -44,7 +45,7 @@ my %WriteMakefileArgs = (
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "1.068",
+  "VERSION" => "1.069",
   "test" => {
     "TESTS" => "t/*.t"
   }

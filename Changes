@@ -1,3 +1,15 @@
+1.069     2013-03-12 15:03:42 Europe/Berlin
+
+1.069     2013-03-12 14:51:45 Europe/Berlin
+
+- New command "approve-all"
+  Approves all devices shown by missing-approve.
+  "diamonds approve" is called with new option --brief
+   - message "Reachability test failed" is suppressed
+   - final "FAILED" message is suppressed
+   - error and warning messages get prefix "device-name:"
+- Ignore subcommands of "crypto map ipv6" as well.
+
 1.068     2013-03-07 17:34:18 Europe/Berlin
 
 Bug fix realease

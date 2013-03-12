@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.068'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.069'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -254,7 +254,7 @@ sub get_parse_info {
 	'crypto map _skip isakmp-profile' => { parse => \&skip, },
 	'crypto map _skip local-address'  => { parse => \&skip, },
 	'crypto map _skip redundancy'     => { parse => \&skip, },
-	'crypto map ipv6'                 => { parse => \&skip, },
+	'crypto map ipv6'                 => { parse => \&skip, subcmd => {} },
 
 # crypto map <name> <seq> ipsec-isakmp
 #  <sub commands>

@@ -5,6 +5,7 @@ MANIFEST
 META.yml
 Makefile.PL
 README
+bin/approve-all
 bin/approve.pl
 bin/compare-all
 bin/drc3.pl
