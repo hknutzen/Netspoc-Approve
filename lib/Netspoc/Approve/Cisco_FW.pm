@@ -462,7 +462,7 @@ sub get_parse_info {
 		       { store => 'LOG_MODE', parse => qr/disable|default/ },
 		       ['seq',
 			{ store => 'LOG_LEVEL', 
-			  parse => \&check_int, default => 6 },
+			  parse => \&check_loglevel, default => 6 },
 			['cond1',
 			 { parse => qr/interval/ },
 			 { store => 'LOG_INTERVAL', 
