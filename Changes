@@ -1,4 +1,6 @@
-1.069     2013-03-12 15:03:42 Europe/Berlin
+1.070     2013-03-25 14:10:33 Europe/Berlin
+
+- Support named loglevel in ACL of ASA/PIX
 
 1.069     2013-03-12 14:51:45 Europe/Berlin
 

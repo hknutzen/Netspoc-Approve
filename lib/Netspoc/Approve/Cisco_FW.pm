@@ -7,7 +7,7 @@ package Netspoc::Approve::Cisco_FW;
 # Base class for Cisco firewalls (ASA, PIX, FWSM)
 #
 
-our $VERSION = '1.069'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.070'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -462,7 +462,7 @@ sub get_parse_info {
 		       { store => 'LOG_MODE', parse => qr/disable|default/ },
 		       ['seq',
 			{ store => 'LOG_LEVEL', 
-			  parse => \&check_int, default => 6 },
+			  parse => \&check_loglevel, default => 6 },
 			['cond1',
 			 { parse => qr/interval/ },
 			 { store => 'LOG_INTERVAL', 

@@ -12,14 +12,14 @@ use Netspoc::Approve::Helper;
 
 require Exporter;
 
-our $VERSION = '1.069'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.070'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = 
     qw(err_at_line
        get_token get_regex get_int get_ip get_eol unread
        get_ip_pair get_ip_prefix
-       check_token check_regex check_int check_ip
+       check_token check_regex check_int check_loglevel check_ip
        get_name_in_out get_paren_token test_ne skip get_to_eol
  );
 
@@ -74,7 +74,7 @@ sub check_regex {
     my($regex, $arg) = @_;
     defined(my $token = check_token($arg)) or return;
     return $token if $token =~ /^(:?$regex)$/;
-    $arg->{pos}--;
+    unread($arg);
     return;
 }
 
@@ -88,6 +88,32 @@ sub check_int {
     return check_regex(qr/\d+/, $arg);
 }
 
+my %log2level = (
+    emergencies => 0,
+    alerts  => 1,
+    critical => 2,
+    errors => 3,
+    warnings => 4,
+    notifications => 5,
+    informational => 6, 
+    debugging => 7,
+);
+
+sub check_loglevel {
+    my($arg) = @_;
+    defined(my $token = check_token($arg)) or return;
+    if ($token =~ /^\d+$/) {
+        return $token;
+    }
+    elsif (defined(my $level = $log2level{$token})) {
+        return $level;
+    }
+    else {
+        unread($arg);
+        return;
+    }
+}
+    
 sub get_ip {
     my($arg) = @_;
     my $ip = quad2int(get_token($arg));
@@ -100,7 +126,7 @@ sub check_ip {
     my $token = check_token($arg) or return;
     my $ip = quad2int($token);
     return $ip if defined $ip;
-    $arg->{pos}--;
+    unread($arg);
     return;
 }
 
