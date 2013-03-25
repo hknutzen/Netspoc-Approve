@@ -74,7 +74,7 @@ sub check_regex {
     my($regex, $arg) = @_;
     defined(my $token = check_token($arg)) or return;
     return $token if $token =~ /^(:?$regex)$/;
-    $arg->{pos}--;
+    unread($arg);
     return;
 }
 
@@ -126,7 +126,7 @@ sub check_ip {
     my $token = check_token($arg) or return;
     my $ip = quad2int($token);
     return $ip if defined $ip;
-    $arg->{pos}--;
+    unread($arg);
     return;
 }
 
