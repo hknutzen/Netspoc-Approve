@@ -145,11 +145,13 @@ sub con_issue_cmd {
 sub con_error {
     my ($con) = @_;
     my $result = $con->{RESULT};
-    for my $key (keys %$result) {
+    my @lines = ($result->{ERROR});
+    for my $key (qw(BEFORE AFTER)) {
         my $value = $result->{$key};
-        err_info "$key $value" if $value;
+        next if not $value;
+        push @lines, split /\n/, $value;
     }
-    exit -1;
+    abort(@lines);
 }
 
 # Modules must return a true value.
