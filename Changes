@@ -1,3 +1,10 @@
+1.071     2013-03-27 14:42:57 Europe/Berlin
+
+- Fixed bug when comparing crypto ACLs and crypto filter ACLs.
+  Result was unreliable, because inverted masks from IOS had been used.
+- Fallback to username / password if only password was given for telnet.
+- Better error messages if telnet or ssh failed.
+
 1.070     2013-03-25 14:10:33 Europe/Berlin
 
 - Support named loglevel in ACL of ASA/PIX

@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.070'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.071'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -326,6 +326,11 @@ sub parse_address {
     my ($self, $arg) = @_;
     return 
         $self->parse_object_group($arg) || $self->SUPER::parse_address($arg);
+}
+
+sub adjust_mask {
+    my ($self, $mask) = @_;
+    return ~$mask & 0xffffffff;
 }
 
 sub parse_encryption { 

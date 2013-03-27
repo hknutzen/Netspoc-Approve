@@ -13,7 +13,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '1.070'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.071'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
@@ -145,11 +145,13 @@ sub con_issue_cmd {
 sub con_error {
     my ($con) = @_;
     my $result = $con->{RESULT};
-    for my $key (keys %$result) {
+    my @lines = ($result->{ERROR});
+    for my $key (qw(BEFORE AFTER)) {
         my $value = $result->{$key};
-        err_info "$key $value" if $value;
+        next if not $value;
+        push @lines, split /\n/, $value;
     }
-    exit -1;
+    abort(@lines);
 }
 
 # Modules must return a true value.
