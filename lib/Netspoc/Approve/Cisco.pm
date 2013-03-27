@@ -584,54 +584,46 @@ sub login_enable {
     if(not $pass) {
 	($user, $pass) = $self->get_aaa_password();
     }
-    if ($user) {
-        my $server = IO::Socket::INET->new(
-            'PeerAddr' => $ip,
-            'PeerPort' => 22
-        );
-        if ($server) {
-            $server->close();
-            info("Using SSH with username for login");
-            $con->{EXPECT}->spawn("ssh", "-l", "$user", "$ip")
-              or abort("Cannot spawn ssh: $!");
-            my $prompt = qr/password:|\(yes\/no\)\?/i;
-            $con->con_wait($prompt);
-            if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
-		$prompt = qr/password:/i;
-                $con->con_issue_cmd('yes', $prompt);
-                info("SSH key for $ip permanently added to known hosts");
-            }
-            $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-	    $prompt = qr/$prompt|$std_prompt/i;
-	    $pass ||= $self->get_user_password($user);
-            $con->con_issue_cmd($pass, $prompt);
-            $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
+
+    # Use SSH, if username is given and if server is reachable on SSH port.
+    if ($user && IO::Socket::INET->new('PeerAddr' => $ip, 'PeerPort' => 22)) {
+        info("Using SSH for login");
+        $con->{EXPECT}->spawn("ssh", "-l", "$user", "$ip")
+            or abort("Cannot spawn ssh: $!");
+        my $prompt = qr/password:|\(yes\/no\)\?/i;
+        $con->con_wait($prompt);
+        if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
+            $prompt = qr/password:/i;
+            $con->con_issue_cmd('yes', $prompt);
+            info("SSH key for $ip permanently added to known hosts");
         }
-        else {
-            info("Using telnet with username for login");
-            $con->{EXPECT}->spawn("telnet", ($ip))
-              or abort("Cannot spawn telnet: $!");
-            my $prompt = qr/username:/i;
-            $con->con_wait($prompt);
-            $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-	    $prompt = qr/password:/i;
-            $con->con_issue_cmd($user, $prompt);
-	    $prompt = qr/username:|password:|$std_prompt/i;
-	    $pass ||= $self->get_user_password($user);
-            $con->con_issue_cmd($pass, $prompt);
-        }
+        $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+        $prompt = qr/$prompt|$std_prompt/i;
+        $pass ||= $self->get_user_password($user);
+        $con->con_issue_cmd($pass, $prompt);
+        $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
     }
     else {
-        info("Using simple telnet for login");
+        info("Using telnet for login");
         $con->{EXPECT}->spawn("telnet", ($ip))
-          or abort("Cannot spawn telnet: $!");
-        my $prompt = qr/PIX passwd:|password:/i;
+            or abort("Cannot spawn telnet: $!");
+        my $prompt = qr/username:|password:|$std_prompt/i;
         $con->con_wait($prompt);
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-	$prompt = qr/$prompt|$std_prompt/;
-        $pass ||= $self->get_user_password('device');
-        $con->con_issue_cmd($pass, $prompt);
+        if ($con->{RESULT}->{MATCH} =~ qr/username:/i) {
+            if (!$user) {
+                warn_info("Telnet asks for username,",
+                          " ignoring $self->{CONFIG}->{passwdpath}");
+                ($user, $pass) = $self->get_aaa_password();
+            }
+            $con->con_issue_cmd($user, $prompt);
+        }
+        if ($con->{RESULT}->{MATCH} =~ qr/password:/i) {
+            $pass ||= $self->get_user_password($user || 'device');
+            $con->con_issue_cmd($pass, $prompt);
+        }
     }
+
     my $match = $con->{RESULT}->{MATCH};
     if ($match eq '>') {
 
