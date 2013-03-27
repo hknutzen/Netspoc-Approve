@@ -385,9 +385,14 @@ sub parse_address {
     }
     else {
         $ip   = quad2int($token);
-        $mask = get_ip($arg);
+        $mask = $self->adjust_mask(get_ip($arg));
     }
     return ({ BASE => $ip, MASK => $mask });
+}
+
+sub adjust_mask {
+    my ($self, $mask) = @_;
+    return $mask;
 }
 
 sub parse_port {

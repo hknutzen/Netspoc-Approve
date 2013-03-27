@@ -328,6 +328,11 @@ sub parse_address {
         $self->parse_object_group($arg) || $self->SUPER::parse_address($arg);
 }
 
+sub adjust_mask {
+    my ($self, $mask) = @_;
+    return ~$mask & 0xffffffff;
+}
+
 sub parse_encryption { 
     my ($arg) = @_;
     my $name = get_token($arg);
