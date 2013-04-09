@@ -1,13 +1,15 @@
 #!/bin/sh
-# File: compare-all
+# Usage: compare-all [parallel-count]
 
 # Abort on every error.
 set -e
 
 # Start that many jobs in parallel.
-PARALLEL=10
+PARALLEL=$(expr "$1" \| 10)
 
-cd /home/diamonds/netspoc/current/code
+# Get directory from config file
+DIR=$(get-netspoc-approve-conf netspocdir)
+cd $DIR/current/code
 
 for device in * ; do
     case $device in *.raw) continue;; esac
