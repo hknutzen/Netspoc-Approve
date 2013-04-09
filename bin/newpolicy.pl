@@ -1,7 +1,7 @@
 #!/usr/bin/perl
-# newpolicy -- integrates NetSPoC with CVS
+# newpolicy -- Checkout configuration from Netspoc for Approve
 # http://netspoc.berlios.de
-# (c) 2011 by Heinz Knutzen <heinzknutzen@users.berlios.de>
+# (c) 2013 by Heinz Knutzen <heinzknutzen@users.berlios.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 # Description:
 # Integrates NetSPoC with version control / build management.
 # The current user must have a working directory 'netspoc'
-# in his home directory with NetSPoC files checked out
+# in his home directory with Netspoc files checked out
 # from the CVS repository.
 # - identifies the current policy from policy db
 # - calculates the next policy tag
@@ -32,11 +32,11 @@
 # - compiles the new policy
 # - marks new policy in policy db as current
 #
-# $Id$
 
 use strict;
 use warnings;
 use Fcntl qw(:DEFAULT :flock);
+use Netspoc::Approve::Load_Config;
 
 # Get real UID of calling user (not the effective UID from setuid wrapper).
 my $real_uid = $<;
@@ -52,7 +52,7 @@ my $home = $pwentry[7] or die "Can't get home directory for UID $real_uid";
 my $working = "$home/netspoc";
 
 # Path of policy database.
-my $policydb = '/home/diamonds/netspoc';
+my $policydb = Netspoc::Approve::Load_Config::load()->{netspocdir};
 
 # Name of netspoc compiler, PATH from sanitized environment (see below).
 my $compiler = 'netspoc';
