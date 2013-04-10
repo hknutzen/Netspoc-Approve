@@ -5,7 +5,7 @@
 set -e
 
 # Start that many jobs in parallel.
-PARALLEL=$(expr "$1" \| 10)
+PARALLEL=$(expr "$1" \| 40)
 
 # Get directory from config file
 DIR=$(get-netspoc-approve-conf netspocdir)
