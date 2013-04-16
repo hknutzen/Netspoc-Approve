@@ -38,6 +38,8 @@ use warnings;
 use Fcntl qw(:DEFAULT :flock);
 use Netspoc::Approve::Load_Config;
 
+my $config = Netspoc::Approve::Load_Config::load();
+
 # Get real UID of calling user (not the effective UID from setuid wrapper).
 my $real_uid = $<;
 
@@ -52,7 +54,7 @@ my $home = $pwentry[7] or die "Can't get home directory for UID $real_uid";
 my $working = "$home/netspoc";
 
 # Path of policy database.
-my $policydb = Netspoc::Approve::Load_Config::load()->{netspocdir};
+my $policydb = $config->{netspocdir};
 
 # Name of netspoc compiler, PATH from sanitized environment (see below).
 my $compiler = 'netspoc';
@@ -182,6 +184,13 @@ if ($? == 0) {
     symlink $policy, $link or
 	die "Error: failed to create symlink $link to $policy\n";
     print STDERR "Updated current policy to '$policy'\n";
+
+    # Run newpolicy_hooks on newly created policy.
+    if (my $hooks = $config->{newpolicy_hooks}) {
+        for my $hook (split(/\s*,?\s*/, @$hooks)) {
+            system($hook) == 0 or warn "Failed to run hook $hook\n";
+        }
+    }
 
     # Success.
     exit 0;
