@@ -12,6 +12,6 @@ DIR=$(get-netspoc-approve-conf netspocdir)
 cd $DIR/current/code
 
 for device in * ; do
-    case $device in *.raw) continue;; esac
+    case $device in *.raw|\*) continue;; esac
     echo diamonds compare $device
 done | start-jobs -q $PARALLEL
