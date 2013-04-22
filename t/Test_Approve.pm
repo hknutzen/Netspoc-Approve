@@ -1,4 +1,3 @@
-# $Id$
 package Test_Approve;
 
 use strict;
