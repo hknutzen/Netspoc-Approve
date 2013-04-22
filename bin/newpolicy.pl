@@ -45,10 +45,10 @@ my $real_uid = $<;
 
 # Get users pw entry.
 my @pwentry = getpwuid($real_uid) or 
-    die "Can't get pwentry of UID $real_uid: $!";
+    die "Can't get pwentry of UID $real_uid: $!\n";
 
 # Get users home directory.
-my $home = $pwentry[7] or die "Can't get home directory for UID $real_uid";
+my $home = $pwentry[7] or die "Can't get home directory for UID $real_uid\n";
 
 # Users netspoc directory.
 my $working = "$home/netspoc";
@@ -73,19 +73,19 @@ $ENV{PATH} = "/usr/local/bin:/usr/bin:/bin";
 
 # Lock policy database.
 sysopen my $lock_fh, "$lock", O_RDONLY | O_CREAT or
-    die "Error: can't open $lock: $!";
+    die "Error: can't open $lock: $!\n";
 if (not flock($lock_fh, LOCK_EX | LOCK_NB)) {
 
     # Read user and time from lockfile.
-    open(my $fh, '<', $lock) or die "Can't open $lock for reading: $!";
+    open(my $fh, '<', $lock) or die "Can't open $lock for reading: $!\n";
     my $status = <$fh>;
     close $fh;
     die "Abort: Another $0 is running. $status\n";
 }
 
 # Write user and time to lockfile for better error message.
-my $user =  $pwentry[0] or die "Can't get user name for UID $real_uid";
-open(my $fh, '>', $lock) or die "Can't open $lock for writing: $!";
+my $user =  $pwentry[0] or die "Can't get user name for UID $real_uid\n";
+open(my $fh, '>', $lock) or die "Can't open $lock for writing: $!\n";
 my $status = "Started by $user at " . localtime() . "\n";
 print $fh $status;
 close $fh;
@@ -110,7 +110,7 @@ if(my $name = readlink $link) {
 
     # Link must have name "p<number>".
     ($lcount) = ($name =~ /^p(\d+)$/) or
-	die "Error: Invalid policy name '$name' found in $link";
+	die "Error: Invalid policy name '$name' found in $link\n";
 }
 else {
     $lcount = 0;
@@ -161,7 +161,7 @@ open my $compile_fh, "$compiler $psrc $pcode 2>&1 |" or
     die "Can't execute $compiler: $!\n";
 open my $log_fh, '>', "$plog" or die "Can't open $plog: $!\n";
 while(<$compile_fh>) {
-    print $log_fh; 
+    print $log_fh $_; 
     print STDERR;
 }
 close $log_fh;
@@ -174,7 +174,7 @@ if ($? == 0) {
     # Use relative pathname.
     my $pfile = "src/POLICY";
     my $exists = -e $pfile;
-    $exists and system('cvs', 'edit', $pfile) == 0 or die "Aborted\n";
+    $exists and (system('cvs', 'edit', $pfile) == 0 or die "Aborted\n");
     open  my $policy_fh, ">", $pfile or die "Can't open $pfile: $!\n";
     print $policy_fh "# $policy # Current policy, don't edit manually!\n";
     close $policy_fh;
