@@ -13,7 +13,7 @@ my $config = {
     passwdpath      => 0,
     aaa_credentials => 0,	# path
     systemuser      => 0,	# username
-    newpolicy_hooks => 0,
+    newpolicy_hooks => 0,	# list of paths
 };
 
 my @prefix = ('/etc/', '/usr/local/etc/', glob('~/.'));
