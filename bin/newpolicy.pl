@@ -187,7 +187,7 @@ if ($? == 0) {
 
     # Run newpolicy_hooks on newly created policy.
     if (my $hooks = $config->{newpolicy_hooks}) {
-        for my $hook (split(/\s*,?\s*/, @$hooks)) {
+        for my $hook (split(/\s*,?\s*/, $hooks)) {
             system($hook) == 0 or warn "Failed to run hook $hook\n";
         }
     }
