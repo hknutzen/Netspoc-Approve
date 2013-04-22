@@ -72,9 +72,9 @@ my $lock = "$policydb/LOCK";
 $ENV{PATH} = "/usr/local/bin:/usr/bin:/bin";
 
 # Lock policy database.
-sysopen LOCK, "$lock", O_RDONLY | O_CREAT or
+sysopen my $lock_fh, "$lock", O_RDONLY | O_CREAT or
     die "Error: can't open $lock: $!";
-if (not flock(LOCK, LOCK_EX | LOCK_NB)) {
+if (not flock($lock_fh, LOCK_EX | LOCK_NB)) {
 
     # Read user and time from lockfile.
     open(my $fh, '<', $lock) or die "Can't open $lock for reading: $!";
@@ -92,12 +92,13 @@ close $fh;
     
 # Read current policy name from POLICY file from repository.
 my $fcount;
-if(open POLICY, "cvs -Q checkout -p $module/POLICY|") {
-    my $line = <POLICY>;
-    close POLICY;
+open(my $policy_fh, "cvs -Q checkout -p $module/POLICY|") or die "internal";
+my $line = <$policy_fh>;
+close($policy_fh);
+if($? == 0) {
     # $pfile contains one line: "# p22 comment .."
     ($fcount) = ($line =~ m'^#? *p(\d+) ') or
-	die "Error: found no valid policy name in $module/POLICY\n";
+	die "Error: No valid policy name found in $module/POLICY\n";
 }
 else {
     $fcount = 0;
@@ -109,7 +110,7 @@ if(my $name = readlink $link) {
 
     # Link must have name "p<number>".
     ($lcount) = ($name =~ /^p(\d+)$/) or
-	die "Error: found invalid policy name '$name' in $link";
+	die "Error: Invalid policy name '$name' found in $link";
 }
 else {
     $lcount = 0;
@@ -156,15 +157,15 @@ system('diff', '-qr', '-x', 'CVS', '-x', '*~', $working, $psrc) == 0 or
 
 # Compile new policy.
 print STDERR "Compiling policy $count; log files in $plog \n";
-open COMPILE, "$compiler $psrc $pcode 2>&1 |" or
+open my $compile_fh, "$compiler $psrc $pcode 2>&1 |" or
     die "Can't execute $compiler: $!\n";
-open LOG, '>', "$plog" or die "Can't open $plog: $!\n";
-while(<COMPILE>) {
-    print LOG; 
+open my $log_fh, '>', "$plog" or die "Can't open $plog: $!\n";
+while(<$compile_fh>) {
+    print $log_fh; 
     print STDERR;
 }
-close LOG;
-close COMPILE;
+close $log_fh;
+close $compile_fh;
 
 # Compiled successfully.
 if ($? == 0) {
@@ -172,10 +173,12 @@ if ($? == 0) {
     # Update POLICY file of current version.
     # Use relative pathname.
     my $pfile = "src/POLICY";
-    system('cvs', 'edit', $pfile) == 0 or die "Aborted\n";
-    open  PFILE, ">", $pfile or die "Can't open $pfile: $!\n";
-    print PFILE "# $policy # Current policy, don't edit manually!\n";
-    close PFILE;
+    my $exists = -e $pfile;
+    $exists and system('cvs', 'edit', $pfile) == 0 or die "Aborted\n";
+    open  my $policy_fh, ">", $pfile or die "Can't open $pfile: $!\n";
+    print $policy_fh "# $policy # Current policy, don't edit manually!\n";
+    close $policy_fh;
+    $exists or system('cvs', 'add', $pfile) == 0 or die "Aborted\n";
     system('cvs', 'commit', '-m', $policy , $pfile) == 0 or die "Aborted\n";
 
     # Mark new policy as current.
