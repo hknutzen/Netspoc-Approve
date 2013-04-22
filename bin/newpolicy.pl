@@ -171,14 +171,20 @@ close $compile_fh;
 if ($? == 0) {
 
     # Update POLICY file of current version.
-    # Use relative pathname.
-    my $pfile = "src/POLICY";
+    # In server mode, "cvs add" needs to be inside "src" directory.
+    chdir("$pdir/src") or die "Error: Can't cd to $pdir/src: $!\n";
+
+    my $pfile = 'POLICY';
     my $exists = -e $pfile;
-    $exists and (system('cvs', 'edit', $pfile) == 0 or die "Aborted\n");
+    if ($exists) {
+        system('cvs', 'edit', $pfile) == 0 or die "Aborted\n";
+    }
     open  my $policy_fh, ">", $pfile or die "Can't open $pfile: $!\n";
     print $policy_fh "# $policy # Current policy, don't edit manually!\n";
     close $policy_fh;
-    $exists or system('cvs', 'add', $pfile) == 0 or die "Aborted\n";
+    if (!$exists) {
+        system('cvs', 'add', $pfile) == 0 or die "Aborted\n";
+    }
     system('cvs', 'commit', '-m', $policy , $pfile) == 0 or die "Aborted\n";
 
     # Mark new policy as current.
