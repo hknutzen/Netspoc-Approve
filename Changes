@@ -1,3 +1,20 @@
+1.072     2013-04-24 17:28:55 Europe/Berlin
+
+ - Parallel jobs started by commands 'approve-all' and 'compare-all':
+   - New optional parameter to change the number of jobs: 
+     approve-all [parallel-count]
+   - Default value has been increased from 10 to 40
+ - New config file option "newpolicy_hooks".
+   The value is a list of paths to be called 
+   after successful run of newpolicy.
+ - Added newpolicy.pl from Netspoc project.
+ - Added scripts "compress-policies" and "delete-old-policies" 
+   to be called from cron.
+ - Changed all hard coded paths for netspocdir to be read
+   from config file (/usr/local)/etc/netspoc-approve
+ - New commandline tool 'get-netspoc-approve-conf' to read option 
+   from config file.
+
 1.071     2013-03-27 14:42:57 Europe/Berlin
 
 - Fixed bug when comparing crypto ACLs and crypto filter ACLs.

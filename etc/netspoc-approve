@@ -48,3 +48,6 @@ statusdir   = /home/diamonds/status
 
 # Create a log file for each approved or compared device.
 historydir  = /home/diamonds/history
+
+# List of paths to be called after successful run of newpolicy
+#newpolicy_hooks = path1 path2

@@ -1,5 +1,7 @@
 # Makefile for SUID support
 
-all:	diamonds
+all:	diamonds newpolicy
 
 diamonds: diamonds.c
+
+newpolicy: newpolicy.c

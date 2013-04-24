@@ -20,15 +20,13 @@
 # Abort on unexpected errors.
 set -e
 
-DIR=/home/diamonds
-POLICYDB=$DIR/netspoc
-STATUS=$DIR/status
+POLICYDB=$(get-netspoc-approve-conf netspocdir)
+STATUS=$(get-netspoc-approve-conf statusdir)
 POLICY=$(basename $(readlink $POLICYDB/current))
 CODE=$POLICYDB/$POLICY/code
 
 exit_code=0;
 
-error () { echo "Error: $1" >&2; exit_code=1; }
 missing () { echo $1; }
 
 compare_files () {

@@ -22,10 +22,15 @@ my %WriteMakefileArgs = (
   "DISTNAME" => "Netspoc-Approve",
   "EXE_FILES" => [
     "bin/compare-all",
+    "bin/get-netspoc-approve-conf",
+    "bin/newpolicy.pl",
     "bin/drc3.pl",
     "bin/missing-approve",
+    "bin/delete-old-policies~",
     "bin/start-jobs",
     "bin/approve.pl",
+    "bin/compress-policies",
+    "bin/delete-old-policies",
     "bin/approve-all"
   ],
   "LICENSE" => "gpl",
@@ -45,7 +50,7 @@ my %WriteMakefileArgs = (
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "1.071",
+  "VERSION" => "1.072",
   "test" => {
     "TESTS" => "t/*.t"
   }

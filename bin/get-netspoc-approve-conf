@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+# Read option from config of Netspoc-Approve.
+# (c) 2013 by Heinz Knutzen <heinz.knutzen@gmail.com>
+
+use strict;
+use warnings;
+use Netspoc::Approve::Load_Config;
+
+sub usage { die "Usage: $0 KEY\n" }
+
+my $config = Netspoc::Approve::Load_Config::load();
+my $key = shift or usage();
+my $value = $config->{$key} or die "Missing value for key $key\n";
+print "$value\n";
