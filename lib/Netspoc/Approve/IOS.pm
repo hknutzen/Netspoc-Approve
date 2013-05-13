@@ -533,7 +533,7 @@ my %known_warning =
 (
  );
 
-sub cmd_check_error($$) {
+sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
 
     # Check unexpected lines:

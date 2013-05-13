@@ -339,7 +339,7 @@ sub mode_code {
 
 # Given an IP and mask, return its address
 # as "x.x.x.x/x" or "x.x.x.x" if prefix == 32.
-sub prefix_code( $ ) {
+sub prefix_code {
     my ($spec) = @_;
     my ($ip, $mask) =  @{$spec}{qw(BASE MASK)};
     my $ip_code     = int2quad($ip);
@@ -1048,7 +1048,7 @@ my %valid_cmd_output = (
     $config->{store_flash_cmd} => q#tar: Removing leading `/' from member names#,
 );
 
-sub cmd_check_error($$) {
+sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
     if(@$lines) {
 	my $valid = $valid_cmd_output{$cmd};
@@ -1084,7 +1084,7 @@ sub route_del {
     return("ip route del$orig");
 }
 
-sub do_scp( $$$$ ) {
+sub do_scp {
     my ($self, $mode, $src, $dst) = @_;
     my $ip = $self->{IP};
     my $user = $config->{user};

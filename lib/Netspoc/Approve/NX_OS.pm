@@ -292,7 +292,7 @@ my %known_warning =
 # - known status messages
 # - known warning messages
 # - unknown messages, handled as error messages.
-sub cmd_check_error($$) {
+sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
     my $error;
   LINE:

@@ -777,12 +777,12 @@ sub set_terminal {
     }
 }
 
-sub get_config_from_device( $ ) {
+sub get_config_from_device {
     my ($self) = @_;
     $self->get_cmd_output('write term');
 }
 
-sub attr_eq( $$$ ) {
+sub attr_eq {
     my ($self, $a, $b) = @_;
     keys %$a == keys %$b or return 0;
     for my $k (keys %$a) {

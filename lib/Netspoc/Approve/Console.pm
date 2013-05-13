@@ -61,7 +61,7 @@ sub new_console {
     return $con;
 }
 
-sub shutdown_console ($$) {
+sub shutdown_console {
     my ($con, $shutdown_message) = @_;
     if ( exists $con->{LOG} ) {
         my $fh = $con->{LOG};

@@ -53,13 +53,13 @@ sub debug {
     info(@_);
 }
 
-sub quad2int ($) {
+sub quad2int {
     ($_[0] =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/) or return undef;
     ($1 < 256 && $2 < 256 && $3 < 256 && $4 < 256) or return undef;
     return $1 << 24 | $2 << 16 | $3 << 8 | $4;
 }
 
-sub int2quad ($) {
+sub int2quad {
     return join('.', unpack('C4', pack("N", $_[0])));
 }
 

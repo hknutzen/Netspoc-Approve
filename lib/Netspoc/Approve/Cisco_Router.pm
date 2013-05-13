@@ -146,7 +146,7 @@ sub remove_object_groups {
     }
 }
 
-sub process_interface_acls( $$$ ){
+sub process_interface_acls {
     my ($self, $conf, $spoc) = @_;
     $self->{CHANGE}->{ACCESS_LIST} = 0;
     $self->enter_conf_mode('session');
