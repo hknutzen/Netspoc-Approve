@@ -229,6 +229,7 @@ sub get_parse_info {
 		      { store => 't1', parse => \&get_token, },
 		      { store => 't2', parse => \&get_token, },
 		      { store => 't3', parse => \&check_token, }, ],
+	    subcmd => {},
 	},
 	'crypto ipsec client ezvpn' => {
 	    store => [ 'CRYPTO', 'IPSEC', 'CLIENT_EZVPN' ],
