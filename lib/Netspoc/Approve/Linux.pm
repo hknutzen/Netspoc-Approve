@@ -467,7 +467,9 @@ my $normalize = {
 			$v =~ s(\/0xffffffff$)()i;
 
 			# Convert from hex to decimal.
-			$v =~ /^0x\d*$/i ? eval($v) : $v 
+			$v =~ s/^0x[0-9a-f]+/hex($v)/ie;
+
+                        return $v;
 			},
 	extern => sub { $_[0] },
     },
