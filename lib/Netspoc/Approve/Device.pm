@@ -220,7 +220,8 @@ sub parse_seq {
 	    my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ } 
 			      $params ? @$params : ());
 	    if(my $keys = $part->{store_multi}) {
-		my @values = parse_line($self, $arg, $parser, @evaled) 
+		my @values;
+                @values = parse_line($self, $arg, $parser, @evaled) 
 		    if $parser;
 		for(my $i = 0; $i < @values; $i++) {
 		    $result->{$keys->[$i]} = $values[$i];
