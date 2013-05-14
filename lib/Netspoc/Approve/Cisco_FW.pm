@@ -1452,16 +1452,12 @@ sub remove_unneeded_on_device {
 sub remove_spare_objects_on_device {
     my ( $self, $conf, $structure ) = @_;
 
-    # Don't add OBJECT_GROUP, because currently they are not 
-    # marked as connected.
-    # Spare object groups will be removed later by
-    # remove_unneeded_on_device.
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP
                           TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
                           GROUP_POLICY
-			  ACCESS_LIST IP_LOCAL_POOL
+			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
     
@@ -1502,6 +1498,17 @@ sub mark_connected {
 				   $next_obj, $structure );
 	}
     }
+
+    # Mark object-groups referenced by access-list
+    if ($parse_name eq 'ACCESS_LIST') {
+        for my $entry (@{ $object->{LIST} }) {
+            for my $where (qw(SRC DST)) {
+                my $what = $entry->{$where};
+                my $group = ref($what) && $what->{GROUP} or next;
+                $group->{connected} = 1;
+            }
+        }
+    }        
 }
 
 sub mark_connected_objects {
@@ -1521,9 +1528,6 @@ sub mark_connected_objects {
 
     # Show unconnected objects.
     for my $key ( sort keys %$structure ) {
-
-	# Currently not marked.
-	next if $key eq 'OBJECT_GROUP';
 	my $objects = $conf->{$key};
         for my $object ( values %$objects ) {
 	    next if $object->{connected};
