@@ -12,7 +12,7 @@ use Netspoc::Approve::Helper;
 
 require Exporter;
 
-our $VERSION = '1.072'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = 
@@ -158,7 +158,7 @@ sub get_ip_prefix {
 	$base = quad2int($addr);
 	defined $base or err_at_line($arg, "Expected IP: $addr");
 	if(defined $prefix) {
-	    $prefix =~ /^\d+$/ && $prefix <= 32 or
+	    ($prefix =~ /^\d+$/ && $prefix <= 32) or
                 err_at_line($arg, "Expected IP prefix: $prefix");
             $mask = 2**32 - 2**(32 - $prefix);
 	}

@@ -7,7 +7,7 @@ package Netspoc::Approve::Cisco_FW;
 # Base class for Cisco firewalls (ASA, PIX, FWSM)
 #
 
-our $VERSION = '1.072'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -656,7 +656,7 @@ sub parse_object_group  {
 	return { GROUP_NAME => get_token($arg) };
     }
     else {
-        return undef;
+        return;
     }
 }
 
@@ -777,12 +777,12 @@ sub set_terminal {
     }
 }
 
-sub get_config_from_device( $ ) {
+sub get_config_from_device {
     my ($self) = @_;
     $self->get_cmd_output('write term');
 }
 
-sub attr_eq( $$$ ) {
+sub attr_eq {
     my ($self, $a, $b) = @_;
     keys %$a == keys %$b or return 0;
     for my $k (keys %$a) {
@@ -1076,7 +1076,7 @@ sub make_equal {
     my ( $self, $conf, $spoc, $parse_name, $conf_name,
 	 $spoc_name, $structure ) = @_;
 
-    return undef unless ( $spoc_name  ||  $conf_name );
+    return unless ( $spoc_name  ||  $conf_name );
 
 #    info("MAKE EQUAL( $parse_name ) => CONF:$conf_name, SPOC:$spoc_name ");
 
@@ -1321,6 +1321,7 @@ sub transfer1 {
 		#info("$spoc_name already transfered as $transfered_as! ");
 	    }
 	    else {
+                info("Transfer $parse_name $spoc_name");
 		$self->$method( $spoc, $structure, $parse_name, $spoc_name );
 		$spoc_value->{transfered_as} = $spoc_value->{new_name};
 	    }
@@ -1328,15 +1329,12 @@ sub transfer1 {
     }
 }
 
-#
 # Entry point for tree traversal (starting with
 # the anchors) in order to transfer,
 # remove or modify marked objects.
-#
 sub traverse_netspoc_tree {
     my ( $self, $spoc, $structure ) = @_;
 
-    info("Transfer objects to device");
 
     # Transfer items ...
 
@@ -1353,6 +1351,7 @@ sub traverse_netspoc_tree {
 		    #info("$spoc_name already transfered as $transfered_as! ");
 		}
 		else {
+                    info("Transfer $parse_name $spoc_name");
 		    $self->$method( $spoc, $structure,
 				    $parse_name, $spoc_name );
 		    $spoc_value->{transfered_as} = $spoc_value->{new_name};
@@ -1376,7 +1375,6 @@ sub traverse_netspoc_tree {
 	}
     }
 
-    info("Modify objects on device");
     # Change attributes of items in place.
     for my $key ( keys %$structure ) {
         my $value = $structure->{$key};
@@ -1402,6 +1400,7 @@ sub traverse_netspoc_tree {
             {
 		my $method = $structure->{$parse_name}->{modify};
 		my $conf_name = $spoc_value->{name_on_dev};
+                info("Modify $parse_name $conf_name");
 		$self->$method( $spoc_value, $conf_name );
 	    }	    
 	}
@@ -1421,32 +1420,35 @@ sub remove_unneeded_on_device {
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
 
-    info("Remove unneeded objects from device");
-	
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
-      OBJECT:
 	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
 
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 
-	    # Do not remove users that have their own explicit
-	    # password (e.g. 'netspoc'-user used to access device).
-	    next OBJECT if ( $parse_name eq 'USERNAME'  &&
-			     not $object->{NOPASSWORD} );
-
-	    # Remove unneeded objects from device.
-	    if ( not $object->{needed} ) {
-		my $method = $parse->{remove};
-		$self->$method( $conf, $structure,
-				$parse_name, $obj_name );
-	    }
-
 	    # Remove attributes marked for deletion.
 	    if ( my $attr = $object->{remove_attr} ) {
-		$self->remove_attributes( $parse_name,
-					  $obj_name, $attr );
+		$self->remove_attributes( $parse_name, $obj_name, $attr );
 	    }
+
+	    # Remove unneeded objects from device.
+	    next if $object->{needed};
+
+	    # Do not remove users that have their own explicit
+	    # password (e.g. 'netspoc'-user used to access device).
+	    next if ( $parse_name eq 'USERNAME'  && ! $object->{NOPASSWORD} );
+
+            # Only remove ACLs and object-groups that 
+            # either have previously been defined by Netspoc
+            # or that have been substituted by new objects from nespoc.
+            # This excludes manual ACLs used for eg. BGP.
+            next if ($parse_name =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
+                     $obj_name !~ /DRC-\d+$/ &&
+                     !$object->{connected});
+
+            info("Remove unneeded $parse_name $obj_name");
+            my $method = $parse->{remove};
+            $self->$method( $conf, $structure, $parse_name, $obj_name );
 	}
     }
 }
@@ -1454,21 +1456,15 @@ sub remove_unneeded_on_device {
 sub remove_spare_objects_on_device {
     my ( $self, $conf, $structure ) = @_;
 
-    # Don't add OBJECT_GROUP, because currently they are not 
-    # marked as connected.
-    # Spare object groups will be removed later by
-    # remove_unneeded_on_device.
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP
                           TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
                           GROUP_POLICY
-			  ACCESS_LIST IP_LOCAL_POOL
+			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
     
-    info("Remove SPARE objects from device");
-
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
       OBJECT:
@@ -1477,15 +1473,21 @@ sub remove_spare_objects_on_device {
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 	    
 	    # Remove spare objects from device.
-	    if ( not $object->{connected} ) {
-		# So we do not try to remove the object
-		# again later. (This is a hack and should be
-		# done in a more consistent way! -->TODO)
-		$object->{needed} = 1;
-		# Remove object ...
-		my $method = $parse->{remove};
-		$self->$method( $conf, $structure, $parse_name, $obj_name );
-	    }
+	    next if $object->{connected};
+
+            # Only remove ACLs and object-groups that have been
+            # defined by Netspoc. 
+            # This excludes manual ACLs used by eg. BGP.
+            next if ($parse_name =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
+                     $obj_name !~ /DRC-\d+$/);
+
+            # So we do not try to remove the object
+            # again later. (This is a hack and should be
+            # done in a more consistent way! -->TODO)
+            $object->{needed} = 1;
+            info("Remove spare $parse_name $obj_name");
+            my $method = $parse->{remove};
+            $self->$method( $conf, $structure, $parse_name, $obj_name );
 	}
     }
 }    
@@ -1505,6 +1507,17 @@ sub mark_connected {
 				   $next_obj, $structure );
 	}
     }
+
+    # Mark object-groups referenced by access-list
+    if ($parse_name eq 'ACCESS_LIST') {
+        for my $entry (@{ $object->{LIST} }) {
+            for my $where (qw(SRC DST)) {
+                my $what = $entry->{$where};
+                my $group = ref($what) && $what->{GROUP} or next;
+                $group->{connected} = 1;
+            }
+        }
+    }        
 }
 
 sub mark_connected_objects {
@@ -1524,9 +1537,6 @@ sub mark_connected_objects {
 
     # Show unconnected objects.
     for my $key ( sort keys %$structure ) {
-
-	# Currently not marked.
-	next if $key eq 'OBJECT_GROUP';
 	my $objects = $conf->{$key};
         for my $object ( values %$objects ) {
 	    next if $object->{connected};
@@ -1542,7 +1552,7 @@ sub change_attributes {
     return if $parse_name =~ /^(CERT_ANCHOR)$/;
     return if ( $spoc_value->{change_done} );
 
-    info("Change attributes of $parse_name -> $spoc_name");
+    info("Change attributes of $parse_name $spoc_name");
     if ( my $name = $spoc_value->{name_on_dev} ) {
 	$spoc_name = $name; 
     }
@@ -1629,7 +1639,7 @@ sub change_attributes {
 sub remove_attributes {
     my ( $self, $parse_name, $item_name, $attributes ) = @_;
 
-    info("Remove attributes for $item_name");
+    info("Remove attributes of $parse_name $item_name");
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {

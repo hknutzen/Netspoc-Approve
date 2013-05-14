@@ -13,7 +13,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '1.072'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
@@ -61,7 +61,7 @@ sub new_console {
     return $con;
 }
 
-sub shutdown_console ($$) {
+sub shutdown_console {
     my ($con, $shutdown_message) = @_;
     if ( exists $con->{LOG} ) {
         my $fh = $con->{LOG};

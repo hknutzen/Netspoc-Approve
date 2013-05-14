@@ -46,3 +46,5 @@ t/parse-ASA.t
 t/parse-IOS.t
 t/parse-NX-OS.t
 t/raw.t
+tidyall.ini
+tidyall.ini~

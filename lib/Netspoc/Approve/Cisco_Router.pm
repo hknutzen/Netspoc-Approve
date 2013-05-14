@@ -7,7 +7,7 @@ package Netspoc::Approve::Cisco_Router;
 # Base class for Cisco routers (IOS, NX-OS)
 #
 
-our $VERSION = '1.072'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -92,7 +92,7 @@ sub modify_object_groups {
     for my $group (values %$hash) {
         my $add = $group->{add_entries};
         my $del = $group->{del_entries};
-        $add || $del or next;
+        ($add || $del) or next;
         my $name = $group->{name};
         my $dev_name = $group->{name_on_dev};
         my $cmd = $group->{orig};
@@ -146,7 +146,7 @@ sub remove_object_groups {
     }
 }
 
-sub process_interface_acls( $$$ ){
+sub process_interface_acls {
     my ($self, $conf, $spoc) = @_;
     $self->{CHANGE}->{ACCESS_LIST} = 0;
     $self->enter_conf_mode('session');

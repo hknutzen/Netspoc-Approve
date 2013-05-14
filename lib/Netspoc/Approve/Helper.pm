@@ -12,7 +12,7 @@ require Exporter;
 use strict;
 use warnings;
 
-our $VERSION = '1.072'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(info abort err_info warn_info internal_err debug
@@ -53,13 +53,13 @@ sub debug {
     info(@_);
 }
 
-sub quad2int ($) {
-    ($_[0] =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/) or return undef;
-    ($1 < 256 && $2 < 256 && $3 < 256 && $4 < 256) or return undef;
+sub quad2int {
+    ($_[0] =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/) or return;
+    ($1 < 256 && $2 < 256 && $3 < 256 && $4 < 256) or return;
     return $1 << 24 | $2 << 16 | $3 << 8 | $4;
 }
 
-sub int2quad ($) {
+sub int2quad {
     return join('.', unpack('C4', pack("N", $_[0])));
 }
 

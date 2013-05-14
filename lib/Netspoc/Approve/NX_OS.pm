@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.072'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -292,7 +292,7 @@ my %known_warning =
 # - known status messages
 # - known warning messages
 # - unknown messages, handled as error messages.
-sub cmd_check_error($$) {
+sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
     my $error;
   LINE:

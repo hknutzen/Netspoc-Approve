@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.072'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -229,6 +229,7 @@ sub get_parse_info {
 		      { store => 't1', parse => \&get_token, },
 		      { store => 't2', parse => \&get_token, },
 		      { store => 't3', parse => \&check_token, }, ],
+	    subcmd => {},
 	},
 	'crypto ipsec client ezvpn' => {
 	    store => [ 'CRYPTO', 'IPSEC', 'CLIENT_EZVPN' ],
@@ -318,7 +319,7 @@ sub parse_object_group  {
 	return { GROUP_NAME => get_token($arg) };
     }
     else {
-        return undef;
+        return;
     }
 }
 
@@ -532,7 +533,7 @@ my %known_warning =
 (
  );
 
-sub cmd_check_error($$) {
+sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
 
     # Check unexpected lines:

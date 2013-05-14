@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.072'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -42,7 +42,7 @@ sub new {
 # - ignore 
 #   - empty lines.
 #   - comment lines starting with ';' or #
-sub get_cw_password ($$) {
+sub get_cw_password {
     my ($self, $name) = @_;
     my $path = $self->{CONFIG}->{passwdpath} or return;
 
@@ -220,7 +220,8 @@ sub parse_seq {
 	    my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ } 
 			      $params ? @$params : ());
 	    if(my $keys = $part->{store_multi}) {
-		my @values = parse_line($self, $arg, $parser, @evaled) 
+		my @values;
+                @values = parse_line($self, $arg, $parser, @evaled) 
 		    if $parser;
 		for(my $i = 0; $i < @values; $i++) {
 		    $result->{$keys->[$i]} = $values[$i];
@@ -462,7 +463,7 @@ sub route_line_destination_a_eq_b {
 
 # Unique union of all elements.
 # Preserves original order.
-sub unique(@) {
+sub unique {
     my %seen;
     return grep { !$seen{$_}++ } @_;
 }
@@ -545,7 +546,7 @@ sub process_routing {
 # return value: 0: no
 #               1: yes
 #               2: intersection
-sub ports_a_in_b ($$) {
+sub ports_a_in_b {
     my ($a, $b) = @_;
     return 0 if $a->{HIGH} < $b->{LOW} || $b->{HIGH} < $a->{LOW};
     return 1 if $b->{LOW} <= $a->{LOW} && $a->{HIGH} <= $b->{HIGH};
@@ -672,7 +673,7 @@ sub acl_line_a_eq_b {
 #  fill
 # Return 3 values, array references to unique proto, src and dst addresses
 # return 4. value $acl_hash if $do_acl_hash is set.
-sub acl_prepare ( $;$ ) {
+sub acl_prepare {
     my ($rules, $do_acl_hash) = @_;
     my $line = 1;
     my %prot;
@@ -721,7 +722,7 @@ sub acl_prepare ( $;$ ) {
 # Parameter: 2 lists with protocols A and B
 # Result: 
 # A hash having entries a->b->1 for protocols where intersection is not empty.
-sub prot_relation ( $$ ) {
+sub prot_relation {
     my ($aprot, $bprot) = @_;
     my %hash;
     for my $a (@$aprot) {
@@ -737,7 +738,7 @@ sub prot_relation ( $$ ) {
 # Parameter: 2 lists with objects A and B
 # Result: 
 # A hash having entries a->b->1 for elements where intersection is not empty.
-sub obj_relation ( $$ ) {
+sub obj_relation {
     my ($aobj, $bobj) = @_;
     my %hash;
     for my $a (@$aobj) {
@@ -759,7 +760,7 @@ sub obj_relation ( $$ ) {
 # - Hash of other rules
 # Result:
 # A list of rules matching R.
-sub get_hash_matches ( $$$$$ ) {
+sub get_hash_matches {
     my ($matches, $p_rel, $s_rel, $d_rel, $bhash) = @_;
     my ($prot, $src, $dst) = @$matches;
     my @found;
@@ -844,11 +845,11 @@ sub acl_array_compare_a_in_b {
 
 		    # full permit
 		    # check if found deny is subset of @currentdenylist
-		  CHECK: 
+		  SUBSET: 
 		    for my $deny (@deny_int) {
 			for my $cd (@currentdenylist) {
 			    if ($self->acl_line_a_in_b($deny, $cd) == 1) {
-				next CHECK;
+				next SUBSET;
 			    }
 			}
 
@@ -910,7 +911,7 @@ sub acl_array_compare_a_in_b {
             }
 	}
     }
-    return ($clean and !$log_mismatch);    # a in b
+    return ($clean && !$log_mismatch);    # a in b
 }
 
 sub acl_equal {

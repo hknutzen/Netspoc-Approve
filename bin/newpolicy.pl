@@ -92,7 +92,8 @@ close $fh;
     
 # Read current policy name from POLICY file from repository.
 my $fcount;
-open(my $policy_fh, "cvs -Q checkout -p $module/POLICY|") or die "internal";
+open(my $policy_fh, '-|', "cvs -Q checkout -p $module/POLICY") or 
+    die "internal";
 my $line = <$policy_fh>;
 close($policy_fh);
 if($? == 0) {
@@ -157,7 +158,7 @@ system('diff', '-qr', '-x', 'CVS', '-x', '*~', $working, $psrc) == 0 or
 
 # Compile new policy.
 print STDERR "Compiling policy $count; log files in $plog \n";
-open my $compile_fh, "$compiler $psrc $pcode 2>&1 |" or
+open(my $compile_fh, '-|', "$compiler $psrc $pcode 2>&1") or
     die "Can't execute $compiler: $!\n";
 open my $log_fh, '>', "$plog" or die "Can't open $plog: $!\n";
 while(<$compile_fh>) {
