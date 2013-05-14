@@ -1438,11 +1438,13 @@ sub remove_unneeded_on_device {
 	    # password (e.g. 'netspoc'-user used to access device).
 	    next if ( $parse_name eq 'USERNAME'  && ! $object->{NOPASSWORD} );
 
-            # Only remove ACLs and object-groups that have been
-            # defined by Netspoc. 
+            # Only remove ACLs and object-groups that 
+            # either have previously been defined by Netspoc
+            # or that have been substituted by new objects from nespoc.
             # This excludes manual ACLs used for eg. BGP.
             next if ($parse_name =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
-                     $obj_name !~ /DRC-\d+$/);
+                     $obj_name !~ /DRC-\d+$/ &&
+                     !$object->{connected});
 
             info("Remove unneeded $parse_name $obj_name");
             my $method = $parse->{remove};
