@@ -1422,29 +1422,31 @@ sub remove_unneeded_on_device {
 
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
-      OBJECT:
 	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
 
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 
-	    # Do not remove users that have their own explicit
-	    # password (e.g. 'netspoc'-user used to access device).
-	    next OBJECT if ( $parse_name eq 'USERNAME'  &&
-			     ! $object->{NOPASSWORD} );
-
-	    # Remove unneeded objects from device.
-	    if ( not $object->{needed} ) {
-                info("Remove unneeded $parse_name $obj_name");
-                my $method = $parse->{remove};
-		$self->$method( $conf, $structure,
-				$parse_name, $obj_name );
-	    }
-
 	    # Remove attributes marked for deletion.
 	    if ( my $attr = $object->{remove_attr} ) {
-		$self->remove_attributes( $parse_name,
-					  $obj_name, $attr );
+		$self->remove_attributes( $parse_name, $obj_name, $attr );
 	    }
+
+	    # Remove unneeded objects from device.
+	    next if $object->{needed};
+
+	    # Do not remove users that have their own explicit
+	    # password (e.g. 'netspoc'-user used to access device).
+	    next if ( $parse_name eq 'USERNAME'  && ! $object->{NOPASSWORD} );
+
+            # Only remove ACLs and object-groups that have been
+            # defined by Netspoc. 
+            # This excludes manual ACLs used for eg. BGP.
+            next if ($parse_name =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
+                     $obj_name !~ /DRC-\d+$/);
+
+            info("Remove unneeded $parse_name $obj_name");
+            my $method = $parse->{remove};
+            $self->$method( $conf, $structure, $parse_name, $obj_name );
 	}
     }
 }
@@ -1469,16 +1471,21 @@ sub remove_spare_objects_on_device {
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 	    
 	    # Remove spare objects from device.
-	    if ( not $object->{connected} ) {
-		# So we do not try to remove the object
-		# again later. (This is a hack and should be
-		# done in a more consistent way! -->TODO)
-		$object->{needed} = 1;
-		# Remove object ...
-                info("Remove spare $parse_name $obj_name");
-		my $method = $parse->{remove};
-		$self->$method( $conf, $structure, $parse_name, $obj_name );
-	    }
+	    next if $object->{connected};
+
+            # Only remove ACLs and object-groups that have been
+            # defined by Netspoc. 
+            # This excludes manual ACLs used by eg. BGP.
+            next if ($parse_name =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
+                     $obj_name !~ /DRC-\d+$/);
+
+            # So we do not try to remove the object
+            # again later. (This is a hack and should be
+            # done in a more consistent way! -->TODO)
+            $object->{needed} = 1;
+            info("Remove spare $parse_name $obj_name");
+            my $method = $parse->{remove};
+            $self->$method( $conf, $structure, $parse_name, $obj_name );
 	}
     }
 }    
