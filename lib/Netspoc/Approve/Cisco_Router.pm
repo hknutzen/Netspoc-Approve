@@ -92,7 +92,7 @@ sub modify_object_groups {
     for my $group (values %$hash) {
         my $add = $group->{add_entries};
         my $del = $group->{del_entries};
-        $add || $del or next;
+        ($add || $del) or next;
         my $name = $group->{name};
         my $dev_name = $group->{name_on_dev};
         my $cmd = $group->{orig};

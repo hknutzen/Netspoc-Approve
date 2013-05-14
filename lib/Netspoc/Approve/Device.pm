@@ -911,7 +911,7 @@ sub acl_array_compare_a_in_b {
             }
 	}
     }
-    return ($clean and !$log_mismatch);    # a in b
+    return ($clean && !$log_mismatch);    # a in b
 }
 
 sub acl_equal {

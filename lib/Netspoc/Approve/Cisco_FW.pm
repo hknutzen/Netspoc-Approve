@@ -1433,7 +1433,7 @@ sub remove_unneeded_on_device {
 	    # Do not remove users that have their own explicit
 	    # password (e.g. 'netspoc'-user used to access device).
 	    next OBJECT if ( $parse_name eq 'USERNAME'  &&
-			     not $object->{NOPASSWORD} );
+			     ! $object->{NOPASSWORD} );
 
 	    # Remove unneeded objects from device.
 	    if ( not $object->{needed} ) {
