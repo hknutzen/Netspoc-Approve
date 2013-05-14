@@ -656,7 +656,7 @@ sub parse_object_group  {
 	return { GROUP_NAME => get_token($arg) };
     }
     else {
-        return undef;
+        return;
     }
 }
 
@@ -1076,7 +1076,7 @@ sub make_equal {
     my ( $self, $conf, $spoc, $parse_name, $conf_name,
 	 $spoc_name, $structure ) = @_;
 
-    return undef unless ( $spoc_name  ||  $conf_name );
+    return unless ( $spoc_name  ||  $conf_name );
 
 #    info("MAKE EQUAL( $parse_name ) => CONF:$conf_name, SPOC:$spoc_name ");
 

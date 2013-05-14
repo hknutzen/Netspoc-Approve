@@ -319,7 +319,7 @@ sub parse_object_group  {
 	return { GROUP_NAME => get_token($arg) };
     }
     else {
-        return undef;
+        return;
     }
 }
 

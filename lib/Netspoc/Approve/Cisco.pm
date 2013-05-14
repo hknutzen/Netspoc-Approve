@@ -851,7 +851,7 @@ sub check_object_group {
         }
     }
     else { 
-        return(undef);
+        return;
     }
 }
 
@@ -957,7 +957,7 @@ sub fix_transfer_groups {
 
 # Return value:
 # 1: ACL is unchanged
-# undef: ACL needs to be changed
+# 0: ACL needs to be changed
 sub equalize_acl_groups {
     my($self, $conf_acl, $spoc_acl) = @_;
     my $conf_entries = $conf_acl->{LIST};
@@ -1145,7 +1145,7 @@ sub equalize_acl_entries {
 			info(" $conf_entry->{orig}");
 
                         # New ACL is created (because modify_cmds is undef).
-			return undef;
+			return 0;
 		    }
                     
                     # Move upwards, to lower line number.
@@ -1255,7 +1255,7 @@ sub equalize_acl_entries {
 
         # ACL will be modified incrementally.
         $spoc_acl->{modify_cmds} = \@vcmds;
-        return undef;
+        return 0;
     }
     else {
         return 1;
@@ -1264,7 +1264,7 @@ sub equalize_acl_entries {
 
 # Return value:
 # 1: ACL is unchanged
-# undef: ACL has changed
+# 0: ACL has changed
 #   $spoc_acl->{modify_cmds} is set: change ACL incrementally
 #   otherwise: ACL can't be updated; a new ACL needs to be defined and assigned.
 sub equalize_acl {
