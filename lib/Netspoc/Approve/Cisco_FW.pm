@@ -1321,6 +1321,7 @@ sub transfer1 {
 		#info("$spoc_name already transfered as $transfered_as! ");
 	    }
 	    else {
+                info("Transfer $parse_name $spoc_name");
 		$self->$method( $spoc, $structure, $parse_name, $spoc_name );
 		$spoc_value->{transfered_as} = $spoc_value->{new_name};
 	    }
@@ -1328,15 +1329,12 @@ sub transfer1 {
     }
 }
 
-#
 # Entry point for tree traversal (starting with
 # the anchors) in order to transfer,
 # remove or modify marked objects.
-#
 sub traverse_netspoc_tree {
     my ( $self, $spoc, $structure ) = @_;
 
-    info("Transfer objects to device");
 
     # Transfer items ...
 
@@ -1353,6 +1351,7 @@ sub traverse_netspoc_tree {
 		    #info("$spoc_name already transfered as $transfered_as! ");
 		}
 		else {
+                    info("Transfer $parse_name $spoc_name");
 		    $self->$method( $spoc, $structure,
 				    $parse_name, $spoc_name );
 		    $spoc_value->{transfered_as} = $spoc_value->{new_name};
@@ -1376,7 +1375,6 @@ sub traverse_netspoc_tree {
 	}
     }
 
-    info("Modify objects on device");
     # Change attributes of items in place.
     for my $key ( keys %$structure ) {
         my $value = $structure->{$key};
@@ -1402,6 +1400,7 @@ sub traverse_netspoc_tree {
             {
 		my $method = $structure->{$parse_name}->{modify};
 		my $conf_name = $spoc_value->{name_on_dev};
+                info("Modify $parse_name $conf_name");
 		$self->$method( $spoc_value, $conf_name );
 	    }	    
 	}
@@ -1421,8 +1420,6 @@ sub remove_unneeded_on_device {
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
 
-    info("Remove unneeded objects from device");
-	
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
       OBJECT:
@@ -1437,7 +1434,8 @@ sub remove_unneeded_on_device {
 
 	    # Remove unneeded objects from device.
 	    if ( not $object->{needed} ) {
-		my $method = $parse->{remove};
+                info("Remove unneeded $parse_name $obj_name");
+                my $method = $parse->{remove};
 		$self->$method( $conf, $structure,
 				$parse_name, $obj_name );
 	    }
@@ -1467,8 +1465,6 @@ sub remove_spare_objects_on_device {
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
 			  );
     
-    info("Remove SPARE objects from device");
-
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
       OBJECT:
@@ -1483,6 +1479,7 @@ sub remove_spare_objects_on_device {
 		# done in a more consistent way! -->TODO)
 		$object->{needed} = 1;
 		# Remove object ...
+                info("Remove spare $parse_name $obj_name");
 		my $method = $parse->{remove};
 		$self->$method( $conf, $structure, $parse_name, $obj_name );
 	    }
@@ -1542,7 +1539,7 @@ sub change_attributes {
     return if $parse_name =~ /^(CERT_ANCHOR)$/;
     return if ( $spoc_value->{change_done} );
 
-    info("Change attributes of $parse_name -> $spoc_name");
+    info("Change attributes of $parse_name $spoc_name");
     if ( my $name = $spoc_value->{name_on_dev} ) {
 	$spoc_name = $name; 
     }
@@ -1629,7 +1626,7 @@ sub change_attributes {
 sub remove_attributes {
     my ( $self, $parse_name, $item_name, $attributes ) = @_;
 
-    info("Remove attributes for $item_name");
+    info("Remove attributes of $parse_name $item_name");
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
