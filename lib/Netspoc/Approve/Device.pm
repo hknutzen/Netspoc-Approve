@@ -845,11 +845,11 @@ sub acl_array_compare_a_in_b {
 
 		    # full permit
 		    # check if found deny is subset of @currentdenylist
-		  CHECK: 
+		  SUBSET: 
 		    for my $deny (@deny_int) {
 			for my $cd (@currentdenylist) {
 			    if ($self->acl_line_a_in_b($deny, $cd) == 1) {
-				next CHECK;
+				next SUBSET;
 			    }
 			}
 
