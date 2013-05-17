@@ -859,6 +859,7 @@ sub mark_object_group_from_acl {
 
 sub mark_object_group_from_acl_entry {
     my ($self, $acl_entry) = @_;
+    return if $acl_entry->{REMARK};
     for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
         my $what = $acl_entry->{$where};
         if(my $group = ref($what) && $what->{GROUP}) {
@@ -874,6 +875,11 @@ sub mark_object_group_from_acl_entry {
 # $abstract = 1: Ignore name of object-group.
 sub acl_entry2key0 {
     my ($e, $abstract) = @_;
+
+    if (my $string = $e->{REMARK}) {
+        return "remark $string";
+    }
+
     my @r;
     push(@r, $e->{MODE});
     for my $where (qw(SRC DST)) {
@@ -929,6 +935,7 @@ sub acl_entry2key {
 sub fix_transfer_groups {
     my ($self, $entry, $dupl, $abstract) = @_;
     return if ! keys %$dupl;
+    return if $entry->{REMARK};
     my @need_fix;
     for my $where (qw(SRC DST)) {
 	my $what = $entry->{$where};
@@ -969,6 +976,7 @@ sub equalize_acl_groups {
 	    my $spoc_min = $diff->Min(2);
 	    for my $i (0 .. $count) {
 		my $conf_entry = $conf_entries->[$conf_min+$i];
+                next if $conf_entry->{REMARK};
 		my $spoc_entry = $spoc_entries->[$spoc_min+$i];
 		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
                     my $what = $conf_entry->{$where};
@@ -1090,9 +1098,12 @@ sub equalize_acl_entries {
         if ($diff->Diff() & 1) {
             for my $conf_entry ($diff->Items(1)) {
 #               debug "R: $conf_entry->{orig}";
-                my $key = acl_entry2key($conf_entry);
-		$dupl{$key} and internal_err "Duplicate ACL entry on device";
-		$dupl{$key} = $conf_entry;
+                if (!$conf_entry->{REMARK}) {
+                    my $key = acl_entry2key($conf_entry);
+                    $dupl{$key} and 
+                        internal_err "Duplicate ACL entry on device";
+                    $dupl{$key} = $conf_entry;
+                }
                 push @delete, $conf_entry;
             }
         }
@@ -1128,7 +1139,7 @@ sub equalize_acl_entries {
                 # Find lines already present on device
                 my $key = acl_entry2key($spoc_entry);
                 my $aref;
-                if (my $conf_entry = $dupl{$key}) {
+                if (!$spoc_entry->{REMARK} && (my $conf_entry = $dupl{$key})) {
 #                   debug "D: $conf_entry->{orig}";
 		    
 		    # Abort move operation, if this ACL line permits

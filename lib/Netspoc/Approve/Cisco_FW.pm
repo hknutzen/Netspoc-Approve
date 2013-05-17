@@ -408,12 +408,11 @@ sub get_parse_info {
 		  ['or',
 
 		   # ignore 'access-list <name> compiled'
-		   # ignore 'access-list <name> remark ...'
 		   { parse => qr/compiled/ },
+
 		   ['cond1',
 		    { parse => qr/remark/ },
-		    { parse => \&skip,
-                      error => "'remark' not supported in ACL compare",} ],
+		    { store => 'REMARK', parse => \&get_to_eol } ],
 		   
 		   ['or', # standard or extended access-list
 		    ['cond1',
@@ -591,6 +590,7 @@ sub postprocess_config {
         
         # Change object-group NAME to object-group OBJECT in ACL entries.
         for my $entry (@$entries) {
+            next if $entry->{REMARK};
             for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
                 my $what = $entry->{$where};
                 my $group_name = ref($what) && $what->{GROUP_NAME} or next;
@@ -1101,9 +1101,7 @@ sub make_equal {
 
 	# Mark object-groups referenced by acl lines.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
-	    for my $spoc_entry (@{ $spoc_value->{LIST} }) {
-                $self->mark_object_group_from_acl_entry($spoc_entry);
-	    }
+            $self->mark_object_group_from_acl($spoc_value);
 	}
 
 	# Mark referenced CRYPTO_MAP_SEQ elements.
@@ -1503,6 +1501,7 @@ sub mark_connected {
     # Mark object-groups referenced by access-list
     if ($parse_name eq 'ACCESS_LIST') {
         for my $entry (@{ $object->{LIST} }) {
+            next if $entry->{REMARK};
             for my $where (qw(SRC DST)) {
                 my $what = $entry->{$where};
                 my $group = ref($what) && $what->{GROUP} or next;
