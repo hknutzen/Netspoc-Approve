@@ -456,6 +456,12 @@ sub get_parse_info {
 			 parse => 'normalize_proto', params => [ '$TYPE' ] },
 		       { store => 'SRC', parse => 'parse_address' },
 		       { store => 'DST', parse => 'parse_address' } ]],
+
+                     # Ignore time-range
+                     ['cond1',
+                      { parse => qr/time-range/ },
+                      { parse => \&get_token } ],
+
 		     ['cond1',
 		      { store => 'LOG', parse => qr/log/ },
 		      ['or',
