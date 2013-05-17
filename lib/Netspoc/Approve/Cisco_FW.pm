@@ -1502,7 +1502,7 @@ sub mark_connected {
     if ($parse_name eq 'ACCESS_LIST') {
         for my $entry (@{ $object->{LIST} }) {
             next if $entry->{REMARK};
-            for my $where (qw(SRC DST)) {
+            for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
                 my $what = $entry->{$where};
                 my $group = ref($what) && $what->{GROUP} or next;
                 $group->{connected} = 1;
