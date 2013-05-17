@@ -744,7 +744,6 @@ sub convert_rules {
     my $line = 1;
     for my $rule (@$rules) {
 	my $converted;
-	my $printed;
 	for my $key (sort keys %$rule) {
 
 	    # Ignore internal keys not starting with '-'.
