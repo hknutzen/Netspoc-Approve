@@ -563,14 +563,9 @@ sub route_del {
     return("no $entry->{orig}");
 }
 
-# Read hostname from prompt
 sub get_identity {
     my ($self) = @_;
-
-    # Force new prompt by issuing empty command.
-    my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^\r\n\s*(\S+)\#\s?$/;
-    return $1;
+    return ($self->get_cmd_output('show hostname'))->[0];
 }
 
 sub login_enable {

@@ -740,15 +740,6 @@ sub cmd_check_error {
     }
 }
 
-sub get_identity {
-    my ($self) = @_;
-    my $name = $self->SUPER::get_identity();
-    
-    # Ignore customized prompt extensions following the first slash "/".
-    $name =~ s(/.*)();
-    return($name);
-}
-
 sub parse_version {
     my ($self) = @_;
     my $output = $self->shcmd('sh ver');
