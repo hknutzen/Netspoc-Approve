@@ -341,6 +341,7 @@ sub get_parse_info {
                          ['cond1', { store => 'TYPE', parse => qr/ip/ }, ],
                          ['cond1',
                           { store => 'TYPE', parse => qr/udp|tcp|tcp-udp/ },
+                          { parse => qr/destination/, default => 1, },
                           { store => 'PORT', 
                             parse => 'parse_port_spec', params => ['$TYPE'] } ],
                         ['cond1',
