@@ -89,11 +89,11 @@ sub define_acl {
 sub modify_object_groups {
     my ($self, $conf, $spoc) = @_;
     my $hash = $spoc->{OBJECT_GROUP};
-    for my $group (values %$hash) {
+    for my $name (sort keys %$hash) {
+        my $group = $hash->{name};
         my $add = $group->{add_entries};
         my $del = $group->{del_entries};
         ($add || $del) or next;
-        my $name = $group->{name};
         my $dev_name = $group->{name_on_dev};
         my $cmd = $group->{orig};
         $cmd =~ s/ $name $ /$dev_name/x;
@@ -124,9 +124,9 @@ sub transfer_object_groups {
     my ($self, $conf, $spoc) = @_;
     my $conf_groups = $conf->{OBJECT_GROUP};
     my $spoc_groups = $spoc->{OBJECT_GROUP};
-    for my $group (values %$spoc_groups) {
+    for my $name (sort keys %$spoc_groups) {
+        my $group = $spoc_groups->{$name};
         $group->{transfer} or next;
-        my $name = $group->{name};
         my $new_name = $group->{new_name} = 
             $self->generate_name_for_transfer($name, $conf_groups);
         my $cmd = $group->{orig};
@@ -139,7 +139,8 @@ sub transfer_object_groups {
 sub remove_object_groups {
     my ($self, $conf, $spoc) = @_;
     my $conf_groups = $conf->{OBJECT_GROUP};
-    for my $group (values %$conf_groups) {
+    for my $name (sort keys %$conf_groups) {
+        my $group = $conf_groups->{name};
         if ($group->{remove}) {
             $self->cmd("no $group->{orig}");
         }
@@ -168,9 +169,11 @@ sub process_interface_acls {
 
     # Analyze changes in all ACLs bound to interfaces.
     my %acl_ready;
-    for my $intf (values %{$spoc->{IF}}){
-	my $name = $intf->{name};
-        my $conf_intf = $conf->{IF}->{$name} or internal_err;
+    my $spoc_interfaces = $spoc->{IF};
+    my $conf_interfaces = $conf->{IF};
+    for my $name (sort keys %$spoc_interfaces){
+	my $intf= $spoc_interfaces->{$name};
+        my $conf_intf = $conf_interfaces->{$name} or internal_err;
 	for my $in_out (qw(IN OUT)) {
 	    my $direction = lc($in_out);
 	    my $confacl_name = $conf_intf->{"ACCESS_GROUP_$in_out"} || '';
@@ -198,9 +201,9 @@ sub process_interface_acls {
     # Apply changes
     my ($line_start, $line_incr) = $self->ACL_line_discipline();
     $self->{CHANGE}->{ACCESS_LIST} = 0;
-    for my $intf (values %{$spoc->{IF}}){
-	my $name = $intf->{name};
-        my $conf_intf = $conf->{IF}->{$name};
+    for my $name (sort keys %$spoc_interfaces){
+	my $intf= $spoc_interfaces->{$name};
+        my $conf_intf = $conf_interfaces->{$name};
 	for my $in_out (qw(IN OUT)) {
 	    my $direction = lc($in_out);
 	    my $confacl_name = $conf_intf->{"ACCESS_GROUP_$in_out"} || '';
