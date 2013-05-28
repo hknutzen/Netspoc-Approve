@@ -539,13 +539,13 @@ interface Ethernet1
 END
 
 $out = <<END;
+no set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
 ip access-list extended crypto-filter-Ethernet1-1-DRC-1
 permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
 permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
 deny ip any any
 crypto map crypto-Ethernet1 1
 set ip access-group crypto-filter-Ethernet1-1-DRC-1 out
-no set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
 no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 END
 
