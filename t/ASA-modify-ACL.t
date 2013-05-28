@@ -292,18 +292,18 @@ access-group outside in interface outside
 END
 
 $out = <<'END';
-object-group network g4-DRC-0
-network-object host 4.4.4.4
 object-group network g1-DRC-0
 network-object host 1.1.1.1
-access-list outside line 1 extended permit ip object-group g1-DRC-0 any
-no access-list outside line 2 extended permit ip object-group g1 any
+object-group network g4-DRC-0
+network-object host 4.4.4.4
 access-list inside line 1 extended permit tcp object-group g3 object-group g4-DRC-0
 access-list inside line 4 extended permit tcp object-group g1-DRC-0 object-group g2
 no access-list inside line 5 extended permit tcp object-group g3 object-group g4
 no access-list inside line 2 extended permit tcp object-group g1 object-group g2
-no object-group network g4
+access-list outside line 1 extended permit ip object-group g1-DRC-0 any
+no access-list outside line 2 extended permit ip object-group g1 any
 no object-group network g1
+no object-group network g4
 END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
