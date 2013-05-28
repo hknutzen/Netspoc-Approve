@@ -823,7 +823,7 @@ sub add_object_lines {
     my ($self, $conf, $spoc) = @_;
     my $conf_hash = $conf->{OBJECT} || {};
     my $spoc_hash = $spoc->{OBJECT} || {};
-    for my $name (keys %$spoc_hash) { 
+    for my $name (sort keys %$spoc_hash) { 
         $self->{CHANGE}->{OBJECT} ||= 0;
         next if $conf_hash->{$name};
         $self->{CHANGE}->{OBJECT} = 1;
@@ -844,7 +844,7 @@ sub delete_object_lines {
     my ($self, $conf, $spoc) = @_;
     my $conf_hash = $conf->{OBJECT} || {};
     my $spoc_hash = $spoc->{OBJECT} || {};
-    for my $name (keys %$conf_hash) { 
+    for my $name (sort keys %$conf_hash) { 
         $self->{CHANGE}->{OBJECT} ||= 0;
         next if $spoc_hash->{$name};
         $self->{CHANGE}->{OBJECT} = 1;
@@ -1340,7 +1340,7 @@ sub traverse_netspoc_tree {
 	my $spoc_hash = $spoc->{$parse_name};
 	my $parse = $structure->{$parse_name};
 	my $method = $parse->{transfer};
-	for my $spoc_name ( keys %$spoc_hash ) {
+	for my $spoc_name ( sort keys %$spoc_hash ) {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
 	    if ( $spoc_value->{transfer} ) {
 		if ( my $transfered_as = $spoc_value->{transfered_as} ) {
@@ -1365,20 +1365,20 @@ sub traverse_netspoc_tree {
         my $spoc_anchor = $spoc->{$key};
 
 	# Iterate over anchors in netspoc.
-        for my $spoc_name ( keys %$spoc_anchor ) {
+        for my $spoc_name ( sort keys %$spoc_anchor ) {
 	    $self->transfer1( $spoc, $key,
 			      $spoc_name, $structure );
 	}
     }
 
     # Change attributes of items in place.
-    for my $key ( keys %$structure ) {
+    for my $key ( sort keys %$structure ) {
         my $value = $structure->{$key};
         next if not $value->{anchor};
         my $spoc_anchor = $spoc->{$key};
 
 	# Iterate over objects on device.
-        for my $spoc_name ( keys %$spoc_anchor ) {
+        for my $spoc_name ( sort keys %$spoc_anchor ) {
 	    my $spoc_value = object_for_name( $spoc, $key, $spoc_name );
 	    $self->change_modified_attributes( $spoc, $key,
 			   $spoc_name, $structure );
@@ -1389,7 +1389,7 @@ sub traverse_netspoc_tree {
     # Add or remove entries to/from lists (access-list, object-group).
     for my $parse_name ( qw( ACCESS_LIST OBJECT_GROUP ) ) {
 	my $spoc_hash = $spoc->{$parse_name};
-	for my $spoc_name ( keys %$spoc_hash ) {
+	for my $spoc_name ( sort keys %$spoc_hash ) {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
 	    if($spoc_value->{add_entries} || $spoc_value->{del_entries} 
                || $spoc_value->{modify_cmds}) 
@@ -1418,7 +1418,7 @@ sub remove_unneeded_on_device {
 
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
-	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
+	for my $obj_name ( sort keys %{$conf->{$parse_name}} ) {
 
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 
@@ -1464,7 +1464,7 @@ sub remove_spare_objects_on_device {
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
       OBJECT:
-	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
+	for my $obj_name ( sort keys %{$conf->{$parse_name}} ) {
 	    
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 	    
@@ -1568,7 +1568,7 @@ sub change_attributes {
 	push @cmds, "ip local pool $spoc_name $from-$to mask $mask";
     }
     elsif( $parse_name eq 'IF' ) {
-	for my $attr ( keys %$attributes ) {
+	for my $attr ( sort keys %$attributes ) {
 	    my $value = $attributes->{$attr};
 	    my $direction = $attr =~ /_IN/ ? 'in' : 'out';
 	    push(@cmds, "access-group $value $direction interface $spoc_name");
@@ -1594,7 +1594,7 @@ sub change_attributes {
 	    push @cmds, item_conf_mode_cmd( $parse_name, $spoc_name );
 	}
 	
-	for my $attr ( keys %$attributes ) {
+	for my $attr ( sort keys %$attributes ) {
 	    my $value = $attributes->{$attr};
 
 	    # A hash of attributes, read unchanged from device.
@@ -1647,7 +1647,7 @@ sub remove_attributes {
 	push @cmds, item_conf_mode_cmd( $parse_name, $item_name );
     }
 
-    for my $attr ( keys %{$attributes} ) {
+    for my $attr ( sort keys %{$attributes} ) {
 	my $value = $attributes->{$attr};
 
 	# A hash of attributes, read unchanged from device.
