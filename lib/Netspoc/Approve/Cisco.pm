@@ -372,11 +372,12 @@ sub analyze_conf_lines {
 # ip mask
 # host ip
 # any
+# any4 (for ASA 9.x)
 sub parse_address {
     my ($self, $arg) = @_;
     my ($ip, $mask);
     my $token = get_token($arg);
-    if ($token eq 'any') {
+    if ($token eq 'any' || $token eq 'any4') {
         $ip = $mask = 0;
     }
     elsif ($token eq 'host') {
