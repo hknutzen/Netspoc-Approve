@@ -636,7 +636,7 @@ sub postprocess_config {
     # anchor CRYPTO_MAP_LIST.
     my $lists = $p->{CRYPTO_MAP_LIST} = {};
     my %peers;
-    for my $name (keys %$seq) {
+    for my $name (sort keys %$seq) {
 	my ($map_name, $seq_nr) = split(/:/, $name);
 	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
 	my $peer = $map->{PEER} || $map->{DYNAMIC_MAP} or 
