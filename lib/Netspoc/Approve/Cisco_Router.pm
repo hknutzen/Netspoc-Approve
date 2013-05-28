@@ -90,7 +90,7 @@ sub modify_object_groups {
     my ($self, $conf, $spoc) = @_;
     my $hash = $spoc->{OBJECT_GROUP};
     for my $name (sort keys %$hash) {
-        my $group = $hash->{name};
+        my $group = $hash->{$name};
         my $add = $group->{add_entries};
         my $del = $group->{del_entries};
         ($add || $del) or next;
@@ -140,7 +140,7 @@ sub remove_object_groups {
     my ($self, $conf, $spoc) = @_;
     my $conf_groups = $conf->{OBJECT_GROUP};
     for my $name (sort keys %$conf_groups) {
-        my $group = $conf_groups->{name};
+        my $group = $conf_groups->{$name};
         if ($group->{remove}) {
             $self->cmd("no $group->{orig}");
         }
@@ -172,7 +172,7 @@ sub process_interface_acls {
     my $spoc_interfaces = $spoc->{IF};
     my $conf_interfaces = $conf->{IF};
     for my $name (sort keys %$spoc_interfaces){
-	my $intf= $spoc_interfaces->{$name};
+	my $intf = $spoc_interfaces->{$name};
         my $conf_intf = $conf_interfaces->{$name} or internal_err;
 	for my $in_out (qw(IN OUT)) {
 	    my $direction = lc($in_out);
@@ -202,7 +202,7 @@ sub process_interface_acls {
     my ($line_start, $line_incr) = $self->ACL_line_discipline();
     $self->{CHANGE}->{ACCESS_LIST} = 0;
     for my $name (sort keys %$spoc_interfaces){
-	my $intf= $spoc_interfaces->{$name};
+	my $intf = $spoc_interfaces->{$name};
         my $conf_intf = $conf_interfaces->{$name};
 	for my $in_out (qw(IN OUT)) {
 	    my $direction = lc($in_out);
