@@ -80,6 +80,11 @@ sub set_pager {
     abort("Pager is not disabled - issue 'no pager' manually to continue");
 }
 
+sub set_terminal_width {
+    my ($self) = @_;
+    abort("Set terminal width to 511 manually");
+}
+
 # PIX doesn't like 'end'.
 sub leave_conf_mode {
     my($self) = @_;

@@ -512,6 +512,14 @@ sub set_pager {
     $self->device_cmd('terminal pager 0');
 }
 
+# Max. terminal width for ASA is 511.
+sub set_terminal_width {
+    my ($self) = @_;
+    $self->enter_conf_mode();
+    $self->device_cmd('terminal width 511');
+    $self->leave_conf_mode();
+}
+
 
 sub transfer {
     my ( $self, $conf, $spoc ) = @_;

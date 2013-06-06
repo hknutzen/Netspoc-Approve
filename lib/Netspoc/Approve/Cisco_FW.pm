@@ -768,10 +768,9 @@ sub set_terminal {
 	$self->set_pager();
     }
 
-    # Max. term width is 511 for PIX.
     $output = $self->shcmd('sh term');
     if ($output !~ /511/) {
-        abort("Terminal width should be 511");
+        $self->set_terminal_width();
     }
 }
 
