@@ -139,10 +139,10 @@ sub get_parse_info {
 	};
     { 
 
-	# To enable the association of a name with an IP address.
+	# Defines association of a name with an IP address.
 	# This interferes with parsing of ACL and object-groups.
-	names => {
-	    error => "'names' command must be disabled with 'no names'",
+	name => {
+	    error => "'name' command must not be used",
 	},
 
 #  global [(<ext_if_name>)] <nat_id>
