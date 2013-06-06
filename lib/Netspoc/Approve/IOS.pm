@@ -1100,10 +1100,10 @@ sub crypto_processing {
             info(" --- end compare crypto maps---");
 
 	    # process crypto filter ACLs.
-	    for my $access_group (keys %$changes) {
+	    for my $access_group (sort keys %$changes) {
 		$self->{CHANGE}->{CRYPTO} = 1;
 		my $inout = $access_group =~ /_IN$/ ? 'in' : 'out';
-		for my $sequ (keys %{ $changes->{$access_group} }) {
+		for my $sequ (sort keys %{ $changes->{$access_group} }) {
 		    info("Processing crypto filter changes at crypto map",
                          " $conf_map_name $sequ");
 		    my $change = $changes->{$access_group}->{$sequ};
