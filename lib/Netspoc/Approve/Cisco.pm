@@ -874,8 +874,9 @@ sub mark_object_group_from_acl_entry {
 
 # Build textual representation from ACL entry for use with Algorithm::Diff.
 # $abstract = 1: Ignore name of object-group.
+# $ignore_log = 1: Ignore logging keywords
 sub acl_entry2key0 {
-    my ($e, $abstract) = @_;
+    my ($e, $abstract, $ignore_log) = @_;
 
     if (my $string = $e->{REMARK}) {
         return "remark $string";
@@ -904,7 +905,7 @@ sub acl_entry2key0 {
 	}
 	push(@r, 'established') if $e->{ESTA};
     }
-    if(my $log = $e->{LOG}) {
+    if(my $log = $e->{LOG} && ! $ignore_log) {
 	push(@r, $log);
 	push(@r, $e->{LOG_MODE}) if $e->{LOG_MODE};
 	push(@r, $e->{LOG_LEVEL}) if $e->{LOG_LEVEL};
@@ -915,12 +916,20 @@ sub acl_entry2key0 {
 
 sub acl_entry_abstract2key {
     my ($e) = @_;
-    acl_entry2key0($e, 1);
+    acl_entry2key0($e, 1, 0);
 }
 
 sub acl_entry2key {
     my ($e) = @_;
-    acl_entry2key0($e, 0);
+    acl_entry2key0($e, 0, 0);
+}
+
+# Two ACL lines which differ only in 'log' attribute,
+# can't both be present on a device.
+# Hence we must remove one line before we can add the other one.
+sub acl_entry_no_log2key {
+    my ($e) = @_;
+    acl_entry2key0($e, 0, 1);
 }
 
 # Set {fixed} attribute at object-group from netspoc, if
@@ -1100,7 +1109,7 @@ sub equalize_acl_entries {
             for my $conf_entry ($diff->Items(1)) {
 #               debug "R: $conf_entry->{orig}";
                 if (!$conf_entry->{REMARK}) {
-                    my $key = acl_entry2key($conf_entry);
+                    my $key = acl_entry_no_log2key($conf_entry);
                     $dupl{$key} and 
                         internal_err "Duplicate ACL entry on device";
                     $dupl{$key} = $conf_entry;
@@ -1138,7 +1147,7 @@ sub equalize_acl_entries {
 #               $next_conf_entry eq 'LAST' ? 'LAST' : $next_conf_entry->{orig};
                 
                 # Find lines already present on device
-                my $key = acl_entry2key($spoc_entry);
+                my $key = acl_entry_no_log2key($spoc_entry);
                 my $aref;
                 if (!$spoc_entry->{REMARK} && (my $conf_entry = $dupl{$key})) {
 #                   debug "D: $conf_entry->{orig}";
