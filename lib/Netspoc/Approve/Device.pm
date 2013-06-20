@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.074'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -46,7 +46,8 @@ sub get_cw_password {
     my ($self, $name) = @_;
     my $path = $self->{CONFIG}->{passwdpath} or return;
 
-    open(my $csv, '<', $path) or abort("Can't open $path: $!");
+    open(my $csv, '<', $path) or  ## no critic (ProhibitUnusedVariables)
+      abort("Can't open $path: $!");
     for my $line (<$csv>) {
         chomp $line;
         $line =~ /^[;#]/ and next;
@@ -682,7 +683,6 @@ sub acl_prepare {
     my @all_src;
     my @all_dst;
     my %acl_hash;
-    my @acl_list;
 
     for my $r (@$rules) {
         my $prot = $r->{TYPE};

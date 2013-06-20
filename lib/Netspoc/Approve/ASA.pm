@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.074'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -510,6 +510,14 @@ sub acl_removal_cmd {
 sub set_pager {
     my ($self) = @_;
     $self->device_cmd('terminal pager 0');
+}
+
+# Max. terminal width for ASA is 511.
+sub set_terminal_width {
+    my ($self) = @_;
+    $self->device_cmd('configure terminal');
+    $self->device_cmd('terminal width 511');
+    $self->device_cmd('end');
 }
 
 

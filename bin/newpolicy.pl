@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # newpolicy -- Checkout configuration from Netspoc for Approve
 # http://netspoc.berlios.de
-# (c) 2013 by Heinz Knutzen <heinzknutzen@users.berlios.de>
+# (c) 2013 by Heinz Knutzen <heinz.knutzen@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -153,8 +153,9 @@ system('cvs', '-Q', 'checkout', '-P', '-d', 'src', $module) == 0 or
 
 # Sanity check that working copy of calling user 
 # is identical to just checked out copy.
-system('diff', '-qr', '-x', 'CVS', '-x', '*~', $working, $psrc) == 0 or
-    die "Error: $working isn't up to date\n";
+# Ignore files from cvs and editor backup files.
+system('diff', '-qr', '-x', 'CVS', '-x', '.#*', '-x', '*~', $working, $psrc)
+    == 0 or die "Error: $working isn't up to date\n";
 
 # Compile new policy.
 print STDERR "Compiling policy $count; log files in $plog \n";

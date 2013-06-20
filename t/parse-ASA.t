@@ -96,12 +96,12 @@ nat (inside,outside) source dynamic 10.9.1.0_255.255.255.0 1.1.1.16-1.1.1.31
 END
 
 $out = <<END;
-object network 10.9.1.0_255.255.255.0
-subnet 10.9.1.0 255.255.255.0
 object network 1.1.1.16-1.1.1.31
 range 1.1.1.16 1.1.1.31
 object network 1.1.1.23_255.255.255.255
 subnet 1.1.1.23 255.255.255.255
+object network 10.9.1.0_255.255.255.0
+subnet 10.9.1.0 255.255.255.0
 object network 10.9.1.33_255.255.255.255
 subnet 10.9.1.33 255.255.255.255
 nat (inside,outside) 1 source static 10.9.1.33_255.255.255.255 1.1.1.23_255.255.255.255
@@ -127,13 +127,13 @@ crypto map map-outside interface outside
 END
 
 $out = <<END;
-crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 access-list crypto-acl-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto map map-outside 10 set peer 97.98.99.100
 crypto map map-outside 10 set pfs group2
 crypto map map-outside 10 set security-association lifetime seconds 43200
 crypto map map-outside 10 set security-association lifetime kilobytes 4608000
 crypto map map-outside 10 set transform-set trans
+crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside 10 match address crypto-acl-DRC-0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
@@ -176,8 +176,8 @@ service-type remote-access
 vpn-framed-ip-address 10.1.1.67 255.255.254.0
 exit
 username jon.doe@token.example.com attributes
-vpn-group-policy VPN-group-DRC-0
 vpn-filter value vpn-filter-DRC-0
+vpn-group-policy VPN-group-DRC-0
 exit
 group-policy VPN-group-DRC-0 attributes
 split-tunnel-network-list value split-tunnel-DRC-0
@@ -495,11 +495,11 @@ crypto map crypto-outside 65535 ipsec-isakmp dynamic name2
 END
 
 $out = <<END;
-crypto map crypto-outside 65534 ipsec-isakmp dynamic name2
 access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 2 set peer 10.0.0.2
 crypto map crypto-outside 2 set pfs group2
 crypto map crypto-outside 2 set transform-set Trans
+crypto map crypto-outside 65534 ipsec-isakmp dynamic name2
 crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
 crypto map crypto-outside 3 set pfs group1
 clear configure crypto map crypto-outside 1

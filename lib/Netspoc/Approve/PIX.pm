@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.074'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -78,6 +78,11 @@ sub checkbanner {
 sub set_pager {
     my ($self) = @_;
     abort("Pager is not disabled - issue 'no pager' manually to continue");
+}
+
+sub set_terminal_width {
+    my ($self) = @_;
+    abort("Set terminal width to 511 manually");
 }
 
 # PIX doesn't like 'end'.

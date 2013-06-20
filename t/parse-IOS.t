@@ -200,8 +200,7 @@ ip access-list resequence test-DRC-0 10000 10000
 ip access-list extended test-DRC-0
 no 60000\\N 1 permit icmp any host 10.0.1.11 3 3
 40001 permit udp host 10.0.12.3 host 10.0.1.11 eq 80
-40003 deny ip any any log-input
-no 70000
+no 70000\\N 40003 deny ip any any log-input
 no 50000
 no 30000\\N 40002 permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
 ip access-list resequence test-DRC-0 10 10
@@ -539,13 +538,13 @@ interface Ethernet1
 END
 
 $out = <<END;
+no set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
 ip access-list extended crypto-filter-Ethernet1-1-DRC-1
 permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
 permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
 deny ip any any
 crypto map crypto-Ethernet1 1
 set ip access-group crypto-filter-Ethernet1-1-DRC-1 out
-no set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
 no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 END
 

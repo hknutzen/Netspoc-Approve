@@ -24,7 +24,8 @@ sub load {
     my $result;
     for my $file (@paths) {
         -f $file or next;
-        open(my $fh, '<', $file) or carp("Can't open $file: $!");
+        open(my $fh, '<', $file) or  ## no critic (ProhibitUnusedVariables)
+          carp("Can't open $file: $!");
         while (<$fh>){
             chomp;
             s/^\s*//;

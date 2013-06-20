@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.074'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -1100,10 +1100,10 @@ sub crypto_processing {
             info(" --- end compare crypto maps---");
 
 	    # process crypto filter ACLs.
-	    for my $access_group (keys %$changes) {
+	    for my $access_group (sort keys %$changes) {
 		$self->{CHANGE}->{CRYPTO} = 1;
 		my $inout = $access_group =~ /_IN$/ ? 'in' : 'out';
-		for my $sequ (keys %{ $changes->{$access_group} }) {
+		for my $sequ (sort keys %{ $changes->{$access_group} }) {
 		    info("Processing crypto filter changes at crypto map",
                          " $conf_map_name $sequ");
 		    my $change = $changes->{$access_group}->{$sequ};

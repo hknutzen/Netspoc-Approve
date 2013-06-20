@@ -15,7 +15,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.074'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -372,11 +372,12 @@ sub analyze_conf_lines {
 # ip mask
 # host ip
 # any
+# any4 (for ASA 9.x)
 sub parse_address {
     my ($self, $arg) = @_;
     my ($ip, $mask);
     my $token = get_token($arg);
-    if ($token eq 'any') {
+    if ($token eq 'any' || $token eq 'any4') {
         $ip = $mask = 0;
     }
     elsif ($token eq 'host') {
@@ -563,14 +564,9 @@ sub route_del {
     return("no $entry->{orig}");
 }
 
-# Read hostname from prompt
 sub get_identity {
     my ($self) = @_;
-
-    # Force new prompt by issuing empty command.
-    my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^\r\n\s*(\S+)\#\s?$/;
-    return $1;
+    return ($self->get_cmd_output('show hostname'))->[0];
 }
 
 sub login_enable {
@@ -864,6 +860,7 @@ sub mark_object_group_from_acl {
 
 sub mark_object_group_from_acl_entry {
     my ($self, $acl_entry) = @_;
+    return if $acl_entry->{REMARK};
     for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
         my $what = $acl_entry->{$where};
         if(my $group = ref($what) && $what->{GROUP}) {
@@ -877,8 +874,14 @@ sub mark_object_group_from_acl_entry {
 
 # Build textual representation from ACL entry for use with Algorithm::Diff.
 # $abstract = 1: Ignore name of object-group.
+# $ignore_log = 1: Ignore logging keywords
 sub acl_entry2key0 {
-    my ($e, $abstract) = @_;
+    my ($e, $abstract, $ignore_log) = @_;
+
+    if (my $string = $e->{REMARK}) {
+        return "remark $string";
+    }
+
     my @r;
     push(@r, $e->{MODE});
     for my $where (qw(SRC DST)) {
@@ -902,8 +905,8 @@ sub acl_entry2key0 {
 	}
 	push(@r, 'established') if $e->{ESTA};
     }
-    if($e->{LOG}) {
-	push(@r, 'log');
+    if(my $log = $e->{LOG} && ! $ignore_log) {
+	push(@r, $log);
 	push(@r, $e->{LOG_MODE}) if $e->{LOG_MODE};
 	push(@r, $e->{LOG_LEVEL}) if $e->{LOG_LEVEL};
 	push(@r, "interval $e->{LOG_INTERVAL}") if $e->{LOG_INTERVAL};
@@ -913,12 +916,20 @@ sub acl_entry2key0 {
 
 sub acl_entry_abstract2key {
     my ($e) = @_;
-    acl_entry2key0($e, 1);
+    acl_entry2key0($e, 1, 0);
 }
 
 sub acl_entry2key {
     my ($e) = @_;
-    acl_entry2key0($e, 0);
+    acl_entry2key0($e, 0, 0);
+}
+
+# Two ACL lines which differ only in 'log' attribute,
+# can't both be present on a device.
+# Hence we must remove one line before we can add the other one.
+sub acl_entry_no_log2key {
+    my ($e) = @_;
+    acl_entry2key0($e, 0, 1);
 }
 
 # Set {fixed} attribute at object-group from netspoc, if
@@ -934,6 +945,7 @@ sub acl_entry2key {
 sub fix_transfer_groups {
     my ($self, $entry, $dupl, $abstract) = @_;
     return if ! keys %$dupl;
+    return if $entry->{REMARK};
     my @need_fix;
     for my $where (qw(SRC DST)) {
 	my $what = $entry->{$where};
@@ -974,6 +986,7 @@ sub equalize_acl_groups {
 	    my $spoc_min = $diff->Min(2);
 	    for my $i (0 .. $count) {
 		my $conf_entry = $conf_entries->[$conf_min+$i];
+                next if $conf_entry->{REMARK};
 		my $spoc_entry = $spoc_entries->[$spoc_min+$i];
 		for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
                     my $what = $conf_entry->{$where};
@@ -1095,9 +1108,12 @@ sub equalize_acl_entries {
         if ($diff->Diff() & 1) {
             for my $conf_entry ($diff->Items(1)) {
 #               debug "R: $conf_entry->{orig}";
-                my $key = acl_entry2key($conf_entry);
-		$dupl{$key} and internal_err "Duplicate ACL entry on device";
-		$dupl{$key} = $conf_entry;
+                if (!$conf_entry->{REMARK}) {
+                    my $key = acl_entry_no_log2key($conf_entry);
+                    $dupl{$key} and 
+                        internal_err "Duplicate ACL entry on device";
+                    $dupl{$key} = $conf_entry;
+                }
                 push @delete, $conf_entry;
             }
         }
@@ -1131,9 +1147,9 @@ sub equalize_acl_entries {
 #               $next_conf_entry eq 'LAST' ? 'LAST' : $next_conf_entry->{orig};
                 
                 # Find lines already present on device
-                my $key = acl_entry2key($spoc_entry);
+                my $key = acl_entry_no_log2key($spoc_entry);
                 my $aref;
-                if (my $conf_entry = $dupl{$key}) {
+                if (!$spoc_entry->{REMARK} && (my $conf_entry = $dupl{$key})) {
 #                   debug "D: $conf_entry->{orig}";
 		    
 		    # Abort move operation, if this ACL line permits

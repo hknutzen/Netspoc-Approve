@@ -1,3 +1,16 @@
+1.074     2013-06-20 12:51:38 Europe/Berlin
+
+ - No longer abort on 'names' command.
+   Instead the 'name' command must not be used.
+ - Support keyword 'any4' in ACL (for ASA 9.x).
+ - Support keyword 'destination' in service-object of ASA.
+ - Support 'remark' in ACL.
+ - Handle ACL lines that only differ in 'log' keyword.
+ - Ignore time-range when parsing ACL.
+ - Use 'show hostname' and no longer the prompt 
+   to get hostname of Cisco device.
+ - Command "newpolicy" now ignores files matching '.#*' in working copy.
+
 1.073     2013-05-14 17:43:57 Europe/Berlin
 
  - Ignore subcommand of "crypto ipsec transform-set"

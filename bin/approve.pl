@@ -14,7 +14,7 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.074'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
@@ -135,7 +135,7 @@ my $failed = system($cmd);
 
 my ($warnings, $errors, $changes);
 $errors++ if $failed;
-if (open(my $log, '<', $logfile)) {
+if (open(my $log, '<', $logfile)) { ## no critic (ProhibitUnusedVariables)
     while (<$log>) {
 	if (/WARNING>>>/) {
             $warnings++;

@@ -7,7 +7,7 @@ package Netspoc::Approve::Cisco_FW;
 # Base class for Cisco firewalls (ASA, PIX, FWSM)
 #
 
-our $VERSION = '1.073'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.074'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -139,10 +139,10 @@ sub get_parse_info {
 	};
     { 
 
-	# To enable the association of a name with an IP address.
+	# Defines association of a name with an IP address.
 	# This interferes with parsing of ACL and object-groups.
-	names => {
-	    error => "'names' command must be disabled with 'no names'",
+	name => {
+	    error => "'name' command must not be used",
 	},
 
 #  global [(<ext_if_name>)] <nat_id>
@@ -341,6 +341,7 @@ sub get_parse_info {
                          ['cond1', { store => 'TYPE', parse => qr/ip/ }, ],
                          ['cond1',
                           { store => 'TYPE', parse => qr/udp|tcp|tcp-udp/ },
+                          { parse => qr/destination/, default => 1, },
                           { store => 'PORT', 
                             parse => 'parse_port_spec', params => ['$TYPE'] } ],
                         ['cond1',
@@ -407,12 +408,11 @@ sub get_parse_info {
 		  ['or',
 
 		   # ignore 'access-list <name> compiled'
-		   # ignore 'access-list <name> remark ...'
 		   { parse => qr/compiled/ },
+
 		   ['cond1',
 		    { parse => qr/remark/ },
-		    { parse => \&skip,
-                      error => "'remark' not supported in ACL compare",} ],
+		    { store => 'REMARK', parse => \&get_to_eol } ],
 		   
 		   ['or', # standard or extended access-list
 		    ['cond1',
@@ -456,6 +456,12 @@ sub get_parse_info {
 			 parse => 'normalize_proto', params => [ '$TYPE' ] },
 		       { store => 'SRC', parse => 'parse_address' },
 		       { store => 'DST', parse => 'parse_address' } ]],
+
+                     # Ignore time-range
+                     ['cond1',
+                      { parse => qr/time-range/ },
+                      { parse => \&get_token } ],
+
 		     ['cond1',
 		      { store => 'LOG', parse => qr/log/ },
 		      ['or',
@@ -590,6 +596,7 @@ sub postprocess_config {
         
         # Change object-group NAME to object-group OBJECT in ACL entries.
         for my $entry (@$entries) {
+            next if $entry->{REMARK};
             for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
                 my $what = $entry->{$where};
                 my $group_name = ref($what) && $what->{GROUP_NAME} or next;
@@ -629,7 +636,7 @@ sub postprocess_config {
     # anchor CRYPTO_MAP_LIST.
     my $lists = $p->{CRYPTO_MAP_LIST} = {};
     my %peers;
-    for my $name (keys %$seq) {
+    for my $name (sort keys %$seq) {
 	my ($map_name, $seq_nr) = split(/:/, $name);
 	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
 	my $peer = $map->{PEER} || $map->{DYNAMIC_MAP} or 
@@ -740,15 +747,6 @@ sub cmd_check_error {
     }
 }
 
-sub get_identity {
-    my ($self) = @_;
-    my $name = $self->SUPER::get_identity();
-    
-    # Ignore customized prompt extensions following the first slash "/".
-    $name =~ s(/.*)();
-    return($name);
-}
-
 sub parse_version {
     my ($self) = @_;
     my $output = $self->shcmd('sh ver');
@@ -770,10 +768,9 @@ sub set_terminal {
 	$self->set_pager();
     }
 
-    # Max. term width is 511 for PIX.
     $output = $self->shcmd('sh term');
     if ($output !~ /511/) {
-        abort("Terminal width should be 511");
+        $self->set_terminal_width();
     }
 }
 
@@ -825,7 +822,7 @@ sub add_object_lines {
     my ($self, $conf, $spoc) = @_;
     my $conf_hash = $conf->{OBJECT} || {};
     my $spoc_hash = $spoc->{OBJECT} || {};
-    for my $name (keys %$spoc_hash) { 
+    for my $name (sort keys %$spoc_hash) { 
         $self->{CHANGE}->{OBJECT} ||= 0;
         next if $conf_hash->{$name};
         $self->{CHANGE}->{OBJECT} = 1;
@@ -846,7 +843,7 @@ sub delete_object_lines {
     my ($self, $conf, $spoc) = @_;
     my $conf_hash = $conf->{OBJECT} || {};
     my $spoc_hash = $spoc->{OBJECT} || {};
-    for my $name (keys %$conf_hash) { 
+    for my $name (sort keys %$conf_hash) { 
         $self->{CHANGE}->{OBJECT} ||= 0;
         next if $spoc_hash->{$name};
         $self->{CHANGE}->{OBJECT} = 1;
@@ -1109,9 +1106,7 @@ sub make_equal {
 
 	# Mark object-groups referenced by acl lines.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
-	    for my $spoc_entry (@{ $spoc_value->{LIST} }) {
-                $self->mark_object_group_from_acl_entry($spoc_entry);
-	    }
+            $self->mark_object_group_from_acl($spoc_value);
 	}
 
 	# Mark referenced CRYPTO_MAP_SEQ elements.
@@ -1344,7 +1339,7 @@ sub traverse_netspoc_tree {
 	my $spoc_hash = $spoc->{$parse_name};
 	my $parse = $structure->{$parse_name};
 	my $method = $parse->{transfer};
-	for my $spoc_name ( keys %$spoc_hash ) {
+	for my $spoc_name ( sort keys %$spoc_hash ) {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
 	    if ( $spoc_value->{transfer} ) {
 		if ( my $transfered_as = $spoc_value->{transfered_as} ) {
@@ -1369,20 +1364,20 @@ sub traverse_netspoc_tree {
         my $spoc_anchor = $spoc->{$key};
 
 	# Iterate over anchors in netspoc.
-        for my $spoc_name ( keys %$spoc_anchor ) {
+        for my $spoc_name ( sort keys %$spoc_anchor ) {
 	    $self->transfer1( $spoc, $key,
 			      $spoc_name, $structure );
 	}
     }
 
     # Change attributes of items in place.
-    for my $key ( keys %$structure ) {
+    for my $key ( sort keys %$structure ) {
         my $value = $structure->{$key};
         next if not $value->{anchor};
         my $spoc_anchor = $spoc->{$key};
 
 	# Iterate over objects on device.
-        for my $spoc_name ( keys %$spoc_anchor ) {
+        for my $spoc_name ( sort keys %$spoc_anchor ) {
 	    my $spoc_value = object_for_name( $spoc, $key, $spoc_name );
 	    $self->change_modified_attributes( $spoc, $key,
 			   $spoc_name, $structure );
@@ -1393,7 +1388,7 @@ sub traverse_netspoc_tree {
     # Add or remove entries to/from lists (access-list, object-group).
     for my $parse_name ( qw( ACCESS_LIST OBJECT_GROUP ) ) {
 	my $spoc_hash = $spoc->{$parse_name};
-	for my $spoc_name ( keys %$spoc_hash ) {
+	for my $spoc_name ( sort keys %$spoc_hash ) {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
 	    if($spoc_value->{add_entries} || $spoc_value->{del_entries} 
                || $spoc_value->{modify_cmds}) 
@@ -1422,7 +1417,7 @@ sub remove_unneeded_on_device {
 
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
-	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
+	for my $obj_name ( sort keys %{$conf->{$parse_name}} ) {
 
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 
@@ -1468,7 +1463,7 @@ sub remove_spare_objects_on_device {
     for my $parse_name ( @parse_names ) {
 	my $parse = $structure->{$parse_name};
       OBJECT:
-	for my $obj_name ( keys %{$conf->{$parse_name}} ) {
+	for my $obj_name ( sort keys %{$conf->{$parse_name}} ) {
 	    
 	    my $object = object_for_name( $conf, $parse_name, $obj_name );
 	    
@@ -1511,7 +1506,8 @@ sub mark_connected {
     # Mark object-groups referenced by access-list
     if ($parse_name eq 'ACCESS_LIST') {
         for my $entry (@{ $object->{LIST} }) {
-            for my $where (qw(SRC DST)) {
+            next if $entry->{REMARK};
+            for my $where (qw(TYPE SRC DST SRC_PORT DST_PORT)) {
                 my $what = $entry->{$where};
                 my $group = ref($what) && $what->{GROUP} or next;
                 $group->{connected} = 1;
@@ -1571,7 +1567,7 @@ sub change_attributes {
 	push @cmds, "ip local pool $spoc_name $from-$to mask $mask";
     }
     elsif( $parse_name eq 'IF' ) {
-	for my $attr ( keys %$attributes ) {
+	for my $attr ( sort keys %$attributes ) {
 	    my $value = $attributes->{$attr};
 	    my $direction = $attr =~ /_IN/ ? 'in' : 'out';
 	    push(@cmds, "access-group $value $direction interface $spoc_name");
@@ -1597,7 +1593,7 @@ sub change_attributes {
 	    push @cmds, item_conf_mode_cmd( $parse_name, $spoc_name );
 	}
 	
-	for my $attr ( keys %$attributes ) {
+	for my $attr ( sort keys %$attributes ) {
 	    my $value = $attributes->{$attr};
 
 	    # A hash of attributes, read unchanged from device.
@@ -1650,7 +1646,7 @@ sub remove_attributes {
 	push @cmds, item_conf_mode_cmd( $parse_name, $item_name );
     }
 
-    for my $attr ( keys %{$attributes} ) {
+    for my $attr ( sort keys %{$attributes} ) {
 	my $value = $attributes->{$attr};
 
 	# A hash of attributes, read unchanged from device.

@@ -1,6 +1,6 @@
 #!/bin/sh
 # missing-approve -- Show devices with missing approve.
-# http://netspoc.berlios.de
+# http://hknutzen.github.com/Netspoc
 # (c) 2013 by Heinz Knutzen <heinz.knutzen@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
