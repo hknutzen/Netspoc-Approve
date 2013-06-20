@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.074'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.075'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -517,6 +517,16 @@ sub postprocess_config {
 	    }
         }
     }
+}
+
+# Read hostname from prompt
+sub get_identity {
+    my ($self) = @_;
+
+    # Force new prompt by issuing empty command.
+    my $result = $self->issue_cmd('');
+    $result->{MATCH} =~ m/^\r\n\s*(\S+)\#\s?$/;
+    return $1;
 }
 
 sub get_config_from_device {
