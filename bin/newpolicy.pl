@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # newpolicy -- Checkout configuration from Netspoc for Approve
 # http://netspoc.berlios.de
-# (c) 2013 by Heinz Knutzen <heinzknutzen@users.berlios.de>
+# (c) 2013 by Heinz Knutzen <heinz.knutzen@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
