@@ -519,6 +519,16 @@ sub postprocess_config {
     }
 }
 
+# Read hostname from prompt
+sub get_identity {
+    my ($self) = @_;
+
+    # Force new prompt by issuing empty command.
+    my $result = $self->issue_cmd('');
+    $result->{MATCH} =~ m/^\r\n\s*(\S+)\#\s?$/;
+    return $1;
+}
+
 sub get_config_from_device {
     my ($self) = @_;
     $self->get_cmd_output('sh run');
