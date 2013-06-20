@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+1.075     2013-06-20 14:30:54 Europe/Berlin
+
+ - Bug fix: Again read hostname from prompt for IOS.
+
 1.074     2013-06-20 12:51:38 Europe/Berlin
 
  - No longer abort on 'names' command.
