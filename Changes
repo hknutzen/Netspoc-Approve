@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+1.076     2013-06-20 16:11:19 Europe/Berlin
+
+ - Bug fix: Again read hostname from prompt for PIX.
+
 1.075     2013-06-20 14:30:54 Europe/Berlin
 
  - Bug fix: Again read hostname from prompt for IOS.
