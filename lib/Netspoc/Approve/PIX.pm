@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.075'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.076'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -63,6 +63,16 @@ sub postprocess_config {
 	$p->{IF}->{$name}->{MASK} = $address->{MASK};
     }
     $self->SUPER::postprocess_config($p);
+}
+
+# Read hostname from prompt
+sub get_identity {
+    my ($self) = @_;
+
+    # Force new prompt by issuing empty command.
+    my $result = $self->issue_cmd('');
+    $result->{MATCH} =~ m/^\r\n\s*(\S+)\#\s?$/;
+    return $1;
 }
 
 sub checkbanner {
