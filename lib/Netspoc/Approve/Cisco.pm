@@ -575,7 +575,7 @@ sub login_enable {
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
 
     # First, try to get password from CiscoWorks.
-    my $pass = $self->get_cw_password($self->{NAME});
+    my $pass = $self->get_cw_password();
     my $user;
     if(not $pass) {
 	($user, $pass) = $self->get_aaa_password();

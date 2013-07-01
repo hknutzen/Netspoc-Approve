@@ -43,8 +43,9 @@ sub new {
 #   - empty lines.
 #   - comment lines starting with ';' or #
 sub get_cw_password {
-    my ($self, $name) = @_;
+    my ($self) = @_;
     my $path = $self->{CONFIG}->{passwdpath} or return;
+    my $name = $self->{NAME};
 
     open(my $csv, '<', $path) or  ## no critic (ProhibitUnusedVariables)
       abort("Can't open $path: $!");
