@@ -75,7 +75,7 @@ sub get_aaa_password {
 	    or abort("Could not open $aaa_credential: $!");
 	my $credentials = <$file>;
 	close($file);
-	($user, $pass) = $credentials =~ (/^\s*(\S+)\s*(\S+)\s*$/)
+	($user, $pass) = ($credentials =~ /^\s*(\S+)\s*(\S+)\s*$/)
 	    or abort("No AAA credential found");
 	info("User $user extracted from aaa credentials");
     }
