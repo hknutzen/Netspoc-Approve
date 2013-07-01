@@ -73,8 +73,8 @@ sub get_aaa_password {
 	my $aaa_credential = $self->{CONFIG}->{aaa_credentials}
             or abort("Must configure AAA_CREDENTIALS together with SYSTEMUSER");
 	open(my $file, '<', $aaa_credential)
-	    or abort("Could not open $aaa_credential: $!");
-	my $credentials = <$file>;
+	    or abort("Can't open $aaa_credential: $!");
+	my @lines = <$file>;
 	close($file);
 	($user, $pass) = ($credentials =~ /^\s*(\S+)\s*(\S+)\s*$/)
 	    or abort("No AAA credential found");
@@ -126,7 +126,7 @@ sub load_spocfile {
     my ($self, $path) = @_;
     my @result;
 
-    open(my $file, '<', $path) or abort("Could not open spocfile $path: $!");
+    open(my $file, '<', $path) or abort("Can't open spocfile $path: $!");
     @result = <$file>;
     close($file);
 
@@ -140,7 +140,7 @@ sub load_raw {
     my $raw = "$path.raw";
     my @result;
     if (-f $raw) {
-        open(my $file, '<', $raw) or abort("Could not open $raw: $!");
+        open(my $file, '<', $raw) or abort("Can't open $raw: $!");
         @result = <$file>;
         close $file;
     }
@@ -1105,7 +1105,7 @@ sub get_version {
     my ($self) = @_;
     $self->parse_version();
     if (! defined($self->{VERSION})) {
-	abort("Could not identify device version ");
+	abort("Can't identify device version");
     }
     $self->{HARDWARE} ||= 'unknown';
     info("DINFO: $self->{HARDWARE} $self->{VERSION}");
@@ -1226,13 +1226,13 @@ sub logging {
     if ($dirname && ! -d $dirname) {
         if (mkdir($dirname, 0755)) {
 	    defined(chmod(0755, $dirname))
-		or abort("Couldn't chmod logdir $dirname: $!");
+		or abort("Can't chmod logdir $dirname: $!");
 	}
 
 	# Check -d again, because some other process may have created 
 	# the directory in the meantime.
 	elsif (! -d $dirname) {
-	    abort("Couldn't create $dirname: $!");
+	    abort("Can't create $dirname: $!");
 	}
     }
 
@@ -1240,14 +1240,14 @@ sub logging {
     if (-f $logfile) {
         my $date = time();
         system("mv $logfile $logfile.$date") == 0
-            or abort("Could not backup $logfile: $!");
+            or abort("Can't backup $logfile: $!");
     }
 
-    open(STDOUT, '>', $logfile) or abort("Could not open $logfile: $!");
-    chmod(0644, $logfile) or abort("Could not chmod $logfile: $!");
+    open(STDOUT, '>', $logfile) or abort("Can't open $logfile: $!");
+    chmod(0644, $logfile) or abort("Can't chmod $logfile: $!");
 
     open(STDERR, ">&STDOUT")
-        or abort("STDERR redirect: could not open $logfile: $!");
+        or abort("STDERR redirect: Can't open $logfile: $!");
 }
 
 {
@@ -1261,19 +1261,19 @@ sub logging {
         my $lockfile = "$self->{CONFIG}->{lockfiledir}/$name";
         my $file_exists = -f $lockfile;
         open($lock_fh, '>', $lockfile)
-          or abort("Couldn't aquire lock file $lockfile: $!");
+          or abort("Can't aquire lock file $lockfile: $!");
 
         # Make newly created lock file writable for other users.
         $file_exists 
           or chmod(0666, $lockfile)
-          or abort("Couldn't chmod lockfile $lockfile: $!");
+          or abort("Can't chmod lockfile $lockfile: $!");
         flock($lock_fh, LOCK_EX | LOCK_NB)
           or abort($!, "Approve in progress for $name");
     }
 
     sub unlock {
         my ($self, $name) = @_;
-        close($lock_fh) or abort("Could not unlock lockfile: $!");
+        close($lock_fh) or abort("Can't unlock lockfile: $!");
     }
 }
 
