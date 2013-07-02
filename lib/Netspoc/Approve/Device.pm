@@ -65,8 +65,8 @@ sub get_cw_password {
 sub match {
     my ($pattern, $name) = @_;
 
-    # Escape all regex meta characters.
-    $pattern =~ s/([^*?]+)/\@$1\E/g;
+    # Escape other regex meta characters.
+    $pattern =~ s/([^*?]+)/\Q$1\E/g;
 
     # Substitute * and ? by real regexes
     $pattern =~ s/\*/.*/g;
