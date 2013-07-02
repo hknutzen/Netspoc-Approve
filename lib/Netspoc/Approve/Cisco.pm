@@ -76,6 +76,7 @@ our %IP_Names = (
     'esp'    => 50,
     'gre'    => 47,
 #    'icmp'   => 1,
+    'icmp6'  => 58,
     'igmp'   => 2,
     'igrp'   => 9,
     'ipinip' => 4,
