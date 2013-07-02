@@ -62,25 +62,68 @@ sub get_cw_password {
     return;
 }
 
+sub match {
+    my ($pattern, $name) = @_;
+
+    # Escape all regex meta characters.
+    $pattern =~ s/([^*?]+)/\@$1\E/g;
+
+    # Substitute * and ? by real regexes
+    $pattern =~ s/\*/.*/g;
+    $pattern =~ s/\?/./g;
+
+    return $name =~ /^$pattern$/;
+}
+
+# Format of aaa_credentials file
+# - multiple lines
+# - three fields, separated by whitespace: pattern username password
+# - If current device name matches pattern, then return username and password.
+# - Pattern may contain shell wildcard characters
+#   * matches zero or more characters
+#   ? matches one character
+# - First matching line is taken.
+#
+# Old format:
+# - Only a single line with two fields: "username password"
+# - is equivalent to "* username password"
 sub get_aaa_password {
     my ($self) = @_;
     my $pass;
     my $user = getpwuid($>);
+    my $name = $self->{NAME};
     my $system_user = $self->{CONFIG}->{systemuser};
-    if ($system_user && $user eq $system_user) {
+    $system_user and $user eq $system_user or return $user;
 
-	# Use AAA credentials.
-	my $aaa_credential = $self->{CONFIG}->{aaa_credentials}
-            or abort("Must configure AAA_CREDENTIALS together with SYSTEMUSER");
-	open(my $file, '<', $aaa_credential)
-	    or abort("Can't open $aaa_credential: $!");
-	my @lines = <$file>;
-	close($file);
-	($user, $pass) = ($credentials =~ /^\s*(\S+)\s*(\S+)\s*$/)
-	    or abort("No AAA credential found");
-	info("User $user extracted from aaa credentials");
+    my $aaa_credential = $self->{CONFIG}->{aaa_credentials}
+       or abort("Must configure AAA_CREDENTIALS together with SYSTEMUSER");
+    open(my $file, '<', $aaa_credential)
+       or abort("Can't open $aaa_credential: $!");
+    my @lines = <$file>;
+    close($file);
+
+    # Convert old format.
+    if (@lines == 1 && split(' ', $lines[0]) == 2) {
+        $lines[0] = "* $lines[0]";
     }
-    return ($user, $pass);
+    for my $line (@lines) {
+
+        # Strip leading and trailing whitespace.
+        $line =~ s/^\s*//;
+        $line =~ s/\s*$//;
+
+        # Ignore comments.
+        $line =~ /^[#]/ and next;
+
+        (my ($pattern, $user, $pass) = split(' ', $line)) == 3 or
+            abort("Expected 3 fileds in line of $aaa_credential: $line");
+
+        if (match($pattern, $name)) {
+            info("User $user extracted from aaa credentials");
+            return($user, $pass);
+        }
+    }
+    abort("No matching AAA credential found");
 }
 
 sub get_user_password {
