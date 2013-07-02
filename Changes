@@ -1,3 +1,18 @@
+1.077     2013-07-02 16:05:18 Europe/Berlin
+
+ - Added protocol name 'icmp6' => 58 for Cisco devices.
+ - New format for aaa_credentials file
+   - multiple lines
+   - three fields, separated by whitespace: pattern username password
+   - If current device name matches pattern, then return username and password.
+   - Pattern may contain shell wildcard characters
+     * matches zero or more characters
+     ? matches one character
+   - First matching line is taken.
+   Old format is still supported
+   - Only a single line with two fields: "username password"
+   - is equivalent to "* username password"
+
 1.076     2013-06-20 16:11:19 Europe/Berlin
 
  - Bug fix: Again read hostname from prompt for PIX.

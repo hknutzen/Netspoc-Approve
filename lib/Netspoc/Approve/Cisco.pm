@@ -15,7 +15,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.076'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.077'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -76,6 +76,7 @@ our %IP_Names = (
     'esp'    => 50,
     'gre'    => 47,
 #    'icmp'   => 1,
+    'icmp6'  => 58,
     'igmp'   => 2,
     'igrp'   => 9,
     'ipinip' => 4,
@@ -575,7 +576,7 @@ sub login_enable {
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
 
     # First, try to get password from CiscoWorks.
-    my $pass = $self->get_cw_password($self->{NAME});
+    my $pass = $self->get_cw_password();
     my $user;
     if(not $pass) {
 	($user, $pass) = $self->get_aaa_password();
