@@ -102,21 +102,26 @@ sub get_aaa_password {
     my @lines = <$file>;
     close($file);
 
-    # Convert old format.
-    if (@lines == 1 && split(' ', $lines[0]) == 2) {
-        $lines[0] = "* $lines[0]";
+    # Strip leading and trailing whitespace and comments.
+    for (@lines) {
+        s/^\s*//; 
+        s/\s*$//; 
+        s/^[#]//; 
     }
+
+    # Ignore empty lines.
+    @lines = grep { $_ ne '' } @lines;
+
     for my $line (@lines) {
+        my $count = (my ($pattern, $user, $pass) = split(' ', $line));
 
-        # Strip leading and trailing whitespace.
-        $line =~ s/^\s*//;
-        $line =~ s/\s*$//;
-
-        # Ignore comments.
-        $line =~ /^[#]/ and next;
-
-        (my ($pattern, $user, $pass) = split(' ', $line)) == 3 or
-            abort("Expected 3 fileds in line of $aaa_credential: $line");
+        # Convert old format.
+        if ($count == 2 && @lines == 1) {
+            ($pattern, $user, $pass) = ( '*', $pattern, $user);
+        }
+        elsif ($count != 3) {
+            abort("Expected 3 fields in lines of $aaa_credential");
+        }
 
         if (match($pattern, $name)) {
             info("User $user extracted from aaa credentials");
