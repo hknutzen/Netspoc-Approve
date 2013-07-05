@@ -106,7 +106,7 @@ sub get_aaa_password {
     for (@lines) {
         s/^\s*//; 
         s/\s*$//; 
-        s/^[#]//; 
+        s/^[#].*//; 
     }
 
     # Ignore empty lines.
