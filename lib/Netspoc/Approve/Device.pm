@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.077'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.078'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -106,7 +106,7 @@ sub get_aaa_password {
     for (@lines) {
         s/^\s*//; 
         s/\s*$//; 
-        s/^[#]//; 
+        s/^[#].*//; 
     }
 
     # Ignore empty lines.
