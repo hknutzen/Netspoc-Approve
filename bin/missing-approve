@@ -54,27 +54,39 @@ for device in * ; do
     # Check status of last approve
     # OK|***WARNINGS***|***ERRORS***|***UNFINISHED APPROVE***
     case $(cut -d';' -f4 $file) in
-	OK|\*\*\*WARNINGS\*\*\*) ;;
+	OK|\*\*\*WARNINGS\*\*\*) 
+            # This policy has been approved to device
+            approved=$(cut -d';' -f3 $file)
+            anum=$(echo $approved | sed 's/[^0-9]//g')
+            ;;
 	*)
             # There had been errors during last approve
-	    missing $device
-	    continue
+            anum=-1
+            ;;
     esac
-    # This policy has been approved to device
-    approved=$(cut -d';' -f3 $file)
-    last=$approved
-    anum=$(echo $approved | sed 's/[^0-9]//g')
 
-    # Check, if a newer policy has been successfully compared
     # Check status of last Compare: DIFF|UPTODATE
     case $(cut -d';' -f13 $file) in
 	UPTODATE)
             # This policy was used during compare.
 	    compared=$(cut -d';' -f14 $file)
 	    cnum=$(echo $compared | sed 's/[^0-9]//g')
-	    [ $cnum -gt $anum ] && last=$compared
 	    ;;
+        *)
+            cnum=-1
+            ;;
     esac
+
+    # Both failed
+    if [ $anum = -1 -a $cnum = -1 ] ; then
+        missing $device
+        continue
+    # Take newer policy
+    elif [ $anum -gt $cnum ] ; then
+        last=$approved
+    else
+        last=$compared
+    fi
     
     # If device' policy is equal to current policy, we are finished.
     [ $last = $POLICY ] && continue
