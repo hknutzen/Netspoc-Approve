@@ -7,11 +7,6 @@ set -e
 # Start that many jobs in parallel.
 PARALLEL=$(expr "$1" \| 40)
 
-# Get directory from config file
-DIR=$(get-netspoc-approve-conf netspocdir)
-cd $DIR/current/code
-
-for device in * ; do
-    case $device in *.raw|\*) continue;; esac
+for device in $(missing-approve) ; do
     echo diamonds approve --brief $device
 done | start-jobs -q $PARALLEL
