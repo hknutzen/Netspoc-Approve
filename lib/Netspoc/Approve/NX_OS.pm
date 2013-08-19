@@ -30,6 +30,8 @@ sub get_parse_info {
                                  store_multi => ['BASE', 'MASK'] }],
                     store => 'ADDRESS',
                 },
+                'ip address _skip secondary' =>  { 
+                    parse => \&skip }, # ignore
                 'ip access-group _skip in' => {
                     parse => \&get_token, 
                     store => 'ACCESS_GROUP_IN', 
