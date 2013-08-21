@@ -567,7 +567,11 @@ sub route_del {
 
 sub get_identity {
     my ($self) = @_;
-    return ($self->get_cmd_output('show hostname'))->[0];
+    my $name = ($self->get_cmd_output('show hostname'))->[0];
+    
+    # Ignore domain-name 
+    $name =~ s/[.].*//;
+    return $name;
 }
 
 sub login_enable {
