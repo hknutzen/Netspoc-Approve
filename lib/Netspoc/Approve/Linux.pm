@@ -1187,17 +1187,6 @@ sub write_mem {
         info("Writing routing startup config");  
         $self->cmd("mv -f $tmp_routing $startup_routing");
     }
-    else {
-        info("No changes to save, checking if routing startup is uptodate");
-        if($self->cmd_ok("cmp $tmp_routing $startup_routing")) {
-            info("Startup is uptodate");
-            $self->cmd("rm $tmp_routing");
-        }
-        else {
-            warn_info("Routing startup is *NOT* uptodate - trying to fix");
-            $self->cmd("mv -f $tmp_routing $startup_routing");
-        }
-    }
     
     # Change iptables startup configuration of device.
     my $tmp_iptables = $config->{tmp_iptables};
@@ -1206,21 +1195,8 @@ sub write_mem {
         info("Writing iptables startup config");  
         $self->cmd("mv -f $tmp_iptables $startup_iptables");
     }
-    else {
-        info("No changes to save,",
-             " checking if iptables startup is uptodate");
-        if($self->cmd_ok("cmp $tmp_iptables $startup_iptables")) {
-            info("Startup is uptodate");
-            $self->cmd("rm $tmp_iptables");
-        }
-        else {
-            warn_info("Iptables startup is *NOT* uptodate - trying to fix");
-            $self->cmd("mv -f $tmp_iptables $startup_iptables");
-        }
-    }
     
-    # Always write configuration to flash.
-    # Someone may have changed it.
+    # Write configuration to flash.
     if(my $cmd = $config->{store_flash_cmd}) {
         info("Saving config to flash");  
         $self->cmd($cmd);
