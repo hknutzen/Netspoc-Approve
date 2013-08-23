@@ -15,7 +15,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.078'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.079'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -567,7 +567,11 @@ sub route_del {
 
 sub get_identity {
     my ($self) = @_;
-    return ($self->get_cmd_output('show hostname'))->[0];
+    my $name = ($self->get_cmd_output('show hostname'))->[0];
+    
+    # Ignore domain-name 
+    $name =~ s/[.].*//;
+    return $name;
 }
 
 sub login_enable {

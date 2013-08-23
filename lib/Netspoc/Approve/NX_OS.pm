@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.078'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.079'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -30,6 +30,8 @@ sub get_parse_info {
                                  store_multi => ['BASE', 'MASK'] }],
                     store => 'ADDRESS',
                 },
+                'ip address _skip secondary' =>  { 
+                    parse => \&skip }, # ignore
                 'ip access-group _skip in' => {
                     parse => \&get_token, 
                     store => 'ACCESS_GROUP_IN', 

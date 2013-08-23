@@ -24,7 +24,6 @@ lib/Netspoc/Approve/Cisco_FW.pm
 lib/Netspoc/Approve/Cisco_Router.pm
 lib/Netspoc/Approve/Console.pm
 lib/Netspoc/Approve/Device.pm
-lib/Netspoc/Approve/Device.pm.bak~
 lib/Netspoc/Approve/Helper.pm
 lib/Netspoc/Approve/IOS.pm
 lib/Netspoc/Approve/Linux.pm
