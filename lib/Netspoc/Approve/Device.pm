@@ -186,24 +186,51 @@ sub load_spocfile {
 sub load_raw {
     my ($self, $path) = @_;
     my $raw = "$path.raw";
-    my @result;
+    my @prepend;
     if (-f $raw) {
         open(my $file, '<', $raw) or abort("Can't open $raw: $!");
-        @result = <$file>;
+        @prepend = <$file>;
         close $file;
     }
-    my $count = @result;
-    info("Read rawdata file $raw with $count lines") if $count;
-    return \@result;
+    
+    # Find [APPEND] line.
+    my $index;
+    for (my $i = 0; $i < @prepend; $i++) {
+        if ($prepend[$i] =~ /^\[APPEND\]\s*$/) {
+            $index = $i;
+            last;
+        }
+    }
+    
+    # Split at [APPEND] line.
+    my @append;
+    if (defined $index) {
+        @append = splice(@prepend, $index);
+        shift @append;
+    }
+    my $msg;
+
+    if (my $count = @prepend) {
+        $msg .= "$count prepend";
+    }
+    if (my $count = @append) {
+        $msg and $msg .= " and ";
+        $msg .= "$count append";
+    }
+    if ($msg) {
+        info("Read rawdata file $raw with $msg lines");
+    }
+    return \@prepend, \@append;
 }
 
 sub load_spoc {
     my ($self, $path) = @_;
     my $lines     = $self->load_spocfile($path);
     my $conf      = $self->parse_config($lines);
-    my $raw_lines = $self->load_raw($path);
-    my $raw_conf  = $self->parse_config($raw_lines, 'strict');
-    $self->merge_rawdata($conf, $raw_conf);
+    my ($prepend, $append) = $self->load_raw($path);
+    my $raw_prepend  = $self->parse_config($prepend, 'strict');
+    my $raw_append   = $self->parse_config($append, 'strict');
+    $self->merge_rawdata($conf, $raw_prepend, $raw_append);
     return($conf);
 }
 
@@ -450,9 +477,19 @@ sub parse_config {
 }
 
 sub merge_rawdata {
-    my ($self, $spoc_conf, $raw_conf) = @_;
-    for my $key (%$raw_conf) {
-	my $raw_v = $raw_conf->{$key};
+    my ($self, $spoc_conf, $raw_prepend, $raw_append) = @_;
+    $self->merge_acls($spoc_conf, $raw_prepend);
+    $self->merge_acls($spoc_conf, $raw_append, 'append');
+    if (my @keys = grep { my $v = $raw_append->{$_}; 
+                          ref $v eq 'HASH' && keys %$v || ref $v eq 'ARRAY' } 
+        keys %$raw_append)
+    {
+        my $keys = join(',', @keys);
+        abort("Must only use ACLs in [APPEND] part, but found $keys");
+    }
+
+    for my $key (%$raw_prepend) {
+	my $raw_v = $raw_prepend->{$key};
 
         if ($key eq 'ROUTING_VRF') {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};

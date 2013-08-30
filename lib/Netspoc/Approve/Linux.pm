@@ -822,12 +822,11 @@ sub postprocess_iptables {
     }
 }
 
-sub merge_iptables {
-    my ($self, $spoc_conf, $raw_conf) = @_;
+sub merge_acls {
+    my ($self, $spoc_conf, $raw_conf, $append) = @_;
     my $spoc_tables = $spoc_conf->{IPTABLES};
     my $raw_tables = $raw_conf->{IPTABLES};
     for my $table_name (keys %$raw_tables) {
-	info("rawdata: table: $table_name");
 
         # Delete entry from raw because it must not be processed again
         # in generic merge_rawdata.
@@ -849,8 +848,31 @@ sub merge_iptables {
 	    if(not $spoc_chain->{POLICY}) {
 		abort("Must not redefine chain '$spoc_chain' from rawdata");
 	    }
-	    info("Prepending chain '$chain_name' of table '$table_name'");
-	    unshift @{ $spoc_chain->{RULES} }, @{$raw_chain->{RULES} };
+
+            # Prepend/append raw acl.
+            my $msg;
+            my $spoc_entries = $spoc_chain->{RULES} ||= [];
+            my $raw_entries = $raw_chain->{RULES};
+            if ($append) {
+                $msg = 'Appending';
+
+                # Find last non deny line.
+                my $index = @$spoc_entries;
+                while ($index > 0) {
+                    if ($spoc_entries->[$index-1]->{-j} =~ /^drop/i) {
+                        $index--;
+                    }
+                    else {
+                        last;
+                    }
+                }
+                splice(@$spoc_entries, $index, 0, @$raw_entries);
+            }
+            else {
+                $msg = 'Prepending';
+                unshift(@$spoc_entries, @$raw_entries);
+            }
+	    info("$msg to chain '$chain_name' of table '$table_name'");
 	}
     }
 }	    
@@ -1017,12 +1039,6 @@ sub process_iptables {
         }
     }
     $self->{CHANGE}->{ACL} = $changed;
-}
-
-sub merge_rawdata {
-    my ($self, $spoc_conf, $raw_conf) = @_;
-    $self->merge_iptables($spoc_conf, $raw_conf);
-    $self->SUPER::merge_rawdata($spoc_conf, $raw_conf);
 }
 
 sub status_ok {

@@ -485,10 +485,9 @@ sub normalize_proto {
 }
 
 sub merge_acls {
-    my ( $self, $spoc, $raw ) = @_;
+    my ($self, $spoc, $raw, $append) = @_;
 
     for my $intf_name ( keys %{ $raw->{IF} } ) {
-	info(" Interface: $intf_name ");
 	my $raw_intf = delete($raw->{IF}->{$intf_name});
 	my $spoc_intf = $spoc->{IF}->{$intf_name};
 
@@ -506,12 +505,32 @@ sub merge_acls {
 
 		if(my $spoc_name = $spoc_intf->{$access_group}) {
 
-		    # Prepend raw acl.
+		    # Prepend/append raw acl.
+                    my $msg;
+                    my $spoc_entries = 
+                        $spoc->{ACCESS_LIST}->{$spoc_name}->{LIST} ||= [];
 		    my $raw_entries = $raw_acl->{LIST};
-		    unshift(@{$spoc->{ACCESS_LIST}->{$spoc_name}->{LIST}}, 
-			    @$raw_entries);
+                    if ($append) {
+                        $msg = 'Appending';
+
+                        # Find last non deny line.
+                        my $index = @$spoc_entries;
+                        while ($index > 0) {
+                            if ($spoc_entries->[$index-1]->{MODE} eq 'deny') {
+                                $index--;
+                            }
+                            else {
+                                last;
+                            }
+                        }
+                        splice(@$spoc_entries, $index, 0, @$raw_entries);
+                    }
+                    else {
+                        $msg = 'Prepending';
+                        unshift(@$spoc_entries, @$raw_entries);
+                    }
 		    my $count = @$raw_entries;
-		    info(" Prepended $count entries to $access_group");
+		    info("$msg $count entries to $direction ACL of $intf_name");
 		}
 		else {
 
@@ -525,12 +544,6 @@ sub merge_acls {
 	    }
 	}
     }
-}
-
-sub merge_rawdata {
-    my ($self, $spoc_conf, $raw_conf) = @_;
-    $self->merge_acls($spoc_conf, $raw_conf);
-    $self->SUPER::merge_rawdata($spoc_conf, $raw_conf);
 }
 
 sub enter_conf_mode {
