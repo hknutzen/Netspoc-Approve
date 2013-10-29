@@ -15,7 +15,7 @@ interface Ethernet0/1
 END
 
 # Input from Netspoc, from raw, output from approve.
-my($spoc, $raw, $out);
+my($spoc, $raw, $device, $out);
 my $title;
 
 ############################################################
@@ -129,6 +129,21 @@ END
 eq_or_diff( approve('IOS', '', $spoc, $raw ), $out, $title );
 
 ############################################################
+$title = "No routing in [APPEND] part";
+############################################################
+
+$raw = <<END;
+[APPEND]
+ip route 10.22.0.0/16 10.1.2.4
+END
+
+$out = <<END;
+ERROR>>> Must only use ACLs in [APPEND] part, but found ROUTING_VRF
+END
+
+eq_or_diff( approve_err('NX-OS', '', '', $raw ), $out, $title );
+
+############################################################
 $title = "Merging static";
 ############################################################
 $spoc = <<END;
@@ -151,6 +166,73 @@ static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
 END
 
 eq_or_diff( approve('ASA', '', $spoc, $raw ), $out, $title );
+
+############################################################
+$title = "Merging IOS ACL";
+############################################################
+$device = <<END;
+interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
+END
+
+$spoc = <<END;
+ip access-list extended Ethernet1_in 
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+ deny ip any any
+interface Ethernet1
+ ip access-group Ethernet1_in in
+END
+
+$raw = <<END;
+ip access-list extended Ethernet1_in 
+ permit udp 10.0.6.0 0.0.0.255 host 224.0.1.1 eq 123
+interface Ethernet1
+ ip access-group Ethernet1_in in
+[APPEND]
+ip access-list extended Ethernet1_in 
+ deny ip any host 224.0.1.1 log
+interface Ethernet1
+ ip access-group Ethernet1_in in
+END
+
+$out = <<END;
+ip access-list extended Ethernet1_in-DRC-0
+permit udp 10.0.6.0 0.0.0.255 host 224.0.1.1 eq 123
+permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+deny ip any host 224.0.1.1 log
+deny ip any any
+interface Ethernet1
+ip access-group Ethernet1_in-DRC-0 in
+END
+
+eq_or_diff( approve('IOS', $device, $spoc, $raw ), $out, $title );
+
+############################################################
+$title = "Merging Linux chains";
+############################################################
+
+$spoc = <<END;
+*filter
+:INPUT DROP
+-A INPUT -i eth0 -s 10.0.6.0/24 -d 10.0.1.11/32 -p udp --dport 123 -j ACCEPT
+-A INPUT -j DROP
+END
+
+$raw = <<END;
+*filter
+:INPUT DROP
+-A INPUT -i eth0 -p udp -s 10.0.6.0/24 -d 224.0.1.1/32 --dport 123 -j ACCEPT
+[APPEND]
+*filter
+:INPUT DROP
+-A INPUT -i eth0 -p udp -d 224.0.1.1/32 --dport 123 -j DROP
+END
+
+# Currently we don't see any output in compare mode,
+# because iptables rules are always fully transferred, not incementally.
+$out = '';
+
+eq_or_diff( approve('Linux', '', $spoc, $raw ), $out, $title );
 
 ############################################################
 done_testing;

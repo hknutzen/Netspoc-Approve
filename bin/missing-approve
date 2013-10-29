@@ -66,12 +66,13 @@ for device in * ; do
     esac
 
     # Check status of last Compare: DIFF|UPTODATE
-    case $(cut -d';' -f13 $file) in
-	UPTODATE)
-            # This policy was used during compare.
-	    compared=$(cut -d';' -f14 $file)
-	    cnum=$(echo $compared | sed 's/[^0-9]//g')
-	    ;;
+    status=$(cut -d';' -f13 $file)
+    # Find policy used during compare.
+    case $status in
+        DIFF|UPTODATE)
+            compared=$(cut -d';' -f14 $file)
+            cnum=$(echo $compared | sed 's/[^0-9]//g')
+            ;;
         *)
             cnum=-1
             ;;
@@ -81,11 +82,14 @@ for device in * ; do
     if [ $anum = -1 -a $cnum = -1 ] ; then
         missing $device
         continue
-    # Take newer policy
+    # Take newer successful policy
     elif [ $anum -gt $cnum ] ; then
         last=$approved
-    else
+    elif [ $status = 'UPTODATE' ] ; then
         last=$compared
+    else
+        missing $device
+        continue
     fi
     
     # If device' policy is equal to current policy, we are finished.
