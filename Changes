@@ -1,5 +1,16 @@
 {{$NEXT}}
 
+1.080     2013-10-29 16:08:25 Europe/Berlin
+
+ - Added support for keyword [APPEND] in raw files.
+   This changes the behaviour of ACLs defined after this keyword.
+   The ACL is no longer prepended, but it is appended to a Netspoc 
+   generated ACL. It is appended at the end of an ACL, 
+   but before the trailing "deny any any" entry from Netspoc.
+
+ - Fixed missing-approve: If last compare found diff and if it occured
+   later than last approve, then show missing-approve.
+   
 1.079     2013-08-23 14:07:33 Europe/Berlin
 
  - Urgent bug fix: Startup config with static routes for linux
