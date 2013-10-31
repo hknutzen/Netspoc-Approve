@@ -329,7 +329,7 @@ sub parse_version {
 	$self->{VERSION} = $1;
     }
     # cisco Nexus7000 C7010 (10 Slot) Chassis ("Supervisor module-1X")
-    if($output =~ /(cisco \s+ Nexus\S* \S+)/ix) {	
+    if($output =~ /(cisco \s+ Nexus\S* \s+ \S+)/ix) {	
 	$self->{HARDWARE} = $1;
     }
 }
