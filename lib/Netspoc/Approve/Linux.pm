@@ -1267,16 +1267,15 @@ sub login_enable {
     }
     $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
 
-    # Force new prompt by issuing empty command.
-    # Set prompt again because of performance impact of standard prompt.
     $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
-    my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^(\r\n\S+):.*\#\s?$/;
-    my $prefix = $1;
-    $self->{ENAPROMPT} = qr/$prefix:.*\#\s?$/;
 
     # Parameter --noediting prevents \r to be inserted in echoed commands.
-    $self->issue_cmd('exec /bin/bash --noediting');
+    # --norc prevents fidling with PS1
+    $self->issue_cmd('exec /bin/bash --noediting --norc');
+    
+    # Force prompt to simple '#'.
+    $self->issue_cmd('PS1=#');
+    $self->{ENAPROMPT} = qr/\r\n\#$/;
 }
 
 # Packages must return a true value;
