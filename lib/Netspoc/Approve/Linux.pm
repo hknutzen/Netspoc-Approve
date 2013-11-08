@@ -449,7 +449,12 @@ my $normalize = {
 	extern => \&icmp_code,
     },
     '-p' => {
-	intern => sub { my($v) = @_; $v = lc $v; $v =~ s/^vrrp$/112/; $v;},
+	intern => sub { my($v) = @_; 
+                        $v = lc $v; 
+                        $v =~ s/^vrrp$/112/; 
+                        $v =~ s/^ipv6-icmp$/58/; 
+                        $v;
+        },
 	extern => sub { $_[0] },
     },
     '--state' => {
