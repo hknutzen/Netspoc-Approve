@@ -1178,9 +1178,11 @@ sub transfer {
 
     return if $self->{COMPARE};
 
-    # Copy startup routing config to temporary file on device.
-    my $tmp_routing = $config->{tmp_routing}; 
-    $self->write_startup_routing($spoc_conf, $tmp_routing);
+    # Copy startup routing config to temporary file on device. 
+    if ($self->{CHANGE}->{ROUTING}) {
+        my $tmp_routing = $config->{tmp_routing}; 
+        $self->write_startup_routing($spoc_conf, $tmp_routing);
+    }
     
     # Copy startup iptables config to temporary file on device.
     # Change iptables configuration of device.
