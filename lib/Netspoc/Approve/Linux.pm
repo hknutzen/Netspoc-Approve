@@ -1191,10 +1191,10 @@ sub transfer {
     
     # Copy startup iptables config to temporary file on device.
     # Change iptables configuration of device.
-    my $tmp_iptables = $config->{tmp_iptables};
-    $self->write_startup_iptables($spoc_conf, $tmp_iptables); 
-    $self->cmd("chmod a+x $tmp_iptables");
     if ($self->{CHANGE}->{ACL}) {
+        my $tmp_iptables = $config->{tmp_iptables};
+        $self->write_startup_iptables($spoc_conf, $tmp_iptables); 
+        $self->cmd("chmod a+x $tmp_iptables");
         info("Changing iptables running config");
         $self->cmd($tmp_iptables);
     }
