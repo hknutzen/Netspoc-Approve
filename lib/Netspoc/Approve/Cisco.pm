@@ -1037,6 +1037,33 @@ sub equalize_acl_groups {
     return !$acl_modified;
 }
 
+sub subst_ace_name_og {
+    my ($self, $ace, $name) = @_;
+    my $cmd = $ace->{orig};
+
+    # Only applicable for model ASA und ACE.
+    $cmd =~ s/^access-list \S+/access-list $name/;
+
+    for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
+        my $what = $ace->{$where};
+        if (my $group = ref($what) && $what->{GROUP}) {
+            my $gid = $group->{name};
+            my $new_gid = $group->{name_on_dev} || 
+                ($group->{transfer} && $group->{new_name}) or
+                abort("Expected group $gid already on device");
+
+            # Add marker '!' in front of inserted names.
+            # This prevents accidental renaming of an already renamed group.
+            # This situation can occur if identical names are used 
+            # for different groups in device and in netspoc configuration.
+            $cmd =~ s/group $gid(?!\S)/group !$new_gid/;
+        }
+    }
+
+    # Remove marker '!' of substitution above.
+    $cmd =~ s/!//g;
+    $cmd;
+}
 
 sub check_max_acl_entries {
     my ($self, $acl) = @_;
@@ -1254,10 +1281,11 @@ sub equalize_acl_entries {
         my $vcmd1;
         if (my $conf_entry = $move_up{$spoc_entry}) {
             my $line = $device_line{$conf_entry};
-            $vcmd1 = { ace => $conf_entry, delete => 1, line => $line};
+            $vcmd1 = { ace => $conf_entry,  name => $acl_name,
+                       delete => 1, line => $line};
             $self->change_acl_numbers(\%device_line, $line+1, -1);
         }
-        my $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
+        my $vcmd2 = { ace => $spoc_entry, name => $acl_name };
         my $line = $entry2line->($spoc_entry);
         $vcmd2->{line} = $line;
         $self->change_acl_numbers(\%device_line, $line, +1);
@@ -1272,11 +1300,12 @@ sub equalize_acl_entries {
     for my $conf_entry (reverse @delete) {
         next if $moved{$conf_entry};
         my $line = $device_line{$conf_entry};
-        my $vcmd1 = { ace => $conf_entry, delete => 1, line => $line};
+        my $vcmd1 = { ace => $conf_entry, name => $acl_name,
+                      delete => 1, line => $line};
         $self->change_acl_numbers(\%device_line, $line+1, -1);
         my $vcmd2;
         if (my $spoc_entry = $move_down{$conf_entry}) {
-            $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
+            $vcmd2 = { ace => $spoc_entry, name => $acl_name };
             my $line2 = $entry2line->($spoc_entry);
             $vcmd2->{line} = $line2;
             $self->change_acl_numbers(\%device_line, $line2, +1);

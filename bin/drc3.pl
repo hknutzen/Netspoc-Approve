@@ -18,6 +18,7 @@ use Netspoc::Approve::IOS;
 use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
 use Netspoc::Approve::NX_OS;
+use Netspoc::Approve::ACE;
 use Netspoc::Approve::Helper;
 
 # VERSION: inserted by DZP::OurPkgVersion
@@ -30,6 +31,7 @@ my %type2class = (
     ASA     => 'Netspoc::Approve::ASA',
     PIX     => 'Netspoc::Approve::PIX',
     'NX-OS' => 'Netspoc::Approve::NX_OS',
+    'ACE'   => 'Netspoc::Approve::ACE',
 );
 
 ####################################################################

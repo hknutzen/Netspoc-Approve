@@ -44,30 +44,6 @@ sub mark_unneeded_object_group_from_acl_entry {
     }
 }
 
-sub subst_ace_name_og {
-    my ($self, $ace) = @_;
-    my $cmd = $ace->{orig};
-    for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
-        my $what = $ace->{$where};
-        if (my $group = ref($what) && $what->{GROUP}) {
-            my $gid = $group->{name};
-            my $new_gid = $group->{name_on_dev} || 
-                ($group->{transfer} && $group->{new_name}) or
-                abort("Expected group $gid already on device");
-
-            # Add marker '!' in front of inserted names.
-            # This prevents accidental renaming of an already renamed group.
-            # This situation can occur if identical names are used 
-            # for different groups in device and in netspoc configuration.
-            $cmd =~ s/group $gid(?!\S)/group !$new_gid/;
-        }
-    }
-
-    # Remove marker '!' of substitution above.
-    $cmd =~ s/!//g;
-    $cmd;
-}
-
 # Defines new ACL.
 # Assumes that conf mode is already enabled
 sub define_acl {
@@ -76,11 +52,12 @@ sub define_acl {
     my $entries = $spoc_acl->{LIST};
     my $name = $self->generate_name_for_transfer($spoc_name, 
                                                  $conf->{ACCESS_LIST});
-    my $cmd = $spoc_acl->{orig};
-    $cmd =~ s/$spoc_name\s*/$name/;
-    $self->cmd($cmd);
+    if (my $cmd = $spoc_acl->{orig}) {
+        $cmd =~ s/$spoc_name\s*/$name/;
+        $self->cmd($cmd);
+    }
     for my $entry (@$entries) {
-        my $subcmd = $self->subst_ace_name_og($entry);
+        my $subcmd = $self->subst_ace_name_og($entry, $name);
         $self->cmd($subcmd);
     }
     return $name;
@@ -147,25 +124,39 @@ sub remove_object_groups {
     }
 }
 
+sub assign_acl {
+    my ($self, $intf, $acl_name, $in_out) = @_;
+    my $direction = lc($in_out);
+    $self->cmd($intf->{orig});
+    $self->cmd("ip access-group $acl_name $direction");
+}
+
+sub unassign_acl   {
+    my ($self, $intf, $acl_name, $in_out) = @_;
+    my $direction = lc($in_out);
+    $self->cmd($intf->{orig});
+    $self->cmd("no ip access-group $acl_name $direction");
+}
+
+sub gen_ace_cmd {
+    my ($self, $hash) = @_;
+    my $line = $hash->{line};
+    my $cmd;
+    if ($hash->{delete}) {
+        $cmd = "no $line";
+        $self->mark_unneeded_object_group_from_acl_entry($hash->{ace});
+    }
+    else {
+        $cmd = $self->subst_ace_name_og($hash->{ace}, $hash->{name});
+        $cmd = "$line $cmd";
+    }
+    return $cmd;
+}
+
 sub process_interface_acls {
     my ($self, $conf, $spoc) = @_;
     $self->{CHANGE}->{ACCESS_LIST} = 0;
     $self->enter_conf_mode('session');
-
-    my $gen_cmd = sub {
-        my ($hash) = @_;
-        my $line = $hash->{line};
-        my $cmd;
-        if ($hash->{delete}) {
-            $cmd = "no $line";
-            $self->mark_unneeded_object_group_from_acl_entry($hash->{ace});
-        }
-        else {
-            $cmd = $self->subst_ace_name_og($hash->{ace});
-            $cmd = "$line $cmd";
-        }
-        $cmd;
-    };
 
     # Analyze changes in all ACLs bound to interfaces.
     my %acl_ready;
@@ -205,7 +196,6 @@ sub process_interface_acls {
 	my $intf = $spoc_interfaces->{$name};
         my $conf_intf = $conf_interfaces->{$name};
 	for my $in_out (qw(IN OUT)) {
-	    my $direction = lc($in_out);
 	    my $confacl_name = $conf_intf->{"ACCESS_GROUP_$in_out"} || '';
 	    my $spocacl_name = $intf->{"ACCESS_GROUP_$in_out"} || '';
 	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
@@ -231,16 +221,16 @@ sub process_interface_acls {
                     # abort if this command isn't available on old IOS version.
                     $self->resequence_cmd($acl_name, $line_start, $line_incr);
                     $self->schedule_reload(5);
-                    $self->cmd($conf_acl->{orig});
+                    $self->cmd($conf_acl->{orig}) if $conf_acl->{orig};
                     for my $vcmd (@$vcmds) {
                         if (ref $vcmd eq 'ARRAY') {
                             my ($vcmd1, $vcmd2) = @$vcmd;
-                            my $cmd1 = $gen_cmd->($vcmd1);
-                            my $cmd2 = $gen_cmd->($vcmd2);
+                            my $cmd1 = $self->gen_ace_cmd($vcmd1);
+                            my $cmd2 = $self->gen_ace_cmd($vcmd2);
                             $self->two_cmd($cmd1, $cmd2);
                         }
                         else {
-                            my $cmd = $gen_cmd->($vcmd);
+                            my $cmd = $self->gen_ace_cmd($vcmd);
                             $self->cmd($cmd);
                         }
                     }
@@ -261,8 +251,7 @@ sub process_interface_acls {
 
                 # Assign new acl to interface.
                 info("Assigning new $in_out ACL $aclname to interface $name");
-                $self->cmd($intf->{orig});
-                $self->cmd("ip access-group $aclname $direction");
+                $self->assign_acl($intf, $aclname, $in_out);
                 $self->cancel_reload();
 	    }
 
@@ -273,8 +262,7 @@ sub process_interface_acls {
                 $self->schedule_reload(5);
                 if (not $spoc_acl) {
                     info("Unassigning $in_out ACL from interface $name");
-                    $self->cmd($intf->{orig});
-                    $self->cmd("no ip access-group $confacl_name $direction");
+                    $self->unassign_acl($intf, $confacl_name, $in_out);
                 }
                 $self->cancel_reload();
                 my $cmd = $conf_acl->{orig};
