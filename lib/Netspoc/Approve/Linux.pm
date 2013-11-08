@@ -20,8 +20,9 @@ my $config = {
     user => 'root',
     device_routing_file => '/etc/network/routing',
     device_iptables_file => '/etc/network/packet-filter',
-    tmp_routing => '/tmp/routing',
-    tmp_iptables => '/tmp/packet-filter',
+    # Avoid /tmp/, because it may have attribute 'noexec'.
+    tmp_routing => '/etc/network/routing.new',
+    tmp_iptables => '/etc/network/packet-filter.new',
     store_flash_cmd => '/usr/sbin/backup',
 };
 
@@ -1048,16 +1049,10 @@ sub status_ok {
 
 sub cmd_ok {
     my ($self, $cmd) = @_;
-    if ( $self->{COMPARE} ) {
-	print("> $cmd\n");
-	return 1;
-    }
-    else {
 
-	# Ignore Output; only check exit status.
-	my $lines = $self->get_cmd_output($cmd);
-	return($self->status_ok);
-    }
+    # Ignore Output; only check exit status.
+    my $lines = $self->get_cmd_output($cmd);
+    return($self->status_ok);
 }
 
 my %valid_cmd_output = (
@@ -1134,7 +1129,7 @@ sub write_startup_routing {
     $self->do_scp('put', $tmpname, $file);
 }
 
-sub find_iptables_restor_cmd {
+sub find_iptables_restore_cmd {
     my ($self) = @_;
     my $path = ($self->get_cmd_output('which iptables-restore'))->[0] or
         abort("Can't find path of 'iptables-restore'");
@@ -1143,7 +1138,7 @@ sub find_iptables_restor_cmd {
 
 sub write_startup_iptables {
     my ($self, $spoc, $file) = @_;
-    my $path = $self->find_iptables_restor_cmd();
+    my $path = $self->find_iptables_restore_cmd();
     local $\ = "\n";
     my ($fh, $tmpname) = tempfile(UNLINK => 1) or 
         abort("Can't create tempfile: $!");
@@ -1219,8 +1214,10 @@ sub write_mem {
         $self->cmd("mv -f $tmp_iptables $startup_iptables");
     }
     
-    # Write configuration to flash.
-    if(my $cmd = $config->{store_flash_cmd}) {
+    # Write configuration to flash if platform has this cmd.
+    if((my $cmd = $config->{store_flash_cmd}) &&
+       $self->cmd_ok('ls /etc/router-version')) 
+    {
         info("Saving config to flash");  
         $self->cmd($cmd);
     }
@@ -1249,6 +1246,11 @@ sub set_terminal {
     my ($self) = @_;
 }
 
+sub search_banner {
+    my ($self, $string) = @_;
+    return $self->cmd_ok("grep '$string' /etc/issue");
+}
+
 sub login_enable {
     my ($self) = @_;
     my $std_prompt = qr/[\%\>\$\#]/;
@@ -1272,12 +1274,10 @@ sub login_enable {
 	    abort("Authentication failed");
 	}
     }
-    $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-
     $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
 
     # Parameter --noediting prevents \r to be inserted in echoed commands.
-    # --norc prevents fidling with PS1
+    # --norc prevents fiddling with PS1
     $self->issue_cmd('exec /bin/bash --noediting --norc');
     
     # Force prompt to simple '#'.

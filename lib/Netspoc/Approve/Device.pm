@@ -1169,14 +1169,24 @@ sub check_reachability {
 sub checkidentity {
     my ($self) = @_;
     my $name = $self->get_identity();
-    $name eq $self->{NAME} or
-	abort("Wrong device name: $name, expected: $self->{NAME}");
+    my $conf_name = $self->{NAME};
+
+    # Strip optional prefix.
+    $conf_name =~ s/^host://;
+
+    $name eq $conf_name or
+	abort("Wrong device name: $name, expected: $conf_name");
+}
+
+sub search_banner {
+    my ($self, $string) = @_;
+    return ($self->{PRE_LOGIN_LINES} =~ /$string/);
 }
 
 sub checkbanner {
     my ($self) = @_;
     my $check = $self->{CONFIG}->{checkbanner} or return;
-    if ( $self->{PRE_LOGIN_LINES} !~ /$check/) {
+    if (!$self->search_banner($check)) {
         if ($self->{COMPARE}) {
             warn_info("Missing banner at NetSPoC managed device");
         }
