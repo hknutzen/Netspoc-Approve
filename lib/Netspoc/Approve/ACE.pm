@@ -166,7 +166,21 @@ sub postprocess_config {
         }
     }
 }
-        
+
+# Read hostname from prompt.
+sub get_identity {
+    my ($self) = @_;
+
+    # Force new prompt by issuing empty command.
+    my $result = $self->issue_cmd('');
+    $result->{MATCH} =~ m/^\r\n\s*(\S+)\#\s?$/;
+    my $name = $1;
+
+    # Remove leading name in front of context name.
+    $name =~ s|^.*[/]||;
+    return $name;
+}
+
 sub get_config_from_device {
     my ($self) = @_;
     $self->get_cmd_output('show running-config');
