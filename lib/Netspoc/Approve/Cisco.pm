@@ -21,7 +21,7 @@ use Netspoc::Approve::Parse_Cisco;
 # Translate names to port numbers, icmp type/code numbers
 ############################################################
 
-our %ICMP_Names = (
+my %ICMP_Names = (
     'administratively-prohibited' => { type => 3,  code => 13 },
     'alternate-address'           => { type => 6,  code => -1 },
     'conversion-error'            => { type => 31, code => -1 },
@@ -69,7 +69,7 @@ our %ICMP_Names = (
 );
 
 # Leave names unchanged for standard protocols icmp, tcp, udp.
-our %IP_Names = (
+my %IP_Names = (
     'ah'     => 51,
     'ahp'    => 51,
     'eigrp'  => 88,
@@ -88,7 +88,7 @@ our %IP_Names = (
 #    'udp'    => 17,
 );
 
-our %PORT_Names_TCP = (
+my %PORT_Names_TCP = (
     'bgp'               => 179,
     'chargen'           => 19,
     'citrix-ica'        => 1494,
@@ -147,7 +147,7 @@ sub tcp_name2num {
     return $PORT_Names_TCP{$name};
 }
 
-our %PORT_Names_UDP = (
+my %PORT_Names_UDP = (
     'biff'          => 512,
     'bootpc'        => 68,
     'bootps'        => 67,
