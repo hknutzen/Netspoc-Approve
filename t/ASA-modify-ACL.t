@@ -22,7 +22,6 @@ END
 # Input from device.
 # Output from approve.
 my($in, $device, $out);
-my $device_type = 'ASA';
 my $title;
 
 ############################################################
