@@ -257,17 +257,13 @@ sub process_interface_acls {
 
             # Remove ACL from device.
 	    if ($conf_acl) {
-
                 $self->{CHANGE}->{ACCESS_LIST} = 1;
-                $self->schedule_reload(5);
                 if (not $spoc_acl) {
                     info("Unassigning $in_out ACL from interface $name");
                     $self->unassign_acl($intf, $confacl_name, $in_out);
                 }
-                $self->cancel_reload();
                 my $cmd = $conf_acl->{orig};
                 $self->cmd("no $cmd");
-
                 $self->mark_unneeded_object_group_from_acl($conf_acl);
 	    }		
 	}
