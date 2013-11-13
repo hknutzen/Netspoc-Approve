@@ -658,7 +658,7 @@ sub write_mem {
             }
         }
         else {
-            abort("write mem: unexpected result");
+            abort("write mem: unexpected result", @$lines);
         }
     }
 }
