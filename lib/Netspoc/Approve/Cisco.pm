@@ -142,6 +142,11 @@ our %PORT_Names_TCP = (
     'www'               => 80
 );
 
+sub tcp_name2num {
+    my ($self, $name) = @_;
+    return $PORT_Names_TCP{$name};
+}
+
 our %PORT_Names_UDP = (
     'biff'          => 512,
     'bootpc'        => 68,
@@ -182,6 +187,11 @@ our %PORT_Names_UDP = (
     'xdmcp'         => 177
 );
    
+sub udp_name2num {
+    my ($self, $name) = @_;
+    return $PORT_Names_UDP{$name};
+}
+
 # Read indented lines of commands from Cisco device.
 # Build an array where each command line is described by a hash
 # - arg: an array of tokens split by whitespace
@@ -400,22 +410,30 @@ sub adjust_mask {
 sub parse_port {
     my ($self, $arg, $proto) = @_;
     my $port = get_token($arg);
+
+    # Port is numeric.
+    return $port if $port =~ /^\d+$/;
+
+    # Convert named port to numeric port.
     if ($proto eq 'tcp') {
-        $port = $PORT_Names_TCP{$port} || $port;
+        $port = $self->tcp_name2num($port);
     }
     elsif ($proto eq 'udp') {
-        $port = $PORT_Names_UDP{$port} || $port;
+        $port = $self->udp_name2num($port);
     }
 
     # For tcp-udp and object-group check for intersection of port names.
     else {
-        my $tcp = $PORT_Names_TCP{$port};
-        my $udp = $PORT_Names_UDP{$port};
+        my $tcp = $self->tcp_name2num($port);
+        my $udp = $self->udp_name2num($port);
         if ($tcp && $udp && $tcp == $udp) {
             $port = $tcp;
         }
+        else {
+            $port = undef;
+        }
     }
-    $port =~ /^\d+$/ or err_at_line($arg, 'Expected port number');
+    defined $port or err_at_line($arg, 'Expected port number or port name');
     return $port;
 }
 
