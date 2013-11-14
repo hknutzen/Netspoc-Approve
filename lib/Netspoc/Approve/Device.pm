@@ -597,17 +597,19 @@ sub process_routing {
         {
             next if $r->{DELETE};
             $self->{CHANGE}->{ROUTING} = 1;
+            my $cmd = $self->route_add($r, $vrf);
             
-            # PIX and ASA don't allow two routes to identical destination.
-            # Remove old route immediatly before adding the new one.
+            # PIX and ASA don't allow two routes to identical
+            # destination. Remove and add routes in one transaction.
             for my $c (@$conf_routing) {
                 next if $c->{DELETE};
                 if($self->route_line_destination_a_eq_b($r, $c)){
-                    push(@cmds, $self->route_del($c, $vrf));
+                    $cmd = [ $self->route_del($c, $vrf), $cmd ];
                     $c->{DELETE} = 1; # Must not delete again.
+                    last;
                 }
             }
-            push(@cmds, $self->route_add($r, $vrf));
+            push(@cmds, $cmd);
         }
         for my $r (@$conf_routing) {
             next if $r->{DELETE};
@@ -619,7 +621,14 @@ sub process_routing {
             $self->schedule_reload(5);
             $self->enter_conf_mode;
             $self->vrf_route_mode($vrf);
-            map { $self->cmd($_); } @cmds;
+            for my $cmd (@cmds) {
+                if (ref $cmd eq 'ARRAY') {
+                    $self->two_cmd(@$cmd);
+                }
+                else {
+                    $self->cmd($cmd);
+                }
+            }
             $self->leave_conf_mode;
             $self->cancel_reload();
         }
