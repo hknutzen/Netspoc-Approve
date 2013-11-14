@@ -603,7 +603,7 @@ sub process_routing {
             for my $c (@$conf_routing) {
                 next if $c->{DELETE};
                 if($self->route_line_destination_a_eq_b($r, $c)){
-                    push(@cmds, $self->route_del($c));
+                    push(@cmds, $self->route_del($c, $vrf));
                     $c->{DELETE} = 1; # Must not delete again.
                 }
             }
