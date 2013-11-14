@@ -137,6 +137,37 @@ sub parse_address {
         $self->parse_object_group($arg) || $self->SUPER::parse_address($arg);
 }
 
+my %PORT_Names_TCP = (
+    aol       => 5190,
+    ctiqbe    => 2748,
+    kerberos  => 88,
+    'matip-a' => 350,
+    skinny    => 2000,
+);
+
+sub tcp_name2num {
+    my ($self, $name) = @_;
+    return ($PORT_Names_TCP{$name} || $self->SUPER::tcp_name2num($name));
+}
+
+my %PORT_Names_UDP = (
+    biff           => 512,
+    bootpc         => 68,
+    bootps         => 69,
+    dnsix          => 195,
+    kerberos       => 88,
+    'netbios-ssn'  => 139,
+    wsp            => 9200,
+    'wsp-wtls'     => 9202,
+    'wsp-wtp'      => 9201,
+    'wsp-wtp-wtls' => 9203,
+);
+
+sub udp_name2num {
+    my ($self, $name) = @_;
+    return ($PORT_Names_UDP{$name} || $self->SUPER::udp_name2num($name));
+}
+
 sub postprocess_config {
     my ($self, $p) = @_;
 
@@ -252,11 +283,38 @@ sub set_terminal {
 # No op; curently not checked.
 sub is_device_access {
     my ($self, $conf_entry) = @_;
+    return;
 }
 
+# Handle message "Configuration clean up in progress, retry again".
 sub resequence_cmd {
     my ($self, $acl_name, $start, $incr) = @_;
-    $self->cmd("access-list $acl_name resequence $start $incr");
+    my $cmd = "access-list $acl_name resequence $start $incr";
+    
+    if ($self->{COMPARE}) {
+        $self->cmd($cmd);
+        return; 
+    }
+
+    while (1) {
+        my $lines = $self->get_cmd_output(
+            "access-list $acl_name resequence $start $incr");
+
+        # Success.
+        last if not @$lines;
+
+        # Try again.
+        if (@$lines == 1 &&
+            $lines->[0] eq 
+            'Error: Configuration clean up in progress, retry again') {
+            info('ACL resequence command failed - trying again');
+            sleep(4);
+            next;
+        }
+
+        # Failure.
+        abort("ACL resequence: unexpected output:", @$lines);
+    }
 }
 
 # Generate ACL entry from attributes 
@@ -278,6 +336,12 @@ sub gen_ace_cmd {
     $cmd =~ s/^(\S+ \S+)/$1 line $line/;
     $cmd = "no $cmd" if $hash->{delete};
     return $cmd;
+}
+
+sub remove_acl {
+    my ($self, $acl) = @_;
+    my $name = $acl->{name};
+    $self->cmd("no access-list $name");
 }
 
 sub assign_acl {

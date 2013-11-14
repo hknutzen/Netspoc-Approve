@@ -124,20 +124,6 @@ sub remove_object_groups {
     }
 }
 
-sub assign_acl {
-    my ($self, $intf, $acl_name, $in_out) = @_;
-    my $direction = lc($in_out);
-    $self->cmd($intf->{orig});
-    $self->cmd("ip access-group $acl_name $direction");
-}
-
-sub unassign_acl   {
-    my ($self, $intf, $acl_name, $in_out) = @_;
-    my $direction = lc($in_out);
-    $self->cmd($intf->{orig});
-    $self->cmd("no ip access-group $acl_name $direction");
-}
-
 sub gen_ace_cmd {
     my ($self, $hash) = @_;
     my $line = $hash->{line};
@@ -151,6 +137,26 @@ sub gen_ace_cmd {
         $cmd = "$line $cmd";
     }
     return $cmd;
+}
+
+sub remove_acl {
+    my ($self, $acl) = @_;
+    my $cmd = $acl->{orig};
+    $self->cmd("no $cmd");
+}
+
+sub assign_acl {
+    my ($self, $intf, $acl_name, $in_out) = @_;
+    my $direction = lc($in_out);
+    $self->cmd($intf->{orig});
+    $self->cmd("ip access-group $acl_name $direction");
+}
+
+sub unassign_acl   {
+    my ($self, $intf, $acl_name, $in_out) = @_;
+    my $direction = lc($in_out);
+    $self->cmd($intf->{orig});
+    $self->cmd("no ip access-group $acl_name $direction");
 }
 
 sub process_interface_acls {
@@ -262,8 +268,7 @@ sub process_interface_acls {
                     info("Unassigning $in_out ACL from interface $name");
                     $self->unassign_acl($intf, $confacl_name, $in_out);
                 }
-                my $cmd = $conf_acl->{orig};
-                $self->cmd("no $cmd");
+                $self->remove_acl($conf_acl);
                 $self->mark_unneeded_object_group_from_acl($conf_acl);
 	    }		
 	}
