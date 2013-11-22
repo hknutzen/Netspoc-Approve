@@ -51,17 +51,19 @@ for device in * ; do
 	missing $device
 	continue
     fi
+
     # Check status of last approve
     # OK|***WARNINGS***|***ERRORS***|***UNFINISHED APPROVE***
     case $(cut -d';' -f4 $file) in
 	OK|\*\*\*WARNINGS\*\*\*) 
             # This policy has been approved to device
             approved=$(cut -d';' -f3 $file)
-            anum=$(echo $approved | sed 's/[^0-9]//g')
+            # UNIX time of successful approve
+            atime=$(cut -d';' -f17 $file)
             ;;
 	*)
             # There had been errors during last approve
-            anum=-1
+            atime=0
             ;;
     esac
 
@@ -71,19 +73,20 @@ for device in * ; do
     case $status in
         DIFF|UPTODATE)
             compared=$(cut -d';' -f14 $file)
-            cnum=$(echo $compared | sed 's/[^0-9]//g')
+            # UNIX time of last compare
+            ctime=$(cut -d';' -f16 $file)
             ;;
         *)
-            cnum=-1
+            ctime=0
             ;;
     esac
 
     # Both failed
-    if [ $anum = -1 -a $cnum = -1 ] ; then
+    if [ $atime = 0 -a $ctime = 0 ] ; then
         missing $device
         continue
     # Take newer successful policy
-    elif [ $anum -gt $cnum ] ; then
+    elif [ $atime -gt $ctime ] ; then
         last=$approved
     elif [ $status = 'UPTODATE' ] ; then
         last=$compared
