@@ -1283,10 +1283,6 @@ sub login_enable {
     }
     $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
 
-    # Parameter --noediting prevents \r to be inserted in echoed commands.
-    # --norc prevents fiddling with PS1
-    $self->issue_cmd('exec /bin/bash --noediting --norc');
-    
     # Force prompt to simple '#'.
     $self->issue_cmd('PS1=#');
     $self->{ENAPROMPT} = qr/\r\n\#$/;
