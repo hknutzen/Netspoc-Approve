@@ -39,6 +39,9 @@ sub get_parse_info {
                                { store => 'MASK', parse => \&check_ip, } ],
                     store => 'ADDRESS',
                 },
+                'ip address _skip _skip secondary' =>  { 
+                    parse => \&skip,	# ignore
+                },
                 'access-group input' => {
                     parse => \&get_token, 
                     store => 'ACCESS_GROUP_IN', 
