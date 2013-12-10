@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+
+use strict;
+use Test::More;
+use Test::Differences;
+use lib 't';
+use Test_Approve;
+
+# Minimal configuration of device.
+my $minimal_device = <<END;
+interface Ethernet0/0
+ nameif inside
+END
+my $minimal_device2 = <<END;
+interface Ethernet0/0
+ nameif inside
+interface Ethernet0/1
+ nameif outside
+END
+
+# Input from Netspoc.
+# Input from device.
+# Output from approve.
+my($in, $device, $out);
+my $title;
+
+############################################################
+$title = "Recognize named kerberos port";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list inside extended permit tcp host 2.2.2.2 any eq kerberos
+access-list inside extended permit udp host 2.2.2.2 any eq kerberos
+access-group inside in interface inside
+END
+
+$in = <<'END';
+access-list inside extended permit udp host 2.2.2.2 any eq 88
+access-list inside extended permit tcp host 2.2.2.2 any eq 88
+access-group inside in interface inside
+END
+
+$out = <<'END';
+no access-list inside line 1 extended permit tcp host 2.2.2.2 any eq kerberos\N access-list inside line 2 extended permit tcp host 2.2.2.2 any eq 88
+END
+eq_or_diff(approve('ACE', $device, $in), $out, $title);
+
+############################################################
+done_testing;

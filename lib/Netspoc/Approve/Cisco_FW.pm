@@ -7,7 +7,7 @@ package Netspoc::Approve::Cisco_FW;
 # Base class for Cisco firewalls (ASA, PIX, FWSM)
 #
 
-our $VERSION = '1.080'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.081'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -1871,31 +1871,6 @@ sub remove_object_group {
     $self->cmd( $cmd );
 }
 
-sub subst_ace_name_og {
-    my ($self, $ace, $new_name) = @_;
-    my $cmd = $ace->{orig};
-    $cmd =~ s/^access-list\s+\S+/access-list $new_name/;
-    for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
-        my $what = $ace->{$where};
-        if (my $group = ref($what) && $what->{GROUP}) {
-            my $gid = $group->{name};
-            my $new_gid = $group->{name_on_dev} || 
-                ($group->{transfer} && $group->{new_name}) or
-                abort("Expected group $gid already on device");
-
-            # Add marker '!' in front of inserted names.
-            # This prevents accidental renaming of an already renamed group.
-            # This situation can occur if identical names are used 
-            # for different groups in device and in netspoc configuration.
-            $cmd =~ s/object-group $gid(?!\S)/object-group !$new_gid/;
-        }
-    }
-
-    # Remove marker '!' of substitution above.
-    $cmd =~ s/!//g;
-    $cmd;
-}
-
 sub transfer_acl {
     my ( $self, $spoc, $structure, $parse_name, $acl_name ) = @_;
 
@@ -1918,8 +1893,7 @@ sub modify_acl {
             $cmd = "no $ace->{orig}";
         }
         else {
-            my $name = $hash->{name};
-            $cmd = $self->subst_ace_name_og($ace, $name);
+            $cmd = $self->subst_ace_name_og($ace, $hash->{name});
         }
 
         # Note: 

@@ -18,6 +18,8 @@ bin/newpolicy.pl
 bin/start-jobs
 dist.ini
 etc/netspoc-approve
+lib/Netspoc/Approve/ACE.pm
+lib/Netspoc/Approve/ACE.pm~
 lib/Netspoc/Approve/ASA.pm
 lib/Netspoc/Approve/Cisco.pm
 lib/Netspoc/Approve/Cisco_FW.pm
@@ -42,6 +44,8 @@ suid-support/newpolicy.c
 t/ASA-modify-ACL.t
 t/Linux.t
 t/Test_Approve.pm
+t/parse-ACE.t
+t/parse-ACE.t~
 t/parse-ASA.t
 t/parse-IOS.t
 t/parse-NX-OS.t

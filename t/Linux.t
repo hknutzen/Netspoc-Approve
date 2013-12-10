@@ -101,8 +101,7 @@ END
 
 $out = <<END;
 ip route add 10.10.0.0/16 via 10.1.2.3
-ip route del 10.40.0.0/16 via 10.1.2.3
-ip route add 10.40.0.0/16 via 10.1.2.4
+ip route del 10.40.0.0/16 via 10.1.2.3\\N ip route add 10.40.0.0/16 via 10.1.2.4
 ip route del 10.30.0.0/16 via 10.1.2.3
 END
 

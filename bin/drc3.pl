@@ -18,9 +18,10 @@ use Netspoc::Approve::IOS;
 use Netspoc::Approve::ASA;
 use Netspoc::Approve::PIX;
 use Netspoc::Approve::NX_OS;
+use Netspoc::Approve::ACE;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.080'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.081'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -30,6 +31,7 @@ my %type2class = (
     ASA     => 'Netspoc::Approve::ASA',
     PIX     => 'Netspoc::Approve::PIX',
     'NX-OS' => 'Netspoc::Approve::NX_OS',
+    'ACE'   => 'Netspoc::Approve::ACE',
 );
 
 ####################################################################

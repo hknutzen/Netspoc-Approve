@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.080'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.081'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -597,17 +597,19 @@ sub process_routing {
         {
             next if $r->{DELETE};
             $self->{CHANGE}->{ROUTING} = 1;
+            my $cmd = $self->route_add($r, $vrf);
             
-            # PIX and ASA don't allow two routes to identical destination.
-            # Remove old route immediatly before adding the new one.
+            # PIX and ASA don't allow two routes to identical
+            # destination. Remove and add routes in one transaction.
             for my $c (@$conf_routing) {
                 next if $c->{DELETE};
                 if($self->route_line_destination_a_eq_b($r, $c)){
-                    push(@cmds, $self->route_del($c));
+                    $cmd = [ $self->route_del($c, $vrf), $cmd ];
                     $c->{DELETE} = 1; # Must not delete again.
+                    last;
                 }
             }
-            push(@cmds, $self->route_add($r, $vrf));
+            push(@cmds, $cmd);
         }
         for my $r (@$conf_routing) {
             next if $r->{DELETE};
@@ -619,7 +621,14 @@ sub process_routing {
             $self->schedule_reload(5);
             $self->enter_conf_mode;
             $self->vrf_route_mode($vrf);
-            map { $self->cmd($_); } @cmds;
+            for my $cmd (@cmds) {
+                if (ref $cmd eq 'ARRAY') {
+                    $self->two_cmd(@$cmd);
+                }
+                else {
+                    $self->cmd($cmd);
+                }
+            }
             $self->leave_conf_mode;
             $self->cancel_reload();
         }
@@ -1169,14 +1178,24 @@ sub check_reachability {
 sub checkidentity {
     my ($self) = @_;
     my $name = $self->get_identity();
-    $name eq $self->{NAME} or
-	abort("Wrong device name: $name, expected: $self->{NAME}");
+    my $conf_name = $self->{NAME};
+
+    # Strip optional prefix.
+    $conf_name =~ s/^host://;
+
+    $name eq $conf_name or
+	abort("Wrong device name: $name, expected: $conf_name");
+}
+
+sub search_banner {
+    my ($self, $string) = @_;
+    return ($self->{PRE_LOGIN_LINES} =~ /$string/);
 }
 
 sub checkbanner {
     my ($self) = @_;
     my $check = $self->{CONFIG}->{checkbanner} or return;
-    if ( $self->{PRE_LOGIN_LINES} !~ /$check/) {
+    if (!$self->search_banner($check)) {
         if ($self->{COMPARE}) {
             warn_info("Missing banner at NetSPoC managed device");
         }

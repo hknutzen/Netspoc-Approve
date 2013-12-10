@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.081'; # VERSION: inserted by DZP::OurPkgVersion
+# VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -329,7 +329,7 @@ sub parse_version {
 	$self->{VERSION} = $1;
     }
     # cisco Nexus7000 C7010 (10 Slot) Chassis ("Supervisor module-1X")
-    if($output =~ /(cisco \s+ Nexus\S* \s+ \S+)/ix) {	
+    if($output =~ /(cisco \s+ Nexus\S* \S+)/ix) {	
 	$self->{HARDWARE} = $1;
     }
 }

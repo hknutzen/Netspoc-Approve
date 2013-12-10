@@ -15,13 +15,13 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.080'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.081'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
 ############################################################
 
-our %ICMP_Names = (
+my %ICMP_Names = (
     'administratively-prohibited' => { type => 3,  code => 13 },
     'alternate-address'           => { type => 6,  code => -1 },
     'conversion-error'            => { type => 31, code => -1 },
@@ -69,7 +69,7 @@ our %ICMP_Names = (
 );
 
 # Leave names unchanged for standard protocols icmp, tcp, udp.
-our %IP_Names = (
+my %IP_Names = (
     'ah'     => 51,
     'ahp'    => 51,
     'eigrp'  => 88,
@@ -88,7 +88,7 @@ our %IP_Names = (
 #    'udp'    => 17,
 );
 
-our %PORT_Names_TCP = (
+my %PORT_Names_TCP = (
     'bgp'               => 179,
     'chargen'           => 19,
     'citrix-ica'        => 1494,
@@ -142,7 +142,12 @@ our %PORT_Names_TCP = (
     'www'               => 80
 );
 
-our %PORT_Names_UDP = (
+sub tcp_name2num {
+    my ($self, $name) = @_;
+    return $PORT_Names_TCP{$name};
+}
+
+my %PORT_Names_UDP = (
     'biff'          => 512,
     'bootpc'        => 68,
     'bootps'        => 67,
@@ -182,6 +187,11 @@ our %PORT_Names_UDP = (
     'xdmcp'         => 177
 );
    
+sub udp_name2num {
+    my ($self, $name) = @_;
+    return $PORT_Names_UDP{$name};
+}
+
 # Read indented lines of commands from Cisco device.
 # Build an array where each command line is described by a hash
 # - arg: an array of tokens split by whitespace
@@ -400,22 +410,30 @@ sub adjust_mask {
 sub parse_port {
     my ($self, $arg, $proto) = @_;
     my $port = get_token($arg);
+
+    # Port is numeric.
+    return $port if $port =~ /^\d+$/;
+
+    # Convert named port to numeric port.
     if ($proto eq 'tcp') {
-        $port = $PORT_Names_TCP{$port} || $port;
+        $port = $self->tcp_name2num($port);
     }
     elsif ($proto eq 'udp') {
-        $port = $PORT_Names_UDP{$port} || $port;
+        $port = $self->udp_name2num($port);
     }
 
     # For tcp-udp and object-group check for intersection of port names.
     else {
-        my $tcp = $PORT_Names_TCP{$port};
-        my $udp = $PORT_Names_UDP{$port};
+        my $tcp = $self->tcp_name2num($port);
+        my $udp = $self->udp_name2num($port);
         if ($tcp && $udp && $tcp == $udp) {
             $port = $tcp;
         }
+        else {
+            $port = undef;
+        }
     }
-    $port =~ /^\d+$/ or err_at_line($arg, 'Expected port number');
+    defined $port or err_at_line($arg, 'Expected port number or port name');
     return $port;
 }
 
@@ -1037,6 +1055,33 @@ sub equalize_acl_groups {
     return !$acl_modified;
 }
 
+sub subst_ace_name_og {
+    my ($self, $ace, $name) = @_;
+    my $cmd = $ace->{orig};
+
+    # Only applicable for model ASA und ACE.
+    $cmd =~ s/^access-list \S+/access-list $name/;
+
+    for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
+        my $what = $ace->{$where};
+        if (my $group = ref($what) && $what->{GROUP}) {
+            my $gid = $group->{name};
+            my $new_gid = $group->{name_on_dev} || 
+                ($group->{transfer} && $group->{new_name}) or
+                abort("Expected group $gid already on device");
+
+            # Add marker '!' in front of inserted names.
+            # This prevents accidental renaming of an already renamed group.
+            # This situation can occur if identical names are used 
+            # for different groups in device and in netspoc configuration.
+            $cmd =~ s/group $gid(?!\S)/group !$new_gid/;
+        }
+    }
+
+    # Remove marker '!' of substitution above.
+    $cmd =~ s/!//g;
+    $cmd;
+}
 
 sub check_max_acl_entries {
     my ($self, $acl) = @_;
@@ -1254,10 +1299,11 @@ sub equalize_acl_entries {
         my $vcmd1;
         if (my $conf_entry = $move_up{$spoc_entry}) {
             my $line = $device_line{$conf_entry};
-            $vcmd1 = { ace => $conf_entry, delete => 1, line => $line};
+            $vcmd1 = { ace => $conf_entry,  name => $acl_name,
+                       delete => 1, line => $line};
             $self->change_acl_numbers(\%device_line, $line+1, -1);
         }
-        my $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
+        my $vcmd2 = { ace => $spoc_entry, name => $acl_name };
         my $line = $entry2line->($spoc_entry);
         $vcmd2->{line} = $line;
         $self->change_acl_numbers(\%device_line, $line, +1);
@@ -1272,11 +1318,12 @@ sub equalize_acl_entries {
     for my $conf_entry (reverse @delete) {
         next if $moved{$conf_entry};
         my $line = $device_line{$conf_entry};
-        my $vcmd1 = { ace => $conf_entry, delete => 1, line => $line};
+        my $vcmd1 = { ace => $conf_entry, name => $acl_name,
+                      delete => 1, line => $line};
         $self->change_acl_numbers(\%device_line, $line+1, -1);
         my $vcmd2;
         if (my $spoc_entry = $move_down{$conf_entry}) {
-            $vcmd2 = { ace => $spoc_entry, name => $conf_acl->{name} };
+            $vcmd2 = { ace => $spoc_entry, name => $acl_name };
             my $line2 = $entry2line->($spoc_entry);
             $vcmd2->{line} = $line2;
             $self->change_acl_numbers(\%device_line, $line2, +1);

@@ -22,7 +22,6 @@ END
 # Input from device.
 # Output from approve.
 my($in, $device, $out);
-my $device_type = 'ASA';
 my $title;
 
 ############################################################
@@ -364,6 +363,27 @@ END
 $out = <<'END';
 no access-list inside line 3 extended deny ip any any log warnings\N access-list inside line 3 extended deny ip any any
 no access-list inside line 1 extended permit ip host 1.1.1.1 any log\N access-list inside line 2 extended permit ip host 1.1.1.1 any
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Recognize named kerberos port";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list inside extended permit tcp host 2.2.2.2 any eq kerberos
+access-list inside extended permit udp host 2.2.2.2 any eq kerberos
+access-group inside in interface inside
+END
+
+$in = <<'END';
+access-list inside extended permit udp host 2.2.2.2 any eq 750
+access-list inside extended permit tcp host 2.2.2.2 any eq 750
+access-group inside in interface inside
+END
+
+$out = <<'END';
+no access-list inside line 1 extended permit tcp host 2.2.2.2 any eq kerberos\N access-list inside line 2 extended permit tcp host 2.2.2.2 any eq 750
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 

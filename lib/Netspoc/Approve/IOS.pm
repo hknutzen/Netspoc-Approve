@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.080'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.081'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -658,7 +658,7 @@ sub write_mem {
             }
         }
         else {
-            abort("write mem: unexpected result");
+            abort("write mem: unexpected result", @$lines);
         }
     }
 }

@@ -1,3 +1,7 @@
+1.081     2013-12-10 12:00:17 Europe/Berlin
+
+ - Added support for 'destination static' in twice NAT of ASA 8.4.
+ 
 1.080     2013-10-29 16:08:25 Europe/Berlin
 
  - Added support for keyword [APPEND] in raw files.
