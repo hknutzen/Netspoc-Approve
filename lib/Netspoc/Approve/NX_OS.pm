@@ -32,6 +32,10 @@ sub get_parse_info {
                 },
                 'ip address _skip secondary' =>  { 
                     parse => \&skip }, # ignore
+                'ip unnumbered' => {
+                    parse => \&get_token,
+                    store => ['ADDRESS', 'UNNUMBERED'], 
+                },
                 'ip access-group _skip in' => {
                     parse => \&get_token, 
                     store => 'ACCESS_GROUP_IN', 
@@ -43,7 +47,11 @@ sub get_parse_info {
                 'vrf member' => {
                     parse => \&get_token,
                     store => 'VRF',
-                }
+                },
+                'mpls ip' => {
+                    default => 1,
+                    store => 'MPLS',
+                },
             },
         },
 

@@ -77,6 +77,8 @@ sub get_parse_info {
 		store => 'VRF', parse => \&get_token, },
 	    'vrf forwarding' => {
 		store => 'VRF', parse => \&get_token, },
+            'mpls ip' => { 
+                store => 'MPLS', default => 1, },
             # 
 	    'crypto map' => {
 		store => 'CRYPTO_MAP', parse => \&get_token, },

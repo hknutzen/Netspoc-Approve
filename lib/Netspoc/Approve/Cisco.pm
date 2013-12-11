@@ -687,7 +687,7 @@ sub login_enable {
 
 # All active interfaces on device must be known by Netspoc.
 sub checkinterfaces {
-    my ($self, $conf, $spoc) = @_;
+    my ($self, $conf, $spoc, $has_mpls) = @_;
     my @errors;
     for my $name (sort keys %{ $conf->{IF} }) {
 	my $conf_intf = $conf->{IF}->{$name};
@@ -712,12 +712,22 @@ sub checkinterfaces {
 		     " Conf: $conf_inspect, Netspoc: $spoc_inspect");
 	}
 	else {
-            warn_info("Interface $name on device is not known by Netspoc");
+            warn_info("Interface '$name' on device is not known by Netspoc");
         }
     }
     for my $name (sort keys %{ $spoc->{IF} }) {
-	$conf->{IF}->{$name} or
-	    push(@errors, "Interface $name from Netspoc not known on device");
+	next if $conf->{IF}->{$name};
+        
+        # Ignore unnumbered pseudo mpls interface
+        if ($has_mpls && $name eq 'mpls') {
+            my $intf = $spoc->{IF}->{$name};
+            if($intf->{ADDRESS}->{UNNUMBERED}) {
+                delete $spoc->{IF}->{$name};
+                next;
+            }
+        }
+
+        push(@errors, "Interface '$name' from Netspoc not known on device");
     }
     @errors and abort(@errors);
 }
