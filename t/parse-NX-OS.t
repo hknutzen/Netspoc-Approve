@@ -167,7 +167,7 @@ $in = <<END;
 interface Ethernet2
  ip address 10.0.0.1/24
  vrf member 013
-interface mpls
+interface mpls1
  ip unnumbered X
  vrf member 013
 END

@@ -719,7 +719,7 @@ sub checkinterfaces {
 	next if $conf->{IF}->{$name};
         
         # Ignore unnumbered pseudo mpls interface
-        if ($has_mpls && $name eq 'mpls') {
+        if ($has_mpls && $name =~ /^mpls/) {
             my $intf = $spoc->{IF}->{$name};
             if($intf->{ADDRESS}->{UNNUMBERED}) {
                 delete $spoc->{IF}->{$name};
