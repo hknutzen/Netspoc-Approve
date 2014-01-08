@@ -153,4 +153,28 @@ END
 eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Ignore pseudo mpls interface from netspoc";
+############################################################
+$device = <<END;
+interface Ethernet2
+ ip address 10.0.0.1/24
+ vrf member 013
+interface Po1
+ mpls ip
+END
+
+$in = <<END;
+interface Ethernet2
+ ip address 10.0.0.1/24
+ vrf member 013
+interface mpls1
+ ip unnumbered X
+ vrf member 013
+END
+
+$out = '';
+
+eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+
+############################################################
 done_testing;

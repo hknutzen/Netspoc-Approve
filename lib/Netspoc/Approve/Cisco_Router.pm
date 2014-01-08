@@ -7,7 +7,7 @@ package Netspoc::Approve::Cisco_Router;
 # Base class for Cisco routers (IOS, NX-OS)
 #
 
-our $VERSION = '1.081'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.082'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -277,6 +277,16 @@ sub process_interface_acls {
     $self->leave_conf_mode();
 }
 
+# Check if mpls is enabled at one or more interfaces in any VRF.
+sub check_mpls {
+    my ($self, $conf) = @_;
+    my $intf_hash = $conf->{IF};
+    for my $intf (values %$intf_hash) {
+        return 1 if $intf->{MPLS};
+    }
+    return;
+}
+
 # Netspoc creates a single configuration file for a device 
 # having different VRFs.
 # Now remove that parts from the device configuration,
@@ -325,11 +335,14 @@ sub align_vrfs {
 sub transfer {
     my ($self, $conf, $spoc) = @_;
 
+    # Check if any interface has mpls enabled.
+    my $has_mpls = $self->check_mpls($conf);
+
     # Ignore unmanged VRFs of device.
     $self->align_vrfs($conf, $spoc);
 
     # Check for matching interfaces.
-    $self->checkinterfaces($conf, $spoc);
+    $self->checkinterfaces($conf, $spoc, $has_mpls);
 
     # *** BEGIN TRANSFER ***
     $self->process_interface_acls($conf, $spoc);

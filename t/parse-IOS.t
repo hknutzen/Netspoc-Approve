@@ -599,7 +599,7 @@ interface Ethernet2
 END
 
 $out = <<END;
-WARNING>>> Interface Ethernet1 on device is not known by Netspoc
+WARNING>>> Interface 'Ethernet1' on device is not known by Netspoc
 END
 eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
 

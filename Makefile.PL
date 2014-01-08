@@ -26,7 +26,6 @@ my %WriteMakefileArgs = (
     "bin/newpolicy.pl",
     "bin/drc3.pl",
     "bin/missing-approve",
-    "bin/delete-old-policies~",
     "bin/start-jobs",
     "bin/approve.pl",
     "bin/compress-policies",
@@ -50,7 +49,7 @@ my %WriteMakefileArgs = (
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "1.081",
+  "VERSION" => "1.082",
   "test" => {
     "TESTS" => "t/*.t"
   }

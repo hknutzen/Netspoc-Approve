@@ -1,3 +1,9 @@
+1.082     2014-01-08 11:45:36 Europe/Berlin
+
+ - Added support for attributes 'dns' and 'unidirectional' in twice NAT.
+ - Unnumbered interface with name 'mpls' from Netspoc is silently ignored,
+   if device has some interface with 'ip mpls'.
+
 1.081     2013-12-10 12:00:17 Europe/Berlin
 
  - Added support for 'destination static' in twice NAT of ASA 8.4.

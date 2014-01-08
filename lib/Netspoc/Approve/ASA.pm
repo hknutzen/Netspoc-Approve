@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.081'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.082'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -53,7 +53,7 @@ sub get_parse_info {
 ####
 # nat (inside,outside) [line] source static|dynamic 
 #  <object>|any <object>|any|interface
-#  [destination static <object>|interface <object>|any]
+#  [destination static <object>|interface <object>|any] [dns] [unidirectional] 
     $info->{'nat _skip source'} =     
     $info->{'nat _skip _skip source'} = {
         store => 'TWICE_NAT',
@@ -72,7 +72,10 @@ sub get_parse_info {
                    { parse => qr/destination/ },
                    { store => 'DST_TYPE', parse => qr/static/ },
                    { store => 'DST_FROM', parse => \&get_token },
-                   { store => 'DST_TO' , parse => \&get_token } ] ]
+                   { store => 'DST_TO' , parse => \&get_token } ],
+                  { store => 'DNS', parse => qr/dns/ },
+                  { store => 'UNIDIRECTIONAL', parse => qr/unidirectional/ },
+            ]
     };
 
 # object network <name>

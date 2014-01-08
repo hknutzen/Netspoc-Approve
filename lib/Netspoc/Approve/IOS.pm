@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.081'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.082'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -77,6 +77,8 @@ sub get_parse_info {
 		store => 'VRF', parse => \&get_token, },
 	    'vrf forwarding' => {
 		store => 'VRF', parse => \&get_token, },
+            'mpls ip' => { 
+                store => 'MPLS', default => 1, },
             # 
 	    'crypto map' => {
 		store => 'CRYPTO_MAP', parse => \&get_token, },
