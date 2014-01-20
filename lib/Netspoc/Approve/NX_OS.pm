@@ -128,6 +128,13 @@ sub get_parse_info {
 	    named => 1,
             strict => 'err',
 	    subcmd => {
+                '_skip remark' => {
+		    store => 'LIST',
+		    multi => 1,
+		    parse => [
+                        'seq',
+                        { parse => \&get_int, },
+                        { store => 'REMARK', parse => \&get_to_eol } ] },
                 '_skip permit' => {
 		    store => 'LIST',
 		    multi => 1,
