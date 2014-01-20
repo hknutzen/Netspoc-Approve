@@ -610,10 +610,17 @@ sub login_enable {
     my $std_prompt = qr/[\>\#]/;
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
 
-    # First, try to get password from CiscoWorks.
+    # First, try to get password from CiscoWorks for current device.
+    # This is used for telnet login without username.
     my $pass = $self->get_cw_password();
+
+    # Get username for login with ssh.
     my $user;
-    if(not $pass) {
+    if (! $pass) {
+
+        # If running as privileged user, try to get user and password
+        # for login. Otherwise get current user or user from option
+        # '-u' and no password.
 	($user, $pass) = $self->get_aaa_password();
     }
 
