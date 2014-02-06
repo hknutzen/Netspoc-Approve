@@ -112,6 +112,37 @@ resequence ip access-list inside 10 10
 END
 eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
 
+############################################################
+$title = "Ignore ACL line with remark";
+############################################################
+$device = <<'END';
+ip access-list inside 
+ 10 remark Test1
+ 20 permit ip host 1.1.1.1 any
+ 30 permit ip host 2.2.2.2 any
+ 40 remark Test2
+ 50 permit ip host 4.4.4.4 any
+interface Ethernet0/0
+ ip access-group inside in
+END
+
+$in = <<'END';
+ip access-list inside 
+ 10 permit ip host 1.1.1.1 any
+ 20 permit ip host 4.4.4.4 any
+interface Ethernet0/0
+ ip access-group inside in
+END
+
+$out = <<'END';
+resequence ip access-list inside 10000 10000
+ip access-list inside
+no 40000
+no 30000
+no 10000
+resequence ip access-list inside 10 10
+END
+eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Managed and unmanaged VRF in one device; add VRF route";

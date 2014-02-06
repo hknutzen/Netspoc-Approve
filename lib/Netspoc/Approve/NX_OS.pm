@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.082'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.083'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -128,6 +128,13 @@ sub get_parse_info {
 	    named => 1,
             strict => 'err',
 	    subcmd => {
+                '_skip remark' => {
+		    store => 'LIST',
+		    multi => 1,
+		    parse => [
+                        'seq',
+                        { parse => \&get_int, },
+                        { store => 'REMARK', parse => \&get_to_eol } ] },
                 '_skip permit' => {
 		    store => 'LIST',
 		    multi => 1,

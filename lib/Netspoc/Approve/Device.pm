@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.082'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.083'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -90,10 +90,9 @@ sub match {
 sub get_aaa_password {
     my ($self) = @_;
     my $pass;
-    my $user = getpwuid($>);
     my $name = $self->{NAME};
     my $system_user = $self->{CONFIG}->{systemuser};
-    $system_user and $user eq $system_user or return $user;
+    $system_user and $self->{USER} eq $system_user or return $self->{USER};
 
     my $aaa_credential = $self->{CONFIG}->{aaa_credentials}
        or abort("Must configure AAA_CREDENTIALS together with SYSTEMUSER");

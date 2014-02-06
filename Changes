@@ -1,3 +1,13 @@
+1.083     2014-02-06 11:47:36 Europe/Berlin
+
+ - Second and third transform name is optional now
+   in command 'crypto ipsec transform-set' of IOS.
+ - Added support for "remark" in ACL of NX-OS.
+ - Added option '-u <username>' to drc3.pl to set the username for 
+   logon to remote device.
+ - Fixed command 'missing-approve' to no longer print duplicate router
+   names if both, netspoc file and raw file have changed.
+
 1.082     2014-01-08 11:45:36 Europe/Berlin
 
  - Added support for attributes 'dns' and 'unidirectional' in twice NAT.

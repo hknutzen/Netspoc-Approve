@@ -21,7 +21,7 @@ use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::ACE;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.082'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.083'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -45,13 +45,14 @@ sub usage {
 usage: 'drc3.pl [options] <file>'
    or: 'drc3.pl <file1> <file2>'
 Compare / approve file with device or compare two files.
- -C                   compare device with netspoc
- -L <logdir>          path for saving telnet-logs
+ -C                   compare only
+ -u <username>        use username for login to remote device
  -t <seconds>         timeout for telnet
- -q                   Suppress info messages to STDERR
- --LOGFILE <fullpath> Path to redirect STDOUT and STDERR
+ -q                   suppress info messages to STDERR
+ -L <logdir>          path for saving telnet logs
+ --LOGFILE <fullpath> path to redirect STDOUT and STDERR
  --NOREACH            do not check if device is reachable
- -v                   show version info
+ -v                   print program version
 
 END
     exit -1;
@@ -72,9 +73,10 @@ my %opts;
 &GetOptions(
     \%opts,
     'C',
-    'L=s',
+    'u=s',
     't=i',
     'q',
+    'L=s',
     'LOGFILE=s',
     'NOREACH',
     'v',
@@ -119,6 +121,7 @@ if ($file2) {
 }
 
 $opts{t} ||= 300;
+$job->{USER} = delete $opts{u} || getpwuid($>);
 $job->{IP} or abort("Can't get IP from $spoc_file");
 $job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 
