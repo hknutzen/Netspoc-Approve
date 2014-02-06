@@ -229,7 +229,7 @@ sub get_parse_info {
 	    named => 1,
 	    parse => ['seq',
 		      { store => 't1', parse => \&get_token, },
-		      { store => 't2', parse => \&get_token, },
+		      { store => 't2', parse => \&check_token, },
 		      { store => 't3', parse => \&check_token, }, ],
 	    subcmd => {},
 	},
