@@ -1,5 +1,10 @@
 {{$NEXT}}
 
+1.084     2014-02-10 17:27:23 Europe/Berlin
+
+ - Fixed login to Linux devices.
+   No longer misinterpret '#' in banner as prompt.
+
 1.083     2014-02-06 11:47:36 Europe/Berlin
 
  - Second and third transform name is optional now
