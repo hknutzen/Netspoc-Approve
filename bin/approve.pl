@@ -141,7 +141,7 @@ if (open(my $log, '<', $logfile)) { ## no critic (ProhibitUnusedVariables)
             $warnings++;
         }
         elsif (/ERROR>>>/) {
-            if ($brief && /Reachability test failed/) {
+            if ($brief && /TIMEOUT/) {
                 next;
             }
             else {
