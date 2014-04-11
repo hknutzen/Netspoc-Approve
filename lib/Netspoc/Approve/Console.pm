@@ -137,9 +137,9 @@ sub con_wait_prompt1 {
 }
 
 sub con_short_wait {
-    my ($self, $prompt) = @_;
-    my $timeout = 3;
-    return $self->con_wait0($prompt, $timeout);
+    my ($con, $prompt) = @_;
+    my $timeout = 5;
+    return $con->con_wait0($prompt, $timeout);
 }            
     
 sub con_send_cmd {
