@@ -630,7 +630,7 @@ sub login_enable {
         info("Trying SSH for login");
         $con->{EXPECT}->spawn('ssh', '-l', $user, $ip)
             or abort("Cannot spawn ssh: $!");
-        my $prompt = qr/password:|\(yes\/no\)\?|^ssh:/i;
+        my $prompt = qr/password:|\(yes\/no\)\?/i;
         my $result = $con->con_short_wait($prompt);
         if ($result->{ERROR}) {
             $try_telnet = 1;
