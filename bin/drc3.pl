@@ -51,7 +51,6 @@ Compare / approve file with device or compare two files.
  -q                   suppress info messages to STDERR
  -L <logdir>          path for saving telnet logs
  --LOGFILE <fullpath> path to redirect STDOUT and STDERR
- --NOREACH            do not check if device is reachable
  -v                   print program version
 
 END
@@ -78,7 +77,6 @@ my %opts;
     'q',
     'L=s',
     'LOGFILE=s',
-    'NOREACH',
     'v',
 );
 
@@ -128,7 +126,6 @@ $job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 # Enable logging if configured.
 $job->logging();
 
-$job->check_reachability();
 $job->lock($name);
 
 # Start compare / approve.
