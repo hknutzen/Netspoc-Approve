@@ -21,7 +21,7 @@ use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::ACE;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.084'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.085'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -51,7 +51,6 @@ Compare / approve file with device or compare two files.
  -q                   suppress info messages to STDERR
  -L <logdir>          path for saving telnet logs
  --LOGFILE <fullpath> path to redirect STDOUT and STDERR
- --NOREACH            do not check if device is reachable
  -v                   print program version
 
 END
@@ -78,7 +77,6 @@ my %opts;
     'q',
     'L=s',
     'LOGFILE=s',
-    'NOREACH',
     'v',
 );
 
@@ -128,7 +126,6 @@ $job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 # Enable logging if configured.
 $job->logging();
 
-$job->check_reachability();
 $job->lock($name);
 
 # Start compare / approve.

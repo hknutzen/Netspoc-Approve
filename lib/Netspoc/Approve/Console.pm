@@ -13,7 +13,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '1.084'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.085'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
@@ -28,7 +28,6 @@ sub new_console {
 
     my $con = $job->{CONSOLE} = {};
     bless( $con, $class );
-    $con->{PARENT} = $job;
     my $console = $con->{EXPECT} = Expect->new();
 
     if ( $logfile ) {
@@ -62,7 +61,7 @@ sub new_console {
 }
 
 sub shutdown_console {
-    my ($con, $shutdown_message) = @_;
+    my ($con, $job, $shutdown_message) = @_;
     if ( exists $con->{LOG} ) {
         my $fh = $con->{LOG};
         print $fh "\n";
@@ -71,8 +70,7 @@ sub shutdown_console {
         print $fh "********************************************************\n";
         print $fh "\n";
     }
-    $con->{EXPECT}->soft_close();
-    delete $con->{PARENT}->{CONSOLE};
+    delete $job->{CONSOLE};
 }
 
 #    If called in an array context expect() will return
@@ -89,19 +87,28 @@ sub shutdown_console {
 #    was set in $ERRNO during the last read on $object's
 #    handle.
 
+sub con_wait0 {
+    my ($con, $prompt, $timeout) = @_;
+    my $exp = $con->{EXPECT};
+    my ($pos, $err, $match, $before, $after)
+        = $exp->expect( $timeout, '-re', $prompt );
+
+    my $result = $con->{RESULT} = {
+        MPPOS => $pos,
+        ERROR => $err,
+        MATCH => $match,
+        BEFORE => $before,
+        AFTER => $after,
+    };
+    return $result;
+}
+
 sub con_wait {
     my ($con, $prompt) = @_;
     my $timeout = $con->{TIMEOUT};
-    my $exp = $con->{EXPECT};
-    my @result = $exp->expect( $timeout, '-re', $prompt );
-
-    $con->{RESULT} = (my $result = {});
-    $result->{ERROR}   = $result[1];
-    $result->{MPPOS}   = $result[0];
-    $result->{MATCH}   = $result[2];
-    $result->{BEFORE}  = $result[3];
-    $result->{AFTER}   = $result[4];
+    my $result = $con->con_wait0($prompt, $timeout);
     $con->con_error() if $result->{ERROR};
+    return $result;
 }
 
 # We might accidently have read multiple prompt strings.
@@ -129,6 +136,12 @@ sub con_wait_prompt1 {
     }
 }
 
+sub con_short_wait {
+    my ($con, $prompt) = @_;
+    my $timeout = 5;
+    return $con->con_wait0($prompt, $timeout);
+}            
+    
 sub con_send_cmd {
     my ($con, $cmd) = @_;
     $con->{EXPECT}->send( $cmd );
@@ -145,10 +158,22 @@ sub con_issue_cmd {
 sub con_error {
     my ($con) = @_;
     my $result = $con->{RESULT};
-    my @lines = ($result->{ERROR});
+    my $err = $result->{ERROR};
+    if ($err =~ /^1:/) {
+        $err = 'TIMEOUT';
+    }
+    elsif ($err =~ /^2:/) {
+        $err = 'Got EOF';
+    }
+    elsif ($err =~ /^3:/) {
+        $err = 'Process died';
+    }
+    elsif ($err =~ /^4:(.*)/) {
+        $err = $1;
+    }
+    my @lines = ($err);
     for my $key (qw(BEFORE AFTER)) {
-        my $value = $result->{$key};
-        next if not $value;
+        my $value = $result->{$key} or next;
         push @lines, split /\n/, $value;
     }
     abort(@lines);

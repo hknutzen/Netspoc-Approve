@@ -14,7 +14,7 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.084'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.085'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
@@ -141,7 +141,7 @@ if (open(my $log, '<', $logfile)) { ## no critic (ProhibitUnusedVariables)
             $warnings++;
         }
         elsif (/ERROR>>>/) {
-            if ($brief && /Reachability test failed/) {
+            if ($brief && /TIMEOUT/) {
                 next;
             }
             else {

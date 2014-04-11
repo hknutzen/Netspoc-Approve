@@ -1,3 +1,10 @@
+1.085     2014-04-11 12:03:25 Europe/Berlin
+
+ - Ping command isn't used any longer to perform reachability check.
+   A shorter timeout of 5s ist used now to prevent long wait at initial
+   connection.
+   This allows us to use the OpenSSH "ProxyCommand" for SSH connections.
+
 1.084     2014-02-10 17:27:23 Europe/Berlin
 
  - Fixed login to Linux devices.

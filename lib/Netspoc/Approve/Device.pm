@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.084'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.085'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -1162,18 +1162,6 @@ sub cancel_reload {
     my ($self, $force) = @_;
 }
 
-sub check_reachability {
-    my ($self) = @_;
-    return if $self->{OPTS}->{NOREACH};
-    for my $i (1 .. 3) {
-
-        # -q: quiet, -w $i: wait for 1,2,3 seconds, -c 1: try once
-        my $result = `ping -q -w $i -c 1 $self->{IP}`;
-	return if $result =~ /1 received/;
-    }
-    abort('Reachability test failed');
-}
-
 sub checkidentity {
     my ($self) = @_;
     my $name = $self->get_identity();
@@ -1233,9 +1221,11 @@ sub con_shutdown {
     my $time = localtime();
     my $shutdown_message = "STOP: at > $time <";
     my $con = $self->{CONSOLE};
-    $con->{TIMEOUT} = 5;
-    $con->con_issue_cmd('exit', eof);
-    $con->shutdown_console($shutdown_message);
+    if (!$con->{RESULT}->{ERROR}) {
+        $con->{TIMEOUT} = 3;
+        $con->con_issue_cmd('exit', eof);
+    }
+    $con->shutdown_console($self, $shutdown_message);
 }
 
 sub prepare_device {

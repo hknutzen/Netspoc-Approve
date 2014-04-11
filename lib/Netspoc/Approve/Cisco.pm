@@ -15,7 +15,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.084'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.085'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -623,31 +623,45 @@ sub login_enable {
         # '-u' and no password.
 	($user, $pass) = $self->get_aaa_password();
     }
+    my $try_telnet;
 
-    # Use SSH, if username is given and if server is reachable on SSH port.
-    if ($user && IO::Socket::INET->new('PeerAddr' => $ip, 'PeerPort' => 22)) {
-        info("Using SSH for login");
-        $con->{EXPECT}->spawn("ssh", "-l", "$user", "$ip")
+    # Try SSH, if username is given and if server is reachable on SSH port.
+    if ($user) {
+        info("Trying SSH for login");
+        $con->{EXPECT}->spawn('ssh', '-l', $user, $ip)
             or abort("Cannot spawn ssh: $!");
         my $prompt = qr/password:|\(yes\/no\)\?/i;
-        $con->con_wait($prompt);
-        if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
-            $prompt = qr/password:/i;
-            $con->con_issue_cmd('yes', $prompt);
-            info("SSH key for $ip permanently added to known hosts");
+        my $result = $con->con_short_wait($prompt);
+        if ($result->{ERROR}) {
+            $try_telnet = 1;
+            $self->con_shutdown();
+            $self->con_setup();
+            $con = $self->{CONSOLE};
         }
-        $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-        $prompt = qr/$prompt|$std_prompt/i;
-        $pass ||= $self->get_user_password($user);
-        $con->con_issue_cmd($pass, $prompt);
-        $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
+        else {
+            my $match = $result->{MATCH};
+            if ($match =~ m/\(yes\/no\)\?/i) {
+                $prompt = qr/password:/i;
+                $con->con_issue_cmd('yes', $prompt);
+                info("SSH key for $ip permanently added to known hosts");
+            }
+            $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+            $prompt = qr/$prompt|$std_prompt/i;
+            $pass ||= $self->get_user_password($user);
+            $con->con_issue_cmd($pass, $prompt);
+            $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
+        }
     }
-    else {
-        info("Using telnet for login");
-        $con->{EXPECT}->spawn("telnet", ($ip))
+
+    if (!$user || $try_telnet) {
+        info("Trying telnet for login");
+        $con->{EXPECT}->spawn('telnet', $ip)
             or abort("Cannot spawn telnet: $!");
         my $prompt = qr/username:|password:|$std_prompt/i;
-        $con->con_wait($prompt);
+        my $result = $con->con_short_wait($prompt);
+        if ($result->{ERROR}) {
+            $con->con_error();
+        }
         $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
         if ($con->{RESULT}->{MATCH} =~ qr/username:/i) {
             if (!$user) {
