@@ -1265,7 +1265,10 @@ sub login_enable {
     $con->{EXPECT}->spawn('ssh', '-l', $config->{user}, $ip)
 	or abort("Cannot spawn ssh: $!");
     my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
-    $con->con_wait($prompt);
+    my $result = $con->con_short_wait($prompt);
+    if ($result->{ERROR}) {
+        $con->con_error();
+    }
     if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 	$prompt = qr/$std_prompt|password:/i;
 	$con->con_issue_cmd('yes', $prompt);
