@@ -633,7 +633,7 @@ sub login_enable {
         my $prompt = qr/password:|\(yes\/no\)\?/i;
         my $result = $con->con_short_wait($prompt);
         if ($result->{ERROR}) {
-            $try_telnet = 1;
+            $try_telnet = $self->{CONFIG}->{try_telnet};
             $self->con_shutdown();
             $self->con_setup();
             $con = $self->{CONSOLE};

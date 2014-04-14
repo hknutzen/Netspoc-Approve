@@ -18,6 +18,7 @@ my $config = {
     newpolicy_hooks => undef,	# list of paths
     timeout         => 60,
     login_timeout   => 3,
+    try_telnet      => undef,
 };
 
 my @prefix = ('/etc/', '/usr/local/etc/', glob('~/.'));
