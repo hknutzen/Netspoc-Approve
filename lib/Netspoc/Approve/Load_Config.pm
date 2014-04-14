@@ -16,6 +16,8 @@ my $config = {
     aaa_credentials => undef,	# path
     systemuser      => undef,	# username
     newpolicy_hooks => undef,	# list of paths
+    timeout         => 60,
+    login_timeout   => 3,
 };
 
 my @prefix = ('/etc/', '/usr/local/etc/', glob('~/.'));

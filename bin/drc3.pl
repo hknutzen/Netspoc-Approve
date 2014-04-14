@@ -47,7 +47,6 @@ usage: 'drc3.pl [options] <file>'
 Compare / approve file with device or compare two files.
  -C                   compare only
  -u <username>        use username for login to remote device
- -t <seconds>         timeout for telnet
  -q                   suppress info messages to STDERR
  -L <logdir>          path for saving telnet logs
  --LOGFILE <fullpath> path to redirect STDOUT and STDERR
@@ -73,7 +72,6 @@ my %opts;
     \%opts,
     'C',
     'u=s',
-    't=i',
     'q',
     'L=s',
     'LOGFILE=s',
@@ -118,7 +116,6 @@ if ($file2) {
     exit($job->compare_files($file1, $file2) ? 1 : 0)
 }
 
-$opts{t} ||= 300;
 $job->{USER} = delete $opts{u} || getpwuid($>);
 $job->{IP} or abort("Can't get IP from $spoc_file");
 $job->{CONFIG} = Netspoc::Approve::Load_Config::load();

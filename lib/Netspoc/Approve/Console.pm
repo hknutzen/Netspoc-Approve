@@ -138,7 +138,7 @@ sub con_wait_prompt1 {
 
 sub con_short_wait {
     my ($con, $prompt) = @_;
-    my $timeout = 5;
+    my $timeout = $con->{LOGIN_TIMEOUT};
     return $con->con_wait0($prompt, $timeout);
 }            
     
