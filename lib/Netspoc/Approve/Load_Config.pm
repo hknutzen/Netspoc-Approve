@@ -52,10 +52,11 @@ sub load {
     }
     for my $key (keys %$config) {
         my $default = $config->{$key};
+        next if !defined $default;
         if ($default eq '_required') {
             $result->{$key} or croak "Missing '$key' in configuration file";
         }
-        elsif (defined $default) {
+        else {
             exists $result->{$key} or $result->{$key} = $default;
         }
     }
