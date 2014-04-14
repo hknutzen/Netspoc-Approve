@@ -1,5 +1,13 @@
 {{$NEXT}}
 
+1.086     2014-04-14 15:13:58 Europe/Berlin
+
+ - New config options in /etc/netspoc-approve:
+   - timeout: Timeout during session. Default: 60s
+   - login_timeout: Timout when establishing session. Default: 3s
+   - try_telnet: Try telnet if device isn't reachable by ssh. (Default: unset)
+ - Removed option '-t' of command drc3.pl (default was 500s).
+
 1.085     2014-04-11 12:03:25 Europe/Berlin
 
  - Ping command isn't used any longer to perform reachability check.
