@@ -15,7 +15,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.085'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.086'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -633,10 +633,16 @@ sub login_enable {
         my $prompt = qr/password:|\(yes\/no\)\?/i;
         my $result = $con->con_short_wait($prompt);
         if ($result->{ERROR}) {
-            $try_telnet = 1;
-            $self->con_shutdown();
-            $self->con_setup();
-            $con = $self->{CONSOLE};
+            if ($try_telnet = $self->{CONFIG}->{try_telnet}) {
+
+                # Open fresh console for telnet command.
+                $self->con_shutdown();
+                $self->con_setup();
+                $con = $self->{CONSOLE};
+            }
+            else {
+                $con->con_error();
+            }
         }
         else {
             my $match = $result->{MATCH};

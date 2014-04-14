@@ -4,16 +4,21 @@ use strict;
 use warnings;
 use Carp;
 
+# Valid keys in config file.
+# Value is either '_required' for required keys or a default value.
 my $config = {
-    netspocdir      => 1,
-    lockfiledir     => 1,
-    historydir      => 0,
-    statusdir       => 0,
-    checkbanner     => 0,	# regex
-    passwdpath      => 0,
-    aaa_credentials => 0,	# path
-    systemuser      => 0,	# username
-    newpolicy_hooks => 0,	# list of paths
+    netspocdir      => '_required',
+    lockfiledir     => '_required',
+    historydir      => undef,
+    statusdir       => undef,
+    checkbanner     => undef,	# regex
+    passwdpath      => undef,
+    aaa_credentials => undef,	# path
+    systemuser      => undef,	# username
+    newpolicy_hooks => undef,	# list of paths
+    timeout         => 60,
+    login_timeout   => 3,
+    try_telnet      => undef,
 };
 
 my @prefix = ('/etc/', '/usr/local/etc/', glob('~/.'));
@@ -46,8 +51,14 @@ sub load {
 	}
     }
     for my $key (keys %$config) {
-        next if ! $config->{$key};
-        $result->{$key} or croak "Missing '$key' in configuration file";
+        my $default = $config->{$key};
+        next if !defined $default;
+        if ($default eq '_required') {
+            $result->{$key} or croak "Missing '$key' in configuration file";
+        }
+        else {
+            exists $result->{$key} or $result->{$key} = $default;
+        }
     }
     return $result;
 }

@@ -51,3 +51,12 @@ historydir  = /home/diamonds/history
 
 # List of paths to be called after successful run of newpolicy
 #newpolicy_hooks = path1 path2
+
+# Timeout during established session
+#timeout = 500
+
+# Timeout when establishing session to device.
+#login_timeout = 10
+
+# Try telnet if ssh fails
+#try_telnet = 1

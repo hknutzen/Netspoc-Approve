@@ -13,7 +13,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '1.085'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.086'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
@@ -138,7 +138,7 @@ sub con_wait_prompt1 {
 
 sub con_short_wait {
     my ($con, $prompt) = @_;
-    my $timeout = 5;
+    my $timeout = $con->{LOGIN_TIMEOUT};
     return $con->con_wait0($prompt, $timeout);
 }            
     

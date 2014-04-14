@@ -16,7 +16,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.085'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.086'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -1213,7 +1213,8 @@ sub con_setup {
     my $con = $self->{CONSOLE} =
 	Netspoc::Approve::Console->new_console($self, $logfile,
                                                $startup_message);
-    $con->{TIMEOUT} = $self->{OPTS}->{t};
+    $con->{TIMEOUT} = $self->{CONFIG}->{timeout};
+    $con->{LOGIN_TIMEOUT} = $self->{CONFIG}->{login_timeout};
 }
 
 sub con_shutdown {
@@ -1222,7 +1223,7 @@ sub con_shutdown {
     my $shutdown_message = "STOP: at > $time <";
     my $con = $self->{CONSOLE};
     if (!$con->{RESULT}->{ERROR}) {
-        $con->{TIMEOUT} = 3;
+        $con->{TIMEOUT} = $con->{LOGIN_TIMEOUT};
         $con->con_issue_cmd('exit', eof);
     }
     $con->shutdown_console($self, $shutdown_message);
