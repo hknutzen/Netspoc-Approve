@@ -633,10 +633,16 @@ sub login_enable {
         my $prompt = qr/password:|\(yes\/no\)\?/i;
         my $result = $con->con_short_wait($prompt);
         if ($result->{ERROR}) {
-            $try_telnet = $self->{CONFIG}->{try_telnet};
-            $self->con_shutdown();
-            $self->con_setup();
-            $con = $self->{CONSOLE};
+            if ($try_telnet = $self->{CONFIG}->{try_telnet}) {
+
+                # Open fresh console for telnet command.
+                $self->con_shutdown();
+                $self->con_setup();
+                $con = $self->{CONSOLE};
+            }
+            else {
+                $con->con_error();
+            }
         }
         else {
             my $match = $result->{MATCH};
