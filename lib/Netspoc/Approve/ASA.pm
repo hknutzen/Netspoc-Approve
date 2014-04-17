@@ -64,7 +64,17 @@ sub get_parse_info {
 
                   # Ignore line number. It is used implicitly from {orig}.
                   # This version supports only "1" as value.
-                  { parse => qr/1/ },
+                  { parse => sub { 
+                      my ($arg) = @_;
+                      my $line = check_int($arg);
+                      if (defined($line) && $line != 1) {
+                          unread($arg);
+                          err_at_line($arg, 'Only line number "1" is supported');
+                      }
+                      return;
+                                   
+                    },
+                  },
                   { store => 'TYPE', parse => qr/static|dynamic/ },
                   { store => 'FROM', parse => \&get_token },
                   { store => 'TO' , parse => \&get_token },
