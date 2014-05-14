@@ -9,8 +9,8 @@ char program[] = "/usr/local/bin/newpolicy.pl";
 
 int main( int argc, char *argv[]) 
 {
-    char cvsroot[500];
-    char lang[500];
+    char cvsroot[500] = "";
+    char lang[500] = "";
     char CVSROOT[] = "CVSROOT=";
     char LANG[] = "LANG=";
     strcat(cvsroot, CVSROOT);
