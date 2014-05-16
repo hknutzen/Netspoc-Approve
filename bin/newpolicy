@@ -21,6 +21,8 @@ FAILED=$POLICYDB/next/failed
 msg   () { echo $@ >&2; }
 abort () { echo $@ >&2; exit 1; }
 
+[ -n "$(type $PROG)" ] || abort "Can't find command '$PROG'"
+
 # true  (0): all changes from repository have already been processed
 # false (1): SRC isn't up to date
 uptodate () {
