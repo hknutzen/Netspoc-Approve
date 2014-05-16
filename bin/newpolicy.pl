@@ -1,7 +1,7 @@
 #!/usr/bin/perl
-# newpolicy -- Checkout configuration from Netspoc for Approve
-# http://netspoc.berlios.de
-# (c) 2013 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# newpolicy.pl -- Checkout configuration from Netspoc for Approve
+# http://hknutzen.github.com/Netspoc
+# (c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,8 +35,11 @@
 
 use strict;
 use warnings;
+use IO::Handle;
 use Fcntl qw(:DEFAULT :flock);
 use Netspoc::Approve::Load_Config;
+
+sub abort { die "Error:", @_, "\n"; }
 
 my $config = Netspoc::Approve::Load_Config::load();
 
@@ -45,10 +48,10 @@ my $real_uid = $<;
 
 # Get users pw entry.
 my @pwentry = getpwuid($real_uid) or 
-    die "Can't get pwentry of UID $real_uid: $!\n";
+    abort("Can't get pwentry of UID $real_uid: $!");
 
 # Get users home directory.
-my $home = $pwentry[7] or die "Can't get home directory for UID $real_uid\n";
+my $home = $pwentry[7] or abort("Can't get home directory for UID $real_uid");
 
 # Users netspoc directory.
 my $working = "$home/netspoc";
@@ -65,6 +68,9 @@ my $module = 'netspoc';
 # Link to current policy.
 my $link = "$policydb/current";
 
+# Linkt to next policy
+my $next = "$policydb/next";
+
 # The lock file for preventing concurrent updates.
 my $lock = "$policydb/LOCK";
 
@@ -73,19 +79,24 @@ $ENV{PATH} = "/usr/local/bin:/usr/bin:/bin";
 
 # Lock policy database.
 sysopen my $lock_fh, "$lock", O_RDONLY | O_CREAT or
-    die "Error: can't open $lock: $!\n";
+    abort("Error: can't open $lock: $!");
 if (not flock($lock_fh, LOCK_EX | LOCK_NB)) {
 
-    # Read user and time from lockfile.
-    open(my $fh, '<', $lock) or die "Can't open $lock for reading: $!\n";
-    my $status = <$fh>;
-    close $fh;
-    die "Abort: Another $0 is running. $status\n";
+# Not needed, because this is only used from wrapper script.
+#    # Read user and time from lockfile.
+#    open(my $fh, '<', $lock) or abort("Can't open $lock for reading: $!");
+#    my $status = <$fh> || '';
+#    close $fh;
+#    chomp $status;
+#    print STDERR "Another $0 is running. $status\n";
+
+    # Status code 2 signals, that a process is already running.
+    exit 2
 }
 
 # Write user and time to lockfile for better error message.
-my $user =  $pwentry[0] or die "Can't get user name for UID $real_uid\n";
-open(my $fh, '>', $lock) or die "Can't open $lock for writing: $!\n";
+my $user =  $pwentry[0] or abort("Can't get user name for UID $real_uid");
+open(my $fh, '>', $lock) or abort("Can't open $lock for writing: $!");
 my $status = "Started by $user at " . localtime() . "\n";
 print $fh $status;
 close $fh;
@@ -93,13 +104,13 @@ close $fh;
 # Read current policy name from POLICY file from repository.
 my $fcount;
 open(my $policy_fh, '-|', "cvs -Q checkout -p $module/POLICY") or 
-    die "internal";
+    abort("internal");
 my $line = <$policy_fh>;
 close($policy_fh);
 if($? == 0) {
     # $pfile contains one line: "# p22 comment .."
     ($fcount) = ($line =~ m'^#? *p(\d+) ') or
-	die "Error: No valid policy name found in $module/POLICY\n";
+	abort("No valid policy name found in $module/POLICY");
 }
 else {
     $fcount = 0;
@@ -111,7 +122,7 @@ if(my $name = readlink $link) {
 
     # Link must have name "p<number>".
     ($lcount) = ($name =~ /^p(\d+)$/) or
-	die "Error: Invalid policy name '$name' found in $link\n";
+	abort("Invalid policy name '$name' found in $link");
 }
 else {
     $lcount = 0;
@@ -139,34 +150,53 @@ system('rm', '-rf', $pdir);
 
 # Create directory for new policy.
 print STDERR "Saving policy $count\n";
-mkdir $pdir or die "Error: can't create $pdir: $!\n";
+mkdir $pdir or abort("Error: can't create $pdir: $!");
+
+# Open $plog
+open my $log_fh, '>', $plog or abort("Can't open $plog: $!");
+sub log_line {
+    my ($line) = @_;
+    print $log_fh $line; 
+    print STDERR $line;
+}
+
+sub log_abort {
+    my ($line) = @_;
+    log_line("Error: $line\n");
+    exit 1;
+}
+
+# Lock $plog
+# After lock is removed, outside programs know, that logging has finished.
+flock($log_fh, LOCK_EX) or log_abort("Can't lock $plog");
+
+# So other programs reading from this file see the output immediately.
+$log_fh->autoflush(1);
 
 # In server mode, cvs commands need relative pathnames.
 # Hence change into parent directory.
-chdir($pdir) or die "Error: during 'cd $pdir': $!\n";
+chdir($pdir) or log_abort("Can't 'cd $pdir': $!");
 
 # Check out newest files from repository
 # into subdirectory "src" of policy directory.
 # Prune empty directories.
 system('cvs', '-Q', 'checkout', '-P', '-d', 'src', $module) == 0 or
-    die "Error: can't checkout $policy to $psrc\n";
+    log_abort("Can't checkout $policy to $psrc: $!");
 
-# Sanity check that working copy of calling user 
-# is identical to just checked out copy.
-# Ignore files from cvs and editor backup files.
-system('diff', '-qr', '-x', 'CVS', '-x', '.#*', '-x', '*~', $working, $psrc)
-    == 0 or die "Error: $working isn't up to date\n";
+# Mark new policy as next.
+chdir $policydb or log_abort("Can't cd to $policydb: $!");
+unlink $next;
+symlink $policy, $next or
+    log_abort("Failed to create symlink $next to $policy");
 
 # Compile new policy.
-print STDERR "Compiling policy $count; log files in $plog \n";
+log_line("Compiling policy $count; find logs in $plog\n");
 open(my $compile_fh, '-|', "$compiler $psrc $pcode 2>&1") or
-    die "Can't execute $compiler: $!\n";
-open my $log_fh, '>', "$plog" or die "Can't open $plog: $!\n";
-while(<$compile_fh>) {
-    print $log_fh $_; 
-    print STDERR;
+    log_abort("Can't execute $compiler: $!");
+
+while(my $line = <$compile_fh>) {
+    log_line($line); 
 }
-close $log_fh;
 close $compile_fh;
 
 # Compiled successfully.
@@ -174,27 +204,28 @@ if ($? == 0) {
 
     # Update POLICY file of current version.
     # In server mode, "cvs add" needs to be inside "src" directory.
-    chdir("$pdir/src") or die "Error: Can't cd to $pdir/src: $!\n";
+    chdir("$pdir/src") or log_abort("Can't cd to $pdir/src: $!");
 
     my $pfile = 'POLICY';
     my $exists = -e $pfile;
     if ($exists) {
-        system('cvs', 'edit', $pfile) == 0 or die "Aborted\n";
+        system('cvs', 'edit', $pfile) == 0 or log_abort("Aborted");
     }
-    open  my $policy_fh, ">", $pfile or die "Can't open $pfile: $!\n";
+    open  my $policy_fh, ">", $pfile or log_abort("Can't open $pfile: $!");
     print $policy_fh "# $policy # Current policy, don't edit manually!\n";
     close $policy_fh;
     if (!$exists) {
-        system('cvs', 'add', $pfile) == 0 or die "Aborted\n";
+        system('cvs', 'add', $pfile) == 0 or log_abort("Aborted");
     }
-    system('cvs', 'commit', '-m', $policy , $pfile) == 0 or die "Aborted\n";
+    system('cvs', 'commit', '-m', $policy , $pfile) == 0 or 
+        log_abort("Aborted");
 
     # Mark new policy as current.
-    chdir $policydb or die "Error: can't cd to $policydb: $!\n";
+    chdir $policydb or log_abort("Can't cd to $policydb: $!");
     unlink $link;
     symlink $policy, $link or
-	die "Error: failed to create symlink $link to $policy\n";
-    print STDERR "Updated current policy to '$policy'\n";
+	log_abort("Failed to create symlink $link to $policy");
+    log_line("Updated current policy to '$policy'\n");
 
     # Run newpolicy_hooks on newly created policy.
     if (my $hooks = $config->{newpolicy_hooks}) {
@@ -209,9 +240,9 @@ if ($? == 0) {
 
 # Failed to compile.
 else {
-    print STDERR "New policy failed to compile\n";
+    log_line("New policy failed to compile\n");
     my $current = readlink $link;
-    $current and print STDERR "Left current policy as '$current'\n";
+    $current and log_line("Left current policy as '$current'\n");
 
     # Failure.
     exit 1;
