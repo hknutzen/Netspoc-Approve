@@ -1,0 +1,95 @@
+#!/bin/bash
+# newpolicy.sh -- Wrapper script for newpolicy.pl or for suid-newpolicy
+# http://hknutzen.github.com/Netspoc
+# (c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+#
+# This script allows multiple users to request a run of newpolicy.pl.
+# It handles parallel calls from multiple users.
+# It starts only a single process of newpolicy.pl,
+# but shows output of running processes to multiple users.
+
+PROG=suid-newpolicy
+POLICYDB=$(get-netspoc-approve-conf netspocdir)
+LOCK=$POLICYDB/LOCK
+CURRENT=$POLICYDB/current
+NEXT=$POLICYDB/next
+LOG=$POLICYDB/next/compile.log
+
+# Exists if compile failed and compile.log may be outdated.
+FAILED=$POLICYDB/next/failed
+
+msg   () { echo $@ >&2; }
+abort () { echo $@ >&2; exit 1; }
+
+# true  (0): all changes from repository have already been processed
+# false (1): SRC isn't up to date
+uptodate () {
+    local out
+    [ -d $SRC ] || return 1
+    out=$(cvs -n -q update $SRC) || return 1
+    [ -z "$out" ]
+}
+
+# Show compile.log as long the file is locked.
+show_log_background () {
+    tail -n 1 -f $LOG &
+    TAIL_PID=$!
+    trap 'kill $TAIL_PID' EXIT
+    # $LOG is locked during write.
+    # If lock bekomes available, we know that writing has finished.
+    flock -s $LOG -c true
+    # Wait until all lines are read.
+    sleep 0.1
+    kill $TAIL_PID
+    trap EXIT
+    wait $TAIL_PID 2>/dev/null || true
+}
+
+wait_log_available () {
+    while [ -f $FAILED ] || ! [ -f $LOG ] ; do sleep 1 ; done
+    return
+}
+
+# Filehandle "9" is set below at end of this if-clause.
+# Try to get shared lock.
+# Other instances of this script are allowed to get the lock,
+# but newpolicy.pl isn't.
+if flock -n -s 9 ; then
+
+    # We got the lock.
+    # newpolicy.pl isn't running.
+    POLICY=$(basename $(readlink $CURRENT || true))
+    SRC=$POLICYDB/$POLICY/src
+    if uptodate ; then
+        
+        # No pending changes in repository.
+        msg "Newest changeset is already available as current $POLICY"
+        exit
+    fi
+else
+    
+    # newpolicy.pl is already running
+    SRC=$POLICYDB/next/src
+    if ! [ -d $SRC/CVS ] || uptodate ; then
+        msg "Newest changeset is currently processed"
+        wait_log_available
+        show_log_background
+        exit
+    else
+        msg "Waiting for current process to be finished"
+        wait_log_available
+        show_log_background
+        msg "---"
+    fi
+fi 9<$LOCK 
+
+# Start newpolicy.pl in background.
+# - Process must not be terminated if this script is killeed.
+# - Output must only be shown as long this script is running.
+msg "Processing current changeset"
+$PROG </dev/null >/dev/null 2>&1 &
+
+# Show logs of newpolicy.pl, which was either startet freshly or
+# has just been started by some other process.
+wait_log_available
+show_log_background

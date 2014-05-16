@@ -19,17 +19,12 @@
 #
 # Description:
 # Integrates NetSPoC with version control / build management.
-# The current user must have a working directory 'netspoc'
-# in his home directory with Netspoc files checked out
-# from the CVS repository.
+# - creates a new directory 'next' in policy db
+# - extracts newest configuration from repository into 'next'
 # - identifies the current policy from policy db
 # - calculates the next policy tag
-# - extracts newest configuration from repository into policy database
-# - checks if working directory of current user
-#   - is identical to extracted configuration,
-#   - then we know, it is updated and all changes are commited, 
-#   - aborts if not
 # - compiles the new policy
+# - renames directory 'next' to name of next policy tag
 # - marks new policy in policy db as current
 #
 
@@ -68,7 +63,7 @@ my $module = 'netspoc';
 # Link to current policy.
 my $link = "$policydb/current";
 
-# Linkt to next policy
+# Intermediate name for next policy
 my $next = "$policydb/next";
 
 # The lock file for preventing concurrent updates.
@@ -100,57 +95,18 @@ open(my $fh, '>', $lock) or abort("Can't open $lock for writing: $!");
 my $status = "Started by $user at " . localtime() . "\n";
 print $fh $status;
 close $fh;
-    
-# Read current policy name from POLICY file from repository.
-my $fcount;
-open(my $policy_fh, '-|', "cvs -Q checkout -p $module/POLICY") or 
-    abort("internal");
-my $line = <$policy_fh>;
-close($policy_fh);
-if($? == 0) {
-    # $pfile contains one line: "# p22 comment .."
-    ($fcount) = ($line =~ m'^#? *p(\d+) ') or
-	abort("No valid policy name found in $module/POLICY");
-}
-else {
-    $fcount = 0;
-}
-  
-# Read current policy name from symbolic link.
-my $lcount;
-if(my $name = readlink $link) {
 
-    # Link must have name "p<number>".
-    ($lcount) = ($name =~ /^p(\d+)$/) or
-	abort("Invalid policy name '$name' found in $link");
-}
-else {
-    $lcount = 0;
-}
-
-# Compare $fcount and $lcount.
-# Typically both values are identical.
-# Take maximum if values are different. 
-my $count = $fcount > $lcount ? $fcount : $lcount;
-    
-# Increment counter.
-$count++;
-
-# Get next policy name.
-my $policy = "p$count";
-
-# Directory and file names of new policy in policy database.
-my $pdir  = "$policydb/$policy";
-my $psrc  = "$pdir/src";
-my $pcode = "$pdir/code";
-my $plog  = "$pdir/compile.log";
-
-# Cleanup leftovers from previous unsuccessful build of this policy.
-system('rm', '-rf', $pdir);
+# Cleanup leftovers from possible previous unsuccessful build of this policy.
+system('rm', '-rf', $next);
 
 # Create directory for new policy.
-print STDERR "Saving policy $count\n";
-mkdir $pdir or abort("Error: can't create $pdir: $!");
+print STDERR "Creating new policy\n";
+mkdir $next or abort("Error: can't create $next: $!");
+
+# Directory and file names of new policy in policy database.
+my $psrc  = "$next/src";
+my $pcode = "$next/code";
+my $plog  = "$next/compile.log";
 
 # Open $plog
 open my $log_fh, '>', $plog or abort("Can't open $plog: $!");
@@ -175,22 +131,53 @@ $log_fh->autoflush(1);
 
 # In server mode, cvs commands need relative pathnames.
 # Hence change into parent directory.
-chdir($pdir) or log_abort("Can't 'cd $pdir': $!");
+chdir($next) or log_abort("Can't 'cd $next': $!");
 
 # Check out newest files from repository
-# into subdirectory "src" of policy directory.
+# into subdirectory "src" of new policy directory.
 # Prune empty directories.
 system('cvs', '-Q', 'checkout', '-P', '-d', 'src', $module) == 0 or
-    log_abort("Can't checkout $policy to $psrc: $!");
+    log_abort("Can't checkout to $psrc: $!");
 
-# Mark new policy as next.
-chdir $policydb or log_abort("Can't cd to $policydb: $!");
-unlink $next;
-symlink $policy, $next or
-    log_abort("Failed to create symlink $next to $policy");
+# Read current policy name from POLICY file.
+my $fcount;
+my $policy_file = "$psrc/$module/POLICY";
+if (open(my $policy_fh, '<', $policy_file)) {
+    my $line = <$policy_fh>;
+    close($policy_fh);
+
+    # $pfile contains one line: "# p22 comment .."
+    ($fcount) = ($line =~ m'^#? *p(\d+) ') or
+	log_abort("No valid policy name found in $policy_file");
+}
+else {
+    $fcount = 0;
+}
+
+# Read current policy name from symbolic link.
+my $lcount;
+if(my $name = readlink $link) {
+
+    # Link must have name "p<number>".
+    ($lcount) = ($name =~ /^p(\d+)$/) or
+	log_abort("Invalid policy name '$name' found in $link");
+}
+else {
+    $lcount = 0;
+}
+
+# Compare $fcount and $lcount.
+# Typically both values are identical.
+# Take maximum if values are different. 
+my $count = $fcount > $lcount ? $fcount : $lcount;
+    
+# Increment counter.
+$count++;
+
+# Get next policy name.
+my $policy = "p$count";
 
 # Compile new policy.
-log_line("Compiling policy $count; find logs in $plog\n");
 open(my $compile_fh, '-|', "$compiler $psrc $pcode 2>&1") or
     log_abort("Can't execute $compiler: $!");
 
@@ -204,14 +191,14 @@ if ($? == 0) {
 
     # Update POLICY file of current version.
     # In server mode, "cvs add" needs to be inside "src" directory.
-    chdir("$pdir/src") or log_abort("Can't cd to $pdir/src: $!");
+    chdir("$next/src") or log_abort("Can't cd to $next/src: $!");
 
     my $pfile = 'POLICY';
     my $exists = -e $pfile;
     if ($exists) {
         system('cvs', 'edit', $pfile) == 0 or log_abort("Aborted");
     }
-    open  my $policy_fh, ">", $pfile or log_abort("Can't open $pfile: $!");
+    open  my $policy_fh, '>', $pfile or log_abort("Can't open $pfile: $!");
     print $policy_fh "# $policy # Current policy, don't edit manually!\n";
     close $policy_fh;
     if (!$exists) {
@@ -220,8 +207,11 @@ if ($? == 0) {
     system('cvs', 'commit', '-m', $policy , $pfile) == 0 or 
         log_abort("Aborted");
 
-    # Mark new policy as current.
+    # Move temporary directory to final name
     chdir $policydb or log_abort("Can't cd to $policydb: $!");
+    rename 'next', $policy or log_abort "Can't rename $next to $policy";
+
+    # Mark new policy as current.
     unlink $link;
     symlink $policy, $link or
 	log_abort("Failed to create symlink $link to $policy");
@@ -241,6 +231,9 @@ if ($? == 0) {
 # Failed to compile.
 else {
     log_line("New policy failed to compile\n");
+
+    # Mark data as failed for use in wrapper.
+    system("touch $next/failed");
     my $current = readlink $link;
     $current and log_line("Left current policy as '$current'\n");
 
