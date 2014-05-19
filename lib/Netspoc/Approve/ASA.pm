@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.086'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.087'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -64,7 +64,17 @@ sub get_parse_info {
 
                   # Ignore line number. It is used implicitly from {orig}.
                   # This version supports only "1" as value.
-                  { parse => qr/1/ },
+                  { parse => sub { 
+                      my ($arg) = @_;
+                      my $line = check_int($arg);
+                      if (defined($line) && $line != 1) {
+                          unread($arg);
+                          err_at_line($arg, 'Only line number "1" is supported');
+                      }
+                      return;
+                                   
+                    },
+                  },
                   { store => 'TYPE', parse => qr/static|dynamic/ },
                   { store => 'FROM', parse => \&get_token },
                   { store => 'TO' , parse => \&get_token },

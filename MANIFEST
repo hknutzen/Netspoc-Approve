@@ -13,7 +13,9 @@ bin/delete-old-policies
 bin/drc3.pl
 bin/get-netspoc-approve-conf
 bin/missing-approve
+bin/newpolicy
 bin/newpolicy.pl
+bin/newpolicy.sh~
 bin/start-jobs
 dist.ini
 etc/netspoc-approve
@@ -38,8 +40,7 @@ suid-support/Makefile
 suid-support/README
 suid-support/diamonds
 suid-support/diamonds.c
-suid-support/newpolicy
-suid-support/newpolicy.c
+suid-support/suid-newpolicy.c
 t/ASA-modify-ACL.t
 t/Linux.t
 t/Test_Approve.pm

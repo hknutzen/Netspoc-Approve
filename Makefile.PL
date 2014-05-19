@@ -26,8 +26,10 @@ my %WriteMakefileArgs = (
     "bin/newpolicy.pl",
     "bin/drc3.pl",
     "bin/missing-approve",
+    "bin/newpolicy.sh~",
     "bin/start-jobs",
     "bin/approve.pl",
+    "bin/newpolicy",
     "bin/compress-policies",
     "bin/delete-old-policies",
     "bin/approve-all"
@@ -43,13 +45,14 @@ my %WriteMakefileArgs = (
     "File::Basename" => 0,
     "File::Temp" => 0,
     "Getopt::Long" => 0,
+    "IO::Handle" => 0,
     "IO::Socket" => 0,
     "POSIX" => 0,
     "base" => 0,
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "1.086",
+  "VERSION" => "1.087",
   "test" => {
     "TESTS" => "t/*.t"
   }

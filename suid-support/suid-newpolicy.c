@@ -9,14 +9,16 @@ char program[] = "/usr/local/bin/newpolicy.pl";
 
 int main( int argc, char *argv[]) 
 {
-    char cvsroot[500];
-    char lang[500];
-    char CVSROOT[] = "CVSROOT=";
-    char LANG[] = "LANG=";
-    strcat(cvsroot, CVSROOT);
-    strcat(lang, LANG);
-    strncat(cvsroot, getenv("CVSROOT"), sizeof(cvsroot)-sizeof(CVSROOT)-1);
-    strncat(lang, getenv("LANG"), sizeof(lang)-sizeof(LANG)-1);
+    char cvsroot[100] = "CVSROOT=";
+    char lang[100] = "LANG=";
+    char *ptr = getenv("CVSROOT");
+    if (ptr) {
+      strncat(cvsroot, ptr, sizeof(cvsroot)-sizeof("CVSROOT")-2);
+    }
+    ptr = getenv("LANG");
+    if (ptr) {
+      strncat(lang, ptr, sizeof(lang)-sizeof("LANG")-2);
+    }
 
     char *empty[] = { NULL };
     char *env[] = { cvsroot, lang, NULL };
