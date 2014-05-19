@@ -1,5 +1,39 @@
 {{$NEXT}}
 
+1.087     2014-05-19 17:32:22 Europe/Berlin
+
+ - The command 'newpolicy' copies the newest version of netspoc files
+   from repository to a dedicated directory. From there the generated
+   code is deployed to devices.
+  
+   Until now, only a single user was allowed to invoke 'newpolicy'.
+   Others had to wait until the commd had finished. This was annoying
+   if code generation from a large configuration needed some time.
+
+   Now, 'newpolicy' can be invoked by multiple users in parallel.
+   First it checks, if there are any changes to the repository.
+   - If there are no changes, it exits.
+   - Otherwise it checks if these changes are already processes by some
+     running instance. Then ist shows the output of that instance.
+   - If new changes are pending, it first waits for a running instance 
+     to terminate. After that, a new instance is started 
+     to process the pending changes.
+
+   'newpolicy' now calls a C-wrapper that in turn calls 'newpolicy.pl'.
+   The C-wrapper has been renamed from 'newpolicy' to 'suid-newpolicy'.
+
+   Existing installations should move 'newpolicy' to 'suid-newpolicy'
+   before installing this release.
+
+ - 'newpolicy.pl' no longer checks if the 'netspoc' directory of the
+   calling user is up-to-date. Only the repository is checked now.
+
+ - 'newpolicy.pl' exits with status code '2', if another instance is 
+   already running. It no longer prints a message in this case.
+
+ - Minor fixes to suid-newpolicy.
+   
+
 1.086     2014-04-14 15:13:58 Europe/Berlin
 
  - New config options in /etc/netspoc-approve:
