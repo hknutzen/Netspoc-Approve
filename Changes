@@ -1,3 +1,8 @@
+1.088     2014-05-19 18:22:47 Europe/Berlin
+
+ - Fixed call to "cvs" in newpolicy: 
+   Must use relative pathname in server mode.
+
 1.087     2014-05-19 17:32:22 Europe/Berlin
 
  - The command 'newpolicy' copies the newest version of netspoc files
