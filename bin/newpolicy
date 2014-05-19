@@ -1,5 +1,5 @@
 #!/bin/bash
-# newpolicy.sh -- Wrapper script for newpolicy.pl or for suid-newpolicy
+# newpolicy -- Wrapper script for newpolicy.pl or for suid-newpolicy
 # http://hknutzen.github.com/Netspoc
 # (c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
 #
@@ -52,6 +52,13 @@ wait_log_available () {
     return
 }
 
+wait_log_short () {
+    ! [ -f $FAILED ] && [ -f $LOG ] && return 0
+    sleep 0.1
+    ! [ -f $FAILED ] && [ -f $LOG ] && return 0
+    return 1
+}
+
 # Filehandle "9" is set below at end of this if-clause.
 # Try to get shared lock.
 # Other instances of this script are allowed to get the lock,
@@ -79,9 +86,18 @@ else
         exit
     else
         msg "Waiting for current process to be finished"
-        wait_log_available
-        show_log_background
-        msg "---"
+
+        # newpolicy.pl is running
+        # Handle three cases:
+        # 1. newpolicy.pl has just been started, 
+        #    but compile.log was not just yet created.
+        # 2. newpolicy.pl is running and compile.log is available
+        # 3. newpolicy.pl is almost finished and compile.log is no longer
+        #    available as next/compile.log
+        if wait_log_short ; then
+            show_log_background
+            msg "---"
+        fi
     fi
 fi 9<$LOCK 
 
