@@ -28,7 +28,9 @@ abort () { echo $@ >&2; exit 1; }
 uptodate () {
     local out
     [ -d $SRC ] || return 1
-    out=$(cvs -n -q update $SRC) || return 1
+
+    # Must use relative pathname for suid-cvs
+    out=$(cd $SRC && cvs -n -q update .) || return 1
     [ -z "$out" ]
 }
 
