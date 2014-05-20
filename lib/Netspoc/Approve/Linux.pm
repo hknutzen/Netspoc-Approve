@@ -14,7 +14,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.088'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.089'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
@@ -1260,7 +1260,7 @@ sub search_banner {
 
 sub login_enable {
     my ($self) = @_;
-    my $std_prompt = qr/\r\n\S*[\%\>\$\#]\s?$/;
+    my $std_prompt = qr/\r\n\S*\s?[\%\>\$\#]\s?(?:\e\S*)?$/;
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
     $con->{EXPECT}->spawn('ssh', '-l', $config->{user}, $ip)
 	or abort("Cannot spawn ssh: $!");
