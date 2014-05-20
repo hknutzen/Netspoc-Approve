@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+1.089     2014-05-20 10:21:48 Europe/Berlin
+
+ - Ignore escape sequence following the prompt, when login to Linux device.
+
 1.088     2014-05-19 18:22:47 Europe/Berlin
 
  - Fixed call to "cvs" in newpolicy: 
@@ -36,8 +40,7 @@
  - 'newpolicy.pl' exits with status code '2', if another instance is 
    already running. It no longer prints a message in this case.
 
- - Minor fixes to suid-newpolicy.
-   
+ - Minor fixes to suid-newpolicy. 
 
 1.086     2014-04-14 15:13:58 Europe/Berlin
 
