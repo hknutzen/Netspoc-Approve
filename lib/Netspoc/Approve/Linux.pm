@@ -1260,7 +1260,7 @@ sub search_banner {
 
 sub login_enable {
     my ($self) = @_;
-    my $std_prompt = qr/\r\n\S*[\%\>\$\#]\s?$/;
+    my $std_prompt = qr/\r\n\S*\s?[\%\>\$\#]\s?(?:\e\S*)?$/;
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
     $con->{EXPECT}->spawn('ssh', '-l', $config->{user}, $ip)
 	or abort("Cannot spawn ssh: $!");
