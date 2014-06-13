@@ -30,7 +30,9 @@ uptodate () {
     [ -d $SRC ] || return 1
 
     # Must use relative pathname for suid-cvs
-    out=$(cd $SRC && cvs -n -q update .) || return 1
+    # Check stdout for changed files,
+    # check stderr for removed files.
+    out=$(cd $SRC && cvs -n -q update . 2>&1) || return 1
     [ -z "$out" ]
 }
 
