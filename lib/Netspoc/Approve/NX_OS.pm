@@ -392,10 +392,11 @@ sub check_session {
     my($self) = @_;
     return if $self->{COMPARE};
     my $lines = $self->get_cmd_output('show configuration session');
-    my $line = pop @$lines or return;
-    if ($line =~ /^Number of active configuration sessions/) {
+    return if !@$lines;
+    if ($lines->[-1] =~ /^Number of active configuration sessions/) {
         abort("There already is an open configuration session", @$lines);
     }
+    return;
 }
     
 # No op; we can't lock out from Netspoc,
