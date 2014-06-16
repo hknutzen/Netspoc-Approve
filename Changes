@@ -1,5 +1,11 @@
 {{$NEXT}}
 
+1.090     2014-06-16 14:02:18 Europe/Berlin
+
+ - Fixed approve for NX-OS.  If 'verify' of configuration session
+   fails, the 'abort' command is called now.
+ - Fixed 'newpolicy' to recognize removed file.
+ 
 1.089     2014-05-20 10:21:48 Europe/Berlin
 
  - Ignore escape sequence following the prompt, when login to Linux device.
