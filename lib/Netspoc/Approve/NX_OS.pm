@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.089'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.090'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -369,7 +369,17 @@ sub enter_conf_mode {
 sub leave_conf_mode {
     my($self) = @_;
     if ($self->{CONF_MODE} eq 'session') {
-        $self->cmd('verify');
+        if($self->{COMPARE}) {
+            $self->cmd('verify');
+        }
+        else {
+            my $lines = $self->get_cmd_output('verify');
+            if (@$lines) {
+                $self->cmd('abort');
+                abort("Can't 'verify' configuration session", @$lines);
+            }
+        }
+
         $self->cmd('commit');
         $self->{CONF_MODE} = 0;
     }
@@ -382,10 +392,11 @@ sub check_session {
     my($self) = @_;
     return if $self->{COMPARE};
     my $lines = $self->get_cmd_output('show configuration session');
-    my $line = pop @$lines or return;
-    if ($line =~ /^Number of active configuration sessions/) {
+    return if !@$lines;
+    if ($lines->[-1] =~ /^Number of active configuration sessions/) {
         abort("There already is an open configuration session", @$lines);
     }
+    return;
 }
     
 # No op; we can't lock out from Netspoc,
