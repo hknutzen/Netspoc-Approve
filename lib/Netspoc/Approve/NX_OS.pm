@@ -369,10 +369,15 @@ sub enter_conf_mode {
 sub leave_conf_mode {
     my($self) = @_;
     if ($self->{CONF_MODE} eq 'session') {
-        my $lines = $self->get_cmd_output('verify');
-        if (@$lines) {
-            $self->cmd('abort');
-            abort("Can't 'verify' configuration session", @$lines);
+        if($self->{COMPARE}) {
+            $self->cmd('verify');
+        }
+        else {
+            my $lines = $self->get_cmd_output('verify');
+            if (@$lines) {
+                $self->cmd('abort');
+                abort("Can't 'verify' configuration session", @$lines);
+            }
         }
 
         $self->cmd('commit');
