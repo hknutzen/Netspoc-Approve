@@ -259,9 +259,7 @@ sub cmd_check_error {
 	}
 	$error = 1;
     }
-    if ($error) {
-	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
-    }
+    return $error;
 }
 
 sub parse_version {

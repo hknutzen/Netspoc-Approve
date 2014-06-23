@@ -1078,7 +1078,7 @@ sub cmd {
 sub device_cmd {
     my ($self, $cmd) = @_;
     my $lines = $self->get_cmd_output($cmd);
-    $self->cmd_check_error($cmd, $lines);
+    $self->cmd_abort_on_error($cmd, $lines);
 }
 
 sub shcmd {
@@ -1108,6 +1108,13 @@ sub get_cmd_output {
     $self->cmd_check_echo($cmd, $echo, \@lines);
     $need_reload and $self->schedule_reload(2);
     return(\@lines);
+}
+
+sub cmd_abort_on_error {
+    my ($self, $cmd, $lines) = @_;
+    if ($self->cmd_check_error($cmd, $lines)) {
+	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
+    }
 }
 
 # Send 2 commands in one data packet to device.
@@ -1141,7 +1148,7 @@ sub two_cmd {
 	$echo = shift(@lines2);
 	$self->cmd_check_echo($cmd2, $echo, \@lines2);
 
-	$self->cmd_check_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
+	$self->cmd_abort_on_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
 	$need_reload and $self->schedule_reload(2);
     }
 }
