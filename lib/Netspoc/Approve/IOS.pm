@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.090'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.091'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -545,13 +545,12 @@ my %known_warning =
 (
  );
 
+# Check unexpected lines:
+# - known status messages
+# - known warning messages
+# - unknown messages, handled as error messages.
 sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
-
-    # Check unexpected lines:
-    # - known status messages
-    # - known warning messages
-    # - unknown messages, handled as error messages.
     my $error;
   LINE:
     for my $line (@$lines) {
@@ -568,9 +567,7 @@ sub cmd_check_error {
 	}
 	$error = 1;
     }
-    if ($error) {
-	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
-    }
+    return $error;
 }
 
 sub parse_version {

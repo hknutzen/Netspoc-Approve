@@ -1,3 +1,8 @@
+1.091     2014-06-23 10:16:24 Europe/Berlin
+
+ - Fixed approve for NX-OS again. 
+   Ignore valid output of 'verify' command.
+
 1.090     2014-06-16 14:02:18 Europe/Berlin
 
  - Fixed approve for NX-OS.  If 'verify' of configuration session

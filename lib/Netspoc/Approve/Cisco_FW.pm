@@ -7,7 +7,7 @@ package Netspoc::Approve::Cisco_FW;
 # Base class for Cisco firewalls (ASA, PIX, FWSM)
 #
 
-our $VERSION = '1.090'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.091'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -719,13 +719,12 @@ my @known_warning =
      qr/^WARNING:/,
      );
 
+# Check unexpected lines:
+# - known status messages
+# - known warning messages
+# - unknown messages, handled as error messages.
 sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
-
-    # Check unexpected lines:
-    # - known status messages
-    # - known warning messages
-    # - unknown messages, handled as error messages.
     my $error;
   LINE:
     for my $line (@$lines) {
@@ -742,9 +741,7 @@ sub cmd_check_error {
 	}
 	$error = 1;
     }
-    if ($error) {
-	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
-    }
+    return $error;
 }
 
 sub parse_version {

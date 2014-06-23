@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.090'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.091'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -259,9 +259,7 @@ sub cmd_check_error {
 	}
 	$error = 1;
     }
-    if ($error) {
-	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
-    }
+    return $error;
 }
 
 sub parse_version {

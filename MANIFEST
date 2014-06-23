@@ -20,7 +20,6 @@ bin/start-jobs
 dist.ini
 etc/netspoc-approve
 lib/Netspoc/Approve/ACE.pm
-lib/Netspoc/Approve/ACE.pm~
 lib/Netspoc/Approve/ASA.pm
 lib/Netspoc/Approve/Cisco.pm
 lib/Netspoc/Approve/Cisco_FW.pm

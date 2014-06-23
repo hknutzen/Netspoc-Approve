@@ -14,7 +14,7 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.090'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.091'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
@@ -36,12 +36,12 @@ sub init_history_logging {
     my ($devicename, $arguments, $user) = @_;
     my $historypath = $config->{historydir} or return;
     my $historyfile = "$historypath/$devicename"; 
-    open($history_fh, ">>", $historyfile) or 
+    open($history_fh, '>>', $historyfile) or 
 	die "Error: Can't open $historyfile: $!\n";
-    defined(chmod(0644, "$historyfile")) or 
+    defined(chmod(0644, $historyfile)) or 
 	die "Error: Can't chmod $historyfile: $!\n";
     unless(flock($history_fh, LOCK_EX | LOCK_NB)){
-	die "Error: file '$historyfile' is locked: $!\n";
+	die "Another approve is running: file '$historyfile' is locked\n";
     }  
     my $date = strftime "%Y %m %e %H:%M:%S", localtime();
     print $history_fh "$date USER $user called '$arguments'\n";

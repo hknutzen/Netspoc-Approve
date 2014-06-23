@@ -13,7 +13,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.090'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.091'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -331,9 +331,7 @@ sub cmd_check_error {
 	}
 	$error = 1;
     }
-    if ($error) {
-	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
-    }
+    return $error;
 }
 
 sub parse_version {
@@ -369,12 +367,13 @@ sub enter_conf_mode {
 sub leave_conf_mode {
     my($self) = @_;
     if ($self->{CONF_MODE} eq 'session') {
+        my $cmd = 'verify';
         if($self->{COMPARE}) {
-            $self->cmd('verify');
+            $self->cmd($cmd);
         }
         else {
-            my $lines = $self->get_cmd_output('verify');
-            if (@$lines) {
+            my $lines = $self->get_cmd_output($cmd);
+            if ($self->cmd_check_error($cmd, $lines)) {
                 $self->cmd('abort');
                 abort("Can't 'verify' configuration session", @$lines);
             }
