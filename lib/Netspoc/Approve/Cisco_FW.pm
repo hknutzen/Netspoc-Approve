@@ -1531,9 +1531,16 @@ sub mark_connected_objects {
     # Show unconnected objects.
     for my $key ( sort keys %$structure ) {
 	my $objects = $conf->{$key};
-        for my $object ( values %$objects ) {
+        for my $obj_name ( sort keys %$objects ) {
+            my $object = $objects->{$obj_name};
 	    next if $object->{connected};
-	    warn_info("Spare $key: $object->{name}");
+
+            # Only warn on ACLs and object-groups that have been
+            # defined by Netspoc. 
+            # This excludes manual ACLs used by eg. BGP.
+            next if ($key =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
+                     $obj_name !~ /DRC-\d+$/);
+	    warn_info("Spare $key: $obj_name");
 	}
     }    
 }
