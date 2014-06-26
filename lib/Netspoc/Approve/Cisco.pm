@@ -705,11 +705,11 @@ sub login_enable {
 
     # Force new prompt by issuing empty command.
     # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/\r\n.*\#\s?$/;
+    $self->{ENAPROMPT} = qr/\r\n.*\#[ ]?$/;
     my $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^(\r\n\s?\S+)\#\s?$/;
+    $result->{MATCH} =~ m/^(\r\n\s?\S+)\#[ ]?$/;
     my $prefix = $1;
-    $self->{ENAPROMPT} = qr/$prefix\S*\#\s?/;
+    $self->{ENAPROMPT} = qr/$prefix\S*\#[ ]?/;
 }
 
 # All active interfaces on device must be known by Netspoc.
