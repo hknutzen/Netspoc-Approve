@@ -388,4 +388,24 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Handle spare ACL";
+############################################################
+# ACL foo is silently ignored
+
+$device = $minimal_device;
+$device .= <<'END';
+access-list foo extended permit tcp host 2.2.2.2 any eq 80
+access-list foo-DRC-1 extended permit tcp host 2.2.2.2 any eq 80
+END
+
+$in = <<'END';
+END
+
+$out = <<'END';
+WARNING>>> Spare ACCESS_LIST: foo-DRC-1
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
+############################################################
 done_testing;
