@@ -15,10 +15,8 @@ my $device_name = 'test';
 my $dir = tempdir(CLEANUP => 1) or die "Can't create tmpdir: $!\n";
 my $code_dir = "$dir/code";
 my $spoc_dir = "$dir/netspoc";
-my $raw_dir = "$dir/netspoc/raw";
 mkdir($code_dir) or die "Can't create $code_dir: $!\n";
 mkdir($spoc_dir) or die "Can't create $spoc_dir: $!\n";
-mkdir($raw_dir) or die "Can't create $spoc_dir: $!\n";
 
 sub write_file {
     my($name, $data) = @_;
