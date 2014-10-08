@@ -1,32 +1,40 @@
 #!/usr/bin/perl
-# newpolicy.pl -- Checkout configuration from Netspoc for Approve
-# http://hknutzen.github.com/Netspoc
-# (c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-#
-# Description:
-# Integrates NetSPoC with version control / build management.
-# - creates a new directory 'next' in policy db
-# - extracts newest configuration from repository into 'next'
-# - identifies the current policy from policy db
-# - calculates the next policy tag
-# - compiles the new policy
-# - renames directory 'next' to name of next policy tag
-# - marks new policy in policy db as current
-#
+
+=head1 NAME
+
+newpolicy.pl -- Checkout configuration from Netspoc for Approve
+
+=head1 DESCRIPTION
+
+Integrates NetSPoC with version control / build management.
+- creates a new directory 'next' in policy db
+- extracts newest configuration from repository into 'next'
+- identifies the current policy from policy db
+- calculates the next policy tag
+- compiles the new policy
+- renames directory 'next' to name of next policy tag
+- marks new policy in policy db as current
+
+=head1 COPYRIGHT AND DISCLAIMER
+
+https://github.com/hknutzen/Netspoc-Approve
+(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+=cut
 
 use strict;
 use warnings;
