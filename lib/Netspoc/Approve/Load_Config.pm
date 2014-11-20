@@ -41,8 +41,7 @@ my $config = {
     timeout         => 60,
     login_timeout   => 3,
     try_telnet      => undef,
-    keep_history    => undef,   # del history older than this (in days),
-                                # defaults to 365 in cleanup script
+    keep_history    => 365,   # del history older than this (in days),
 };
 
 my @prefix = ('/etc/', '/usr/local/etc/', glob('~/.'));
