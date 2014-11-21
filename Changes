@@ -1,5 +1,15 @@
 {{$NEXT}}
 
+1.093     2014-11-21 11:18:23+01:00 Europe/Berlin
+
+ - Added workaround for bug #100342 in Expect.pm when parsing ouput of
+   Linux commands.
+ - Added new config option "keep_history". 
+   This option determines, after how many days old history files are removed.
+   The value must be >= 30. Default value is 365.
+ - Script "delete-old-policies" now also removes old files 
+   in "historydir" and "statusdir".
+
 1.092     2014-06-26 14:32:25 Europe/Berlin
 
  - Fixed approve for ASA: Only warn on spare ACL that was
