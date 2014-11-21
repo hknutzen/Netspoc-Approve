@@ -1,10 +1,30 @@
 
-package Netspoc::Approve::Linux;
+=head1 DESCRIPTION
 
-# Author: Heinz Knutzen
-#
-# Description:
-# Module to remote configure Linux devices.
+Remote configure Linux iptables and routing
+
+=head1 COPYRIGHT AND DISCLAIMER
+
+https://github.com/hknutzen/Netspoc-Approve
+(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+=cut
+
+package Netspoc::Approve::Linux;
 
 use strict;
 use warnings;
@@ -14,7 +34,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.092'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.093'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
@@ -1286,9 +1306,13 @@ sub login_enable {
     }
     $self->{ENAPROMPT} = $std_prompt;
 
-    # Force prompt to simple '#'.
-    $self->device_cmd('PS1=#');
-    $self->{ENAPROMPT} = qr/\r\n\#$/;
+    # Force prompt to simple, known value.
+    # Don't use '#', because it is used as comment character
+    # in output of iptables-save.
+    # This is a workaround for bug #100342 in Expect.pm.
+    my $new_prompt = 'netspoc#';
+    $self->device_cmd("PS1=$new_prompt");
+    $self->{ENAPROMPT} = qr/\r\n \Q$new_prompt\E $/x;
 }
 
 # Packages must return a true value;

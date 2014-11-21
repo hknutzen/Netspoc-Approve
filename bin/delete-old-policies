@@ -1,12 +1,38 @@
 #!/bin/sh
-# Delete policy-directories older than one year.
+# Delete policy directories, history files and status files older than N days.
+# N is taken from option "keep_history" of config file.
 # This should be started by a daily cronjob.
 
 # Abort on error.
 set -e
 
-# Get netspoc directory from config file
-DIR=$(get-netspoc-approve-conf netspocdir)
+abort () { echo $@ >&2; exit 1; }
 
-# Find toplevel directories, modified more than 365 days ago.
-find $DIR -maxdepth 1 -mtime +365 -exec rm -rf {} \;
+# Get netspoc directory from config file
+DAYS=$(get-netspoc-approve-conf keep_history)
+
+# Ensure a sane value for DAYS, take 365 as default
+if [ -z "$DAYS" ]; then
+    DAYS=365
+else
+    case $DAYS in
+        ''|*[!0-9]*)
+            abort "Expected numeric value for parameter \"keep_history\", but got:'$DAYS'.";
+            exit 13;;
+        *)
+            if [ $DAYS -lt 30 ]; then
+                abort "Parameter \"keep_history\" has to be >= 30."
+                exit 14
+            fi;;
+    esac
+fi
+
+# Delete toplevel directories and files, modified more than $DAYS days ago.
+for WHAT in netspocdir historydir statusdir ; do
+
+    # Get directory from config file
+    DIR=$(get-netspoc-approve-conf $WHAT)
+    if [ "$DIR" ]; then
+        find $DIR -maxdepth 1 -mtime +$DAYS -exec rm -rf {} \;
+    fi
+done
