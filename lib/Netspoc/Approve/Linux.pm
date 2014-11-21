@@ -1306,9 +1306,13 @@ sub login_enable {
     }
     $self->{ENAPROMPT} = $std_prompt;
 
-    # Force prompt to simple '#'.
-    $self->device_cmd('PS1=#');
-    $self->{ENAPROMPT} = qr/\r\n\#$/;
+    # Force prompt to simple, known value.
+    # Don't use '#', because it is used as comment character
+    # in output of iptables-save.
+    # This is a workaround for bug #100342 in Expect.pm.
+    my $new_prompt = 'netspoc#';
+    $self->device_cmd("PS1=$new_prompt");
+    $self->{ENAPROMPT} = qr/\r\n \Q$new_prompt\E $/x;
 }
 
 # Packages must return a true value;
