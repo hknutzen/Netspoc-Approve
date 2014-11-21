@@ -52,11 +52,14 @@ historydir  = /home/diamonds/history
 # List of paths to be called after successful run of newpolicy
 #newpolicy_hooks = path1 path2
 
-# Timeout during established session
+# Timeout in seconds during established session
 #timeout = 500
 
-# Timeout when establishing session to device.
+# Timeout in seconds when establishing new session to device.
 #login_timeout = 10
 
 # Try telnet if ssh fails
 #try_telnet = 1
+
+# Delete policy directories in "netspocdir" after this many days.
+# keep_history = 365
