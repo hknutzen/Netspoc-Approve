@@ -114,6 +114,7 @@ my %PORT_Names_TCP = (
     'chargen'           => 19,
     'citrix-ica'        => 1494,
     'cmd'               => 514,
+    'ctiqbe'		=> 2748,
     'daytime'           => 13,
     'discard'           => 9,
     'domain'            => 53,
