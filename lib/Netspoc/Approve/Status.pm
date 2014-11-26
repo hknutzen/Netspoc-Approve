@@ -141,7 +141,7 @@ sub getall {
     my $fh = $self->{fh};
     
     seek $fh, 0, 0;
-    my $stat = [ split ';', <$fh> ];
+    my $stat = [ split ';', (<$fh> || '') ];
 
     if (@$stat < $statfields{MAX} + 2) {
         $self->format($stat);
