@@ -33,7 +33,7 @@ use Carp;
 use Fcntl;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.094'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.095'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -141,7 +141,7 @@ sub getall {
     my $fh = $self->{fh};
     
     seek $fh, 0, 0;
-    my $stat = [ split ';', <$fh> ];
+    my $stat = [ split ';', (<$fh> || '') ];
 
     if (@$stat < $statfields{MAX} + 2) {
         $self->format($stat);
