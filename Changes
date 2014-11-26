@@ -1,3 +1,7 @@
+1.094     2014-11-26 17:51:59+01:00 Europe/Berlin
+
+ - Added support for named TCP port 'ctiqbe' = 2748 for cisco devices.
+
 1.093     2014-11-21 11:18:23+01:00 Europe/Berlin
 
  - Added workaround for bug #100342 in Expect.pm when parsing ouput of

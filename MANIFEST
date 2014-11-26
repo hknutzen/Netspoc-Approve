@@ -41,6 +41,7 @@ suid-support/README
 suid-support/diamonds
 suid-support/diamonds.c
 suid-support/suid-newpolicy.c
+suid-support/suid-newpolicy~
 t/ASA-modify-ACL.t
 t/Linux.t
 t/Test_Approve.pm
