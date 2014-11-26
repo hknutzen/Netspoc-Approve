@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+1.095     2014-11-26 18:17:44+01:00 Europe/Berlin
+
+ - Fixed warning, when reading empty status file.
+
 1.094     2014-11-26 17:51:59+01:00 Europe/Berlin
 
  - Added support for named TCP port 'ctiqbe' = 2748 for cisco devices.
