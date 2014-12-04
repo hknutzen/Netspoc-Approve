@@ -53,12 +53,6 @@ my $real_uid = $<;
 my @pwentry = getpwuid($real_uid) or 
     abort("Can't get pwentry of UID $real_uid: $!");
 
-# Get users home directory.
-my $home = $pwentry[7] or abort("Can't get home directory for UID $real_uid");
-
-# Users netspoc directory.
-my $working = "$home/netspoc";
-
 # Path of policy database.
 my $policydb = $config->{netspocdir};
 
