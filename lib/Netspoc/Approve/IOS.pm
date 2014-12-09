@@ -172,6 +172,12 @@ sub get_parse_info {
 	    store =>  'ACCESS_LIST',
 	    named => 1,
 	    subcmd => {
+                remark => {
+		    store => 'LIST',
+		    multi => 1,
+		    parse => [
+                        'seq',
+                        { store => 'REMARK', parse => \&get_to_eol } ] },
 
 		# 'deny' is mostly identical to 'permit',
 		# it will be automatically copied from 'permit'.
