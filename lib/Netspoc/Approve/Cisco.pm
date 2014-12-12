@@ -737,6 +737,14 @@ sub login_enable {
 # All active interfaces on device must be known by Netspoc.
 sub checkinterfaces {
     my ($self, $conf, $spoc, $has_mpls) = @_;
+
+    # Don't check, if Netspoc config contains no interfaces at all.
+    # The device is probably of type "managed=routing_only",
+    # and the configuration won't change any interfaces.
+    if (!keys %{ $spoc->{IF} }) {
+        return;
+    }
+
     my @errors;
     for my $name (sort keys %{ $conf->{IF} }) {
 	my $conf_intf = $conf->{IF}->{$name};
