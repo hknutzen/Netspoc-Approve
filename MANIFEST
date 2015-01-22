@@ -40,6 +40,9 @@ suid-support/Makefile
 suid-support/README
 suid-support/diamonds
 suid-support/diamonds.c
+suid-support/sudoers
+suid-support/sudoers~
+suid-support/suid-newpolicy
 suid-support/suid-newpolicy.c
 suid-support/suid-newpolicy~
 t/ASA-modify-ACL.t

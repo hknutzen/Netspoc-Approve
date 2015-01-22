@@ -1,0 +1,8 @@
+# Add to /etc/sudoers.d
+
+# Allow to start some programs as user 'netspoc'
+# Environment variable CVSROOT needs to be preserved
+# PATH is preserved by default, needs to contain /usr/local/bin
+# LANG is preserved by default
+Defaults:%users env_keep += "CVSROOT"
+%users ALL=(netspoc) NOPASSWD: /usr/local/bin/newpolicy.pl, /usr/bin/cvs, /usr/bin/env

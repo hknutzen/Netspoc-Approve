@@ -208,6 +208,45 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Handle ACL line with remark";
+############################################################
+$device = <<'END';
+ip access-list extended inside 
+ remark Test1
+ permit ip host 1.1.1.1 any
+ permit ip host 2.2.2.2 any
+ remark Test2
+ permit ip host 4.4.4.4 any
+interface Ethernet0/0
+ ip access-group inside in
+END
+
+$in = <<'END';
+ip access-list extended inside 
+ permit ip host 1.1.1.1 any
+ remark Test1
+ permit ip host 4.4.4.4 any
+ permit ip host 5.5.5.5 any
+ remark Test3
+interface Ethernet0/0
+ ip access-group inside in
+END
+
+$out = <<'END';
+ip access-list resequence inside 10000 10000
+ip access-list extended inside
+20001 remark Test1
+50001 permit ip host 5.5.5.5 any
+50002 remark Test3
+no 40000
+no 30000
+no 10000
+ip access-list resequence inside 10 10
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Add lines at end of ACL";
 ############################################################
 $device = <<END;

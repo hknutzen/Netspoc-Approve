@@ -355,14 +355,14 @@ END
 
 $in = <<'END';
 access-list inside extended permit ip host 2.2.2.2 any
-access-list inside extended permit ip host 1.1.1.1 any 
+access-list inside extended permit ip host 1.1.1.1 any log errors
 access-list inside extended deny ip any any
 access-group inside in interface inside
 END
 
 $out = <<'END';
 no access-list inside line 3 extended deny ip any any log warnings\N access-list inside line 3 extended deny ip any any
-no access-list inside line 1 extended permit ip host 1.1.1.1 any log\N access-list inside line 2 extended permit ip host 1.1.1.1 any
+no access-list inside line 1 extended permit ip host 1.1.1.1 any log\N access-list inside line 2 extended permit ip host 1.1.1.1 any log errors
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
@@ -406,6 +406,38 @@ WARNING>>> Spare ACCESS_LIST: foo-DRC-1
 END
 
 eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Handle ACL line with remark";
+############################################################
+$device = <<'END';
+access-list inside remark Test1
+access-list inside permit ip host 1.1.1.1 any
+access-list inside permit ip host 2.2.2.2 any
+access-list inside remark Test2
+access-list inside permit ip host 4.4.4.4 any
+access-group inside in interface inside
+END
+
+$in = <<'END';
+access-list inside permit ip host 1.1.1.1 any
+access-list inside remark Test1
+access-list inside permit ip host 4.4.4.4 any
+access-list inside permit ip host 5.5.5.5 any
+access-list inside remark Test3
+access-group inside in interface inside
+END
+
+$out = <<'END';
+access-list inside line 3 remark Test1
+access-list inside line 7 permit ip host 5.5.5.5 any
+access-list inside line 8 remark Test3
+no access-list inside line 5 remark Test2
+no access-list inside line 4 permit ip host 2.2.2.2 any
+no access-list inside line 1 remark Test1
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 done_testing;

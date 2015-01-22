@@ -4,4 +4,5 @@ all:	diamonds suid-newpolicy
 
 diamonds: diamonds.c
 
-suid-newpolicy: suid-newpolicy.c
+# Use sudo script 'suid-newpolicy' instead.
+#suid-newpolicy: suid-newpolicy.c

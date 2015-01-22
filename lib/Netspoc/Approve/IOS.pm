@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.095'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.096'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -172,6 +172,12 @@ sub get_parse_info {
 	    store =>  'ACCESS_LIST',
 	    named => 1,
 	    subcmd => {
+                remark => {
+		    store => 'LIST',
+		    multi => 1,
+		    parse => [
+                        'seq',
+                        { store => 'REMARK', parse => \&get_to_eol } ] },
 
 		# 'deny' is mostly identical to 'permit',
 		# it will be automatically copied from 'permit'.

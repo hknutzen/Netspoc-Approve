@@ -1,3 +1,10 @@
+1.096     2015-01-22 10:59:03+01:00 Europe/Berlin
+
+ - Approve won't check interfaces if generated config 
+   contains no interfaces at all. This occurs for device with 
+   "managed=routing_only".
+ - Added support of 'remark' lines in ACLs of Cisco IOS.
+
 1.095     2014-11-26 18:17:44+01:00 Europe/Berlin
 
  - Fixed warning, when reading empty status file.
