@@ -551,10 +551,6 @@ sub get_parse_info {
 			  { parse => qr/ipsec-isakmp/ },
 			  { parse => qr/dynamic/ },
 			  { store => 'DYNAMIC_MAP', parse => \&get_token } ],
-			 # Old PIX has other syntax.
-#			  { parse => qr/dynamic/ },
-#			  { store => 'DYNAMIC_MAP', parse => \&get_token } ],
-
 			 ['seq',
 			  { parse => qr/set/ },
 			  ['or',
