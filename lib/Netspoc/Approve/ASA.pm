@@ -171,6 +171,16 @@ sub get_parse_info {
 	named => 1,
  	subcmd => {
 
+            # Ignore pre-shared keys. These are set manually.
+            'pre-shared-key'       => { parse => \&skip, },
+            'ikev1 pre-shared-key' => { parse => \&skip, },
+            'ikev2 local-authentication pre-shared-key' => {
+                parse => \&skip, 
+            },
+            'ikev2 remote-authentication pre-shared-key' => {
+                parse => \&skip, 
+            },
+
 	    # '_any' is special word, which matches any token.
 	    # '_cmd' is replaced by current command name.
 

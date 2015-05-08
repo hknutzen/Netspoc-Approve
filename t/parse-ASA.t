@@ -215,18 +215,33 @@ check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 $title = "Parse tunnel-group of type ipsec-l2l (IP as name)";
 ############################################################
 
+# Ignore pre-shared keys shown as '******'
 $in = <<'END';
-tunnel-group 193.155.130.20 type ipsec-l2l
-tunnel-group 193.155.130.20 ipsec-attributes
+tunnel-group 193.155.130.1 type ipsec-l2l
+tunnel-group 193.155.130.1 ipsec-attributes
  pre-shared-key *
  peer-id-validate nocheck
+tunnel-group 193.155.130.2 type ipsec-l2l
+tunnel-group 193.155.130.2 ipsec-attributes
+ ikev1 pre-shared-key **
+ trust-point ASDM_TrustPoint5
+tunnel-group 193.155.130.3 type ipsec-l2l
+tunnel-group 193.155.130.3 ipsec-attributes
+ ikev2 local-authentication pre-shared-key ***
+ ikev2 remote-authentication pre-shared-key ****
+ trust-point ASDM_TrustPoint4
 END
 
 $out = <<'END';
-tunnel-group 193.155.130.20 type ipsec-l2l
-tunnel-group 193.155.130.20 ipsec-attributes
+tunnel-group 193.155.130.1 type ipsec-l2l
+tunnel-group 193.155.130.2 type ipsec-l2l
+tunnel-group 193.155.130.3 type ipsec-l2l
+tunnel-group 193.155.130.1 ipsec-attributes
 peer-id-validate nocheck
-pre-shared-key *
+tunnel-group 193.155.130.2 ipsec-attributes
+trust-point ASDM_TrustPoint5
+tunnel-group 193.155.130.3 ipsec-attributes
+trust-point ASDM_TrustPoint4
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
