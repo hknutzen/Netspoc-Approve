@@ -713,6 +713,7 @@ sub define_structure {
  
 	IP_LOCAL_POOL => {
 	    attributes => [ qw( RANGE_FROM RANGE_TO MASK ) ],
+            simple_object => 1,
 	    transfer => 'transfer_ip_local_pool',
 	    remove   => 'remove_ip_local_pool',
 	},

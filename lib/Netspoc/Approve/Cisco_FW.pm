@@ -1653,17 +1653,7 @@ sub change_attributes {
 	$spoc_name = $spoc_value->{new_name} || $spoc_name;
     }
 
-    # In case of ip-local-pools changed attributes means
-    # the pool present on device needs to be overwritten
-    # with new values in one line, because pools do not have
-    # sub-command-attributes.
-    if ( $parse_name eq 'IP_LOCAL_POOL' ) {
-	my $from = int2quad( $spoc_value->{RANGE_FROM} );
-	my $to   = int2quad( $spoc_value->{RANGE_TO}   );
-	my $mask = int2quad( $spoc_value->{MASK}    );
-	push @cmds, "ip local pool $spoc_name $from-$to mask $mask";
-    }
-    elsif( $parse_name eq 'IF' ) {
+    if( $parse_name eq 'IF' ) {
 	for my $attr ( sort keys %$attributes ) {
 	    my $value = $attributes->{$attr};
 	    my $direction = $attr =~ /_IN/ ? 'in' : 'out';

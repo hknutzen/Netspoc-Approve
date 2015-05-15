@@ -391,7 +391,6 @@ vpn-filter value vpn-filter-DRC-0
 END
 check_parse_and_unchanged('ASA', $minimal_device, $in, $out, $title);
 
-
 ############################################################
 $title = "Modify tunnel-group ipsec-attributes";
 ############################################################
@@ -418,6 +417,44 @@ END
 $out = <<'END';
 tunnel-group VPN-tunnel ipsec-attributes
 trust-point ASDM_TrustPoint5
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Modify ip local pool";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ address-pools value pool
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ default-group-policy VPN-group
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+$in = <<'END';
+ip local pool pool 10.1.219.192-10.1.219.208 mask 0.0.0.15
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ address-pools value pool
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ default-group-policy VPN-group
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+$out = <<'END';
+ip local pool pool-DRC-0 10.1.219.192-10.1.219.208 mask 0.0.0.15
+group-policy VPN-group attributes
+address-pools value pool-DRC-0
+no ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
