@@ -6,7 +6,7 @@ Base class for Cisco firewalls (ASA, PIX)
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2011 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -147,8 +147,9 @@ my %attr_need_remove = (
 			banner                => 1,
 			'vpn-tunnel-protocol' => 1,
 			# CRYPTO_MAP_SEQ
-			PEER          => 1,
-			TRANSFORM_SET => 1,
+			PEER                  => 1,
+			TRANSFORM_SET         => 1,
+			TRANSFORM_SET_IKEV1   => 1,
 			);
 		      
 
@@ -592,6 +593,20 @@ sub get_parse_info {
 			    { parse => \&get_token,
 			      store => 'TRUSTPOINT', } ]]]]]]]
 	},
+	'crypto ipsec transform-set' => {
+	    store => [ 'TRANSFORM_SET' ],
+	    named => 1,
+	    parse => ['seq',
+		      { store => 'LIST',
+                        parse => \&get_sorted_encr_list }, ],
+	},
+	'crypto ipsec ikev1 transform-set' => {
+	    store => [ 'TRANSFORM_SET_IKEV1' ],
+	    named => 1,
+	    parse => ['seq',
+		      { store => 'LIST',
+                        parse => \&get_sorted_encr_list }, ],
+	},
     }
 }
 
@@ -937,6 +952,7 @@ sub equalize_attributes {
 	    }
 	    else {
 		if ( $spoc_attr ne $conf_attr ) {
+                    #info("Attribute $attr different values ");
 		    $modified = 1;
 		    $spoc_value->{change_attr}->{$attr} = $spoc_attr;
 		}
@@ -1083,6 +1099,39 @@ sub equalize_crypto {
     return $modified;
 }
 
+# Check, if simple objects have identical attribute / value pairs.
+# Returns: undef if different, $conf_value if equal.
+sub simple_object_equal {
+    my ($spoc_value, $conf_value, $attributes) = @_;
+    for my $attr (@$attributes) {
+        my $spoc_attr = $spoc_value->{$attr};
+        my $conf_attr = $conf_value->{$attr};
+
+        # One values is defined, the other is undefined.
+        return if defined $spoc_attr xor defined $spoc_attr;
+
+        # Both values are undefined.
+        next if not defined $spoc_attr;
+
+        # Defined values are different.
+        return if $spoc_attr ne $conf_attr;
+    }
+    return $conf_value;
+}
+
+sub find_simple_object_on_device {
+    my ($spoc_value, $conf, $parse_name, $structure) = @_;
+    my $attributes   = $structure->{$parse_name}->{attributes};
+    my $conf_objects = $conf->{$parse_name};
+  OBJ:
+    for my $conf_name (sort keys %$conf_objects) {
+        my $conf_value = $conf_objects->{$conf_name};
+        next if not simple_object_equal($spoc_value, $conf_value, $attributes);
+        return $conf_value;
+    }
+    return;    
+}
+
 sub make_equal {
     my ( $self, $conf, $spoc, $parse_name, $conf_name,
 	 $spoc_name, $structure ) = @_;
@@ -1097,15 +1146,49 @@ sub make_equal {
     my $spoc_value = object_for_name( $spoc, $parse_name,
 				      $spoc_name, 'no_err' );
 
-    # If object already has been tranfered before, just
-    # return the name of the transfered object.
     if ( $spoc_value ) {
+
+        # If object already has been transferred before, just return
+        # the name of the transferred object.
 	if ( $spoc_value->{transfer} ) {
 	    return $spoc_value->{new_name} || $spoc_name;
 	}
 	elsif( $spoc_value->{name_on_dev} ) {
 	    return $spoc_value->{name_on_dev};
 	}
+
+        # Never modify simple object.
+        # Instead, search object with identical attributes on device.
+        # If found, take that object.
+        # Otherwise transfer object from netspoc.
+        if ($structure->{$parse_name}->{simple_object}) {
+            my $found_obj;
+
+            # Prefer current value on device, if unchanged.
+            if ($conf_value) {
+                my $attributes = $structure->{$parse_name}->{attributes};
+                if (simple_object_equal($spoc_value, $conf_value, $attributes)) {
+                    $found_obj = $conf_value;
+                }
+            }
+
+            $found_obj ||= find_simple_object_on_device($spoc_value, 
+                                                      $conf, $parse_name, 
+                                                      $structure);
+            if ($found_obj) 
+            {
+                $found_obj->{needed} = $spoc_value;
+                my $name = $found_obj->{name};
+                info("Using $parse_name $name on device for $spoc_name");
+                $self->mark_as_unchanged( $parse_name );
+                return $spoc_value->{name_on_dev} = $name;
+            }
+            else {
+                $spoc_value->{transfer} = 1;
+                $self->mark_as_changed( $parse_name );
+                return $spoc_value->{new_name} || $spoc_name;
+            }
+        }
     }
 
     # Transfer object from netspoc
@@ -1217,7 +1300,7 @@ sub make_equal {
 		# In the superior object,
 		# the corresponding attribute in that superior object
 		# has to be altered, so that it carries the name of the
-		# transfered or changed object.
+		# transferred or changed object.
 		if ( $spoc_next ) {
 		    if  ( ! $conf_next || $conf_next ne $new_conf_next ) {
 			$spoc_value->{change_attr}->{$next_attr_name} =
@@ -1326,13 +1409,13 @@ sub transfer1 {
 	# that we start with the leaves.
 	my $method = $parse->{transfer};
 	if ( $spoc_value->{transfer} and $method ) {
-	    if ( my $transfered_as = $spoc_value->{transfered_as} ) {
-		#info("$spoc_name already transfered as $transfered_as! ");
+	    if ( my $transferred_as = $spoc_value->{transferred_as} ) {
+		#info("$spoc_name already transferred as $transferred_as! ");
 	    }
 	    else {
                 info("Transfer $parse_name $spoc_name");
 		$self->$method( $spoc, $structure, $parse_name, $spoc_name );
-		$spoc_value->{transfered_as} = $spoc_value->{new_name};
+		$spoc_value->{transferred_as} = $spoc_value->{new_name};
 	    }
 	}
     }
@@ -1356,14 +1439,14 @@ sub traverse_netspoc_tree {
 	for my $spoc_name ( sort keys %$spoc_hash ) {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
 	    if ( $spoc_value->{transfer} ) {
-		if ( my $transfered_as = $spoc_value->{transfered_as} ) {
-		    #info("$spoc_name already transfered as $transfered_as! ");
+		if ( my $transferred_as = $spoc_value->{transferred_as} ) {
+		    #info("$spoc_name already transferred as $transferred_as! ");
 		}
 		else {
                     info("Transfer $parse_name $spoc_name");
 		    $self->$method( $spoc, $structure,
 				    $parse_name, $spoc_name );
-		    $spoc_value->{transfered_as} = $spoc_value->{new_name};
+		    $spoc_value->{transferred_as} = $spoc_value->{new_name};
 		}
 	    }
 	}
@@ -1423,7 +1506,8 @@ sub remove_unneeded_on_device {
     my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP 
-                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
+                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME
+                          TRANSFORM_SET TRANSFORM_SET_IKEV1
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
@@ -1440,20 +1524,20 @@ sub remove_unneeded_on_device {
 		$self->remove_attributes( $parse_name, $obj_name, $attr );
 	    }
 
-	    # Remove unneeded objects from device.
+	    # Remove unneeded object from device.
 	    next if $object->{needed};
 
 	    # Do not remove users that have their own explicit
 	    # password (e.g. 'netspoc'-user used to access device).
 	    next if ( $parse_name eq 'USERNAME'  && ! $object->{NOPASSWORD} );
 
-            # Only remove ACLs and object-groups that 
-            # either have previously been defined by Netspoc
-            # or that have been substituted by new objects from nespoc.
+            # Only remove object that either has previously been
+            # defined by Netspoc or that has been substituted by new
+            # object from Netspoc.
             # This excludes manual ACLs used for eg. BGP.
-            next if ($parse_name =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
-                     $obj_name !~ /DRC-\d+$/ &&
-                     !$object->{connected});
+            if ($parse_name ne 'CRYPTO_MAP_SEQ') {
+                next if $obj_name !~ /DRC-\d+$/ and not $object->{connected};
+            }
 
             info("Remove unneeded $parse_name $obj_name");
             my $method = $parse->{remove};
@@ -1484,15 +1568,10 @@ sub remove_spare_objects_on_device {
 	    # Remove spare objects from device.
 	    next if $object->{connected};
 
-            # Only remove ACLs and object-groups that have been
-            # defined by Netspoc. 
-            # This excludes manual ACLs used by eg. BGP.
-            next if ($parse_name =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
-                     $obj_name !~ /DRC-\d+$/);
+            # Only remove objects that have been defined by Netspoc.
+            next if $parse_name ne 'CRYPTO_MAP_SEQ' and $obj_name !~ /DRC-\d+$/;
 
-            # So we do not try to remove the object
-            # again later. (This is a hack and should be
-            # done in a more consistent way! -->TODO)
+            # So we do not try to remove the object again later.
             $object->{needed} = 1;
             info("Remove spare $parse_name $obj_name");
             my $method = $parse->{remove};
@@ -1546,18 +1625,15 @@ sub mark_connected_objects {
     }
 
     # Show unconnected objects.
-    for my $key ( sort keys %$structure ) {
-	my $objects = $conf->{$key};
+    for my $parse_name ( sort keys %$structure ) {
+	my $objects = $conf->{$parse_name};
         for my $obj_name ( sort keys %$objects ) {
             my $object = $objects->{$obj_name};
 	    next if $object->{connected};
 
-            # Only warn on ACLs and object-groups that have been
-            # defined by Netspoc. 
-            # This excludes manual ACLs used by eg. BGP.
-            next if ($key =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
-                     $obj_name !~ /DRC-\d+$/);
-	    warn_info("Spare $key: $obj_name");
+            # Only warn on objects that have been defined by Netspoc.
+            next if $parse_name ne 'CRYPTO_MAP_SEQ' and $obj_name !~ /DRC-\d+$/;
+	    warn_info("Spare $parse_name: $obj_name");
 	}
     }    
 }
@@ -1733,7 +1809,8 @@ sub transfer_ca_cert_map {
     my $new_cert_map = $object->{new_name};
     my @cmds;
     push @cmds, item_conf_mode_cmd( $parse_name, $new_cert_map );
-    push @cmds, add_attribute_cmds( $structure, $parse_name, $object, 'attributes' );
+    push @cmds, add_attribute_cmds($structure, $parse_name, $object, 
+                                   'attributes');
     map { $self->cmd( $_ ) } @cmds;
 }
 
@@ -1837,19 +1914,38 @@ sub remove_group_policy {
     $self->cmd( $cmd );
 }
 
+sub transfer_transform_set {
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $spoc->{$parse_name}->{$obj_name};
+    my $new_name = $obj->{new_name};
+    my $cmd = $obj->{orig}; 
+
+    # Handle "crypto ipsec transform-set"
+    # and "crypto ipsec ikev1 transform-set"
+    $cmd =~ s/transform-set $obj_name(?!\S)/transform-set $new_name/;
+    $self->cmd( $cmd );
+}
+
+sub remove_transform_set {
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $conf->{$parse_name}->{$obj_name};
+    my $cmd = "no $obj->{orig}";
+    $self->cmd( $cmd );
+}
+
 sub transfer_ip_local_pool {
-    my ( $self, $spoc, $structure, $parse_name, $pool_name ) = @_;
-    my $pool = $spoc->{$parse_name}->{$pool_name};
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my $pool = $spoc->{$parse_name}->{$obj_name};
     my $new_name = $pool->{new_name};
     my $cmd = $pool->{orig}; 
-    $cmd =~ s/ip local pool $pool_name(?!\S)/ip local pool $new_name/;
+    $cmd =~ s/ip local pool $obj_name(?!\S)/ip local pool $new_name/;
     $self->cmd( $cmd );
 }
 
 sub remove_ip_local_pool {
-    my ( $self, $conf, $structure, $parse_name, $pool_name ) = @_;
-    my $pool = $conf->{$parse_name}->{$pool_name};
-    my $cmd = "no " . $pool->{orig};
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $conf->{$parse_name}->{$obj_name};
+    my $cmd = "no $obj->{orig}";
     $self->cmd( $cmd );
 }
 
@@ -1886,9 +1982,9 @@ sub modify_object_group {
 }
 
 sub remove_object_group {
-    my ( $self, $conf, $structure, $parse_name, $object_group ) = @_;
-    my $og = object_for_name( $conf, $parse_name, $object_group );
-    my $cmd = "no $og->{orig}";
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = object_for_name( $conf, $parse_name, $obj_name );
+    my $cmd = "no $obj->{orig}";
     $self->cmd( $cmd );
 }
 
@@ -2095,12 +2191,28 @@ sub define_structure {
 			     parse_name => 'CRYPTO_MAP_SEQ', },
 			   ],
 	},
+        TRANSFORM_SET => {
+            attributes  => [ qw(LIST) ],
+            simple_object => 1,
+	    transfer => 'transfer_transform_set',
+	    remove   => 'remove_transform_set',
+        },
+        TRANSFORM_SET_IKEV1 => {
+            attributes  => [ qw(LIST) ],
+            simple_object => 1,
+	    transfer => 'transfer_transform_set',
+	    remove   => 'remove_transform_set',
+        },
 	CRYPTO_MAP_SEQ => {
 	    attributes => [ qw(NAT_T_DISABLE PEER DYNAMIC_MAP PFS 
 			       REVERSE_ROUTE SA_LIFETIME_SEC SA_LIFETIME_KB 
-			       TRANSFORM_SET TRANSFORM_SET_IKEV1 TRUSTPOINT) ],
+			       TRUSTPOINT) ],
 	    next     => [ { attr_name  => 'MATCH_ADDRESS',
-			    parse_name => 'ACCESS_LIST' }
+			    parse_name => 'ACCESS_LIST' }, 
+                          { attr_name  => 'TRANSFORM_SET',
+			    parse_name => 'TRANSFORM_SET' },
+                          { attr_name  => 'TRANSFORM_SET_IKEV1',
+			    parse_name => 'TRANSFORM_SET_IKEV1' },
 			  ],
 	    transfer => 'transfer_crypto_map_seq',
 	    remove   => 'remove_crypto_map_seq',

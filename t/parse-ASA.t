@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-# $id:$
 
 use strict;
 use Test::More;
@@ -141,12 +140,12 @@ $title = "Parse crypto map";
 $in = <<END;
 access-list crypto-acl permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 
-crypto ipsec transform-set trans esp-3des esp-sha-hmac 
+crypto ipsec ikev1 transform-set trans esp-3des esp-sha-hmac 
 
 crypto map map-outside 10 match address crypto-acl
 crypto map map-outside 10 set pfs group2
 crypto map map-outside 10 set peer 97.98.99.100
-crypto map map-outside 10 set transform-set trans
+crypto map map-outside 10 set ikev1 transform-set trans
 crypto map map-outside 10 set security-association lifetime seconds 43200 kilobytes 4608000
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside interface outside
@@ -154,13 +153,15 @@ END
 
 $out = <<END;
 access-list crypto-acl-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
+crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
 crypto map map-outside 10 set peer 97.98.99.100
 crypto map map-outside 10 set pfs group2
 crypto map map-outside 10 set security-association lifetime seconds 43200
 crypto map map-outside 10 set security-association lifetime kilobytes 4608000
-crypto map map-outside 10 set transform-set trans
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside 10 match address crypto-acl-DRC-0
+no crypto map map-outside 10 set ikev1 transform-set
+crypto map map-outside 10 set ikev1 transform-set trans-DRC-0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
@@ -505,31 +506,34 @@ $title = "Insert and delete entries from crypto map sequence";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
-crypto ipsec transform-set Trans esp-aes-256 esp-sha-hmac
+crypto ipsec ikev1 transform-set Trans1a esp-3des esp-md5-hmac
+crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+crypto ipsec ikev1 transform-set Trans2 esp-aes-192 esp-sha-hmac
 access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.1
-crypto map crypto-outside 1 set transform-set Trans
+crypto map crypto-outside 1 set ikev1 transform-set Trans1b
 crypto map crypto-outside 1 set pfs group2
 access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
 crypto map crypto-outside 3 match address crypto-outside-3
 crypto map crypto-outside 3 set peer 10.0.0.3
-crypto map crypto-outside 3 set transform-set Trans
+crypto map crypto-outside 3 set ikev1 transform-set Trans2
 crypto map crypto-outside 3 set pfs group2
 crypto map crypto-outside 65535 ipsec-isakmp dynamic name1
 END
 
 $in = <<END;
-crypto ipsec transform-set Trans esp-aes-256 esp-sha-hmac
+crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
+crypto ipsec ikev1 transform-set Trans2 esp-aes-256 esp-sha-hmac
 access-list crypto-outside-1 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.2
-crypto map crypto-outside 1 set transform-set Trans
+crypto map crypto-outside 1 set ikev1 transform-set Trans1
 crypto map crypto-outside 1 set pfs group2
 access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
 crypto map crypto-outside 3 match address crypto-outside-3
 crypto map crypto-outside 3 set peer 10.0.0.3
-crypto map crypto-outside 3 set transform-set Trans
+crypto map crypto-outside 3 set ikev1 transform-set Trans2
 crypto map crypto-outside 3 set pfs group1
 crypto map crypto-outside 65534 ipsec-isakmp dynamic name1
 crypto map crypto-outside 65535 ipsec-isakmp dynamic name2
@@ -539,11 +543,17 @@ $out = <<END;
 access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 2 set peer 10.0.0.2
 crypto map crypto-outside 2 set pfs group2
-crypto map crypto-outside 2 set transform-set Trans
+crypto ipsec ikev1 transform-set Trans2-DRC-0 esp-aes-256 esp-sha-hmac
 crypto map crypto-outside 65534 ipsec-isakmp dynamic name2
 crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
+no crypto map crypto-outside 2 set ikev1 transform-set
+crypto map crypto-outside 2 set ikev1 transform-set Trans1a
 crypto map crypto-outside 3 set pfs group1
+no crypto map crypto-outside 3 set ikev1 transform-set
+crypto map crypto-outside 3 set ikev1 transform-set Trans2-DRC-0
 clear configure crypto map crypto-outside 1
+no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+no crypto ipsec ikev1 transform-set Trans2 esp-aes-192 esp-sha-hmac
 clear configure access-list crypto-outside-1
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
