@@ -130,9 +130,14 @@ my %attr2cmd =
 	 REVERSE_ROUTE		  => 'set reverse-route',
 	 SA_LIFETIME_SEC	  => 'set security-association lifetime seconds',
 	 SA_LIFETIME_KB		  => 'set security-association lifetime kilobytes',
+         IPSEC_PROPOSAL           => 'set ikev2 ipsec-proposal',
 	 TRANSFORM_SET		  => 'set transform-set',
 	 TRANSFORM_SET_IKEV1	  => 'set ikev1 transform-set',
 	 TRUSTPOINT		  => 'set trustpoint',
+     },
+     IPSEC_PROPOSAL => {
+         ENCRYPTION_LIST          => 'protocol esp encryption',
+         INTEGRITY_LIST           => 'protocol esp integrity',
      },
      );
 
@@ -148,6 +153,7 @@ my %attr_need_remove = (
 			'vpn-tunnel-protocol' => 1,
 			# CRYPTO_MAP_SEQ
 			PEER                  => 1,
+                        IPSEC_PROPOSAL        => 1,
 			TRANSFORM_SET         => 1,
 			TRANSFORM_SET_IKEV1   => 1,
 			);
@@ -559,11 +565,11 @@ sub get_parse_info {
 			     store => 'NAT_T_DISABLE', },
 			   ['cond1',
 			    { parse => qr/peer/ },
-			    { store => 'PEER', parse => \&get_to_eol } ],
+			    { parse => \&get_to_eol, store => 'PEER' } ],
 			   ['cond1',
 			    { parse => qr/pfs/ },
-			    { store => 'PFS', parse => \&check_token, 
-			      default => 'group2' } ],
+			    { parse => \&check_token,
+                              store => 'PFS', default => 'group2' } ],
 			   { parse => qr/reverse-route/, 
 			     store => 'REVERSE_ROUTE',  },
 			   ['cond1',
@@ -578,20 +584,36 @@ sub get_parse_info {
 			      { parse => qr/kilobytes/ },
 			      { parse => \&get_int, 
 				store => 'SA_LIFETIME_KB', }, ]]],
-			   [ 'or',
-			   ['cond1',
-			    { parse => qr/ikev1/ },
-			    { parse => qr/transform-set/ },
-			    { parse => \&get_token,
-			      store => 'TRANSFORM_SET_IKEV1' } ],
-			   ['cond1',
-			      { parse => qr/transform-set/ },
-			      { parse => \&get_token,
-				store => 'TRANSFORM_SET' } ]],
+                           ['cond1',
+                            { parse => qr/ikev2/ },
+                            { parse => qr/ipsec-proposal/ },
+                            { parse => \&get_token,
+                              store => 'IPSEC_PROPOSAL' } ],
+                           ['cond1',
+                            { parse => qr/ikev1/ },
+                            { parse => qr/transform-set/ },
+                            { parse => \&get_token,
+                              store => 'TRANSFORM_SET_IKEV1' } ],
+                           ['cond1',
+                            { parse => qr/transform-set/ },
+                            { parse => \&get_token,
+                              store => 'TRANSFORM_SET' } ],
 			   ['cond1',
 			    { parse => qr/trustpoint/ },
 			    { parse => \&get_token,
 			      store => 'TRUSTPOINT', } ]]]]]]]
+	},
+	'crypto ipsec ikev2 ipsec-proposal' => {
+	    store => [ 'IPSEC_PROPOSAL' ],
+	    named => 1,
+            subcmd => {
+                'protocol esp encryption' => {
+                    parse => \&get_sorted_encr_list ,
+                    store => 'ENCRYPTION_LIST' },
+                'protocol esp integrity' => {
+                    parse => \&get_sorted_encr_list ,
+                    store => 'INTEGRITY_LIST' },
+            },
 	},
 	'crypto ipsec transform-set' => {
 	    store => [ 'TRANSFORM_SET' ],
@@ -1507,7 +1529,7 @@ sub remove_unneeded_on_device {
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP 
                           TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME
-                          TRANSFORM_SET TRANSFORM_SET_IKEV1
+                          TRANSFORM_SET TRANSFORM_SET_IKEV1 IPSEC_PROPOSAL
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
@@ -1904,6 +1926,26 @@ sub remove_group_policy {
     $self->cmd( $cmd );
 }
 
+sub transfer_ipsec_proposal {
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $spoc->{$parse_name}->{$obj_name};
+    my $new_name = $obj->{new_name};
+    my $cmd = $obj->{orig}; 
+    $cmd =~ s/proposal $obj_name(?!\S)/proposal $new_name/;
+    my @cmds;
+    push @cmds, $cmd;
+    push @cmds, add_attribute_cmds( $structure, $parse_name,
+				    $obj, 'attributes' );
+    map { $self->cmd( $_ ) } @cmds;    
+}
+
+sub remove_obj {
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $conf->{$parse_name}->{$obj_name};
+    my $cmd = "no $obj->{orig}";
+    $self->cmd( $cmd );
+}
+
 sub transfer_transform_set {
     my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
     my $obj = $spoc->{$parse_name}->{$obj_name};
@@ -1916,26 +1958,12 @@ sub transfer_transform_set {
     $self->cmd( $cmd );
 }
 
-sub remove_transform_set {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
-    my $obj = $conf->{$parse_name}->{$obj_name};
-    my $cmd = "no $obj->{orig}";
-    $self->cmd( $cmd );
-}
-
 sub transfer_ip_local_pool {
     my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
     my $pool = $spoc->{$parse_name}->{$obj_name};
     my $new_name = $pool->{new_name};
     my $cmd = $pool->{orig}; 
     $cmd =~ s/ip local pool $obj_name(?!\S)/ip local pool $new_name/;
-    $self->cmd( $cmd );
-}
-
-sub remove_ip_local_pool {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
-    my $obj = $conf->{$parse_name}->{$obj_name};
-    my $cmd = "no $obj->{orig}";
     $self->cmd( $cmd );
 }
 
@@ -1969,13 +1997,6 @@ sub modify_object_group {
     if($spoc->{del_entries}) {
 	map( { $self->cmd( "no $_->{orig}" ) } @{ $spoc->{del_entries} } );
     }
-}
-
-sub remove_object_group {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
-    my $obj = object_for_name( $conf, $parse_name, $obj_name );
-    my $cmd = "no $obj->{orig}";
-    $self->cmd( $cmd );
 }
 
 sub transfer_acl {
@@ -2161,7 +2182,7 @@ sub define_structure {
 	OBJECT_GROUP => {
 	    attributes => [],
 	    transfer => 'transfer_object_group',
-	    remove   => 'remove_object_group',
+	    remove   => 'remove_obj',
 	    modify   => 'modify_object_group',
 	},
 	IF => {
@@ -2181,24 +2202,32 @@ sub define_structure {
 			     parse_name => 'CRYPTO_MAP_SEQ', },
 			   ],
 	},
+        IPSEC_PROPOSAL => {
+            attributes  => [ qw(ENCRYPTION_LIST INTEGRITY_LIST) ],
+            simple_object => 1,
+	    transfer => 'transfer_ipsec_proposal',
+	    remove   => 'remove_obj',
+        },
         TRANSFORM_SET => {
             attributes  => [ qw(LIST) ],
             simple_object => 1,
 	    transfer => 'transfer_transform_set',
-	    remove   => 'remove_transform_set',
+	    remove   => 'remove_obj',
         },
         TRANSFORM_SET_IKEV1 => {
             attributes  => [ qw(LIST) ],
             simple_object => 1,
 	    transfer => 'transfer_transform_set',
-	    remove   => 'remove_transform_set',
+	    remove   => 'remove_obj',
         },
 	CRYPTO_MAP_SEQ => {
 	    attributes => [ qw(NAT_T_DISABLE PEER DYNAMIC_MAP PFS 
 			       REVERSE_ROUTE SA_LIFETIME_SEC SA_LIFETIME_KB 
 			       TRUSTPOINT) ],
 	    next     => [ { attr_name  => 'MATCH_ADDRESS',
-			    parse_name => 'ACCESS_LIST' }, 
+			    parse_name => 'ACCESS_LIST' },  
+                          { attr_name  => 'IPSEC_PROPOSAL',
+			    parse_name => 'IPSEC_PROPOSAL' },
                           { attr_name  => 'TRANSFORM_SET',
 			    parse_name => 'TRANSFORM_SET' },
                           { attr_name  => 'TRANSFORM_SET_IKEV1',
