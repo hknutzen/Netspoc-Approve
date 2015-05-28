@@ -467,9 +467,13 @@ sub parse_config1 {
 		    for my $key (keys %$value) {
 			next if $key =~ /(?:name|line|orig)/;
 			if(defined $old->{$key}) {
-			    err_at_line($arg, "Duplicate '$key' while merging");
+                            $old->{$key} eq $value->{$key} or
+                                err_at_line($arg, 
+                                            "Duplicate '$key' while merging");
 			}
-			$old->{$key} = $value->{$key};
+                        else {
+                            $old->{$key} = $value->{$key};
+                        }
 		    }
 		}
 		else {
