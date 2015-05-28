@@ -49,10 +49,10 @@ network-object 10.0.6.0 255.255.255.0
 network-object 10.0.5.0 255.255.255.0
 network-object host 10.0.12.3
 access-list inside_in-DRC-0 extended deny ip any any
+access-group inside_in-DRC-0 in interface inside
 access-list outside_in-DRC-0 extended permit udp object-group g0-DRC-0 host 10.0.1.11 eq sip
 access-list outside_in-DRC-0 extended permit tcp any host 10.0.1.11 range 7937 8999
 access-list outside_in-DRC-0 extended deny ip any any
-access-group inside_in-DRC-0 in interface inside
 access-group outside_in-DRC-0 in interface outside
 END
 
@@ -138,11 +138,12 @@ eq_or_diff(approve('ASA', $device, $in), $out, $title);
 $title = "Parse crypto map";
 ############################################################
 $in = <<END;
-access-list crypto-acl permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
+access-list crypto-acl1 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
+access-list crypto-acl2 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 
 crypto ipsec ikev1 transform-set trans esp-3des esp-sha-hmac 
-
-crypto map map-outside 10 match address crypto-acl
+crypto dynamic-map some-name 10 match address crypto-acl2
+crypto map map-outside 10 match address crypto-acl1
 crypto map map-outside 10 set pfs group2
 crypto map map-outside 10 set peer 97.98.99.100
 crypto map map-outside 10 set ikev1 transform-set trans
@@ -152,16 +153,18 @@ crypto map map-outside interface outside
 END
 
 $out = <<END;
-access-list crypto-acl-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
+access-list crypto-acl1-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
 crypto map map-outside 10 set peer 97.98.99.100
 crypto map map-outside 10 set pfs group2
 crypto map map-outside 10 set security-association lifetime seconds 43200
 crypto map map-outside 10 set security-association lifetime kilobytes 4608000
-crypto map map-outside 65000 ipsec-isakmp dynamic some-name
-crypto map map-outside 10 match address crypto-acl-DRC-0
+crypto map map-outside 10 match address crypto-acl1-DRC-0
 no crypto map map-outside 10 set ikev1 transform-set
 crypto map map-outside 10 set ikev1 transform-set trans-DRC-0
+access-list crypto-acl2-DRC-0 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
+crypto dynamic-map some-name 10 match address crypto-acl2-DRC-0
+crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
@@ -195,6 +198,8 @@ banner value Willkommen!
 dns-server 10.1.2.3 10.44.55.66
 split-tunnel-policy tunnelspecified
 vpn-idle-timeout 60
+group-policy VPN-group-DRC-0 attributes
+split-tunnel-network-list value split-tunnel-DRC-0
 access-list vpn-filter-DRC-0 extended permit ip host 10.1.1.67 10.2.42.0 255.255.255.224
 access-list vpn-filter-DRC-0 extended deny ip any any
 username jon.doe@token.example.com nopassword
@@ -206,8 +211,6 @@ username jon.doe@token.example.com attributes
 vpn-filter value vpn-filter-DRC-0
 vpn-group-policy VPN-group-DRC-0
 exit
-group-policy VPN-group-DRC-0 attributes
-split-tunnel-network-list value split-tunnel-DRC-0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
@@ -368,8 +371,14 @@ group-policy VPN-group-DRC-0 attributes
 banner value Willkommen beim Zugang per VPN
 split-tunnel-policy tunnelspecified
 vpn-idle-timeout 60
+group-policy VPN-group-DRC-0 attributes
+address-pools value pool-DRC-0
+split-tunnel-network-list value split-tunnel-DRC-0
+vpn-filter value vpn-filter-DRC-0
 tunnel-group VPN-tunnel-DRC-0 type remote-access
 tunnel-group VPN-tunnel-DRC-0 general-attributes
+tunnel-group VPN-tunnel-DRC-0 general-attributes
+default-group-policy VPN-group-DRC-0
 tunnel-group VPN-tunnel-DRC-0 ipsec-attributes
 isakmp ikev1-user-authentication none
 isakmp keepalive threshold 15 retry 3
@@ -382,12 +391,6 @@ subject-name attr ea co @sub.example.com
 tunnel-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
 webvpn
 certificate-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
-tunnel-group VPN-tunnel-DRC-0 general-attributes
-default-group-policy VPN-group-DRC-0
-group-policy VPN-group-DRC-0 attributes
-address-pools value pool-DRC-0
-split-tunnel-network-list value split-tunnel-DRC-0
-vpn-filter value vpn-filter-DRC-0
 END
 check_parse_and_unchanged('ASA', $minimal_device, $in, $out, $title);
 
@@ -559,10 +562,9 @@ crypto map crypto-outside 3 match address crypto-outside-3
 crypto map crypto-outside 3 set peer 10.0.0.3
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1
 crypto map crypto-outside 3 set pfs group2
-crypto map crypto-outside 65535 ipsec-isakmp dynamic name1
 END
 
-$in = <<END;
+$in = <<'END';
 crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
 crypto ipsec ikev2 ipsec-proposal Proposal1
  protocol esp encryption aes256
@@ -577,21 +579,18 @@ crypto map crypto-outside 3 match address crypto-outside-3
 crypto map crypto-outside 3 set peer 10.0.0.3
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1
 crypto map crypto-outside 3 set pfs group1
-crypto map crypto-outside 65534 ipsec-isakmp dynamic name1
-crypto map crypto-outside 65535 ipsec-isakmp dynamic name2
 END
 
-$out = <<END;
+$out = <<'END';
 access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 2 set peer 10.0.0.2
 crypto map crypto-outside 2 set pfs group2
-crypto ipsec ikev2 ipsec-proposal Proposal1-DRC-0
-protocol esp encryption aes256
-protocol esp integrity sha
-crypto map crypto-outside 65534 ipsec-isakmp dynamic name2
 crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
 no crypto map crypto-outside 2 set ikev1 transform-set
 crypto map crypto-outside 2 set ikev1 transform-set Trans1a
+crypto ipsec ikev2 ipsec-proposal Proposal1-DRC-0
+protocol esp encryption aes256
+protocol esp integrity sha
 no crypto map crypto-outside 3 set ikev2 ipsec-proposal
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1-DRC-0
 crypto map crypto-outside 3 set pfs group1
@@ -600,8 +599,57 @@ no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 no crypto ipsec ikev2 ipsec-proposal Proposal1
 clear configure access-list crypto-outside-1
 END
+
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
+############################################################
+$title = "Insert, change and delete dynamic crypto map";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+crypto ipsec ikev1 transform-set Trans1a esp-3des esp-md5-hmac
+access-list crypto-outside-65535 extended permit ip 10.1.1.0 255.255.255.0 10.99.2.0 255.255.255.0
+access-list crypto-outside-65534 extended permit ip 10.1.3.0 255.255.255.0 10.99.2.0 255.255.255.0
+access-list crypto-outside-65533 extended permit ip 10.1.4.0 255.255.255.0 10.99.2.0 255.255.255.0
+crypto dynamic-map name1@example.com 10 match address crypto-outside-65535
+crypto dynamic-map name1@example.com 10 set ikev1 transform-set Trans1a
+crypto dynamic-map name1@example.com 10 set pfs group2
+crypto dynamic-map name3@example.com 10 match address crypto-outside-65534
+crypto dynamic-map name4@example.com 10 match address crypto-outside-65533
+crypto dynamic-map name4@example.com 10 set ikev1 transform-set Trans1a
+crypto map crypto-outside 65535 ipsec-isakmp dynamic name1@example.com
+crypto map crypto-outside 65534 ipsec-isakmp dynamic name3@example.com
+crypto map crypto-outside 65533 ipsec-isakmp dynamic name4@example.com
+END
+
+$in = <<'END';
+crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip 10.1.1.0 255.255.255.0 10.99.2.0 255.255.255.0
+access-list crypto-outside-2 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
+access-list crypto-outside-3 extended permit ip 10.1.3.0 255.255.255.0 10.99.2.0 255.255.255.0
+crypto dynamic-map name1@example.com 10 match address crypto-outside-1
+crypto dynamic-map name2@example.com 10 match address crypto-outside-2
+crypto dynamic-map name3@example.com 10 match address crypto-outside-3
+crypto dynamic-map name3@example.com 10 set ikev1 transform-set Trans1
+crypto map crypto-outside 65534 ipsec-isakmp dynamic name1@example.com
+crypto map crypto-outside 65533 ipsec-isakmp dynamic name2@example.com
+crypto map crypto-outside 65532 ipsec-isakmp dynamic name3@example.com
+END
+
+$out = <<'END';
+no crypto dynamic-map name3@example.com 10 set ikev1 transform-set
+crypto dynamic-map name3@example.com 10 set ikev1 transform-set Trans1a
+access-list crypto-outside-2-DRC-0 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
+crypto dynamic-map name2@example.com 10 match address crypto-outside-2-DRC-0
+crypto map crypto-outside 65532 ipsec-isakmp dynamic name2@example.com
+clear configure crypto map crypto-outside 65533
+no crypto dynamic-map name1@example.com 10 set pfs group2
+no crypto dynamic-map name1@example.com 10 set ikev1 transform-set Trans1a
+no crypto dynamic-map name4@example.com 10 match address crypto-outside-65533
+clear configure access-list crypto-outside-65533
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 done_testing;

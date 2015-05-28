@@ -135,6 +135,15 @@ my %attr2cmd =
 	 TRANSFORM_SET_IKEV1	  => 'set ikev1 transform-set',
 	 TRUSTPOINT		  => 'set trustpoint',
      },
+     DYNAMIC_MAP => {
+	 MATCH_ADDRESS		  => 'match address',
+	 NAT_T_DISABLE		  => 'set nat-t-disable',
+	 PEER			  => 'set peer',
+	 PFS 			  => 'set pfs',
+	 REVERSE_ROUTE		  => 'set reverse-route',
+         IPSEC_PROPOSAL           => 'set ikev2 ipsec-proposal',
+	 TRANSFORM_SET_IKEV1	  => 'set ikev1 transform-set',
+     },
      IPSEC_PROPOSAL => {
          ENCRYPTION_LIST          => 'protocol esp encryption',
          INTEGRITY_LIST           => 'protocol esp integrity',
@@ -545,7 +554,7 @@ sub get_parse_info {
 			{ store => 'name', 
 			  parse => sub { my ($arg, $name) = @_;
 					 my $seq = get_int($arg);
-					 join(':', $name, $seq);
+					 join(' ', $name, $seq);
 				     },
 			  params => [ '$name' ], },
 			['or',
@@ -603,6 +612,45 @@ sub get_parse_info {
 			    { parse => \&get_token,
 			      store => 'TRUSTPOINT', } ]]]]]]]
 	},
+	'crypto dynamic-map' => {
+	    store => ['DYNAMIC_MAP'],
+	    named => 'from_parser',
+	    merge => 1,
+	    parse => ['seq',
+		      { store => 'name', parse => \&get_token },
+
+                      # Sequence number; only value '10' is accepted.
+                      { parse => qr/10/, },
+                      ['or',
+                       ['cond1',
+                        { parse => qr/match/ },
+                        { parse => qr/address/ },
+                        { store => 'MATCH_ADDRESS', parse => \&get_token } ],
+                       ['seq',
+                        { parse => qr/set/ },
+                        ['or',
+                         { parse => qr/nat-t-disable/,
+                           store => 'NAT_T_DISABLE', },
+                         ['cond1',
+                          { parse => qr/peer/ },
+                          { parse => \&get_to_eol, store => 'PEER' } ],
+                         ['cond1',
+                          { parse => qr/pfs/ },
+                          { parse => \&check_token,
+                            store => 'PFS', default => 'group2' } ],
+                         { parse => qr/reverse-route/, 
+                           store => 'REVERSE_ROUTE',  },
+                         ['cond1',
+                          { parse => qr/ikev2/ },
+                          { parse => qr/ipsec-proposal/ },
+                          { parse => \&get_token,
+                            store => 'IPSEC_PROPOSAL' } ],
+                         ['cond1',
+                          { parse => qr/ikev1/ },
+                          { parse => qr/transform-set/ },
+                          { parse => \&get_token,
+                            store => 'TRANSFORM_SET_IKEV1' } ]]]]]
+        },
 	'crypto ipsec ikev2 ipsec-proposal' => {
 	    store => [ 'IPSEC_PROPOSAL' ],
 	    named => 1,
@@ -679,7 +727,7 @@ sub postprocess_config {
 
     # Separate "crypto map name seq" vs. "crypto map name interface"
     # "name seq" is stored with key "name:seq".
-    my @no_crypto_seq = grep { $_ !~ /:/ } keys %{$p->{CRYPTO_MAP}};
+    my @no_crypto_seq = grep { $_ !~ / / } keys %{$p->{CRYPTO_MAP}};
     my $seq = $p->{CRYPTO_MAP_SEQ} = delete $p->{CRYPTO_MAP};
     my $map = $p->{CRYPTO_MAP} = {};
     for my $key (@no_crypto_seq) {
@@ -691,7 +739,7 @@ sub postprocess_config {
     my $lists = $p->{CRYPTO_MAP_LIST} = {};
     my %peers;
     for my $name (sort keys %$seq) {
-	my ($map_name, $seq_nr) = split(/:/, $name);
+	my ($map_name, $seq_nr) = split(/ /, $name);
 	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
 	my $peer = $map->{PEER} || $map->{DYNAMIC_MAP} or 
 	    abort("Missing peer or dynamic in crypto map $map_name $seq_nr");
@@ -920,6 +968,7 @@ sub generate_names_for_transfer {
     for my $parse_name ( keys %{$structure} ) {
 	next if $structure->{$parse_name}->{anchor};
 	next if $parse_name eq 'CRYPTO_MAP_SEQ';
+	next if $parse_name eq 'DYNAMIC_MAP';
 	my $hash = $spoc->{$parse_name};
 	for my $name ( keys %$hash ) {
 	    next if ($parse_name eq 'TUNNEL_GROUP'
@@ -1096,15 +1145,15 @@ sub equalize_crypto {
 	# On spoc but not on device.
 	for my $spoc_entry ( $diff->Items(2) ) {
 	    my $spoc_name = $spoc_entry->{name};
-	    my ($map_name) = split(/:/, $spoc_name);
+	    my ($map_name) = split(/ /, $spoc_name);
 	    if ($spoc_entry->{PEER}) {
 		$peer_seq = get_free_seq_nr($conf_entries, $peer_seq, +1);
-		$spoc_entry->{new_name} = "$map_name:$peer_seq";
+		$spoc_entry->{new_name} = "$map_name $peer_seq";
 		$peer_seq += 1;
 	    }
 	    else {
 		$dyn_seq = get_free_seq_nr($conf_entries, $dyn_seq, -1);
-		$spoc_entry->{new_name} = "$map_name:$dyn_seq";
+		$spoc_entry->{new_name} = "$map_name $dyn_seq";
 		$dyn_seq -= 1;
 	    }
 	    $self->make_equal($conf, $spoc, 'CRYPTO_MAP_SEQ',
@@ -1440,6 +1489,10 @@ sub transfer1 {
 		$spoc_value->{transferred_as} = $spoc_value->{new_name};
 	    }
 	}
+
+        # Change attributes of items in place.
+        $self->change_modified_attributes($spoc, $parse_name, $spoc_name, 
+                                          $structure);
     }
 }
 
@@ -1489,20 +1542,6 @@ sub traverse_netspoc_tree {
 	}
     }
 
-    # Change attributes of items in place.
-    for my $key ( sort keys %$structure ) {
-        my $value = $structure->{$key};
-        next if not $value->{anchor};
-        my $spoc_anchor = $spoc->{$key};
-
-	# Iterate over objects on device.
-        for my $spoc_name ( sort keys %$spoc_anchor ) {
-	    my $spoc_value = object_for_name( $spoc, $key, $spoc_name );
-	    $self->change_modified_attributes( $spoc, $key,
-			   $spoc_name, $structure );
-	}
-    }
-
     # Change list values of objects in place.
     # Add or remove entries to/from lists (access-list, object-group).
     for my $parse_name ( qw( ACCESS_LIST OBJECT_GROUP ) ) {
@@ -1525,7 +1564,7 @@ sub remove_unneeded_on_device {
     my ( $self, $conf, $structure ) = @_;
     
     # Caution: the order is significant in this array!
-    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
+    my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP 
                           TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME
@@ -1571,7 +1610,7 @@ sub remove_unneeded_on_device {
 sub remove_spare_objects_on_device {
     my ( $self, $conf, $structure ) = @_;
 
-    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
+    my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP
                           TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
@@ -1695,8 +1734,10 @@ sub change_attributes {
     else {
 	my $prefix;
 	if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
-	    my ($name, $seq) = split(':', $spoc_name);
-	    $prefix = "crypto map $name $seq";
+	    $prefix = "crypto map $spoc_name";
+	}
+	elsif( $parse_name eq 'DYNAMIC_MAP' ) {
+	    $prefix = "crypto dynamic-map $spoc_name 10";
 	}
 	elsif( not $parse_name eq 'DEFAULT_GROUP' ) {
 	    push @cmds, item_conf_mode_cmd( $parse_name, $spoc_name );
@@ -1748,8 +1789,10 @@ sub remove_attributes {
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
-	my ($name, $seq) = split(':', $item_name);
-	$prefix = "crypto map $name $seq";
+	$prefix = "crypto map $item_name";
+    }
+    elsif ($parse_name eq 'DYNAMIC_MAP') {
+        $prefix = "crypto dynamic-map $item_name 10";
     }
     else {
 	push @cmds, item_conf_mode_cmd( $parse_name, $item_name );
@@ -1808,8 +1851,28 @@ sub remove_crypto_map_seq {
     my ( $self, $conf, $structure, $parse_name, $name_seq ) = @_;
 
     my $object = object_for_name( $conf, $parse_name, $name_seq );
-    my ($name, $seq) = split(':', $object->{name});
-    my $prefix = "crypto map $name $seq";
+    my $name = $object->{name};
+    my $prefix = "crypto map $name";
+    my $cmd = "clear configure $prefix";
+    $self->cmd( $cmd );
+}
+
+sub transfer_dynamic_map {
+    my ( $self, $spoc, $structure, $parse_name, $name ) = @_;
+
+    my $object = object_for_name( $spoc, $parse_name, $name );
+    my @cmds;
+    push @cmds, add_attribute_cmds( $structure, $parse_name,
+				    $object, 'attributes' );
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub remove_dynamic_map {
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+
+    my $object = object_for_name( $conf, $parse_name, $obj_name );
+    my $name = $object->{name};
+    my $prefix = "crypto dynamic-map $name 10";
     my $cmd = "clear configure $prefix";
     $self->cmd( $cmd );
 }
@@ -2075,8 +2138,8 @@ sub add_attribute_cmds {
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
- 	my ($name, $seq) = split(':', $object->{new_name} || $object->{name});
-	$prefix = "crypto map $name $seq";
+ 	my $name = $object->{new_name} || $object->{name};
+	$prefix = "crypto map $name";
     }
   ATTRIBUTE:
     for my $attr ( @{$structure->{$parse_name}->{$attributes}} ) {
@@ -2220,10 +2283,21 @@ sub define_structure {
 	    transfer => 'transfer_transform_set',
 	    remove   => 'remove_obj',
         },
+        DYNAMIC_MAP => {
+            attributes => [ qw( NAT_T_DISABLE PFS REVERSE_ROUTE) ],
+            next     => [ { attr_name  => 'MATCH_ADDRESS',
+			    parse_name => 'ACCESS_LIST' },
+                          { attr_name  => 'IPSEC_PROPOSAL',
+			    parse_name => 'IPSEC_PROPOSAL' },
+                          { attr_name  => 'TRANSFORM_SET_IKEV1',
+			    parse_name => 'TRANSFORM_SET_IKEV1' },
+                ],
+	    transfer => 'transfer_dynamic_map',
+	    remove   => 'remove_obj',
+        },
 	CRYPTO_MAP_SEQ => {
-	    attributes => [ qw(NAT_T_DISABLE PEER DYNAMIC_MAP PFS 
-			       REVERSE_ROUTE SA_LIFETIME_SEC SA_LIFETIME_KB 
-			       TRUSTPOINT) ],
+	    attributes => [ qw(NAT_T_DISABLE PEER PFS REVERSE_ROUTE
+			       SA_LIFETIME_SEC SA_LIFETIME_KB TRUSTPOINT) ],
 	    next     => [ { attr_name  => 'MATCH_ADDRESS',
 			    parse_name => 'ACCESS_LIST' },  
                           { attr_name  => 'IPSEC_PROPOSAL',
@@ -2232,6 +2306,8 @@ sub define_structure {
 			    parse_name => 'TRANSFORM_SET' },
                           { attr_name  => 'TRANSFORM_SET_IKEV1',
 			    parse_name => 'TRANSFORM_SET_IKEV1' },
+                          { attr_name  => 'DYNAMIC_MAP',
+                            parse_name => 'DYNAMIC_MAP' },
 			  ],
 	    transfer => 'transfer_crypto_map_seq',
 	    remove   => 'remove_crypto_map_seq',
