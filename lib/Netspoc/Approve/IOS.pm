@@ -114,13 +114,6 @@ sub get_parse_info {
 		     { store => 'LOCATION',
 		       parse => \&check_token,
 		       default => 'outside', }, ], },
-	    'switchport mode' => { 
-		store => ['SWITCHPORT', 'MODE'], parse => \&get_token, },
-	    'switchport access vlan' => {
-		store => ['SWITCHPORT', 'ACCESS_VLAN'], multi => 1, 
-		parse => \&get_token, },
-	    'switchport nonegotiate' => {
-		store => ['SWITCHPORT', 'NONEGOTIATE'], default => 1, },
 	  },
 	},
 
