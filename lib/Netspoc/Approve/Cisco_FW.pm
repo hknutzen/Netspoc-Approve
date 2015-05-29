@@ -538,7 +538,7 @@ sub get_parse_info {
 
 
 	'crypto map' => {
-	    store => ['CRYPTO_MAP'],
+	    store => 'CRYPTO_MAP',
 	    named => 'from_parser',
 	    merge => 1,
 	    parse => ['seq',
@@ -613,7 +613,7 @@ sub get_parse_info {
 			      store => 'TRUSTPOINT', } ]]]]]]]
 	},
 	'crypto dynamic-map' => {
-	    store => ['DYNAMIC_MAP'],
+	    store => 'DYNAMIC_MAP',
 	    named => 'from_parser',
 	    merge => 1,
 	    parse => ['seq',
@@ -652,7 +652,7 @@ sub get_parse_info {
                             store => 'TRANSFORM_SET_IKEV1' } ]]]]]
         },
 	'crypto ipsec ikev2 ipsec-proposal' => {
-	    store => [ 'IPSEC_PROPOSAL' ],
+	    store => 'IPSEC_PROPOSAL',
 	    named => 1,
             subcmd => {
                 'protocol esp encryption' => {
@@ -664,14 +664,14 @@ sub get_parse_info {
             },
 	},
 	'crypto ipsec transform-set' => {
-	    store => [ 'TRANSFORM_SET' ],
+	    store => 'TRANSFORM_SET',
 	    named => 1,
 	    parse => ['seq',
 		      { store => 'LIST',
                         parse => \&get_sorted_encr_list }, ],
 	},
 	'crypto ipsec ikev1 transform-set' => {
-	    store => [ 'TRANSFORM_SET_IKEV1' ],
+	    store => 'TRANSFORM_SET_IKEV1',
 	    named => 1,
 	    parse => ['seq',
 		      { store => 'LIST',
