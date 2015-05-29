@@ -82,7 +82,10 @@ sub get_parse_info {
 	    'ip address _skip _skip secondary' =>  { 
 		parse => \&skip }, # ignore
 	    'ip unnumbered' => {
-		store => ['ADDRESS', 'UNNUMBERED'], parse => \&get_token, },
+	      store => 'ADDRESS',
+	      parse => ['seq', 
+                        { parse => \&get_token, store => 'UNNUMBERED', } ],
+            },
 	    'shutdown' => { 
 		store => 'SHUTDOWN', default => 1, },
 	    'ip access-group _skip in' => {

@@ -175,7 +175,8 @@ ip access-list extended test-DRC-0
  permit icmp any host 10.0.1.11 3 3
  deny ip any any
 
-interface Ethernet1
+interface Serial1
+ ip unnumbered Ethernet1
  ip access-group test-DRC-0 in
 END
 
@@ -190,7 +191,8 @@ ip access-list extended test
  permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
  deny ip any any log-input
 
-interface Ethernet1
+interface Serial1
+ ip unnumbered Ethernet1
  ip access-group test in
 END
 
