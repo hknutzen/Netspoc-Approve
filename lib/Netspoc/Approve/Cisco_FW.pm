@@ -620,9 +620,7 @@ sub get_parse_info {
 	    merge => 1,
 	    parse => ['seq',
 		      { store => 'name', parse => \&get_token },
-
-                      # Sequence number; only value '10' is accepted.
-                      { parse => qr/10/, },
+                      { parse => qr/\d+/, store => 'SEQ' },
                       ['or',
                        ['cond1',
                         { parse => qr/match/ },
@@ -1596,7 +1594,8 @@ sub remove_unneeded_on_device {
 
 	    # Remove attributes marked for deletion.
 	    if ( my $attr = $object->{remove_attr} ) {
-		$self->remove_attributes( $parse_name, $obj_name, $attr );
+		$self->remove_attributes($object, $parse_name, $obj_name, 
+                                         $attr);
 	    }
 
 	    # Remove unneeded object from device.
@@ -1751,7 +1750,8 @@ sub change_attributes {
 	    $prefix = "crypto map $spoc_name";
 	}
 	elsif( $parse_name eq 'DYNAMIC_MAP' ) {
-	    $prefix = "crypto dynamic-map $spoc_name 10";
+            my $seq = $spoc_value->{SEQ};
+	    $prefix = "crypto dynamic-map $spoc_name $seq";
 	}
 	elsif( not $parse_name eq 'DEFAULT_GROUP' ) {
 	    push @cmds, item_conf_mode_cmd( $parse_name, $spoc_name );
@@ -1797,7 +1797,7 @@ sub change_attributes {
 }
 
 sub remove_attributes {
-    my ( $self, $parse_name, $item_name, $attributes ) = @_;
+    my ( $self, $obj, $parse_name, $item_name, $attributes ) = @_;
 
     info("Remove attributes of $parse_name $item_name");
     my @cmds;
@@ -1806,7 +1806,8 @@ sub remove_attributes {
 	$prefix = "crypto map $item_name";
     }
     elsif ($parse_name eq 'DYNAMIC_MAP') {
-        $prefix = "crypto dynamic-map $item_name 10";
+        my $seq = $obj->{SEQ};
+        $prefix = "crypto dynamic-map $item_name $seq";
     }
     else {
 	push @cmds, item_conf_mode_cmd( $parse_name, $item_name );
@@ -1886,7 +1887,8 @@ sub remove_dynamic_map {
 
     my $object = object_for_name( $conf, $parse_name, $obj_name );
     my $name = $object->{name};
-    my $prefix = "crypto dynamic-map $name 10";
+    my $seq  = $object->{SEQ};
+    my $prefix = "crypto dynamic-map $name $seq";
     my $cmd = "clear configure $prefix";
     $self->cmd( $cmd );
 }
@@ -2154,6 +2156,11 @@ sub add_attribute_cmds {
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
  	my $name = $object->{new_name} || $object->{name};
 	$prefix = "crypto map $name";
+    }
+    elsif( $parse_name eq 'DYNAMIC_MAP' ) {
+ 	my $name = $object->{name};
+        my $seq  = $object->{SEQ};
+	$prefix = "crypto dynamic-map $name $seq";
     }
   ATTRIBUTE:
     for my $attr ( @{$structure->{$parse_name}->{$attributes}} ) {

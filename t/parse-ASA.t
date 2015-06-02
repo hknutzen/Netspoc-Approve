@@ -611,13 +611,12 @@ crypto ipsec ikev1 transform-set Trans1a esp-3des esp-md5-hmac
 access-list crypto-outside-65535 extended permit ip 10.1.1.0 255.255.255.0 10.99.2.0 255.255.255.0
 access-list crypto-outside-65534 extended permit ip 10.1.3.0 255.255.255.0 10.99.2.0 255.255.255.0
 access-list crypto-outside-65533 extended permit ip 10.1.4.0 255.255.255.0 10.99.2.0 255.255.255.0
-crypto dynamic-map name1@example.com 10 match address crypto-outside-65535
-crypto dynamic-map name1@example.com 10 set ikev1 transform-set Trans1a
-crypto dynamic-map name1@example.com 10 set pfs group2
-crypto dynamic-map name1@example.com 10 set security-association lifetime seconds 43200
-crypto dynamic-map name3@example.com 10 match address crypto-outside-65534
-crypto dynamic-map name4@example.com 10 match address crypto-outside-65533
-crypto dynamic-map name4@example.com 10 set ikev1 transform-set Trans1a
+crypto dynamic-map name1@example.com 20 match address crypto-outside-65535
+crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a
+crypto dynamic-map name1@example.com 20 set pfs group2
+crypto dynamic-map name3@example.com 20 match address crypto-outside-65534
+crypto dynamic-map name4@example.com 40 match address crypto-outside-65533
+crypto dynamic-map name4@example.com 40 set ikev1 transform-set Trans1a
 crypto map crypto-outside 65535 ipsec-isakmp dynamic name1@example.com
 crypto map crypto-outside 65534 ipsec-isakmp dynamic name3@example.com
 crypto map crypto-outside 65533 ipsec-isakmp dynamic name4@example.com
@@ -628,27 +627,27 @@ crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
 access-list crypto-outside-1 extended permit ip 10.1.1.0 255.255.255.0 10.99.2.0 255.255.255.0
 access-list crypto-outside-2 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
 access-list crypto-outside-3 extended permit ip 10.1.3.0 255.255.255.0 10.99.2.0 255.255.255.0
-crypto dynamic-map name1@example.com 10 match address crypto-outside-1
-crypto dynamic-map name1@example.com 10 set security-association lifetime seconds 3600
-crypto dynamic-map name2@example.com 10 match address crypto-outside-2
-crypto dynamic-map name3@example.com 10 match address crypto-outside-3
-crypto dynamic-map name3@example.com 10 set ikev1 transform-set Trans1
+crypto dynamic-map name1@example.com 20 match address crypto-outside-1
+crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
+crypto dynamic-map name2@example.com 20 match address crypto-outside-2
+crypto dynamic-map name3@example.com 20 match address crypto-outside-3
+crypto dynamic-map name3@example.com 20 set ikev1 transform-set Trans1
 crypto map crypto-outside 65534 ipsec-isakmp dynamic name1@example.com
 crypto map crypto-outside 65533 ipsec-isakmp dynamic name2@example.com
 crypto map crypto-outside 65532 ipsec-isakmp dynamic name3@example.com
 END
 
 $out = <<'END';
-no crypto dynamic-map name3@example.com 10 set ikev1 transform-set
-crypto dynamic-map name3@example.com 10 set ikev1 transform-set Trans1a
+no crypto dynamic-map name3@example.com 20 set ikev1 transform-set
+crypto dynamic-map name3@example.com 20 set ikev1 transform-set Trans1a
 access-list crypto-outside-2-DRC-0 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
-crypto dynamic-map name2@example.com 10 match address crypto-outside-2-DRC-0
+crypto dynamic-map name2@example.com 20 match address crypto-outside-2-DRC-0
 crypto map crypto-outside 65532 ipsec-isakmp dynamic name2@example.com
-crypto dynamic-map name1@example.com 10 set security-association lifetime seconds 3600
+crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
 clear configure crypto map crypto-outside 65533
-no crypto dynamic-map name1@example.com 10 set pfs group2
-no crypto dynamic-map name1@example.com 10 set ikev1 transform-set Trans1a
-no crypto dynamic-map name4@example.com 10 match address crypto-outside-65533
+no crypto dynamic-map name1@example.com 20 set pfs group2
+no crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a
+no crypto dynamic-map name4@example.com 40 match address crypto-outside-65533
 clear configure access-list crypto-outside-65533
 END
 
