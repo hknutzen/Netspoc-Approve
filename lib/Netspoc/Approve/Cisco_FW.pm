@@ -145,6 +145,7 @@ my %attr2cmd =
 	 SA_LIFETIME_KB		  => 'set security-association lifetime kilobytes',
          IPSEC_PROPOSAL           => 'set ikev2 ipsec-proposal',
 	 TRANSFORM_SET_IKEV1	  => 'set ikev1 transform-set',
+	 TRANSFORM_SET_IKEV1_2nd  => 'set ikev1 transform-set',
      },
      IPSEC_PROPOSAL => {
          ENCRYPTION_LIST          => 'protocol esp encryption',
@@ -604,7 +605,8 @@ sub get_parse_info {
                             { parse => qr/ikev1/ },
                             { parse => qr/transform-set/ },
                             { parse => \&get_token,
-                              store => 'TRANSFORM_SET_IKEV1' } ],
+                              store => 'TRANSFORM_SET_IKEV1' },
+                           ],
                            ['cond1',
                             { parse => qr/transform-set/ },
                             { parse => \&get_token,
@@ -661,7 +663,9 @@ sub get_parse_info {
                           { parse => qr/ikev1/ },
                           { parse => qr/transform-set/ },
                           { parse => \&get_token,
-                            store => 'TRANSFORM_SET_IKEV1' } ]]]]]
+                            store => 'TRANSFORM_SET_IKEV1' },
+                          { parse => \&check_token,
+                            store => 'TRANSFORM_SET_IKEV1_2nd' }, ]]]]]
         },
 	'crypto ipsec ikev2 ipsec-proposal' => {
 	    store => 'IPSEC_PROPOSAL',
@@ -2312,6 +2316,8 @@ sub define_structure {
                           { attr_name  => 'IPSEC_PROPOSAL',
 			    parse_name => 'IPSEC_PROPOSAL' },
                           { attr_name  => 'TRANSFORM_SET_IKEV1',
+			    parse_name => 'TRANSFORM_SET_IKEV1' },
+                          { attr_name  => 'TRANSFORM_SET_IKEV1_2nd',
 			    parse_name => 'TRANSFORM_SET_IKEV1' },
                 ],
 	    transfer => 'transfer_dynamic_map',
