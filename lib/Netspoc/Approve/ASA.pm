@@ -137,7 +137,7 @@ sub get_parse_info {
     # Handle tunnel-group.
     # 
     $info->{'tunnel-group _skip type'} = {
-	store => 'TUNNEL_GROUP_INTERNAL',
+	store => 'TUNNEL_GROUP_DEFINE',
 	named => 1,
 	parse => [ 'seq',
 		   { store => 'TYPE',
@@ -402,7 +402,7 @@ sub postprocess_config {
 
     # For tunnel-groups with an IP as name create new
     # TUNNEL_GROUP_IPNAME-object.
-    for my $tg_intern ( values %{$p->{TUNNEL_GROUP_INTERNAL}} ) {
+    for my $tg_intern ( values %{$p->{TUNNEL_GROUP_DEFINE}} ) {
 	my $int_name = $tg_intern->{name};
 	if ( is_ip( $int_name ) ) {
 	    $p->{TUNNEL_GROUP_IPNAME}->{$int_name} = {
@@ -411,6 +411,15 @@ sub postprocess_config {
 		TYPE => $tg_intern->{TYPE},
 	    };
 	}
+    }
+
+    for my $what (qw(TUNNEL_GROUP TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN)) {
+        my %seen;
+        for my $name (keys %{$p->{$what}}) {
+            next if $seen{$name}++;
+            $p->{TUNNEL_GROUP_DEFINE}->{$name} or 
+                abort("Missing type definition for tunnel-group $name");
+        }
     }
 
     # For tunnel-groups that only have ipsec-attributes and do

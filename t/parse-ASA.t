@@ -135,7 +135,7 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Parse crypto map";
+$title = "Parse crypto map, dynamic map with tunnel-group";
 ############################################################
 $in = <<END;
 access-list crypto-acl1 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
@@ -150,9 +150,26 @@ crypto map map-outside 10 set ikev1 transform-set trans
 crypto map map-outside 10 set security-association lifetime seconds 43200 kilobytes 4608000
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside interface outside
+crypto ca certificate map some-name 10
+ subject-name attr ea eq some-name
+tunnel-group some-name type ipsec-l2l
+tunnel-group some-name ipsec-attributes
+ peer-id-validate nocheck
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+tunnel-group-map some-name 10 some-name
 END
 
 $out = <<END;
+tunnel-group some-name-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0 general-attributes
+tunnel-group some-name-DRC-0 ipsec-attributes
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+peer-id-validate nocheck
+crypto ca certificate map some-name-DRC-0 10
+subject-name attr ea eq some-name
+tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
 access-list crypto-acl1-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
 crypto map map-outside 10 set peer 97.98.99.100
@@ -409,6 +426,7 @@ tunnel-group-map ca-map 20 VPN-tunnel
 END
 
 $in = <<'END';
+tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel general-attributes
 tunnel-group VPN-tunnel ipsec-attributes
  trust-point ASDM_TrustPoint5

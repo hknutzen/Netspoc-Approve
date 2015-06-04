@@ -41,14 +41,6 @@ use Netspoc::Approve::Parse_Cisco;
 # Global variables.
 
 my %define_object = (
-		     TUNNEL_GROUP => {
-			 prefix  => 'tunnel-group',
-			 postfix => 'type remote-access',
-		     },
-		     TUNNEL_GROUP_IPNAME => {
-			 prefix  => 'tunnel-group',
-			 postfix => 'type ipsec-l2l',
-		     },
 		     GROUP_POLICY => {
 			 prefix  => 'group-policy',
 			 postfix => 'internal',
@@ -1955,23 +1947,26 @@ sub remove_user {
 }
 
 sub transfer_tunnel_group {
-    my ( $self, $spoc, $structure, $parse_name, $tg_name ) = @_;
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
 
-    my $tunnel_group = $spoc->{$parse_name}->{$tg_name} or
-	abort("No $parse_name found for $tg_name");
-    my $tg = $spoc->{TUNNEL_GROUP}->{$tg_name};
-    my $new_tg = is_ip( $tg_name ) 
-               ? $tg_name
+    my $tunnel_group = $spoc->{$parse_name}->{$obj_name} or
+	abort("No $parse_name found for $obj_name");
+    my $tg = $spoc->{TUNNEL_GROUP}->{$obj_name};
+    my $new_name = is_ip( $obj_name ) 
+               ? $obj_name
 
                # Use same name for tg xxx-attributes if tg is already
                # on device.
                : $tg->{name_on_dev} || $tg->{new_name};
     my @cmds;
     if ( $parse_name =~ /^TUNNEL_GROUP(?:_IPNAME)?$/ ) {
-	push @cmds, define_item_cmd($parse_name, $new_tg);
+        my $define_item = $spoc->{TUNNEL_GROUP_DEFINE}->{$obj_name}->{orig};
+        $define_item =~ s/tunnel-group $obj_name(?!\S)/tunnel-group $new_name/;
+        push @cmds, $define_item;
     }
+
     if ( $parse_name ne 'TUNNEL_GROUP_IPNAME' ) {
-	push @cmds, item_conf_mode_cmd( $parse_name, $new_tg );
+	push @cmds, item_conf_mode_cmd( $parse_name, $new_name );
 	push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $tunnel_group, 'attributes' );
     }
@@ -1979,13 +1974,13 @@ sub transfer_tunnel_group {
 }
 
 sub remove_tunnel_group {
-    my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
-    $self->cmd("clear configure tunnel-group $tg_name");
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    $self->cmd("clear configure tunnel-group $obj_name");
 }
 
 sub remove_tunnel_group_xxx {
-    my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
-    my $cmd = item_conf_mode_cmd($parse_name, $tg_name);
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my $cmd = item_conf_mode_cmd($parse_name, $obj_name);
     $self->cmd("no $cmd");
 }
 
