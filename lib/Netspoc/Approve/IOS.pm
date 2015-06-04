@@ -6,7 +6,7 @@ Remote configure Cisco IOS router
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2007 by Arne Spetzler
 
 This program is free software; you can redistribute it and/or modify

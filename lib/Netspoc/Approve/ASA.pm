@@ -6,7 +6,7 @@ Remote configure Cisco ASA and PIX version 7.x.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2011 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
