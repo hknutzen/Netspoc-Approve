@@ -981,11 +981,15 @@ sub generate_names_for_transfer {
     for my $parse_name ( keys %{$structure} ) {
 	next if $structure->{$parse_name}->{anchor};
 	next if $parse_name eq 'CRYPTO_MAP_SEQ';
+
+        # Dynamic crypto map has certificate as name.
 	next if $parse_name eq 'DYNAMIC_MAP';
 	my $hash = $spoc->{$parse_name};
 	for my $name ( keys %$hash ) {
-	    next if ($parse_name eq 'TUNNEL_GROUP'
-		     && $name eq 'DefaultL2LGroup');
+	    if ($parse_name eq 'TUNNEL_GROUP') {
+                my $type = $spoc->{TUNNEL_GROUP_DEFINE}->{$name}->{TYPE};
+                next if $type eq 'ipsec-l2l';
+            }
 	    $hash->{$name}->{new_name} =
 		$generate_names_for_transfer->( $name, $conf->{$parse_name} );
 	}
@@ -1962,7 +1966,7 @@ sub transfer_tunnel_group {
 
                # Use same name for tg xxx-attributes if tg is already
                # on device.
-               : $tg->{name_on_dev} || $tg->{new_name};
+               : $tg->{name_on_dev} || $tg->{new_name} || $tg->{name};
     my @cmds;
     if ( $parse_name =~ /^TUNNEL_GROUP(?:_IPNAME)?$/ ) {
         my $define_item = $spoc->{TUNNEL_GROUP_DEFINE}->{$obj_name}->{orig};

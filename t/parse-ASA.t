@@ -161,15 +161,15 @@ tunnel-group-map some-name 10 some-name
 END
 
 $out = <<END;
-tunnel-group some-name-DRC-0 type ipsec-l2l
-tunnel-group some-name-DRC-0 general-attributes
-tunnel-group some-name-DRC-0 ipsec-attributes
+tunnel-group some-name type ipsec-l2l
+tunnel-group some-name general-attributes
+tunnel-group some-name ipsec-attributes
 ikev2 local-authentication certificate Trustpoint2
 ikev2 remote-authentication certificate
 peer-id-validate nocheck
 crypto ca certificate map some-name-DRC-0 10
 subject-name attr ea eq some-name
-tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
+tunnel-group-map some-name-DRC-0 10 some-name
 access-list crypto-acl1-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
 crypto map map-outside 10 set peer 97.98.99.100
