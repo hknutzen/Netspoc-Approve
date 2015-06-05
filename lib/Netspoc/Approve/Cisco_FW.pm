@@ -809,6 +809,11 @@ my @known_status =
      # PIX: "xxx interface address added to PAT pool"
      # ASA: "INFO: xxx interface address added to PAT pool"
      qr/interface address added to PAT pool/,
+     # Multi line, expected warning.
+     qr /WARNING: L2L tunnel-groups that have names which are not an IP/,
+     qr /address may only be used if the tunnel authentication/,
+     qr /method is Digital Certificates and\/or The peer is/,
+     qr /configured to use Aggressive Mode/,
      # ASA: general info
      qr/^INFO:/,
       );
