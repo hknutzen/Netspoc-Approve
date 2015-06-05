@@ -15,6 +15,26 @@ my($in, $device, $out);
 my $title;
 
 ############################################################
+$title = "Ignore commands in banner";
+############################################################
+$device = <<END;
+banner motd ^CCC
+ip route 0.0.0.0 0.0.0.0 10.1.1.1
+^C
+ip route 0.0.0.0 0.0.0.0 10.2.2.2
+END
+
+$in = << 'END';
+ip route 0.0.0.0 0.0.0.0 10.3.3.3
+END
+
+$out = <<'END';
+no ip route 0.0.0.0 0.0.0.0 10.2.2.2\N ip route 0.0.0.0 0.0.0.0 10.3.3.3
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Parse routing and ACL";
 ############################################################
 $device = <<END;
