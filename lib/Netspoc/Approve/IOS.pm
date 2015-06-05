@@ -322,7 +322,8 @@ sub get_parse_info {
 	'crypto pki certificate chain' => {
 	    named => 1,
 	    subcmd => {
-		'certificate' => { banner => qr/^\s*quit$/, parse => \&skip },
+		'certificate' => { parse => \&skip,
+                                   banner => qr/^\s*quit\s*$/ },
 	    }
 	},
     };
