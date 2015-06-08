@@ -52,10 +52,8 @@ sub get_parse_info {
                 'ip address _skip secondary' =>  { 
                     parse => \&skip }, # ignore
                 'ip unnumbered' => {
-                    parse => ['seq', 
-                              { parse => \&get_token, 
-                                store => 'UNNUMBERED', }],
-                    store => 'ADDRESS',
+                    parse => \&get_token, 
+                    store => 'UNNUMBERED',
                 },
                 'ip access-group _skip in' => {
                     parse => \&get_token, 
