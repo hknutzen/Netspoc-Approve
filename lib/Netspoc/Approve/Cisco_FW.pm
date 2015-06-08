@@ -1922,7 +1922,7 @@ sub transfer_default_group {
     my $object = $spoc->{$parse_name}->{$default};
     my $tunnel_group_name = $object->{TUNNEL_GROUP};
     my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
-    my $new_default_group = $tunnel_group->{new_name};
+    my $new_default_group = $tunnel_group->{new_name} || $tunnel_group->{name};
     my $cmd = "tunnel-group-map default-group $new_default_group";
     $self->cmd( $cmd );
 }
