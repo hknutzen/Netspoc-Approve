@@ -679,7 +679,7 @@ sub get_parse_info {
                         parse => \&get_sorted_encr_list }, ],
 	},
 	'crypto ipsec ikev1 transform-set' => {
-	    store => 'TRANSFORM_SET_IKEV1',
+	    store => 'TRANSFORM_SET',
 	    named => 1,
 	    parse => ['seq',
 		      { store => 'LIST',
@@ -1585,7 +1585,7 @@ sub remove_unneeded_on_device {
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP 
                           TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME
-                          TRANSFORM_SET TRANSFORM_SET_IKEV1 IPSEC_PROPOSAL
+                          TRANSFORM_SET IPSEC_PROPOSAL
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
@@ -2306,12 +2306,6 @@ sub define_structure {
 	    transfer => 'transfer_transform_set',
 	    remove   => 'remove_obj',
         },
-        TRANSFORM_SET_IKEV1 => {
-            attributes  => [ qw(LIST) ],
-            simple_object => 1,
-	    transfer => 'transfer_transform_set',
-	    remove   => 'remove_obj',
-        },
         DYNAMIC_MAP => {
             attributes => [ qw( NAT_T_DISABLE PFS REVERSE_ROUTE 
                                 SA_LIFETIME_SEC SA_LIFETIME_KB) ],
@@ -2320,9 +2314,9 @@ sub define_structure {
                           { attr_name  => 'IPSEC_PROPOSAL',
 			    parse_name => 'IPSEC_PROPOSAL' },
                           { attr_name  => 'TRANSFORM_SET_IKEV1',
-			    parse_name => 'TRANSFORM_SET_IKEV1' },
+			    parse_name => 'TRANSFORM_SET' },
                           { attr_name  => 'TRANSFORM_SET_IKEV1_2nd',
-			    parse_name => 'TRANSFORM_SET_IKEV1' },
+			    parse_name => 'TRANSFORM_SET' },
                 ],
 	    transfer => 'transfer_dynamic_map',
 	    remove   => 'remove_obj',
@@ -2337,7 +2331,7 @@ sub define_structure {
                           { attr_name  => 'TRANSFORM_SET',
 			    parse_name => 'TRANSFORM_SET' },
                           { attr_name  => 'TRANSFORM_SET_IKEV1',
-			    parse_name => 'TRANSFORM_SET_IKEV1' },
+			    parse_name => 'TRANSFORM_SET' },
                           { attr_name  => 'DYNAMIC_MAP',
                             parse_name => 'DYNAMIC_MAP' },
 			  ],
