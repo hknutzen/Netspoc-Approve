@@ -760,7 +760,7 @@ sub postprocess_config {
     }
 
     # Some statistics.
-    for my $key (%$p) {
+    for my $key (sort keys %$p) {
 	my $v = $p->{$key};
 	my $count = (ref $v eq 'ARRAY') ? @$v : keys %$v;
 	info("Found $count $key") if $count;

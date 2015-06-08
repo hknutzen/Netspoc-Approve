@@ -517,7 +517,7 @@ sub merge_rawdata {
         if ($key eq 'ROUTING_VRF') {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
 	    my $count = 0;
-	    for my $vrf (keys %$raw_v) {
+	    for my $vrf (sort keys %$raw_v) {
 		my $raw_routes = $raw_v->{$vrf};
                 my $spoc_routes = $spoc_v->{$vrf} ||= [];
                 unshift(@$spoc_routes, @$raw_routes);
@@ -538,7 +538,7 @@ sub merge_rawdata {
 	else {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
 	    my $count = 0;
-	    for my $name (keys %$raw_v) {
+	    for my $name (sort keys %$raw_v) {
 		my $entry = $raw_v->{$name};
 		if($spoc_v->{$name}) {
 		    abort("Name clash for '$name' of $key from raw");
