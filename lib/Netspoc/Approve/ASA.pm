@@ -355,7 +355,7 @@ sub get_parse_info {
     $info->{'crypto ca certificate chain'} = {
 	named => 1,
 	subcmd => {
-	    'certificate' => { banner => qr/^\s*quit$/, parse => \&skip },
+	    'certificate' => { banner => qr/^\s*quit\s*$/, parse => \&skip },
 	}
     };
 
