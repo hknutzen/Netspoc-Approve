@@ -255,6 +255,7 @@ sub load_spoc {
 
 sub load_device {
     my ($self) = @_;
+    $self->con_set_logtype('config');
     my $device_lines = $self->get_config_from_device();
     info("Parsing device config");
     my $conf  = $self->parse_config($device_lines);
@@ -1261,13 +1262,6 @@ sub con_setup {
     my $con = $self->{CONSOLE} = Netspoc::Approve::Console->new_console();
     $con->{TIMEOUT} = $self->{CONFIG}->{timeout};
     $con->{LOGIN_TIMEOUT} = $self->{CONFIG}->{login_timeout};
-
-    if (my $logdir = $self->{OPTS}->{L}) {
-        my $logfile = "$logdir/$self->{NAME}.tel";
-        move_logfile($logfile);
-        $con->set_logfile($logfile);
-        $con->print_logfile(banner_msg('START'));
-    }    
 }
 
 sub con_shutdown {
@@ -1279,13 +1273,22 @@ sub con_shutdown {
         $con->{TIMEOUT} = $con->{LOGIN_TIMEOUT};
         $con->con_issue_cmd('exit', eof);
     }
-    $con->print_logfile(banner_msg('STOP'));
+#    $con->print_logfile(banner_msg('STOP'));
     delete $self->{CONSOLE};
 }
 
+sub con_set_logtype {
+    my ($self, $type) = @_;
+    my $logdir = $self->{OPTS}->{L} or return;
+    my $logfile = "$logdir/$self->{NAME}.$type";
+    move_logfile($logfile);
+    my $con = $self->{CONSOLE};
+    $con->set_logfile($logfile);
+}
 
 sub prepare_device {
     my ($self) = @_;
+    $self->con_set_logtype('login');
     $self->login_enable();
     $self->set_terminal();
     $self->get_version();
@@ -1356,6 +1359,7 @@ sub approve {
     $self->prepare_device();
     my $spoc_conf = $self->load_spoc($spoc_path);
     my $device_conf = $self->load_device();
+    $self->con_set_logtype('change');
     $self->transfer($device_conf, $spoc_conf);
     if($self->found_changes()) {
         info("Saving config to flash");
