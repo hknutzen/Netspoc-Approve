@@ -1,5 +1,17 @@
 {{$NEXT}}
 
+1.097     2015-06-09 14:49:17+02:00 Europe/Berlin
+
+ - Added support for dynamic crypto map.
+   - Name must be unique, e.g. certificate name.
+   - Only a single sequence number can be used per dynamic-map.
+ - Added support for ikev2 ipsec-proposal.
+ - Automatically add and remove transform-sets.
+ - Ignore pre-shared key in crypto map. Must be set manually.
+ - Split logfile from 'Expect' (*.tel) into 3 separate files
+   *.login, *.config, *.change.
+ - Move existing logfile from Expect before writing new one.
+
 1.096     2015-01-22 10:59:03+01:00 Europe/Berlin
 
  - Approve won't check interfaces if generated config 
