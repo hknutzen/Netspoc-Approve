@@ -2413,6 +2413,7 @@ sub mark_as_changed {
     return if $parse_name eq 'IF';
     return if $parse_name eq 'CERT_ANCHOR';
     return if $parse_name eq 'DEFAULT_GROUP';
+    return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_changed($parse_name);
 }
 
@@ -2422,6 +2423,7 @@ sub mark_as_unchanged {
     return if $parse_name eq 'IF';
     return if $parse_name eq 'CERT_ANCHOR';
     return if $parse_name eq 'DEFAULT_GROUP';
+    return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_unchanged($parse_name);
 }
 
