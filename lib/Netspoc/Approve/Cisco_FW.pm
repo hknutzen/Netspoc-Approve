@@ -137,7 +137,6 @@ my %attr2cmd =
 	 SA_LIFETIME_KB		  => 'set security-association lifetime kilobytes',
          IPSEC_PROPOSAL           => 'set ikev2 ipsec-proposal',
 	 TRANSFORM_SET_IKEV1	  => 'set ikev1 transform-set',
-	 TRANSFORM_SET_IKEV1_2nd  => 'set ikev1 transform-set',
      },
      IPSEC_PROPOSAL => {
          ENCRYPTION_LIST          => 'protocol esp encryption',
@@ -591,17 +590,17 @@ sub get_parse_info {
                            ['cond1',
                             { parse => qr/ikev2/ },
                             { parse => qr/ipsec-proposal/ },
-                            { parse => \&get_token,
+                            { parse => \&get_token_list,
                               store => 'IPSEC_PROPOSAL' } ],
                            ['cond1',
                             { parse => qr/ikev1/ },
                             { parse => qr/transform-set/ },
-                            { parse => \&get_token,
+                            { parse => \&get_token_list,
                               store => 'TRANSFORM_SET_IKEV1' },
                            ],
                            ['cond1',
                             { parse => qr/transform-set/ },
-                            { parse => \&get_token,
+                            { parse => \&get_token_list,
                               store => 'TRANSFORM_SET' } ],
 			   ['cond1',
 			    { parse => qr/trustpoint/ },
@@ -649,15 +648,13 @@ sub get_parse_info {
                          ['cond1',
                           { parse => qr/ikev2/ },
                           { parse => qr/ipsec-proposal/ },
-                          { parse => \&get_token,
+                          { parse => \&get_token_list,
                             store => 'IPSEC_PROPOSAL' } ],
                          ['cond1',
                           { parse => qr/ikev1/ },
                           { parse => qr/transform-set/ },
-                          { parse => \&get_token,
-                            store => 'TRANSFORM_SET_IKEV1' },
-                          { parse => \&check_token,
-                            store => 'TRANSFORM_SET_IKEV1_2nd' }, ]]]]]
+                          { parse => \&get_token_list,
+                            store => 'TRANSFORM_SET_IKEV1' }, ]]]]]
         },
 	'crypto ipsec ikev2 ipsec-proposal' => {
 	    store => 'IPSEC_PROPOSAL',
@@ -1062,16 +1059,19 @@ sub equalize_attributes {
     }
 
     # Equalize next-attributes.
-    for my $next_key ( @{$parse->{next}} ) {
-	my $next_attr_name  = $next_key->{attr_name};
-	my $next_parse_name = $next_key->{parse_name};
-	my $conf_next = $conf_value->{$next_attr_name};
-	my $spoc_next = $spoc_value->{$next_attr_name};
-	if ( $conf_next && !$spoc_next ) {
-	    $modified = 1;
-	    $conf_value->{remove_attr}->{$next_attr_name} =
-		$conf_next;
-	}
+    for my $key (qw(next next_list)) {
+	my $next = $parse->{$key} or next;
+        for my $next_key (@$next) {
+            my $next_attr_name  = $next_key->{attr_name};
+            my $next_parse_name = $next_key->{parse_name};
+            my $conf_next = $conf_value->{$next_attr_name};
+            my $spoc_next = $spoc_value->{$next_attr_name};
+            if ( $conf_next && !$spoc_next ) {
+                $modified = 1;
+                $conf_value->{remove_attr}->{$next_attr_name} =
+                    $conf_next;
+            }
+        }
     }
     return $modified;
 }
@@ -1293,14 +1293,6 @@ sub make_equal {
 	if ( $parse_name eq 'ACCESS_LIST' ) {
             $self->mark_object_group_from_acl($spoc_value);
 	}
-
-	# Mark referenced CRYPTO_MAP_SEQ elements.
-	elsif ( $parse_name eq 'CRYPTO_MAP_LIST' ) {
-	    for my $peer_name (@{ $spoc_value->{PEERS} }) {
-		$self->make_equal($conf, $spoc, 'CRYPTO_MAP_SEQ',
-				  undef, $peer_name, $structure);
-	    }	    
-	}
     }
 
     # Compare object on device with object from Netspoc.
@@ -1368,8 +1360,8 @@ sub make_equal {
     # Process child nodes recursively.
     if ( my $parse = $structure->{$parse_name} ) {
 
-	# Attention: {next_list} is not handled here, but individually.
-	if ( my $next = $parse->{next} ) {
+        for my $key (qw(next next_list)) {
+            my $next = $parse->{$key} or next;
 	    for my $next_key ( @$next ) {
 		my $next_attr_name  = $next_key->{attr_name};
 		my $next_parse_name = $next_key->{parse_name};
@@ -1377,25 +1369,56 @@ sub make_equal {
 		$conf_next = $conf_value->{$next_attr_name} if $conf_value;
 		my $spoc_next;
 		$spoc_next = $spoc_value->{$next_attr_name} if $spoc_value;
-		
-		my $new_conf_next =
-		    $self->make_equal( $conf, $spoc, $next_parse_name,
-				       $conf_next, $spoc_next,
-				       $structure );
 
-		# If an object is transferred or changed to an existing object 
-		# on device, a new name is used.
-		# In the superior object,
-		# the corresponding attribute in that superior object
-		# has to be altered, so that it carries the name of the
-		# transferred or changed object.
-		if ( $spoc_next ) {
-		    if  ( ! $conf_next || $conf_next ne $new_conf_next ) {
-			$spoc_value->{change_attr}->{$next_attr_name} =
+                if ($key eq 'next') {
+		
+                    my $new_conf_next =
+                        $self->make_equal( $conf, $spoc, $next_parse_name,
+                                           $conf_next, $spoc_next,
+                                           $structure );
+
+                    # If an object is transferred or changed to an
+                    # existing object on device, a new name is used.
+                    # In the superior object,
+                    # the corresponding attribute in that superior object
+                    # has to be altered, so that it carries the name of the
+                    # transferred or changed object.
+                    if ( $spoc_next ) {
+                        if ( ! $conf_next || $conf_next ne $new_conf_next ) {
+                            $spoc_value->{change_attr}->{$next_attr_name} =
 				$new_conf_next;
-			$modified = 1;
-		    }
-		}
+                            $modified = 1;
+                        }
+                    }
+                }
+
+                # 'next_list'
+                else {
+                    $conf_next ||= [];
+                    $spoc_next ||= [];
+                    my $max_list = max(scalar @$conf_next, scalar @$spoc_next);
+                    my @new_list;
+                    my $modified_list;
+                    for my $index (0 .. $max_list) {
+                        my $conf_name = $conf_next->[$index];
+                        my $spoc_name = $spoc_next->[$index];
+                        my $new_conf_name =
+                            $self->make_equal( $conf, $spoc, $next_parse_name,
+                                               $conf_name, $spoc_name,
+                                               $structure );
+                        push @new_list, $new_conf_name if $new_conf_name;
+                        if ( $spoc_name ) {
+                            if (! $conf_name || $conf_name ne $new_conf_name) {
+                                $modified_list = 1;
+                            }
+                        }
+                    }
+                    if ($modified_list) {
+                        $spoc_value->{change_attr}->{$next_attr_name} =
+                            \@new_list;
+                        $modified = 1;
+                    }                       
+                }
 	    }
 	}
     }
@@ -1721,7 +1744,7 @@ sub change_attributes {
     my ( $self, $parse_name, $spoc_name, $spoc_value, $attributes ) = @_;
     my @cmds;
 
-    return if $parse_name =~ /^(CERT_ANCHOR)$/;
+    return if $parse_name =~ /^(CERT_ANCHOR|CRYPTO_MAP_LIST)$/;
     return if ( $spoc_value->{change_done} );
 
     info("Change attributes of $parse_name $spoc_name");
@@ -1766,7 +1789,7 @@ sub change_attributes {
 	    my $value = $attributes->{$attr};
 
 	    # A hash of attributes, read unchanged from device.
-	    if(ref $value) {
+	    if(ref($value) eq 'HASH') {
 		for my $cmd (sort keys %$value) {
 		    my $args = $value->{$cmd};
 		    push @cmds, "no $cmd" if $attr_need_remove{$cmd};
@@ -1776,9 +1799,15 @@ sub change_attributes {
 		}
 	    }
 
-	    # Single attributes which need to be converted 
+	    # Single or list of attributes which need to be converted
 	    # back to device syntax.
 	    elsif ( my $attr_cmd = cmd_for_attribute( $parse_name, $attr )) {
+
+                # Multiple values of 'next_list' attribute.
+                if(ref($value) eq 'ARRAY') {
+                    $value = join(' ', @$value);
+                }
+
 		if ( $parse_name eq 'DEFAULT_GROUP' ) {
 		    $attr_cmd .= " default-group ";
 		}
@@ -1822,7 +1851,7 @@ sub remove_attributes {
 	my $value = $attributes->{$attr};
 
 	# A hash of attributes, read unchanged from device.
-	if(ref $value) {
+	if(ref($value) eq 'HASH') {
 	    for my $cmd (sort keys %$value) {
 		my $args = $value->{$cmd};
 		my $new_cmd = $cmd;
@@ -1831,6 +1860,12 @@ sub remove_attributes {
 	    }
 	}
 	elsif (my $attr_cmd = cmd_for_attribute( $parse_name, $attr )) {
+
+            # Multiple values of 'next_list' attribute.
+            if(ref($value) eq 'ARRAY') {
+                $value = join(' ', @$value);
+            }
+            
 	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if(not $attr_no_value{$attr}) {
 		$attr_cmd = "$attr_cmd $value";
@@ -2311,13 +2346,12 @@ sub define_structure {
                                 SA_LIFETIME_SEC SA_LIFETIME_KB) ],
             next     => [ { attr_name  => 'MATCH_ADDRESS',
 			    parse_name => 'ACCESS_LIST' },
-                          { attr_name  => 'IPSEC_PROPOSAL',
-			    parse_name => 'IPSEC_PROPOSAL' },
-                          { attr_name  => 'TRANSFORM_SET_IKEV1',
+            ],
+            next_list => [ { attr_name  => 'TRANSFORM_SET_IKEV1',
 			    parse_name => 'TRANSFORM_SET' },
-                          { attr_name  => 'TRANSFORM_SET_IKEV1_2nd',
-			    parse_name => 'TRANSFORM_SET' },
-                ],
+                           { attr_name  => 'IPSEC_PROPOSAL',
+                             parse_name => 'IPSEC_PROPOSAL' }, 
+            ],
 	    transfer => 'transfer_dynamic_map',
 	    remove   => 'remove_obj',
         },
@@ -2326,15 +2360,16 @@ sub define_structure {
 			       SA_LIFETIME_SEC SA_LIFETIME_KB TRUSTPOINT) ],
 	    next     => [ { attr_name  => 'MATCH_ADDRESS',
 			    parse_name => 'ACCESS_LIST' },  
-                          { attr_name  => 'IPSEC_PROPOSAL',
-			    parse_name => 'IPSEC_PROPOSAL' },
-                          { attr_name  => 'TRANSFORM_SET',
-			    parse_name => 'TRANSFORM_SET' },
-                          { attr_name  => 'TRANSFORM_SET_IKEV1',
-			    parse_name => 'TRANSFORM_SET' },
                           { attr_name  => 'DYNAMIC_MAP',
                             parse_name => 'DYNAMIC_MAP' },
-			  ],
+            ],
+            next_list => [ { attr_name  => 'TRANSFORM_SET',
+                             parse_name => 'TRANSFORM_SET' },
+                           { attr_name  => 'TRANSFORM_SET_IKEV1',
+                             parse_name => 'TRANSFORM_SET' },
+                           { attr_name  => 'IPSEC_PROPOSAL',
+                             parse_name => 'IPSEC_PROPOSAL' },
+            ],
 	    transfer => 'transfer_crypto_map_seq',
 	    remove   => 'remove_crypto_map_seq',
 	},

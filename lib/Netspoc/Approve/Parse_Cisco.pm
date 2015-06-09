@@ -41,7 +41,7 @@ our @EXPORT =
        get_token get_regex get_int get_ip get_eol unread
        get_ip_pair get_ip_prefix
        check_token check_regex check_int check_loglevel check_ip
-       get_sorted_encr_list
+       get_sorted_encr_list get_token_list
        get_name_in_out get_paren_token test_ne skip get_to_eol
  );
 
@@ -230,6 +230,17 @@ sub get_sorted_encr_list {
     }
     return join ' ', sort @result;
 
+}
+
+# Read list of one or more tokens.
+# Return as array reference.
+sub get_token_list {
+    my($arg) = @_;
+    my @result = (get_token($arg));
+    while (defined(my $v = check_token($arg))) { 
+        push @result, $v;
+    }
+    return \@result;
 }
 
 # Like bulitin function 'ne', but has additional argument $arg and 
