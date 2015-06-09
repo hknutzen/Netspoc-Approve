@@ -34,7 +34,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '1.096'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
@@ -44,34 +44,12 @@ our @EXPORT = qw( open_con close_con  );
 ############################################################
 
 sub new_console {
-    my ($class, $job, $logfile, $startup_message) = @_;
-    $job->{CONSOLE} and abort("Console already created");
+    my ($class) = @_;
 
-    my $con = $job->{CONSOLE} = {};
+    my $con = {};
     bless( $con, $class );
     my $console = $con->{EXPECT} = Expect->new();
 
-    if ( $logfile ) {
-        my $fh;
-        unless ( -f "$logfile" ) {
-            open($fh, '>>', $logfile) or abort("Could not open $logfile: $!");
-
-            # Because we create the file here, we have to chmod to
-            # allow access by group members!
-            defined chmod(0644, $logfile)
-              or abort("Couldn't chmod $logfile: $!");
-        }
-        else {
-            open($fh, '>>', $logfile) or abort("Could not open $logfile: $!");
-        }
-        print $fh "\n";
-        print $fh "********************************************************\n";
-        print $fh "  $startup_message\n";
-        print $fh "********************************************************\n";
-        print $fh "\n";
-        $console->log_file( $logfile );
-        $con->{LOG} = $fh;
-    }
     $console->debug( 0 );
     $console->exp_internal( 0 );
 
@@ -81,17 +59,22 @@ sub new_console {
     return $con;
 }
 
-sub shutdown_console {
-    my ($con, $job, $shutdown_message) = @_;
-    if ( exists $con->{LOG} ) {
-        my $fh = $con->{LOG};
-        print $fh "\n";
-        print $fh "********************************************************\n";
-        print $fh "  $shutdown_message\n";
-        print $fh "********************************************************\n";
-        print $fh "\n";
-    }
-    delete $job->{CONSOLE};
+# Set or change logfile for Expect.
+sub set_logfile {
+    my ($con, $logfile) = @_;
+    my $console = $con->{EXPECT};
+    $console->log_file($logfile);
+
+    # Chmod, to allow read access by others.
+    defined chmod(0644, $logfile)
+        or abort("Couldn't chmod $logfile: $!");
+}
+
+# Print to logfile
+sub print_logfile {
+    my ($con, @strings) = @_;
+    my $console = $con->{EXPECT};
+    $console->print_log_file(@strings);
 }
 
 #    If called in an array context expect() will return

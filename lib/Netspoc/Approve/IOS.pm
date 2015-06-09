@@ -6,7 +6,7 @@ Remote configure Cisco IOS router
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2007 by Arne Spetzler
 
 This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.096'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -82,7 +82,9 @@ sub get_parse_info {
 	    'ip address _skip _skip secondary' =>  { 
 		parse => \&skip }, # ignore
 	    'ip unnumbered' => {
-		store => ['ADDRESS', 'UNNUMBERED'], parse => \&get_token, },
+	      parse => \&get_token,
+	      store => 'UNNUMBERED',
+            },
 	    'shutdown' => { 
 		store => 'SHUTDOWN', default => 1, },
 	    'ip access-group _skip in' => {
@@ -111,13 +113,6 @@ sub get_parse_info {
 		     { store => 'LOCATION',
 		       parse => \&check_token,
 		       default => 'outside', }, ], },
-	    'switchport mode' => { 
-		store => ['SWITCHPORT', 'MODE'], parse => \&get_token, },
-	    'switchport access vlan' => {
-		store => ['SWITCHPORT', 'ACCESS_VLAN'], multi => 1, 
-		parse => \&get_token, },
-	    'switchport nonegotiate' => {
-		store => ['SWITCHPORT', 'NONEGOTIATE'], default => 1, },
 	  },
 	},
 
@@ -326,7 +321,8 @@ sub get_parse_info {
 	'crypto pki certificate chain' => {
 	    named => 1,
 	    subcmd => {
-		'certificate' => { banner => qr/^\s*quit$/, parse => \&skip },
+		'certificate' => { parse => \&skip,
+                                   banner => qr/^\s*quit\s*$/ },
 	    }
 	},
     };

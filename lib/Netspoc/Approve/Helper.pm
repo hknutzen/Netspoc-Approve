@@ -32,11 +32,11 @@ require Exporter;
 use strict;
 use warnings;
 
-our $VERSION = '1.096'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(info abort err_info warn_info internal_err debug
-                 quiet quad2int int2quad is_ip
+                 quiet quad2int int2quad is_ip max
 );
 
 my $verbose = 1;
@@ -86,6 +86,14 @@ sub int2quad {
 sub is_ip {
     my ( $obj ) = @_;
     return $obj =~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+}
+
+sub max {
+    my $max = shift(@_);
+    for my $el (@_) {
+        $max = $el if $max < $el;
+    }
+    return $max;
 }
 
 

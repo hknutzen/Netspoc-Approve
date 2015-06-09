@@ -6,7 +6,7 @@ Base class for Cisco firewalls (ASA, PIX)
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2011 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -28,7 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 package Netspoc::Approve::Cisco_FW;
 
-our $VERSION = '1.096'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -41,14 +41,6 @@ use Netspoc::Approve::Parse_Cisco;
 # Global variables.
 
 my %define_object = (
-		     TUNNEL_GROUP => {
-			 prefix  => 'tunnel-group',
-			 postfix => 'type remote-access',
-		     },
-		     TUNNEL_GROUP_IPNAME => {
-			 prefix  => 'tunnel-group',
-			 postfix => 'type ipsec-l2l',
-		     },
 		     GROUP_POLICY => {
 			 prefix  => 'group-policy',
 			 postfix => 'internal',
@@ -130,9 +122,25 @@ my %attr2cmd =
 	 REVERSE_ROUTE		  => 'set reverse-route',
 	 SA_LIFETIME_SEC	  => 'set security-association lifetime seconds',
 	 SA_LIFETIME_KB		  => 'set security-association lifetime kilobytes',
+         IPSEC_PROPOSAL           => 'set ikev2 ipsec-proposal',
 	 TRANSFORM_SET		  => 'set transform-set',
 	 TRANSFORM_SET_IKEV1	  => 'set ikev1 transform-set',
 	 TRUSTPOINT		  => 'set trustpoint',
+     },
+     DYNAMIC_MAP => {
+	 MATCH_ADDRESS		  => 'match address',
+	 NAT_T_DISABLE		  => 'set nat-t-disable',
+	 PEER			  => 'set peer',
+	 PFS 			  => 'set pfs',
+	 REVERSE_ROUTE		  => 'set reverse-route',
+	 SA_LIFETIME_SEC	  => 'set security-association lifetime seconds',
+	 SA_LIFETIME_KB		  => 'set security-association lifetime kilobytes',
+         IPSEC_PROPOSAL           => 'set ikev2 ipsec-proposal',
+	 TRANSFORM_SET_IKEV1	  => 'set ikev1 transform-set',
+     },
+     IPSEC_PROPOSAL => {
+         ENCRYPTION_LIST          => 'protocol esp encryption',
+         INTEGRITY_LIST           => 'protocol esp integrity',
      },
      );
 
@@ -147,8 +155,10 @@ my %attr_need_remove = (
 			banner                => 1,
 			'vpn-tunnel-protocol' => 1,
 			# CRYPTO_MAP_SEQ
-			PEER          => 1,
-			TRANSFORM_SET => 1,
+			PEER                  => 1,
+                        IPSEC_PROPOSAL        => 1,
+			TRANSFORM_SET         => 1,
+			TRANSFORM_SET_IKEV1   => 1,
 			);
 		      
 
@@ -522,7 +532,7 @@ sub get_parse_info {
 
 
 	'crypto map' => {
-	    store => ['CRYPTO_MAP'],
+	    store => 'CRYPTO_MAP',
 	    named => 'from_parser',
 	    merge => 1,
 	    parse => ['seq',
@@ -538,7 +548,7 @@ sub get_parse_info {
 			{ store => 'name', 
 			  parse => sub { my ($arg, $name) = @_;
 					 my $seq = get_int($arg);
-					 join(':', $name, $seq);
+					 join(' ', $name, $seq);
 				     },
 			  params => [ '$name' ], },
 			['or',
@@ -551,10 +561,6 @@ sub get_parse_info {
 			  { parse => qr/ipsec-isakmp/ },
 			  { parse => qr/dynamic/ },
 			  { store => 'DYNAMIC_MAP', parse => \&get_token } ],
-			 # Old PIX has other syntax.
-#			  { parse => qr/dynamic/ },
-#			  { store => 'DYNAMIC_MAP', parse => \&get_token } ],
-
 			 ['seq',
 			  { parse => qr/set/ },
 			  ['or',
@@ -562,11 +568,11 @@ sub get_parse_info {
 			     store => 'NAT_T_DISABLE', },
 			   ['cond1',
 			    { parse => qr/peer/ },
-			    { store => 'PEER', parse => \&get_to_eol } ],
+			    { parse => \&get_to_eol, store => 'PEER' } ],
 			   ['cond1',
 			    { parse => qr/pfs/ },
-			    { store => 'PFS', parse => \&check_token, 
-			      default => 'group2' } ],
+			    { parse => \&check_token,
+                              store => 'PFS', default => 'group2' } ],
 			   { parse => qr/reverse-route/, 
 			     store => 'REVERSE_ROUTE',  },
 			   ['cond1',
@@ -581,20 +587,100 @@ sub get_parse_info {
 			      { parse => qr/kilobytes/ },
 			      { parse => \&get_int, 
 				store => 'SA_LIFETIME_KB', }, ]]],
-			   [ 'or',
-			   ['cond1',
-			    { parse => qr/ikev1/ },
-			    { parse => qr/transform-set/ },
-			    { parse => \&get_token,
-			      store => 'TRANSFORM_SET_IKEV1' } ],
-			   ['cond1',
-			      { parse => qr/transform-set/ },
-			      { parse => \&get_token,
-				store => 'TRANSFORM_SET' } ]],
+                           ['cond1',
+                            { parse => qr/ikev2/ },
+                            { parse => qr/ipsec-proposal/ },
+                            { parse => \&get_token_list,
+                              store => 'IPSEC_PROPOSAL' } ],
+                           ['cond1',
+                            { parse => qr/ikev1/ },
+                            { parse => qr/transform-set/ },
+                            { parse => \&get_token_list,
+                              store => 'TRANSFORM_SET_IKEV1' },
+                           ],
+                           ['cond1',
+                            { parse => qr/transform-set/ },
+                            { parse => \&get_token_list,
+                              store => 'TRANSFORM_SET' } ],
 			   ['cond1',
 			    { parse => qr/trustpoint/ },
 			    { parse => \&get_token,
 			      store => 'TRUSTPOINT', } ]]]]]]]
+	},
+	'crypto dynamic-map' => {
+	    store => 'DYNAMIC_MAP',
+	    named => 'from_parser',
+	    merge => 1,
+	    parse => ['seq',
+		      { store => 'name', parse => \&get_token },
+                      { parse => qr/\d+/, store => 'SEQ' },
+                      ['or',
+                       ['cond1',
+                        { parse => qr/match/ },
+                        { parse => qr/address/ },
+                        { store => 'MATCH_ADDRESS', parse => \&get_token } ],
+                       ['seq',
+                        { parse => qr/set/ },
+                        ['or',
+                         { parse => qr/nat-t-disable/,
+                           store => 'NAT_T_DISABLE', },
+                         ['cond1',
+                          { parse => qr/peer/ },
+                          { parse => \&get_to_eol, store => 'PEER' } ],
+                         ['cond1',
+                          { parse => qr/pfs/ },
+                          { parse => \&check_token,
+                            store => 'PFS', default => 'group2' } ],
+                         { parse => qr/reverse-route/, 
+                           store => 'REVERSE_ROUTE',  },
+                         ['cond1',
+                          { parse => qr/security-association/ },
+                          { parse => qr/lifetime/ },
+                          ['seq',
+                           ['cond1',
+                            { parse => qr/seconds/ },
+                            { parse => \&get_int, 
+                              store => 'SA_LIFETIME_SEC', } ],
+                           ['cond1',
+                            { parse => qr/kilobytes/ },
+                            { parse => \&get_int, 
+                              store => 'SA_LIFETIME_KB', }, ]]],
+                         ['cond1',
+                          { parse => qr/ikev2/ },
+                          { parse => qr/ipsec-proposal/ },
+                          { parse => \&get_token_list,
+                            store => 'IPSEC_PROPOSAL' } ],
+                         ['cond1',
+                          { parse => qr/ikev1/ },
+                          { parse => qr/transform-set/ },
+                          { parse => \&get_token_list,
+                            store => 'TRANSFORM_SET_IKEV1' }, ]]]]]
+        },
+	'crypto ipsec ikev2 ipsec-proposal' => {
+	    store => 'IPSEC_PROPOSAL',
+	    named => 1,
+            subcmd => {
+                'protocol esp encryption' => {
+                    parse => \&get_sorted_encr_list ,
+                    store => 'ENCRYPTION_LIST' },
+                'protocol esp integrity' => {
+                    parse => \&get_sorted_encr_list ,
+                    store => 'INTEGRITY_LIST' },
+            },
+	},
+	'crypto ipsec transform-set' => {
+	    store => 'TRANSFORM_SET',
+	    named => 1,
+	    parse => ['seq',
+		      { store => 'LIST',
+                        parse => \&get_sorted_encr_list }, ],
+	},
+	'crypto ipsec ikev1 transform-set' => {
+	    store => 'TRANSFORM_SET',
+	    named => 1,
+	    parse => ['seq',
+		      { store => 'LIST',
+                        parse => \&get_sorted_encr_list }, ],
 	},
     }
 }
@@ -646,7 +732,7 @@ sub postprocess_config {
 
     # Separate "crypto map name seq" vs. "crypto map name interface"
     # "name seq" is stored with key "name:seq".
-    my @no_crypto_seq = grep { $_ !~ /:/ } keys %{$p->{CRYPTO_MAP}};
+    my @no_crypto_seq = grep { $_ !~ / / } keys %{$p->{CRYPTO_MAP}};
     my $seq = $p->{CRYPTO_MAP_SEQ} = delete $p->{CRYPTO_MAP};
     my $map = $p->{CRYPTO_MAP} = {};
     for my $key (@no_crypto_seq) {
@@ -658,7 +744,7 @@ sub postprocess_config {
     my $lists = $p->{CRYPTO_MAP_LIST} = {};
     my %peers;
     for my $name (sort keys %$seq) {
-	my ($map_name, $seq_nr) = split(/:/, $name);
+	my ($map_name, $seq_nr) = split(/ /, $name);
 	my $map = $p->{CRYPTO_MAP_SEQ}->{$name};
 	my $peer = $map->{PEER} || $map->{DYNAMIC_MAP} or 
 	    abort("Missing peer or dynamic in crypto map $map_name $seq_nr");
@@ -671,7 +757,7 @@ sub postprocess_config {
     }
 
     # Some statistics.
-    for my $key (%$p) {
+    for my $key (sort keys %$p) {
 	my $v = $p->{$key};
 	my $count = (ref $v eq 'ARRAY') ? @$v : keys %$v;
 	info("Found $count $key") if $count;
@@ -720,6 +806,11 @@ my @known_status =
      # PIX: "xxx interface address added to PAT pool"
      # ASA: "INFO: xxx interface address added to PAT pool"
      qr/interface address added to PAT pool/,
+     # Multi line, expected warning.
+     qr /WARNING: L2L tunnel-groups that have names which are not an IP/,
+     qr /address may only be used if the tunnel authentication/,
+     qr /method is Digital Certificates and\/or The peer is/,
+     qr /configured to use Aggressive Mode/,
      # ASA: general info
      qr/^INFO:/,
       );
@@ -887,10 +978,15 @@ sub generate_names_for_transfer {
     for my $parse_name ( keys %{$structure} ) {
 	next if $structure->{$parse_name}->{anchor};
 	next if $parse_name eq 'CRYPTO_MAP_SEQ';
+
+        # Dynamic crypto map has certificate as name.
+	next if $parse_name eq 'DYNAMIC_MAP';
 	my $hash = $spoc->{$parse_name};
 	for my $name ( keys %$hash ) {
-	    next if ($parse_name eq 'TUNNEL_GROUP'
-		     && $name eq 'DefaultL2LGroup');
+	    if ($parse_name eq 'TUNNEL_GROUP') {
+                my $type = $spoc->{TUNNEL_GROUP_DEFINE}->{$name}->{TYPE};
+                next if $type eq 'ipsec-l2l';
+            }
 	    $hash->{$name}->{new_name} =
 		$generate_names_for_transfer->( $name, $conf->{$parse_name} );
 	}
@@ -941,6 +1037,7 @@ sub equalize_attributes {
 	    }
 	    else {
 		if ( $spoc_attr ne $conf_attr ) {
+                    #info("Attribute $attr different values ");
 		    $modified = 1;
 		    $spoc_value->{change_attr}->{$attr} = $spoc_attr;
 		}
@@ -962,16 +1059,19 @@ sub equalize_attributes {
     }
 
     # Equalize next-attributes.
-    for my $next_key ( @{$parse->{next}} ) {
-	my $next_attr_name  = $next_key->{attr_name};
-	my $next_parse_name = $next_key->{parse_name};
-	my $conf_next = $conf_value->{$next_attr_name};
-	my $spoc_next = $spoc_value->{$next_attr_name};
-	if ( $conf_next && !$spoc_next ) {
-	    $modified = 1;
-	    $conf_value->{remove_attr}->{$next_attr_name} =
-		$conf_next;
-	}
+    for my $key (qw(next next_list)) {
+	my $next = $parse->{$key} or next;
+        for my $next_key (@$next) {
+            my $next_attr_name  = $next_key->{attr_name};
+            my $next_parse_name = $next_key->{parse_name};
+            my $conf_next = $conf_value->{$next_attr_name};
+            my $spoc_next = $spoc_value->{$next_attr_name};
+            if ( $conf_next && !$spoc_next ) {
+                $modified = 1;
+                $conf_value->{remove_attr}->{$next_attr_name} =
+                    $conf_next;
+            }
+        }
     }
     return $modified;
 }
@@ -1062,15 +1162,15 @@ sub equalize_crypto {
 	# On spoc but not on device.
 	for my $spoc_entry ( $diff->Items(2) ) {
 	    my $spoc_name = $spoc_entry->{name};
-	    my ($map_name) = split(/:/, $spoc_name);
+	    my ($map_name) = split(/ /, $spoc_name);
 	    if ($spoc_entry->{PEER}) {
 		$peer_seq = get_free_seq_nr($conf_entries, $peer_seq, +1);
-		$spoc_entry->{new_name} = "$map_name:$peer_seq";
+		$spoc_entry->{new_name} = "$map_name $peer_seq";
 		$peer_seq += 1;
 	    }
 	    else {
 		$dyn_seq = get_free_seq_nr($conf_entries, $dyn_seq, -1);
-		$spoc_entry->{new_name} = "$map_name:$dyn_seq";
+		$spoc_entry->{new_name} = "$map_name $dyn_seq";
 		$dyn_seq -= 1;
 	    }
 	    $self->make_equal($conf, $spoc, 'CRYPTO_MAP_SEQ',
@@ -1087,6 +1187,39 @@ sub equalize_crypto {
     return $modified;
 }
 
+# Check, if simple objects have identical attribute / value pairs.
+# Returns: undef if different, $conf_value if equal.
+sub simple_object_equal {
+    my ($spoc_value, $conf_value, $attributes) = @_;
+    for my $attr (@$attributes) {
+        my $spoc_attr = $spoc_value->{$attr};
+        my $conf_attr = $conf_value->{$attr};
+
+        # One values is defined, the other is undefined.
+        return if defined $spoc_attr xor defined $spoc_attr;
+
+        # Both values are undefined.
+        next if not defined $spoc_attr;
+
+        # Defined values are different.
+        return if $spoc_attr ne $conf_attr;
+    }
+    return $conf_value;
+}
+
+sub find_simple_object_on_device {
+    my ($spoc_value, $conf, $parse_name, $structure) = @_;
+    my $attributes   = $structure->{$parse_name}->{attributes};
+    my $conf_objects = $conf->{$parse_name};
+  OBJ:
+    for my $conf_name (sort keys %$conf_objects) {
+        my $conf_value = $conf_objects->{$conf_name};
+        next if not simple_object_equal($spoc_value, $conf_value, $attributes);
+        return $conf_value;
+    }
+    return;    
+}
+
 sub make_equal {
     my ( $self, $conf, $spoc, $parse_name, $conf_name,
 	 $spoc_name, $structure ) = @_;
@@ -1101,15 +1234,49 @@ sub make_equal {
     my $spoc_value = object_for_name( $spoc, $parse_name,
 				      $spoc_name, 'no_err' );
 
-    # If object already has been tranfered before, just
-    # return the name of the transfered object.
     if ( $spoc_value ) {
+
+        # If object already has been transferred before, just return
+        # the name of the transferred object.
 	if ( $spoc_value->{transfer} ) {
 	    return $spoc_value->{new_name} || $spoc_name;
 	}
 	elsif( $spoc_value->{name_on_dev} ) {
 	    return $spoc_value->{name_on_dev};
 	}
+
+        # Never modify simple object.
+        # Instead, search object with identical attributes on device.
+        # If found, take that object.
+        # Otherwise transfer object from netspoc.
+        if ($structure->{$parse_name}->{simple_object}) {
+            my $found_obj;
+
+            # Prefer current value on device, if unchanged.
+            if ($conf_value) {
+                my $attributes = $structure->{$parse_name}->{attributes};
+                if (simple_object_equal($spoc_value, $conf_value, $attributes)) {
+                    $found_obj = $conf_value;
+                }
+            }
+
+            $found_obj ||= find_simple_object_on_device($spoc_value, 
+                                                      $conf, $parse_name, 
+                                                      $structure);
+            if ($found_obj) 
+            {
+                $found_obj->{needed} = $spoc_value;
+                my $name = $found_obj->{name};
+                info("Using $parse_name $name on device for $spoc_name");
+                $self->mark_as_unchanged( $parse_name );
+                return $spoc_value->{name_on_dev} = $name;
+            }
+            else {
+                $spoc_value->{transfer} = 1;
+                $self->mark_as_changed( $parse_name );
+                return $spoc_value->{new_name} || $spoc_name;
+            }
+        }
     }
 
     # Transfer object from netspoc
@@ -1125,14 +1292,6 @@ sub make_equal {
 	# Mark object-groups referenced by acl lines.
 	if ( $parse_name eq 'ACCESS_LIST' ) {
             $self->mark_object_group_from_acl($spoc_value);
-	}
-
-	# Mark referenced CRYPTO_MAP_SEQ elements.
-	elsif ( $parse_name eq 'CRYPTO_MAP_LIST' ) {
-	    for my $peer_name (@{ $spoc_value->{PEERS} }) {
-		$self->make_equal($conf, $spoc, 'CRYPTO_MAP_SEQ',
-				  undef, $peer_name, $structure);
-	    }	    
 	}
     }
 
@@ -1201,8 +1360,8 @@ sub make_equal {
     # Process child nodes recursively.
     if ( my $parse = $structure->{$parse_name} ) {
 
-	# Attention: {next_list} is not handled here, but individually.
-	if ( my $next = $parse->{next} ) {
+        for my $key (qw(next next_list)) {
+            my $next = $parse->{$key} or next;
 	    for my $next_key ( @$next ) {
 		my $next_attr_name  = $next_key->{attr_name};
 		my $next_parse_name = $next_key->{parse_name};
@@ -1210,25 +1369,56 @@ sub make_equal {
 		$conf_next = $conf_value->{$next_attr_name} if $conf_value;
 		my $spoc_next;
 		$spoc_next = $spoc_value->{$next_attr_name} if $spoc_value;
-		
-		my $new_conf_next =
-		    $self->make_equal( $conf, $spoc, $next_parse_name,
-				       $conf_next, $spoc_next,
-				       $structure );
 
-		# If an object is transferred or changed to an existing object 
-		# on device, a new name is used.
-		# In the superior object,
-		# the corresponding attribute in that superior object
-		# has to be altered, so that it carries the name of the
-		# transfered or changed object.
-		if ( $spoc_next ) {
-		    if  ( ! $conf_next || $conf_next ne $new_conf_next ) {
-			$spoc_value->{change_attr}->{$next_attr_name} =
+                if ($key eq 'next') {
+		
+                    my $new_conf_next =
+                        $self->make_equal( $conf, $spoc, $next_parse_name,
+                                           $conf_next, $spoc_next,
+                                           $structure );
+
+                    # If an object is transferred or changed to an
+                    # existing object on device, a new name is used.
+                    # In the superior object,
+                    # the corresponding attribute in that superior object
+                    # has to be altered, so that it carries the name of the
+                    # transferred or changed object.
+                    if ( $spoc_next ) {
+                        if ( ! $conf_next || $conf_next ne $new_conf_next ) {
+                            $spoc_value->{change_attr}->{$next_attr_name} =
 				$new_conf_next;
-			$modified = 1;
-		    }
-		}
+                            $modified = 1;
+                        }
+                    }
+                }
+
+                # 'next_list'
+                else {
+                    $conf_next ||= [];
+                    $spoc_next ||= [];
+                    my $max_list = max(scalar @$conf_next, scalar @$spoc_next);
+                    my @new_list;
+                    my $modified_list;
+                    for my $index (0 .. $max_list) {
+                        my $conf_name = $conf_next->[$index];
+                        my $spoc_name = $spoc_next->[$index];
+                        my $new_conf_name =
+                            $self->make_equal( $conf, $spoc, $next_parse_name,
+                                               $conf_name, $spoc_name,
+                                               $structure );
+                        push @new_list, $new_conf_name if $new_conf_name;
+                        if ( $spoc_name ) {
+                            if (! $conf_name || $conf_name ne $new_conf_name) {
+                                $modified_list = 1;
+                            }
+                        }
+                    }
+                    if ($modified_list) {
+                        $spoc_value->{change_attr}->{$next_attr_name} =
+                            \@new_list;
+                        $modified = 1;
+                    }                       
+                }
 	    }
 	}
     }
@@ -1330,15 +1520,19 @@ sub transfer1 {
 	# that we start with the leaves.
 	my $method = $parse->{transfer};
 	if ( $spoc_value->{transfer} and $method ) {
-	    if ( my $transfered_as = $spoc_value->{transfered_as} ) {
-		#info("$spoc_name already transfered as $transfered_as! ");
+	    if ( my $transferred_as = $spoc_value->{transferred_as} ) {
+		#info("$spoc_name already transferred as $transferred_as! ");
 	    }
 	    else {
                 info("Transfer $parse_name $spoc_name");
 		$self->$method( $spoc, $structure, $parse_name, $spoc_name );
-		$spoc_value->{transfered_as} = $spoc_value->{new_name};
+		$spoc_value->{transferred_as} = $spoc_value->{new_name};
 	    }
 	}
+
+        # Change attributes of items in place.
+        $self->change_modified_attributes($spoc, $parse_name, $spoc_name, 
+                                          $structure);
     }
 }
 
@@ -1360,14 +1554,14 @@ sub traverse_netspoc_tree {
 	for my $spoc_name ( sort keys %$spoc_hash ) {
 	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
 	    if ( $spoc_value->{transfer} ) {
-		if ( my $transfered_as = $spoc_value->{transfered_as} ) {
-		    #info("$spoc_name already transfered as $transfered_as! ");
+		if ( my $transferred_as = $spoc_value->{transferred_as} ) {
+		    #info("$spoc_name already transferred as $transferred_as! ");
 		}
 		else {
                     info("Transfer $parse_name $spoc_name");
 		    $self->$method( $spoc, $structure,
 				    $parse_name, $spoc_name );
-		    $spoc_value->{transfered_as} = $spoc_value->{new_name};
+		    $spoc_value->{transferred_as} = $spoc_value->{new_name};
 		}
 	    }
 	}
@@ -1385,20 +1579,6 @@ sub traverse_netspoc_tree {
         for my $spoc_name ( sort keys %$spoc_anchor ) {
 	    $self->transfer1( $spoc, $key,
 			      $spoc_name, $structure );
-	}
-    }
-
-    # Change attributes of items in place.
-    for my $key ( sort keys %$structure ) {
-        my $value = $structure->{$key};
-        next if not $value->{anchor};
-        my $spoc_anchor = $spoc->{$key};
-
-	# Iterate over objects on device.
-        for my $spoc_name ( sort keys %$spoc_anchor ) {
-	    my $spoc_value = object_for_name( $spoc, $key, $spoc_name );
-	    $self->change_modified_attributes( $spoc, $key,
-			   $spoc_name, $structure );
 	}
     }
 
@@ -1424,10 +1604,11 @@ sub remove_unneeded_on_device {
     my ( $self, $conf, $structure ) = @_;
     
     # Caution: the order is significant in this array!
-    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
+    my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP 
-                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
+                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME
+                          TRANSFORM_SET IPSEC_PROPOSAL
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
@@ -1441,23 +1622,24 @@ sub remove_unneeded_on_device {
 
 	    # Remove attributes marked for deletion.
 	    if ( my $attr = $object->{remove_attr} ) {
-		$self->remove_attributes( $parse_name, $obj_name, $attr );
+		$self->remove_attributes($object, $parse_name, $obj_name, 
+                                         $attr);
 	    }
 
-	    # Remove unneeded objects from device.
+	    # Remove unneeded object from device.
 	    next if $object->{needed};
 
 	    # Do not remove users that have their own explicit
 	    # password (e.g. 'netspoc'-user used to access device).
 	    next if ( $parse_name eq 'USERNAME'  && ! $object->{NOPASSWORD} );
 
-            # Only remove ACLs and object-groups that 
-            # either have previously been defined by Netspoc
-            # or that have been substituted by new objects from nespoc.
+            # Only remove object that either has previously been
+            # defined by Netspoc or that has been substituted by new
+            # object from Netspoc.
             # This excludes manual ACLs used for eg. BGP.
-            next if ($parse_name =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
-                     $obj_name !~ /DRC-\d+$/ &&
-                     !$object->{connected});
+            if ($parse_name ne 'CRYPTO_MAP_SEQ') {
+                next if $obj_name !~ /DRC-\d+$/ and not $object->{connected};
+            }
 
             info("Remove unneeded $parse_name $obj_name");
             my $method = $parse->{remove};
@@ -1469,7 +1651,7 @@ sub remove_unneeded_on_device {
 sub remove_spare_objects_on_device {
     my ( $self, $conf, $structure ) = @_;
 
-    my @parse_names = qw( CRYPTO_MAP_SEQ USERNAME CA_CERT_MAP 
+    my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP
                           TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
@@ -1488,15 +1670,10 @@ sub remove_spare_objects_on_device {
 	    # Remove spare objects from device.
 	    next if $object->{connected};
 
-            # Only remove ACLs and object-groups that have been
-            # defined by Netspoc. 
-            # This excludes manual ACLs used by eg. BGP.
-            next if ($parse_name =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
-                     $obj_name !~ /DRC-\d+$/);
+            # Only remove objects that have been defined by Netspoc.
+            next if $parse_name ne 'CRYPTO_MAP_SEQ' and $obj_name !~ /DRC-\d+$/;
 
-            # So we do not try to remove the object
-            # again later. (This is a hack and should be
-            # done in a more consistent way! -->TODO)
+            # So we do not try to remove the object again later.
             $object->{needed} = 1;
             info("Remove spare $parse_name $obj_name");
             my $method = $parse->{remove};
@@ -1550,18 +1727,15 @@ sub mark_connected_objects {
     }
 
     # Show unconnected objects.
-    for my $key ( sort keys %$structure ) {
-	my $objects = $conf->{$key};
+    for my $parse_name ( sort keys %$structure ) {
+	my $objects = $conf->{$parse_name};
         for my $obj_name ( sort keys %$objects ) {
             my $object = $objects->{$obj_name};
 	    next if $object->{connected};
 
-            # Only warn on ACLs and object-groups that have been
-            # defined by Netspoc. 
-            # This excludes manual ACLs used by eg. BGP.
-            next if ($key =~ /^(?:ACCESS_LIST|OBJECT_GROUP)$/ && 
-                     $obj_name !~ /DRC-\d+$/);
-	    warn_info("Spare $key: $obj_name");
+            # Only warn on objects that have been defined by Netspoc.
+            next if $parse_name ne 'CRYPTO_MAP_SEQ' and $obj_name !~ /DRC-\d+$/;
+	    warn_info("Spare $parse_name: $obj_name");
 	}
     }    
 }
@@ -1570,7 +1744,7 @@ sub change_attributes {
     my ( $self, $parse_name, $spoc_name, $spoc_value, $attributes ) = @_;
     my @cmds;
 
-    return if $parse_name =~ /^(CERT_ANCHOR)$/;
+    return if $parse_name =~ /^(CERT_ANCHOR|CRYPTO_MAP_LIST)$/;
     return if ( $spoc_value->{change_done} );
 
     info("Change attributes of $parse_name $spoc_name");
@@ -1581,17 +1755,7 @@ sub change_attributes {
 	$spoc_name = $spoc_value->{new_name} || $spoc_name;
     }
 
-    # In case of ip-local-pools changed attributes means
-    # the pool present on device needs to be overwritten
-    # with new values in one line, because pools do not have
-    # sub-command-attributes.
-    if ( $parse_name eq 'IP_LOCAL_POOL' ) {
-	my $from = int2quad( $spoc_value->{RANGE_FROM} );
-	my $to   = int2quad( $spoc_value->{RANGE_TO}   );
-	my $mask = int2quad( $spoc_value->{MASK}    );
-	push @cmds, "ip local pool $spoc_name $from-$to mask $mask";
-    }
-    elsif( $parse_name eq 'IF' ) {
+    if( $parse_name eq 'IF' ) {
 	for my $attr ( sort keys %$attributes ) {
 	    my $value = $attributes->{$attr};
 	    my $direction = $attr =~ /_IN/ ? 'in' : 'out';
@@ -1611,8 +1775,11 @@ sub change_attributes {
     else {
 	my $prefix;
 	if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
-	    my ($name, $seq) = split(':', $spoc_name);
-	    $prefix = "crypto map $name $seq";
+	    $prefix = "crypto map $spoc_name";
+	}
+	elsif( $parse_name eq 'DYNAMIC_MAP' ) {
+            my $seq = $spoc_value->{SEQ};
+	    $prefix = "crypto dynamic-map $spoc_name $seq";
 	}
 	elsif( not $parse_name eq 'DEFAULT_GROUP' ) {
 	    push @cmds, item_conf_mode_cmd( $parse_name, $spoc_name );
@@ -1622,7 +1789,7 @@ sub change_attributes {
 	    my $value = $attributes->{$attr};
 
 	    # A hash of attributes, read unchanged from device.
-	    if(ref $value) {
+	    if(ref($value) eq 'HASH') {
 		for my $cmd (sort keys %$value) {
 		    my $args = $value->{$cmd};
 		    push @cmds, "no $cmd" if $attr_need_remove{$cmd};
@@ -1632,9 +1799,15 @@ sub change_attributes {
 		}
 	    }
 
-	    # Single attributes which need to be converted 
+	    # Single or list of attributes which need to be converted
 	    # back to device syntax.
 	    elsif ( my $attr_cmd = cmd_for_attribute( $parse_name, $attr )) {
+
+                # Multiple values of 'next_list' attribute.
+                if(ref($value) eq 'ARRAY') {
+                    $value = join(' ', @$value);
+                }
+
 		if ( $parse_name eq 'DEFAULT_GROUP' ) {
 		    $attr_cmd .= " default-group ";
 		}
@@ -1658,14 +1831,17 @@ sub change_attributes {
 }
 
 sub remove_attributes {
-    my ( $self, $parse_name, $item_name, $attributes ) = @_;
+    my ( $self, $obj, $parse_name, $item_name, $attributes ) = @_;
 
     info("Remove attributes of $parse_name $item_name");
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
-	my ($name, $seq) = split(':', $item_name);
-	$prefix = "crypto map $name $seq";
+	$prefix = "crypto map $item_name";
+    }
+    elsif ($parse_name eq 'DYNAMIC_MAP') {
+        my $seq = $obj->{SEQ};
+        $prefix = "crypto dynamic-map $item_name $seq";
     }
     else {
 	push @cmds, item_conf_mode_cmd( $parse_name, $item_name );
@@ -1675,7 +1851,7 @@ sub remove_attributes {
 	my $value = $attributes->{$attr};
 
 	# A hash of attributes, read unchanged from device.
-	if(ref $value) {
+	if(ref($value) eq 'HASH') {
 	    for my $cmd (sort keys %$value) {
 		my $args = $value->{$cmd};
 		my $new_cmd = $cmd;
@@ -1684,6 +1860,12 @@ sub remove_attributes {
 	    }
 	}
 	elsif (my $attr_cmd = cmd_for_attribute( $parse_name, $attr )) {
+
+            # Multiple values of 'next_list' attribute.
+            if(ref($value) eq 'ARRAY') {
+                $value = join(' ', @$value);
+            }
+            
 	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if(not $attr_no_value{$attr}) {
 		$attr_cmd = "$attr_cmd $value";
@@ -1724,8 +1906,29 @@ sub remove_crypto_map_seq {
     my ( $self, $conf, $structure, $parse_name, $name_seq ) = @_;
 
     my $object = object_for_name( $conf, $parse_name, $name_seq );
-    my ($name, $seq) = split(':', $object->{name});
-    my $prefix = "crypto map $name $seq";
+    my $name = $object->{name};
+    my $prefix = "crypto map $name";
+    my $cmd = "clear configure $prefix";
+    $self->cmd( $cmd );
+}
+
+sub transfer_dynamic_map {
+    my ( $self, $spoc, $structure, $parse_name, $name ) = @_;
+
+    my $object = object_for_name( $spoc, $parse_name, $name );
+    my @cmds;
+    push @cmds, add_attribute_cmds( $structure, $parse_name,
+				    $object, 'attributes' );
+    map { $self->cmd( $_ ) } @cmds;
+}
+
+sub remove_dynamic_map {
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+
+    my $object = object_for_name( $conf, $parse_name, $obj_name );
+    my $name = $object->{name};
+    my $seq  = $object->{SEQ};
+    my $prefix = "crypto dynamic-map $name $seq";
     my $cmd = "clear configure $prefix";
     $self->cmd( $cmd );
 }
@@ -1737,7 +1940,8 @@ sub transfer_ca_cert_map {
     my $new_cert_map = $object->{new_name};
     my @cmds;
     push @cmds, item_conf_mode_cmd( $parse_name, $new_cert_map );
-    push @cmds, add_attribute_cmds( $structure, $parse_name, $object, 'attributes' );
+    push @cmds, add_attribute_cmds($structure, $parse_name, $object, 
+                                   'attributes');
     map { $self->cmd( $_ ) } @cmds;
 }
 
@@ -1753,7 +1957,7 @@ sub transfer_default_group {
     my $object = $spoc->{$parse_name}->{$default};
     my $tunnel_group_name = $object->{TUNNEL_GROUP};
     my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
-    my $new_default_group = $tunnel_group->{new_name};
+    my $new_default_group = $tunnel_group->{new_name} || $tunnel_group->{name};
     my $cmd = "tunnel-group-map default-group $new_default_group";
     $self->cmd( $cmd );
 }
@@ -1787,23 +1991,26 @@ sub remove_user {
 }
 
 sub transfer_tunnel_group {
-    my ( $self, $spoc, $structure, $parse_name, $tg_name ) = @_;
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
 
-    my $tunnel_group = $spoc->{$parse_name}->{$tg_name} or
-	abort("No $parse_name found for $tg_name");
-    my $tg = $spoc->{TUNNEL_GROUP}->{$tg_name};
-    my $new_tg = is_ip( $tg_name ) 
-               ? $tg_name
+    my $tunnel_group = $spoc->{$parse_name}->{$obj_name} or
+	abort("No $parse_name found for $obj_name");
+    my $tg = $spoc->{TUNNEL_GROUP}->{$obj_name};
+    my $new_name = is_ip( $obj_name ) 
+               ? $obj_name
 
                # Use same name for tg xxx-attributes if tg is already
                # on device.
-               : $tg->{name_on_dev} || $tg->{new_name};
+               : $tg->{name_on_dev} || $tg->{new_name} || $tg->{name};
     my @cmds;
     if ( $parse_name =~ /^TUNNEL_GROUP(?:_IPNAME)?$/ ) {
-	push @cmds, define_item_cmd($parse_name, $new_tg);
+        my $define_item = $spoc->{TUNNEL_GROUP_DEFINE}->{$obj_name}->{orig};
+        $define_item =~ s/tunnel-group $obj_name(?!\S)/tunnel-group $new_name/;
+        push @cmds, $define_item;
     }
+
     if ( $parse_name ne 'TUNNEL_GROUP_IPNAME' ) {
-	push @cmds, item_conf_mode_cmd( $parse_name, $new_tg );
+	push @cmds, item_conf_mode_cmd( $parse_name, $new_name );
 	push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $tunnel_group, 'attributes' );
     }
@@ -1811,13 +2018,13 @@ sub transfer_tunnel_group {
 }
 
 sub remove_tunnel_group {
-    my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
-    $self->cmd("clear configure tunnel-group $tg_name");
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    $self->cmd("clear configure tunnel-group $obj_name");
 }
 
 sub remove_tunnel_group_xxx {
-    my ( $self, $conf, $structure, $parse_name, $tg_name ) = @_;
-    my $cmd = item_conf_mode_cmd($parse_name, $tg_name);
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my $cmd = item_conf_mode_cmd($parse_name, $obj_name);
     $self->cmd("no $cmd");
 }
 
@@ -1841,19 +2048,44 @@ sub remove_group_policy {
     $self->cmd( $cmd );
 }
 
-sub transfer_ip_local_pool {
-    my ( $self, $spoc, $structure, $parse_name, $pool_name ) = @_;
-    my $pool = $spoc->{$parse_name}->{$pool_name};
-    my $new_name = $pool->{new_name};
-    my $cmd = $pool->{orig}; 
-    $cmd =~ s/ip local pool $pool_name(?!\S)/ip local pool $new_name/;
+sub transfer_ipsec_proposal {
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $spoc->{$parse_name}->{$obj_name};
+    my $new_name = $obj->{new_name};
+    my $cmd = $obj->{orig}; 
+    $cmd =~ s/proposal $obj_name(?!\S)/proposal $new_name/;
+    my @cmds;
+    push @cmds, $cmd;
+    push @cmds, add_attribute_cmds( $structure, $parse_name,
+				    $obj, 'attributes' );
+    map { $self->cmd( $_ ) } @cmds;    
+}
+
+sub remove_obj {
+    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $conf->{$parse_name}->{$obj_name};
+    my $cmd = "no $obj->{orig}";
     $self->cmd( $cmd );
 }
 
-sub remove_ip_local_pool {
-    my ( $self, $conf, $structure, $parse_name, $pool_name ) = @_;
-    my $pool = $conf->{$parse_name}->{$pool_name};
-    my $cmd = "no " . $pool->{orig};
+sub transfer_transform_set {
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $spoc->{$parse_name}->{$obj_name};
+    my $new_name = $obj->{new_name};
+    my $cmd = $obj->{orig}; 
+
+    # Handle "crypto ipsec transform-set"
+    # and "crypto ipsec ikev1 transform-set"
+    $cmd =~ s/transform-set $obj_name(?!\S)/transform-set $new_name/;
+    $self->cmd( $cmd );
+}
+
+sub transfer_ip_local_pool {
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my $pool = $spoc->{$parse_name}->{$obj_name};
+    my $new_name = $pool->{new_name};
+    my $cmd = $pool->{orig}; 
+    $cmd =~ s/ip local pool $obj_name(?!\S)/ip local pool $new_name/;
     $self->cmd( $cmd );
 }
 
@@ -1887,13 +2119,6 @@ sub modify_object_group {
     if($spoc->{del_entries}) {
 	map( { $self->cmd( "no $_->{orig}" ) } @{ $spoc->{del_entries} } );
     }
-}
-
-sub remove_object_group {
-    my ( $self, $conf, $structure, $parse_name, $object_group ) = @_;
-    my $og = object_for_name( $conf, $parse_name, $object_group );
-    my $cmd = "no $og->{orig}";
-    $self->cmd( $cmd );
 }
 
 sub transfer_acl {
@@ -1972,8 +2197,13 @@ sub add_attribute_cmds {
     my @cmds;
     my $prefix;
     if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
- 	my ($name, $seq) = split(':', $object->{new_name} || $object->{name});
-	$prefix = "crypto map $name $seq";
+ 	my $name = $object->{new_name} || $object->{name};
+	$prefix = "crypto map $name";
+    }
+    elsif( $parse_name eq 'DYNAMIC_MAP' ) {
+ 	my $name = $object->{name};
+        my $seq  = $object->{SEQ};
+	$prefix = "crypto dynamic-map $name $seq";
     }
   ATTRIBUTE:
     for my $attr ( @{$structure->{$parse_name}->{$attributes}} ) {
@@ -2079,7 +2309,7 @@ sub define_structure {
 	OBJECT_GROUP => {
 	    attributes => [],
 	    transfer => 'transfer_object_group',
-	    remove   => 'remove_object_group',
+	    remove   => 'remove_obj',
 	    modify   => 'modify_object_group',
 	},
 	IF => {
@@ -2099,13 +2329,47 @@ sub define_structure {
 			     parse_name => 'CRYPTO_MAP_SEQ', },
 			   ],
 	},
+        IPSEC_PROPOSAL => {
+            attributes  => [ qw(ENCRYPTION_LIST INTEGRITY_LIST) ],
+            simple_object => 1,
+	    transfer => 'transfer_ipsec_proposal',
+	    remove   => 'remove_obj',
+        },
+        TRANSFORM_SET => {
+            attributes  => [ qw(LIST) ],
+            simple_object => 1,
+	    transfer => 'transfer_transform_set',
+	    remove   => 'remove_obj',
+        },
+        DYNAMIC_MAP => {
+            attributes => [ qw( NAT_T_DISABLE PFS REVERSE_ROUTE 
+                                SA_LIFETIME_SEC SA_LIFETIME_KB) ],
+            next     => [ { attr_name  => 'MATCH_ADDRESS',
+			    parse_name => 'ACCESS_LIST' },
+            ],
+            next_list => [ { attr_name  => 'TRANSFORM_SET_IKEV1',
+			    parse_name => 'TRANSFORM_SET' },
+                           { attr_name  => 'IPSEC_PROPOSAL',
+                             parse_name => 'IPSEC_PROPOSAL' }, 
+            ],
+	    transfer => 'transfer_dynamic_map',
+	    remove   => 'remove_obj',
+        },
 	CRYPTO_MAP_SEQ => {
-	    attributes => [ qw(NAT_T_DISABLE PEER DYNAMIC_MAP PFS 
-			       REVERSE_ROUTE SA_LIFETIME_SEC SA_LIFETIME_KB 
-			       TRANSFORM_SET TRANSFORM_SET_IKEV1 TRUSTPOINT) ],
+	    attributes => [ qw(NAT_T_DISABLE PEER PFS REVERSE_ROUTE
+			       SA_LIFETIME_SEC SA_LIFETIME_KB TRUSTPOINT) ],
 	    next     => [ { attr_name  => 'MATCH_ADDRESS',
-			    parse_name => 'ACCESS_LIST' }
-			  ],
+			    parse_name => 'ACCESS_LIST' },  
+                          { attr_name  => 'DYNAMIC_MAP',
+                            parse_name => 'DYNAMIC_MAP' },
+            ],
+            next_list => [ { attr_name  => 'TRANSFORM_SET',
+                             parse_name => 'TRANSFORM_SET' },
+                           { attr_name  => 'TRANSFORM_SET_IKEV1',
+                             parse_name => 'TRANSFORM_SET' },
+                           { attr_name  => 'IPSEC_PROPOSAL',
+                             parse_name => 'IPSEC_PROPOSAL' },
+            ],
 	    transfer => 'transfer_crypto_map_seq',
 	    remove   => 'remove_crypto_map_seq',
 	},
@@ -2149,6 +2413,7 @@ sub mark_as_changed {
     return if $parse_name eq 'IF';
     return if $parse_name eq 'CERT_ANCHOR';
     return if $parse_name eq 'DEFAULT_GROUP';
+    return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_changed($parse_name);
 }
 
@@ -2158,6 +2423,7 @@ sub mark_as_unchanged {
     return if $parse_name eq 'IF';
     return if $parse_name eq 'CERT_ANCHOR';
     return if $parse_name eq 'DEFAULT_GROUP';
+    return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_unchanged($parse_name);
 }
 

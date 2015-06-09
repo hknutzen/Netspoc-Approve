@@ -15,6 +15,26 @@ my($in, $device, $out);
 my $title;
 
 ############################################################
+$title = "Ignore commands in banner";
+############################################################
+$device = <<END;
+banner motd ^CCC
+ip route 0.0.0.0 0.0.0.0 10.1.1.1
+^C
+ip route 0.0.0.0 0.0.0.0 10.2.2.2
+END
+
+$in = << 'END';
+ip route 0.0.0.0 0.0.0.0 10.3.3.3
+END
+
+$out = <<'END';
+no ip route 0.0.0.0 0.0.0.0 10.2.2.2\N ip route 0.0.0.0 0.0.0.0 10.3.3.3
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Parse routing and ACL";
 ############################################################
 $device = <<END;
@@ -175,7 +195,8 @@ ip access-list extended test-DRC-0
  permit icmp any host 10.0.1.11 3 3
  deny ip any any
 
-interface Ethernet1
+interface Serial1
+ ip unnumbered Ethernet1
  ip access-group test-DRC-0 in
 END
 
@@ -190,7 +211,8 @@ ip access-list extended test
  permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
  deny ip any any log-input
 
-interface Ethernet1
+interface Serial1
+ ip unnumbered Ethernet1
  ip access-group test in
 END
 

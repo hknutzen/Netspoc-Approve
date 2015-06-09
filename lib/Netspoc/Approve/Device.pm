@@ -6,7 +6,7 @@ Base class for all supported devices
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.096'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -255,6 +255,7 @@ sub load_spoc {
 
 sub load_device {
     my ($self) = @_;
+    $self->con_set_logtype('config');
     my $device_lines = $self->get_config_from_device();
     info("Parsing device config");
     my $conf  = $self->parse_config($device_lines);
@@ -467,9 +468,13 @@ sub parse_config1 {
 		    for my $key (keys %$value) {
 			next if $key =~ /(?:name|line|orig)/;
 			if(defined $old->{$key}) {
-			    err_at_line($arg, "Duplicate '$key' while merging");
+                            $old->{$key} eq $value->{$key} or
+                                err_at_line($arg, 
+                                            "Duplicate '$key' while merging");
 			}
-			$old->{$key} = $value->{$key};
+                        else {
+                            $old->{$key} = $value->{$key};
+                        }
 		    }
 		}
 		else {
@@ -513,7 +518,7 @@ sub merge_rawdata {
         if ($key eq 'ROUTING_VRF') {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
 	    my $count = 0;
-	    for my $vrf (keys %$raw_v) {
+	    for my $vrf (sort keys %$raw_v) {
 		my $raw_routes = $raw_v->{$vrf};
                 my $spoc_routes = $spoc_v->{$vrf} ||= [];
                 unshift(@$spoc_routes, @$raw_routes);
@@ -534,7 +539,7 @@ sub merge_rawdata {
 	else {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
 	    my $count = 0;
-	    for my $name (keys %$raw_v) {
+	    for my $name (sort keys %$raw_v) {
 		my $entry = $raw_v->{$name};
 		if($spoc_v->{$name}) {
 		    abort("Name clash for '$name' of $key from raw");
@@ -1229,17 +1234,32 @@ sub get_version {
     info("DINFO: $self->{HARDWARE} $self->{VERSION}");
 }
 
+sub banner_msg {
+    my ($msg) = @_;
+    my $time = localtime;
+    my $result = <<"END";
+
+********************************************************
+  $msg: at > $time <
+********************************************************
+END
+    return $result;
+}
+
+# Move existing logfile
+sub move_logfile {
+    my ($logfile) = @_;
+    if (-f $logfile) {
+        my $date = time();
+        system("mv $logfile $logfile.$date") == 0
+            or abort("Can't backup $logfile: $!");
+    }
+}
+
 sub con_setup {
     my ($self) = @_;
-    my $time = localtime();
-    my $startup_message = "START: at > $time <";
-    my $logfile;
-    if (my $logdir = $self->{OPTS}->{L}) {
-        $logfile = "$logdir/$self->{NAME}.tel";
-    }
-    my $con = $self->{CONSOLE} =
-	Netspoc::Approve::Console->new_console($self, $logfile,
-                                               $startup_message);
+    $self->{CONSOLE} and abort("Console already created");
+    my $con = $self->{CONSOLE} = Netspoc::Approve::Console->new_console();
     $con->{TIMEOUT} = $self->{CONFIG}->{timeout};
     $con->{LOGIN_TIMEOUT} = $self->{CONFIG}->{login_timeout};
 }
@@ -1253,11 +1273,22 @@ sub con_shutdown {
         $con->{TIMEOUT} = $con->{LOGIN_TIMEOUT};
         $con->con_issue_cmd('exit', eof);
     }
-    $con->shutdown_console($self, $shutdown_message);
+#    $con->print_logfile(banner_msg('STOP'));
+    delete $self->{CONSOLE};
+}
+
+sub con_set_logtype {
+    my ($self, $type) = @_;
+    my $logdir = $self->{OPTS}->{L} or return;
+    my $logfile = "$logdir/$self->{NAME}.$type";
+    move_logfile($logfile);
+    my $con = $self->{CONSOLE};
+    $con->set_logfile($logfile);
 }
 
 sub prepare_device {
     my ($self) = @_;
+    $self->con_set_logtype('login');
     $self->login_enable();
     $self->set_terminal();
     $self->get_version();
@@ -1328,6 +1359,7 @@ sub approve {
     $self->prepare_device();
     my $spoc_conf = $self->load_spoc($spoc_path);
     my $device_conf = $self->load_device();
+    $self->con_set_logtype('change');
     $self->transfer($device_conf, $spoc_conf);
     if($self->found_changes()) {
         info("Saving config to flash");
@@ -1357,12 +1389,7 @@ sub logging {
 	}
     }
 
-    # Move existing logfile
-    if (-f $logfile) {
-        my $date = time();
-        system("mv $logfile $logfile.$date") == 0
-            or abort("Can't backup $logfile: $!");
-    }
+    move_logfile($logfile);
 
     open(STDOUT, '>', $logfile) or abort("Can't open $logfile: $!");
     chmod(0644, $logfile) or abort("Can't chmod $logfile: $!");

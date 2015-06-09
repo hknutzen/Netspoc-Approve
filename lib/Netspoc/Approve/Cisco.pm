@@ -36,7 +36,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.096'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -749,7 +749,7 @@ sub checkinterfaces {
     for my $name (sort keys %{ $conf->{IF} }) {
 	my $conf_intf = $conf->{IF}->{$name};
         next if $conf_intf->{SHUTDOWN};
-        next if not $conf_intf->{ADDRESS};
+        $conf_intf->{ADDRESS} or $conf_intf->{UNNUMBERED} or next;
         if (my $spoc_intf = $spoc->{IF}->{$name}) {
 
             # Compare mapping to VRF.
@@ -778,7 +778,7 @@ sub checkinterfaces {
         # Ignore unnumbered pseudo mpls interface
         if ($has_mpls && $name =~ /^mpls/) {
             my $intf = $spoc->{IF}->{$name};
-            if($intf->{ADDRESS}->{UNNUMBERED}) {
+            if($intf->{UNNUMBERED}) {
                 delete $spoc->{IF}->{$name};
                 next;
             }

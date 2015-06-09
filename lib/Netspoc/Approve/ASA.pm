@@ -6,7 +6,7 @@ Remote configure Cisco ASA and PIX version 7.x.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2011 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -34,7 +34,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.096'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -137,7 +137,7 @@ sub get_parse_info {
     # Handle tunnel-group.
     # 
     $info->{'tunnel-group _skip type'} = {
-	store => 'TUNNEL_GROUP_INTERNAL',
+	store => 'TUNNEL_GROUP_DEFINE',
 	named => 1,
 	parse => [ 'seq',
 		   { store => 'TYPE',
@@ -170,6 +170,16 @@ sub get_parse_info {
 	store => 'TUNNEL_GROUP_IPSEC',
 	named => 1,
  	subcmd => {
+
+            # Ignore pre-shared keys. These are set manually.
+            'pre-shared-key'       => { parse => \&skip, },
+            'ikev1 pre-shared-key' => { parse => \&skip, },
+            'ikev2 local-authentication pre-shared-key' => {
+                parse => \&skip, 
+            },
+            'ikev2 remote-authentication pre-shared-key' => {
+                parse => \&skip, 
+            },
 
 	    # '_any' is special word, which matches any token.
 	    # '_cmd' is replaced by current command name.
@@ -345,7 +355,7 @@ sub get_parse_info {
     $info->{'crypto ca certificate chain'} = {
 	named => 1,
 	subcmd => {
-	    'certificate' => { banner => qr/^\s*quit$/, parse => \&skip },
+	    'certificate' => { banner => qr/^\s*quit\s*$/, parse => \&skip },
 	}
     };
 
@@ -392,7 +402,7 @@ sub postprocess_config {
 
     # For tunnel-groups with an IP as name create new
     # TUNNEL_GROUP_IPNAME-object.
-    for my $tg_intern ( values %{$p->{TUNNEL_GROUP_INTERNAL}} ) {
+    for my $tg_intern ( values %{$p->{TUNNEL_GROUP_DEFINE}} ) {
 	my $int_name = $tg_intern->{name};
 	if ( is_ip( $int_name ) ) {
 	    $p->{TUNNEL_GROUP_IPNAME}->{$int_name} = {
@@ -401,6 +411,15 @@ sub postprocess_config {
 		TYPE => $tg_intern->{TYPE},
 	    };
 	}
+    }
+
+    for my $what (qw(TUNNEL_GROUP TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN)) {
+        my %seen;
+        for my $name (keys %{$p->{$what}}) {
+            next if $seen{$name}++;
+            $p->{TUNNEL_GROUP_DEFINE}->{$name} or 
+                abort("Missing type definition for tunnel-group $name");
+        }
     }
 
     # For tunnel-groups that only have ipsec-attributes and do
@@ -703,8 +722,9 @@ sub define_structure {
  
 	IP_LOCAL_POOL => {
 	    attributes => [ qw( RANGE_FROM RANGE_TO MASK ) ],
+            simple_object => 1,
 	    transfer => 'transfer_ip_local_pool',
-	    remove   => 'remove_ip_local_pool',
+	    remove   => 'remove_obj',
 	},
 
 	NO_SYSOPT_CONNECTION_PERMIT_VPN => {

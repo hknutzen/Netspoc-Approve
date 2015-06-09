@@ -6,7 +6,7 @@ Configure Cisco Nexus devices
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.096'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -52,8 +52,8 @@ sub get_parse_info {
                 'ip address _skip secondary' =>  { 
                     parse => \&skip }, # ignore
                 'ip unnumbered' => {
-                    parse => \&get_token,
-                    store => ['ADDRESS', 'UNNUMBERED'], 
+                    parse => \&get_token, 
+                    store => 'UNNUMBERED',
                 },
                 'ip access-group _skip in' => {
                     parse => \&get_token, 
