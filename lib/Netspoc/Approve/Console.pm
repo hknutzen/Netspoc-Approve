@@ -44,10 +44,9 @@ our @EXPORT = qw( open_con close_con  );
 ############################################################
 
 sub new_console {
-    my ($class, $job, $logfile, $startup_message) = @_;
-    $job->{CONSOLE} and abort("Console already created");
+    my ($class, $logfile, $startup_message) = @_;
 
-    my $con = $job->{CONSOLE} = {};
+    my $con = {};
     bless( $con, $class );
     my $console = $con->{EXPECT} = Expect->new();
 
@@ -82,7 +81,7 @@ sub new_console {
 }
 
 sub shutdown_console {
-    my ($con, $job, $shutdown_message) = @_;
+    my ($con, $shutdown_message) = @_;
     if ( exists $con->{LOG} ) {
         my $fh = $con->{LOG};
         print $fh "\n";
@@ -91,7 +90,6 @@ sub shutdown_console {
         print $fh "********************************************************\n";
         print $fh "\n";
     }
-    delete $job->{CONSOLE};
 }
 
 #    If called in an array context expect() will return

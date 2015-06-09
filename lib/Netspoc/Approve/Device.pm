@@ -1241,9 +1241,9 @@ sub con_setup {
     if (my $logdir = $self->{OPTS}->{L}) {
         $logfile = "$logdir/$self->{NAME}.tel";
     }
+    $self->{CONSOLE} and abort("Console already created");
     my $con = $self->{CONSOLE} =
-	Netspoc::Approve::Console->new_console($self, $logfile,
-                                               $startup_message);
+	Netspoc::Approve::Console->new_console($logfile, $startup_message);
     $con->{TIMEOUT} = $self->{CONFIG}->{timeout};
     $con->{LOGIN_TIMEOUT} = $self->{CONFIG}->{login_timeout};
 }
@@ -1257,8 +1257,10 @@ sub con_shutdown {
         $con->{TIMEOUT} = $con->{LOGIN_TIMEOUT};
         $con->con_issue_cmd('exit', eof);
     }
-    $con->shutdown_console($self, $shutdown_message);
+    $con->shutdown_console($shutdown_message);
+    delete $self->{CONSOLE};
 }
+
 
 sub prepare_device {
     my ($self) = @_;
