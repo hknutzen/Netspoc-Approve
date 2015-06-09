@@ -1233,19 +1233,41 @@ sub get_version {
     info("DINFO: $self->{HARDWARE} $self->{VERSION}");
 }
 
+sub banner_msg {
+    my ($msg) = @_;
+    my $time = localtime;
+    my $result = <<"END";
+
+********************************************************
+  $msg: at > $time <
+********************************************************
+END
+    return $result;
+}
+
+# Move existing logfile
+sub move_logfile {
+    my ($logfile) = @_;
+    if (-f $logfile) {
+        my $date = time();
+        system("mv $logfile $logfile.$date") == 0
+            or abort("Can't backup $logfile: $!");
+    }
+}
+
 sub con_setup {
     my ($self) = @_;
-    my $time = localtime();
-    my $startup_message = "START: at > $time <";
-    my $logfile;
-    if (my $logdir = $self->{OPTS}->{L}) {
-        $logfile = "$logdir/$self->{NAME}.tel";
-    }
     $self->{CONSOLE} and abort("Console already created");
-    my $con = $self->{CONSOLE} =
-	Netspoc::Approve::Console->new_console($logfile, $startup_message);
+    my $con = $self->{CONSOLE} = Netspoc::Approve::Console->new_console();
     $con->{TIMEOUT} = $self->{CONFIG}->{timeout};
     $con->{LOGIN_TIMEOUT} = $self->{CONFIG}->{login_timeout};
+
+    if (my $logdir = $self->{OPTS}->{L}) {
+        my $logfile = "$logdir/$self->{NAME}.tel";
+        move_logfile($logfile);
+        $con->set_logfile($logfile);
+        $con->print_logfile(banner_msg('START'));
+    }    
 }
 
 sub con_shutdown {
@@ -1257,7 +1279,7 @@ sub con_shutdown {
         $con->{TIMEOUT} = $con->{LOGIN_TIMEOUT};
         $con->con_issue_cmd('exit', eof);
     }
-    $con->shutdown_console($shutdown_message);
+    $con->print_logfile(banner_msg('STOP'));
     delete $self->{CONSOLE};
 }
 
@@ -1363,12 +1385,7 @@ sub logging {
 	}
     }
 
-    # Move existing logfile
-    if (-f $logfile) {
-        my $date = time();
-        system("mv $logfile $logfile.$date") == 0
-            or abort("Can't backup $logfile: $!");
-    }
+    move_logfile($logfile);
 
     open(STDOUT, '>', $logfile) or abort("Can't open $logfile: $!");
     chmod(0644, $logfile) or abort("Can't chmod $logfile: $!");
