@@ -1692,7 +1692,7 @@ sub mark_connected {
 	    my ($next_parse_name, $next_name) = @$pair;
 	    my $next_obj = $conf->{$next_parse_name}->{$next_name} or
 		abort("Can't find $next_parse_name $next_name" .
-                      " referenced by $object->{name}");
+                      " referenced by $parse_name $object->{name}");
 	    $self->mark_connected( $conf, $next_parse_name,
 				   $next_obj, $structure );
 	}
