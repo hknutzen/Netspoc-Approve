@@ -148,7 +148,7 @@ sub get_parse_info {
 
     # Handle tunnel-group general attributes.
     $info->{'tunnel-group _skip general-attributes'} = {
-	store => 'TUNNEL_GROUP',
+	store => 'TUNNEL_GROUP_GENERAL',
 	named => 1,
 	subcmd => {
 	    'default-group-policy' => {
@@ -400,7 +400,7 @@ sub postprocess_config {
     }
     delete $p->{HWIF};
 
-    for my $what (qw(TUNNEL_GROUP TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN)) {
+    for my $what (qw(TUNNEL_GROUP_GENERAL TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN)) {
         for my $name (keys %{$p->{$what}}) {
             my $base = $p->{TUNNEL_GROUP_DEFINE}->{$name} or 
                 abort("Missing type definition for tunnel-group $name");
@@ -418,7 +418,7 @@ sub postprocess_config {
 	$type eq 'ipsec-l2l' or next;
         my $obj = $p->{TUNNEL_GROUP_IPNAME}->{$name} = { %$tg };
         delete $p->{TUNNEL_GROUP_DEFINE}->{$name};
-        $obj->{TUNNEL_GROUP} and
+        $obj->{TUNNEL_GROUP_GENERAL} and
             abort("tunnel-group general-attributes not supported for $name");
     }
 
@@ -612,8 +612,8 @@ sub define_structure {
 	},
 	
 	TUNNEL_GROUP_DEFINE => {
-	    next => [ { attr_name  => 'TUNNEL_GROUP',
-			parse_name => 'TUNNEL_GROUP',
+	    next => [ { attr_name  => 'TUNNEL_GROUP_GENERAL',
+			parse_name => 'TUNNEL_GROUP_GENERAL',
                       },
                       { attr_name  => 'TUNNEL_GROUP_IPSEC',
 			parse_name => 'TUNNEL_GROUP_IPSEC',
@@ -626,7 +626,7 @@ sub define_structure {
 	    transfer => 'transfer_tunnel_group',
 	    remove   => 'remove_tunnel_group',
 	},
-	TUNNEL_GROUP => {
+	TUNNEL_GROUP_GENERAL => {
             postpone => 1,
 	    next => [ { attr_name  => 'DEFAULT_GROUP_POLICY',
 			parse_name => 'GROUP_POLICY',
@@ -692,7 +692,7 @@ sub define_structure {
 	DEFAULT_WEBVPN_GROUP => {
 	    anchor => 1,
 	    next => [ { attr_name  => 'TUNNEL_GROUP',
-			parse_name => 'TUNNEL_GROUP', },
+			parse_name => 'TUNNEL_GROUP_DEFINE', },
 		      ],
 	    transfer => sub {},
 	    remove   => sub {},

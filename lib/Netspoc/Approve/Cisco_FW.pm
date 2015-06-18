@@ -56,7 +56,7 @@ my %conf_mode_entry = (
                            prefix  => 'tunnel-group',
                            postfix => 'general-attributes',
                        },
-                       TUNNEL_GROUP => {
+                       TUNNEL_GROUP_GENERAL => {
                            prefix  => 'tunnel-group',
                            postfix => 'general-attributes',
                        },
@@ -105,7 +105,7 @@ my %attr2cmd =
 	 ADDRESS_POOL              => 'address-pools value',
 	 VPN_FILTER                => 'vpn-filter value',
      },
-     TUNNEL_GROUP => {
+     TUNNEL_GROUP_GENERAL => {
 	 DEFAULT_GROUP_POLICY      => 'default-group-policy',
      },
      DEFAULT_GROUP => {
@@ -1632,7 +1632,7 @@ sub remove_unneeded_on_device {
     # Caution: the order is significant in this array!
     my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
-                          TUNNEL_GROUP 
+                          TUNNEL_GROUP_GENERAL 
                           TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME
                           TRANSFORM_SET IPSEC_PROPOSAL
                           GROUP_POLICY
@@ -1679,7 +1679,7 @@ sub remove_spare_objects_on_device {
 
     my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
-                          TUNNEL_GROUP
+                          TUNNEL_GROUP_GENERAL
                           TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
@@ -1985,7 +1985,7 @@ sub transfer_default_group {
     my ( $self, $spoc, $structure, $parse_name, $default ) = @_;
     my $object = $spoc->{$parse_name}->{$default};
     my $tunnel_group_name = $object->{TUNNEL_GROUP};
-    my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
+    my $tunnel_group = $spoc->{TUNNEL_GROUP_DEFINE}->{$tunnel_group_name};
     my $new_default_group = $tunnel_group->{new_name} || $tunnel_group->{name};
     my $cmd = "tunnel-group-map default-group $new_default_group";
     $self->cmd( $cmd );
