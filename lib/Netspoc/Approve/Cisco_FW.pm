@@ -52,19 +52,11 @@ my %define_object = (
 		     );
 
 my %conf_mode_entry = (
-                       TUNNEL_GROUP_DEFINE => {
-                           prefix  => 'tunnel-group',
-                           postfix => 'general-attributes',
-                       },
                        TUNNEL_GROUP_GENERAL => {
                            prefix  => 'tunnel-group',
                            postfix => 'general-attributes',
                        },
  		       TUNNEL_GROUP_IPSEC => {
-			   prefix  => 'tunnel-group',
-			   postfix => 'ipsec-attributes',
-		       },
- 		       TUNNEL_GROUP_IPNAME_IPSEC => {
 			   prefix  => 'tunnel-group',
 			   postfix => 'ipsec-attributes',
 		       },
@@ -988,8 +980,7 @@ sub generate_names_for_transfer {
 	my $hash = $spoc->{$parse_name};
 	for my $name ( keys %$hash ) {
 	    if ($parse_name =~ /^TUNNEL_GROUP/) {
-                my $def = $spoc->{TUNNEL_GROUP_DEFINE}->{$name} || 
-                    $spoc->{TUNNEL_GROUP_IPNAME}->{$name};
+                my $def = $spoc->{TUNNEL_GROUP_DEFINE}->{$name};
                 my $type = $def->{TYPE};
                 next if $type eq 'ipsec-l2l';
             }
@@ -1632,8 +1623,7 @@ sub remove_unneeded_on_device {
     # Caution: the order is significant in this array!
     my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
-                          TUNNEL_GROUP_GENERAL 
-                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME
+                          TUNNEL_GROUP_GENERAL TUNNEL_GROUP_DEFINE
                           TRANSFORM_SET IPSEC_PROPOSAL
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
@@ -1679,8 +1669,7 @@ sub remove_spare_objects_on_device {
 
     my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
-                          TUNNEL_GROUP_GENERAL
-                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
+                          TUNNEL_GROUP_GENERAL TUNNEL_GROUP_DEFINE
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
@@ -1771,7 +1760,7 @@ sub change_attributes {
     my @cmds;
 
     return if $parse_name =~ /^(CERT_ANCHOR|CRYPTO_MAP_LIST)$/;
-    return if $parse_name =~ /^TUNNEL_GROUP_(DEFINE|IPNAME)$/;
+    return if $parse_name =~ /^TUNNEL_GROUP_(DEFINE|IPNAME|ANCHOR)$/;
     return if ( $spoc_value->{change_done} );
 
     info("Change attributes of $parse_name $spoc_name");
@@ -1790,9 +1779,7 @@ sub change_attributes {
 	}
     }
     elsif ($parse_name eq 'CA_CERT_MAP') {
-        if (my $tg_name = 
-            $attributes->{TUNNEL_GROUP_DEFINE} || $attributes->{TUNNEL_GROUP_IPNAME})
-        {
+        if (my $tg_name = $attributes->{TUNNEL_GROUP_DEFINE}) {
             push @cmds, "tunnel-group-map $spoc_name 10 $tg_name";
         }
         if (my $tg_name = $attributes->{WEB_TUNNEL_GROUP}) {
@@ -1871,6 +1858,8 @@ sub remove_attributes {
     elsif ($parse_name eq 'DYNAMIC_MAP') {
         my $seq = $obj->{SEQ};
         $prefix = "crypto dynamic-map $item_name $seq";
+    }
+    elsif ($parse_name eq 'TUNNEL_GROUP_DEFINE') {
     }
     else {
 	push @cmds, item_conf_mode_cmd( $parse_name, $item_name );
@@ -2021,11 +2010,8 @@ sub remove_user {
 
 sub transfer_tunnel_group {
     my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
-
-    my $obj = $spoc->{$parse_name}->{$obj_name} or
-	abort("No $parse_name found for $obj_name");
-    my $def =  $spoc->{TUNNEL_GROUP_DEFINE}->{$obj_name} || 
-        $spoc->{TUNNEL_GROUP_IPNAME}->{$obj_name};
+    my $obj = $spoc->{$parse_name}->{$obj_name};
+    my $def = $spoc->{TUNNEL_GROUP_DEFINE}->{$obj_name};
     my $new_name = $def->{TYPE} eq 'ipsec-l2l'
                  ? $obj_name
                  : $def->{name_on_dev} || $def->{new_name} || $def->{name};
@@ -2439,6 +2425,7 @@ sub mark_as_changed {
 
     return if $parse_name eq 'IF';
     return if $parse_name eq 'CERT_ANCHOR';
+    return if $parse_name eq 'TUNNEL_GROUP_ANCHOR';
     return if $parse_name eq 'DEFAULT_GROUP';
     return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_changed($parse_name);
@@ -2449,6 +2436,7 @@ sub mark_as_unchanged {
 
     return if $parse_name eq 'IF';
     return if $parse_name eq 'CERT_ANCHOR';
+    return if $parse_name eq 'TUNNEL_GROUP_ANCHOR';
     return if $parse_name eq 'DEFAULT_GROUP';
     return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_unchanged($parse_name);

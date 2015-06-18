@@ -410,16 +410,13 @@ sub postprocess_config {
         }
     }
 
-    # Move tunnel-group with IP as name to new
-    # TUNNEL_GROUP_IPNAME-object.
+    # Create artificial anchor TUNNEL_GROUP_ANCHOR for tunnel_group
+    # with IP as name.
     for my $name ( keys %{$p->{TUNNEL_GROUP_DEFINE}} ) {
         my $tg = $p->{TUNNEL_GROUP_DEFINE}->{$name};
 	my $type = $tg->{TYPE};
 	$type eq 'ipsec-l2l' or next;
-        my $obj = $p->{TUNNEL_GROUP_IPNAME}->{$name} = { %$tg };
-        delete $p->{TUNNEL_GROUP_DEFINE}->{$name};
-        $obj->{TUNNEL_GROUP_GENERAL} and
-            abort("tunnel-group general-attributes not supported for $name");
+        $p->{TUNNEL_GROUP_ANCHOR}->{$name} = { TUNNEL_GROUP => $name };
     }
 
     # TUNNEL_GROUP_MAP
@@ -441,9 +438,6 @@ sub postprocess_config {
         
 	if ($p->{TUNNEL_GROUP_DEFINE}->{$tg_name}) {
             $anchor->{TUNNEL_GROUP_DEFINE} = $tg_name;
-        }
-        elsif ($p->{TUNNEL_GROUP_IPNAME}->{$tg_name}) {
-            $anchor->{TUNNEL_GROUP_IPNAME} = $tg_name;
         }
         elsif($tg_name =~ /^(?:DefaultL2LGroup)$/) {
             $p->{TUNNEL_GROUP_DEFINE}->{$tg_name} ||= { name => $tg_name,
@@ -575,8 +569,6 @@ sub define_structure {
 	CA_CERT_MAP => { 
 	    next => [ { attr_name  => 'TUNNEL_GROUP_DEFINE',
 			parse_name => 'TUNNEL_GROUP_DEFINE', },
-		      { attr_name  => 'TUNNEL_GROUP_IPNAME',
-			parse_name => 'TUNNEL_GROUP_IPNAME', },
                       { attr_name  => 'WEB_TUNNEL_GROUP',
 			parse_name => 'TUNNEL_GROUP_DEFINE', },
 		      ],
@@ -611,6 +603,14 @@ sub define_structure {
 	    remove     => 'remove_user',
 	},
 	
+	TUNNEL_GROUP_ANCHOR => {
+	    anchor => 1,
+	    next => [ { attr_name  => 'TUNNEL_GROUP',
+			parse_name => 'TUNNEL_GROUP_DEFINE',
+		    } ],
+	    transfer => sub {},
+	    remove   => sub {},
+	},
 	TUNNEL_GROUP_DEFINE => {
 	    next => [ { attr_name  => 'TUNNEL_GROUP_GENERAL',
 			parse_name => 'TUNNEL_GROUP_GENERAL',
@@ -650,19 +650,6 @@ sub define_structure {
 	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer => 'transfer_tunnel_group',
 	    remove   => 'remove_tunnel_group_xxx',
-	},
-	
-	
-	# Anchors are processed alphabetically when
-	# transferred to device.
-	TUNNEL_GROUP_IPNAME => {
-	    anchor => 1,
-	    next => [ { attr_name  => 'TUNNEL_GROUP_IPSEC',
-			parse_name => 'TUNNEL_GROUP_IPSEC',
-		    }],
-	    attributes => [ qw( ATTRIBUTES ) ],
-	    transfer => 'transfer_tunnel_group',
-	    remove   => 'remove_tunnel_group',
 	},
 		
 	GROUP_POLICY => {
