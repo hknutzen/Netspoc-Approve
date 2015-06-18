@@ -34,7 +34,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.098'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -148,7 +148,7 @@ sub get_parse_info {
 
     # Handle tunnel-group general attributes.
     $info->{'tunnel-group _skip general-attributes'} = {
-	store => 'TUNNEL_GROUP',
+	store => 'TUNNEL_GROUP_GENERAL',
 	named => 1,
 	subcmd => {
 	    'default-group-policy' => {
@@ -400,51 +400,23 @@ sub postprocess_config {
     }
     delete $p->{HWIF};
 
-    # For tunnel-groups with an IP as name create new
-    # TUNNEL_GROUP_IPNAME-object.
-    for my $tg_intern ( values %{$p->{TUNNEL_GROUP_DEFINE}} ) {
-	my $int_name = $tg_intern->{name};
-	if ( is_ip( $int_name ) ) {
-	    $p->{TUNNEL_GROUP_IPNAME}->{$int_name} = {
-		name => $int_name,
-		orig => $tg_intern->{orig},
-		TYPE => $tg_intern->{TYPE},
-	    };
-	}
-    }
-
-    for my $what (qw(TUNNEL_GROUP TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN)) {
-        my %seen;
+    for my $what (qw(TUNNEL_GROUP_GENERAL TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN)) {
         for my $name (keys %{$p->{$what}}) {
-            next if $seen{$name}++;
-            $p->{TUNNEL_GROUP_DEFINE}->{$name} or 
+            my $base = $p->{TUNNEL_GROUP_DEFINE}->{$name} or 
                 abort("Missing type definition for tunnel-group $name");
+
+            # Add links to related commands.
+            $base->{$what} = $name;
         }
     }
 
-    # For tunnel-groups that only have ipsec-attributes and do
-    # not have an IP-address as name, create
-    # a tunnel-group with the same name.
-    # For those that DO have an IP-address as name, create a
-    # separate TUNNEL_GROUP_IPNAME_IPSEC-object (that is an anchor)
-    # and delete the original TUNNEL_GROUP_IPSEC-object.
-    my $tunnel_groups = $p->{TUNNEL_GROUP} ||= {};
-    for my $tg_ipsec_name ( keys %{$p->{TUNNEL_GROUP_IPSEC}} ) {
-	if ( is_ip( $tg_ipsec_name ) ) {
-	    $p->{TUNNEL_GROUP_IPNAME_IPSEC}->{$tg_ipsec_name} =
-                delete $p->{TUNNEL_GROUP_IPSEC}->{$tg_ipsec_name};
-            if ($p->{TUNNEL_GROUP}->{$tg_ipsec_name}) {
-                abort("tunnel-group <ip> general-attributes is not supported");
-            }
-	}
-	else {
-	    $p->{TUNNEL_GROUP}->{$tg_ipsec_name} ||= { name => $tg_ipsec_name };
-	}
-    }
-
-    # Dito for webvpn-attributes, which don't have IP address.
-    for my $name ( keys %{$p->{TUNNEL_GROUP_WEBVPN}} ) {
-        $p->{TUNNEL_GROUP}->{$name} ||= { name => $name };
+    # Create artificial anchor TUNNEL_GROUP_ANCHOR for tunnel_group
+    # with IP as name.
+    for my $name ( keys %{$p->{TUNNEL_GROUP_DEFINE}} ) {
+        my $tg = $p->{TUNNEL_GROUP_DEFINE}->{$name};
+	my $type = $tg->{TYPE};
+	$type eq 'ipsec-l2l' or next;
+        $p->{TUNNEL_GROUP_ANCHOR}->{$name} = { TUNNEL_GROUP => $name };
     }
 
     # TUNNEL_GROUP_MAP
@@ -463,19 +435,16 @@ sub postprocess_config {
 	    $anchor = $p->{CA_CERT_MAP}->{$tgm_name} or
 		abort("'$tgm->{orig}' references unknown ca cert map '$tgm_name'");
 	}
-        $anchor->{TUNNEL_GROUP} = $tg_name;
-        $p->{TUNNEL_GROUP_IPSEC}->{$tg_name} and
-            $anchor->{TUNNEL_GROUP_IPSEC} = $tg_name;
-        $p->{TUNNEL_GROUP_WEBVPN}->{$tg_name} and
-            $anchor->{TUNNEL_GROUP_WEBVPN} = $tg_name;
         
-	if (not $p->{TUNNEL_GROUP}->{$tg_name}) {
-	    if($tg_name =~ /^(?:DefaultL2LGroup)$/) {
-		$p->{TUNNEL_GROUP}->{$tg_name} ||= { name => $tg_name };
-	    }
-	    else {
-		abort("'$tgm->{orig}' references unknown tunnel-group $tg_name");
-	    }
+        $anchor->{TUNNEL_GROUP_DEFINE} = $tg_name;
+	if ($p->{TUNNEL_GROUP_DEFINE}->{$tg_name}) {
+        }
+        elsif($tg_name =~ /^(?:DefaultL2LGroup)$/) {
+            $p->{TUNNEL_GROUP_DEFINE}->{$tg_name} ||= { name => $tg_name,
+                                                        type => 'ipsec-l2l'};
+        }
+        else {
+            abort("'$tgm->{orig}' references unknown tunnel-group $tg_name");
 	}
     }
 
@@ -490,13 +459,9 @@ sub postprocess_config {
             my $cert = $p->{CA_CERT_MAP}->{$ca_map_name} or 
                 abort("'$cgm->{orig}' references unknown ca cert map '$ca_map_name'");
             my $tg_name = $cgm->{TUNNEL_GROUP};
-            $p->{TUNNEL_GROUP}->{$tg_name} or
+            $p->{TUNNEL_GROUP_DEFINE}->{$tg_name} or
                 abort("'$cgm->{orig}' references unknown tunnel-group $tg_name");
             $cert->{WEB_TUNNEL_GROUP} = $tg_name;
-            $p->{TUNNEL_GROUP_IPSEC}->{$tg_name} and
-                $cert->{WEB_TUNNEL_GROUP_IPSEC} = $tg_name;
-            $p->{TUNNEL_GROUP_WEBVPN}->{$tg_name} and
-                $cert->{WEB_TUNNEL_GROUP_WEBVPN} = $tg_name;
         }
 
         # Move to toplevel.
@@ -549,7 +514,7 @@ sub postprocess_config {
 
     # 'DefaultWEBVPNGroup' must not be removed, even if not referenced.
     $dflt_gp = 'DefaultWEBVPNGroup';
-    if ( $p->{TUNNEL_GROUP}->{$dflt_gp} ) {
+    if ( $p->{TUNNEL_GROUP_DEFINE}->{$dflt_gp} ) {
 	$p->{DEFAULT_WEBVPN_GROUP}->{$dflt_gp} = { name => $dflt_gp,
 						   TUNNEL_GROUP => $dflt_gp };
     }
@@ -602,18 +567,10 @@ sub define_structure {
 	},
 	
 	CA_CERT_MAP => { 
-	    next => [ { attr_name  => 'TUNNEL_GROUP',
-			parse_name => 'TUNNEL_GROUP', },
-		      { attr_name  => 'TUNNEL_GROUP_IPSEC',
-			parse_name => 'TUNNEL_GROUP_IPSEC', },
-		      { attr_name  => 'TUNNEL_GROUP_WEBVPN',
-			parse_name => 'TUNNEL_GROUP_WEBVPN', },
+	    next => [ { attr_name  => 'TUNNEL_GROUP_DEFINE',
+			parse_name => 'TUNNEL_GROUP_DEFINE', },
                       { attr_name  => 'WEB_TUNNEL_GROUP',
-			parse_name => 'TUNNEL_GROUP', },
-		      { attr_name  => 'WEB_TUNNEL_GROUP_IPSEC',
-			parse_name => 'TUNNEL_GROUP_IPSEC', },
-		      { attr_name  => 'WEB_TUNNEL_GROUP_WEBVPN',
-			parse_name => 'TUNNEL_GROUP_WEBVPN', },
+			parse_name => 'TUNNEL_GROUP_DEFINE', },
 		      ],
 	    attributes => [ qw( IDENTIFIER ) ],
 	    transfer    => 'transfer_ca_cert_map',
@@ -622,15 +579,15 @@ sub define_structure {
 	
 	DEFAULT_GROUP => {
 	    anchor => 1,
-	    next => [ { attr_name  => 'TUNNEL_GROUP',
-			parse_name => 'TUNNEL_GROUP', },
+	    next => [ { attr_name  => 'TUNNEL_GROUP_DEFINE',
+			parse_name => 'TUNNEL_GROUP_DEFINE', },
 		      { attr_name  => 'TUNNEL_GROUP_IPSEC',
 			parse_name => 'TUNNEL_GROUP_IPSEC', },
 		      { attr_name  => 'TUNNEL_GROUP_WEBVPN',
 			parse_name => 'TUNNEL_GROUP_WEBVPN', },
 		      ],
 	    transfer => 'transfer_default_group',
-	    remove   => 'remove_default_group',
+	    remove   => 'remove_obj',
 	},
 	
 	USERNAME => {
@@ -646,45 +603,53 @@ sub define_structure {
 	    remove     => 'remove_user',
 	},
 	
-	TUNNEL_GROUP => {
+	TUNNEL_GROUP_ANCHOR => {
+	    anchor => 1,
+	    next => [ { attr_name  => 'TUNNEL_GROUP',
+			parse_name => 'TUNNEL_GROUP_DEFINE',
+		    } ],
+	    transfer => sub {},
+	    remove   => sub {},
+	},
+	TUNNEL_GROUP_DEFINE => {
+	    next => [ { attr_name  => 'TUNNEL_GROUP_GENERAL',
+			parse_name => 'TUNNEL_GROUP_GENERAL',
+                      },
+                      { attr_name  => 'TUNNEL_GROUP_IPSEC',
+			parse_name => 'TUNNEL_GROUP_IPSEC',
+                      },
+                      { attr_name  => 'TUNNEL_GROUP_WEBVPN',
+			parse_name => 'TUNNEL_GROUP_WEBVPN',
+                      },
+                    ],
+	    attributes => [ qw( ATTRIBUTES ) ],
+	    transfer => 'transfer_tunnel_group',
+	    remove   => 'remove_tunnel_group',
+	},
+	TUNNEL_GROUP_GENERAL => {
+            postpone => 1,
 	    next => [ { attr_name  => 'DEFAULT_GROUP_POLICY',
 			parse_name => 'GROUP_POLICY',
                       } ],
 	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer => 'transfer_tunnel_group',
-	    remove   => 'remove_tunnel_group',
-	},
-	
-	# Anchors are processed alphabetically when
-	# transferred to device.
-	TUNNEL_GROUP_IPNAME => {
-	    anchor => 1,
-	    next => [],
-	    attributes => [ qw( ATTRIBUTES ) ],
-	    transfer => 'transfer_tunnel_group',
-	    remove   => 'remove_tunnel_group',
+	    remove   => 'remove_obj',
 	},
 	
 	TUNNEL_GROUP_IPSEC => {
+            postpone => 1,
 	    next => [],
 	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer => 'transfer_tunnel_group',
-	    remove   => 'remove_tunnel_group_xxx',
-	},
-	
-	TUNNEL_GROUP_IPNAME_IPSEC => {
-	    anchor => 1,
-	    next => [],
-	    attributes => [ qw( ATTRIBUTES ) ],
-	    transfer => 'transfer_tunnel_group',
-	    remove   => 'remove_tunnel_group_xxx',
+	    remove   => 'remove_obj',
 	},
 
 	TUNNEL_GROUP_WEBVPN => {
+            postpone => 1,
 	    next => [],
 	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer => 'transfer_tunnel_group',
-	    remove   => 'remove_tunnel_group_xxx',
+	    remove   => 'remove_obj',
 	},
 		
 	GROUP_POLICY => {
@@ -714,7 +679,7 @@ sub define_structure {
 	DEFAULT_WEBVPN_GROUP => {
 	    anchor => 1,
 	    next => [ { attr_name  => 'TUNNEL_GROUP',
-			parse_name => 'TUNNEL_GROUP', },
+			parse_name => 'TUNNEL_GROUP_DEFINE', },
 		      ],
 	    transfer => sub {},
 	    remove   => sub {},

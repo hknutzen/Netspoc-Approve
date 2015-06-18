@@ -162,7 +162,6 @@ END
 
 $out = <<END;
 tunnel-group some-name type ipsec-l2l
-tunnel-group some-name general-attributes
 tunnel-group some-name ipsec-attributes
 ikev2 local-authentication certificate Trustpoint2
 ikev2 remote-authentication certificate
@@ -240,29 +239,35 @@ $title = "Parse tunnel-group of type ipsec-l2l (IP as name)";
 $in = <<'END';
 tunnel-group 193.155.130.1 type ipsec-l2l
 tunnel-group 193.155.130.1 ipsec-attributes
- pre-shared-key *
  peer-id-validate nocheck
 tunnel-group 193.155.130.2 type ipsec-l2l
 tunnel-group 193.155.130.2 ipsec-attributes
- ikev1 pre-shared-key **
- trust-point ASDM_TrustPoint5
-tunnel-group 193.155.130.3 type ipsec-l2l
-tunnel-group 193.155.130.3 ipsec-attributes
  ikev2 local-authentication pre-shared-key ***
  ikev2 remote-authentication pre-shared-key ****
- trust-point ASDM_TrustPoint4
+tunnel-group 193.155.130.3 type ipsec-l2l
+tunnel-group 193.155.130.3 ipsec-attributes
+ peer-id-validate nocheck
+ ikev2 local-authentication certificate ASDM_TrustPoint1
+ ikev2 remote-authentication certificate
+crypto ca certificate map cert-map 10
+ subject-name attr ea eq cert@example.com
+tunnel-group-map cert-map 10 193.155.130.3 
+crypto map crypto-outside interface outside
 END
 
 $out = <<'END';
-tunnel-group 193.155.130.1 type ipsec-l2l
-tunnel-group 193.155.130.2 type ipsec-l2l
 tunnel-group 193.155.130.3 type ipsec-l2l
+tunnel-group 193.155.130.3 ipsec-attributes
+ikev2 local-authentication certificate ASDM_TrustPoint1
+ikev2 remote-authentication certificate
+peer-id-validate nocheck
+crypto ca certificate map cert-map-DRC-0 10
+subject-name attr ea eq cert@example.com
+tunnel-group-map cert-map-DRC-0 10 193.155.130.3
+tunnel-group 193.155.130.1 type ipsec-l2l
 tunnel-group 193.155.130.1 ipsec-attributes
 peer-id-validate nocheck
-tunnel-group 193.155.130.2 ipsec-attributes
-trust-point ASDM_TrustPoint5
-tunnel-group 193.155.130.3 ipsec-attributes
-trust-point ASDM_TrustPoint4
+tunnel-group 193.155.130.2 type ipsec-l2l
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
@@ -379,6 +384,7 @@ webvpn
 END
 
 $out = <<'END';
+tunnel-group VPN-tunnel-DRC-0 type remote-access
 access-list vpn-filter-DRC-0 extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
 access-list vpn-filter-DRC-0 extended deny ip any any
 access-list split-tunnel-DRC-0 standard permit 10.1.0.0 255.255.255.0
@@ -392,7 +398,6 @@ group-policy VPN-group-DRC-0 attributes
 address-pools value pool-DRC-0
 split-tunnel-network-list value split-tunnel-DRC-0
 vpn-filter value vpn-filter-DRC-0
-tunnel-group VPN-tunnel-DRC-0 type remote-access
 tunnel-group VPN-tunnel-DRC-0 general-attributes
 tunnel-group VPN-tunnel-DRC-0 general-attributes
 default-group-policy VPN-group-DRC-0
@@ -504,7 +509,6 @@ END
 $out = <<'END';
 tunnel-group NAME webvpn-attributes
 authentication aaa
-crypto ca certificate map ca-map 10
 no tunnel-group NAME ipsec-attributes
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);

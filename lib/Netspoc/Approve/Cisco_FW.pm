@@ -28,7 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 package Netspoc::Approve::Cisco_FW;
 
-our $VERSION = '1.097'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.098'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -52,15 +52,11 @@ my %define_object = (
 		     );
 
 my %conf_mode_entry = (
-                       TUNNEL_GROUP => {
+                       TUNNEL_GROUP_GENERAL => {
                            prefix  => 'tunnel-group',
                            postfix => 'general-attributes',
                        },
  		       TUNNEL_GROUP_IPSEC => {
-			   prefix  => 'tunnel-group',
-			   postfix => 'ipsec-attributes',
-		       },
- 		       TUNNEL_GROUP_IPNAME_IPSEC => {
 			   prefix  => 'tunnel-group',
 			   postfix => 'ipsec-attributes',
 		       },
@@ -101,7 +97,7 @@ my %attr2cmd =
 	 ADDRESS_POOL              => 'address-pools value',
 	 VPN_FILTER                => 'vpn-filter value',
      },
-     TUNNEL_GROUP => {
+     TUNNEL_GROUP_GENERAL => {
 	 DEFAULT_GROUP_POLICY      => 'default-group-policy',
      },
      DEFAULT_GROUP => {
@@ -983,11 +979,13 @@ sub generate_names_for_transfer {
 	next if $parse_name eq 'DYNAMIC_MAP';
 	my $hash = $spoc->{$parse_name};
 	for my $name ( keys %$hash ) {
-	    if ($parse_name eq 'TUNNEL_GROUP') {
-                my $type = $spoc->{TUNNEL_GROUP_DEFINE}->{$name}->{TYPE};
+	    if ($parse_name =~ /^TUNNEL_GROUP/) {
+                my $def = $spoc->{TUNNEL_GROUP_DEFINE}->{$name};
+                my $type = $def->{TYPE};
                 next if $type eq 'ipsec-l2l';
             }
-	    $hash->{$name}->{new_name} =
+            my $obj = $hash->{$name};
+	    $obj->{new_name} =
 		$generate_names_for_transfer->( $name, $conf->{$parse_name} );
 	}
     }
@@ -1510,10 +1508,19 @@ sub transfer1 {
 				      $spoc_name, 'no_err' );
 
     if ( my $parse = $structure->{$parse_name} ) {
+        my @postponed;
 	for my $pair (get_next_names($parse, $spoc_value)) {
 	    my ($next_parse_name, $spoc_next) = @$pair;
-	    $self->transfer1( $spoc, $next_parse_name,
-			      $spoc_next, $structure );
+
+            # Child object must be defined, but must only be
+            # transferred after parent object has been defined.
+            if ($structure->{$next_parse_name}->{postpone}) {
+                push @postponed, $pair;
+            }
+            else {
+                $self->transfer1( $spoc, $next_parse_name,
+                                  $spoc_next, $structure );
+            }
 	}
 
 	# Do actual transfer after recursion so
@@ -1525,12 +1532,22 @@ sub transfer1 {
 	    }
 	    else {
                 info("Transfer $parse_name $spoc_name");
+		$spoc_value->{transferred_as} = 
+                    $spoc_value->{new_name} || $spoc_value->{name};
 		$self->$method( $spoc, $structure, $parse_name, $spoc_name );
-		$spoc_value->{transferred_as} = $spoc_value->{new_name};
 	    }
 	}
 
+        # Process postponed objects.
+	for my $pair (@postponed) {
+	    my ($next_parse_name, $spoc_next) = @$pair;
+            $self->transfer1( $spoc, $next_parse_name,
+                              $spoc_next, $structure );
+	}
+
+
         # Change attributes of items in place.
+        info("Change $parse_name $spoc_name");
         $self->change_modified_attributes($spoc, $parse_name, $spoc_name, 
                                           $structure);
     }
@@ -1606,8 +1623,7 @@ sub remove_unneeded_on_device {
     # Caution: the order is significant in this array!
     my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
-                          TUNNEL_GROUP 
-                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME
+                          TUNNEL_GROUP_GENERAL TUNNEL_GROUP_DEFINE
                           TRANSFORM_SET IPSEC_PROPOSAL
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP 
@@ -1653,8 +1669,7 @@ sub remove_spare_objects_on_device {
 
     my @parse_names = qw( CRYPTO_MAP_SEQ DYNAMIC_MAP USERNAME CA_CERT_MAP 
 			  TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
-                          TUNNEL_GROUP
-                          TUNNEL_GROUP_IPNAME_IPSEC TUNNEL_GROUP_IPNAME 
+                          TUNNEL_GROUP_GENERAL TUNNEL_GROUP_DEFINE
                           GROUP_POLICY
 			  ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
 			  NO_SYSOPT_CONNECTION_PERMIT_VPN
@@ -1692,7 +1707,7 @@ sub mark_connected {
 	    my ($next_parse_name, $next_name) = @$pair;
 	    my $next_obj = $conf->{$next_parse_name}->{$next_name} or
 		abort("Can't find $next_parse_name $next_name" .
-                      " referenced by $object->{name}");
+                      " referenced by $parse_name $object->{name}");
 	    $self->mark_connected( $conf, $next_parse_name,
 				   $next_obj, $structure );
 	}
@@ -1745,6 +1760,7 @@ sub change_attributes {
     my @cmds;
 
     return if $parse_name =~ /^(CERT_ANCHOR|CRYPTO_MAP_LIST)$/;
+    return if $parse_name =~ /^TUNNEL_GROUP_(DEFINE|ANCHOR)$/;
     return if ( $spoc_value->{change_done} );
 
     info("Change attributes of $parse_name $spoc_name");
@@ -1763,7 +1779,7 @@ sub change_attributes {
 	}
     }
     elsif ($parse_name eq 'CA_CERT_MAP') {
-        if (my $tg_name = $attributes->{TUNNEL_GROUP}) {
+        if (my $tg_name = $attributes->{TUNNEL_GROUP_DEFINE}) {
             push @cmds, "tunnel-group-map $spoc_name 10 $tg_name";
         }
         if (my $tg_name = $attributes->{WEB_TUNNEL_GROUP}) {
@@ -1842,6 +1858,8 @@ sub remove_attributes {
     elsif ($parse_name eq 'DYNAMIC_MAP') {
         my $seq = $obj->{SEQ};
         $prefix = "crypto dynamic-map $item_name $seq";
+    }
+    elsif ($parse_name eq 'TUNNEL_GROUP_DEFINE') {
     }
     else {
 	push @cmds, item_conf_mode_cmd( $parse_name, $item_name );
@@ -1956,18 +1974,10 @@ sub transfer_default_group {
     my ( $self, $spoc, $structure, $parse_name, $default ) = @_;
     my $object = $spoc->{$parse_name}->{$default};
     my $tunnel_group_name = $object->{TUNNEL_GROUP};
-    my $tunnel_group = $spoc->{TUNNEL_GROUP}->{$tunnel_group_name};
+    my $tunnel_group = $spoc->{TUNNEL_GROUP_DEFINE}->{$tunnel_group_name};
     my $new_default_group = $tunnel_group->{new_name} || $tunnel_group->{name};
     my $cmd = "tunnel-group-map default-group $new_default_group";
     $self->cmd( $cmd );
-}
-
-sub remove_default_group {
-    my ( $self, $conf, $structure, $parse_name, $default ) = @_;
-    my $object = $conf->{$parse_name}->{$default};
-    my @cmds;
-    push @cmds, "no " . $object->{orig};
-    map { $self->cmd( $_ ) } @cmds;
 }
 
 sub transfer_user {
@@ -1992,27 +2002,22 @@ sub remove_user {
 
 sub transfer_tunnel_group {
     my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
-
-    my $tunnel_group = $spoc->{$parse_name}->{$obj_name} or
-	abort("No $parse_name found for $obj_name");
-    my $tg = $spoc->{TUNNEL_GROUP}->{$obj_name};
-    my $new_name = is_ip( $obj_name ) 
-               ? $obj_name
-
-               # Use same name for tg xxx-attributes if tg is already
-               # on device.
-               : $tg->{name_on_dev} || $tg->{new_name} || $tg->{name};
+    my $obj = $spoc->{$parse_name}->{$obj_name};
+    my $def = $spoc->{TUNNEL_GROUP_DEFINE}->{$obj_name};
+    my $new_name = $def->{TYPE} eq 'ipsec-l2l'
+                 ? $obj_name
+                 : $def->{name_on_dev} || $def->{new_name} || $def->{name};
     my @cmds;
-    if ( $parse_name =~ /^TUNNEL_GROUP(?:_IPNAME)?$/ ) {
-        my $define_item = $spoc->{TUNNEL_GROUP_DEFINE}->{$obj_name}->{orig};
+    if ( $parse_name eq 'TUNNEL_GROUP_DEFINE' ) {
+        my $define_item = $obj->{orig};
         $define_item =~ s/tunnel-group $obj_name(?!\S)/tunnel-group $new_name/;
         push @cmds, $define_item;
     }
 
-    if ( $parse_name ne 'TUNNEL_GROUP_IPNAME' ) {
+    else {
 	push @cmds, item_conf_mode_cmd( $parse_name, $new_name );
 	push @cmds, add_attribute_cmds( $structure, $parse_name,
-				    $tunnel_group, 'attributes' );
+				    $obj, 'attributes' );
     }
     map { $self->cmd( $_ ) } @cmds;
 }
@@ -2020,12 +2025,6 @@ sub transfer_tunnel_group {
 sub remove_tunnel_group {
     my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
     $self->cmd("clear configure tunnel-group $obj_name");
-}
-
-sub remove_tunnel_group_xxx {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
-    my $cmd = item_conf_mode_cmd($parse_name, $obj_name);
-    $self->cmd("no $cmd");
 }
 
 sub transfer_group_policy {
@@ -2412,6 +2411,7 @@ sub mark_as_changed {
 
     return if $parse_name eq 'IF';
     return if $parse_name eq 'CERT_ANCHOR';
+    return if $parse_name eq 'TUNNEL_GROUP_ANCHOR';
     return if $parse_name eq 'DEFAULT_GROUP';
     return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_changed($parse_name);
@@ -2422,6 +2422,7 @@ sub mark_as_unchanged {
 
     return if $parse_name eq 'IF';
     return if $parse_name eq 'CERT_ANCHOR';
+    return if $parse_name eq 'TUNNEL_GROUP_ANCHOR';
     return if $parse_name eq 'DEFAULT_GROUP';
     return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_unchanged($parse_name);
