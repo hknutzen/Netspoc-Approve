@@ -1760,7 +1760,7 @@ sub change_attributes {
     my @cmds;
 
     return if $parse_name =~ /^(CERT_ANCHOR|CRYPTO_MAP_LIST)$/;
-    return if $parse_name =~ /^TUNNEL_GROUP_(DEFINE|IPNAME|ANCHOR)$/;
+    return if $parse_name =~ /^TUNNEL_GROUP_(DEFINE|ANCHOR)$/;
     return if ( $spoc_value->{change_done} );
 
     info("Change attributes of $parse_name $spoc_name");
@@ -2008,7 +2008,7 @@ sub transfer_tunnel_group {
                  ? $obj_name
                  : $def->{name_on_dev} || $def->{new_name} || $def->{name};
     my @cmds;
-    if ( $parse_name =~ /^TUNNEL_GROUP_(?:DEFINE|IPNAME)$/ ) {
+    if ( $parse_name eq 'TUNNEL_GROUP_DEFINE' ) {
         my $define_item = $obj->{orig};
         $define_item =~ s/tunnel-group $obj_name(?!\S)/tunnel-group $new_name/;
         push @cmds, $define_item;
