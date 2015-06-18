@@ -1980,14 +1980,6 @@ sub transfer_default_group {
     $self->cmd( $cmd );
 }
 
-sub remove_default_group {
-    my ( $self, $conf, $structure, $parse_name, $default ) = @_;
-    my $object = $conf->{$parse_name}->{$default};
-    my @cmds;
-    push @cmds, "no " . $object->{orig};
-    map { $self->cmd( $_ ) } @cmds;
-}
-
 sub transfer_user {
     my ( $self, $spoc, $structure, $parse_name, $username ) = @_;
     my $user = $spoc->{$parse_name}->{$username};
@@ -2033,12 +2025,6 @@ sub transfer_tunnel_group {
 sub remove_tunnel_group {
     my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
     $self->cmd("clear configure tunnel-group $obj_name");
-}
-
-sub remove_tunnel_group_xxx {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
-    my $cmd = item_conf_mode_cmd($parse_name, $obj_name);
-    $self->cmd("no $cmd");
 }
 
 sub transfer_group_policy {

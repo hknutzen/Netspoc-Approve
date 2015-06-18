@@ -436,8 +436,8 @@ sub postprocess_config {
 		abort("'$tgm->{orig}' references unknown ca cert map '$tgm_name'");
 	}
         
+        $anchor->{TUNNEL_GROUP_DEFINE} = $tg_name;
 	if ($p->{TUNNEL_GROUP_DEFINE}->{$tg_name}) {
-            $anchor->{TUNNEL_GROUP_DEFINE} = $tg_name;
         }
         elsif($tg_name =~ /^(?:DefaultL2LGroup)$/) {
             $p->{TUNNEL_GROUP_DEFINE}->{$tg_name} ||= { name => $tg_name,
@@ -579,15 +579,15 @@ sub define_structure {
 	
 	DEFAULT_GROUP => {
 	    anchor => 1,
-	    next => [ { attr_name  => 'TUNNEL_GROUP',
-			parse_name => 'TUNNEL_GROUP', },
+	    next => [ { attr_name  => 'TUNNEL_GROUP_DEFINE',
+			parse_name => 'TUNNEL_GROUP_DEFINE', },
 		      { attr_name  => 'TUNNEL_GROUP_IPSEC',
 			parse_name => 'TUNNEL_GROUP_IPSEC', },
 		      { attr_name  => 'TUNNEL_GROUP_WEBVPN',
 			parse_name => 'TUNNEL_GROUP_WEBVPN', },
 		      ],
 	    transfer => 'transfer_default_group',
-	    remove   => 'remove_default_group',
+	    remove   => 'remove_obj',
 	},
 	
 	USERNAME => {
@@ -633,7 +633,7 @@ sub define_structure {
                       } ],
 	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer => 'transfer_tunnel_group',
-	    remove   => 'remove_tunnel_group',
+	    remove   => 'remove_obj',
 	},
 	
 	TUNNEL_GROUP_IPSEC => {
@@ -641,7 +641,7 @@ sub define_structure {
 	    next => [],
 	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer => 'transfer_tunnel_group',
-	    remove   => 'remove_tunnel_group_xxx',
+	    remove   => 'remove_obj',
 	},
 
 	TUNNEL_GROUP_WEBVPN => {
@@ -649,7 +649,7 @@ sub define_structure {
 	    next => [],
 	    attributes => [ qw( ATTRIBUTES ) ],
 	    transfer => 'transfer_tunnel_group',
-	    remove   => 'remove_tunnel_group_xxx',
+	    remove   => 'remove_obj',
 	},
 		
 	GROUP_POLICY => {
