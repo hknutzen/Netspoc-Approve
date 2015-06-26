@@ -112,14 +112,6 @@ eq_or_diff(approve('IOS', $device, $device), $out, $title);
 $title = "Parse crypto map";
 ############################################################
 $device = <<'END';
-
-crypto isakmp policy 1
- encryption 3des
- hash md5
- group 2
-
-crypto ipsec transform-set Trans esp-3des esp-md5-hmac
-
 ip access-list extended crypto-Dialer1-1
  permit ip 10.156.9.128 0.0.0.7 any
 
@@ -133,9 +125,6 @@ crypto map crypto-Dialer1 1 ipsec-isakmp
  match address crypto-Dialer1-1
  set ip access-group crypto-filter-Dialer1-1 in
  set peer 193.101.67.17
- set peer 193.101.67.20
- set transform-set Trans
- set pfs group2
 
 ip access-list extended Dialer1_in
  permit 50 host 193.101.67.17 any
@@ -462,7 +451,6 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 $title = "Change incoming crypto filter ACL";
 ############################################################
 $device = <<END;
-crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1
@@ -473,14 +461,12 @@ crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
  set ip access-group crypto-filter-Ethernet1-1 in
  set peer 10.156.4.206
- set transform-set Trans
 
 interface Ethernet1
  crypto map crypto-Ethernet1
 END
 
 $in = <<END;
-crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1
@@ -491,7 +477,6 @@ crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
  set ip access-group crypto-filter-Ethernet1-1 in
  set peer 10.156.4.206
- set transform-set Trans
 
 interface Ethernet1
  crypto map crypto-Ethernet1
@@ -512,7 +497,6 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 $title = "Change outgoing crypto filter ACL";
 ############################################################
 $device = <<END;
-crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1
@@ -523,14 +507,12 @@ crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
  set ip access-group crypto-filter-Ethernet1-1 out
  set peer 10.156.4.206
- set transform-set Trans
 
 interface Ethernet1
  crypto map crypto-Ethernet1
 END
 
 $in = <<END;
-crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1
@@ -541,7 +523,6 @@ crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
  set ip access-group crypto-filter-Ethernet1-1 out
  set peer 10.156.4.206
- set transform-set Trans
 
 interface Ethernet1
  crypto map crypto-Ethernet1
@@ -562,7 +543,6 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 $title = "Move incoming to outgoing crypto filter ACL";
 ############################################################
 $device = <<END;
-crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1-DRC-0
@@ -573,14 +553,12 @@ crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
  set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
  set peer 10.156.4.206
- set transform-set Trans
 
 interface Ethernet1
  crypto map crypto-Ethernet1
 END
 
 $in = <<END;
-crypto ipsec transform-set Trans esp-3des esp-sha-hmac
 ip access-list extended crypto-Ethernet1-1
  permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1
@@ -591,43 +569,24 @@ crypto map crypto-Ethernet1 1 ipsec-isakmp
  match address crypto-Ethernet1-1
  set ip access-group crypto-filter-Ethernet1-1 out
  set peer 10.156.4.206
- set transform-set Trans
 
 interface Ethernet1
  crypto map crypto-Ethernet1
 END
 
 $out = <<END;
+crypto map crypto-Ethernet1 1
 no set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
+no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 ip access-list extended crypto-filter-Ethernet1-1-DRC-1
 permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
 permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
 deny ip any any
 crypto map crypto-Ethernet1 1
 set ip access-group crypto-filter-Ethernet1-1-DRC-1 out
-no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
-
-
-############################################################
-$title = "Find differences in transform-set";
-############################################################
-$device = <<END;
-crypto ipsec transform-set Trans esp-3des esp-md5-hmac
-END
-
-$in = <<END;
-crypto ipsec transform-set Trans esp-des esp-sha-hmac
-END
-
-$out = <<END;
-ERROR>>> severe diffs in crypto ipsec detected
-END
-
-#eq_or_diff(approve('IOS', $device, $in), $out, $title);
-
 
 ############################################################
 $title = "Unknown interface in VRF";
