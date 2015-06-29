@@ -47,7 +47,10 @@ END
     write_file($spoc_file, $spoc);
     write_file("$spoc_file.raw", $raw) if $raw;
 
-    my $cmd = "perl -I lib bin/drc3.pl -q $conf_file $spoc_file";
+    # Propagate options to perl process.
+    my $perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
+
+    my $cmd = "$^X $perl_opt -I lib bin/drc3.pl -q $conf_file $spoc_file";
     my ($stdout, $stderr);
     run3($cmd, \undef, \$stdout, \$stderr);
     my $status = $? >> 1;

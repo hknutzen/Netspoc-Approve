@@ -1,10 +1,10 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
 # Description:
 # Approving device with netspoc configuration.
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 # (c) 2007 by Arne Spetzler
 #
 # This program is free software; you can redistribute it and/or modify
@@ -38,7 +38,7 @@ use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::ACE;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.098'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.099'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
