@@ -825,7 +825,6 @@ sub crypto_processing {
     if ($spoc->{CRYPTO_MAP}) {
         $self->{CHANGE}->{CRYPTO} = 0;
 
-        my %remove_acls;
         my $spoc_interfaces = $spoc->{IF};
         my $conf_interfaces = $conf->{IF};
 
