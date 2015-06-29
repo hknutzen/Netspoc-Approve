@@ -784,7 +784,7 @@ sub compare_crypto_map_entries {
 
             # Assign new acl to crypto map
             info("Assigning $new_acl");
-            $self->cmd("crypto map $spoc_entry->{name} $sequ");
+            $self->cmd("crypto map $conf_entry->{name} $sequ");
             $self->cmd("set ip access-group $new_acl $in_out");
             $self->leave_conf_mode();
             $self->cancel_reload();
