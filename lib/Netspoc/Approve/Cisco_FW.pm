@@ -1548,7 +1548,7 @@ sub transfer1 {
 
 
         # Change attributes of items in place.
-        info("Change $parse_name $spoc_name");
+#        info("Change $parse_name $spoc_name");
         $self->change_modified_attributes($spoc, $parse_name, $spoc_name, 
                                           $structure);
     }
