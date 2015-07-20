@@ -447,6 +447,41 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Modify tunnel-group l2l ipsec-attributes";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group 193.155.130.20 type ipsec-l2l
+tunnel-group 193.155.130.20 ipsec-attributes
+ pre-shared-key *
+ peer-id-validate nocheck
+END
+
+$in = <<'END';
+tunnel-group 193.155.130.20 type ipsec-l2l
+tunnel-group 193.155.130.20 ipsec-attributes
+ trust-point ASDM_TrustPoint5
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+crypto ca certificate map ca-map 10
+ subject-name attr ea eq some@example.com
+tunnel-group-map ca-map 20 193.155.130.20
+END
+
+$out = <<'END';
+tunnel-group 193.155.130.20 ipsec-attributes
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map-DRC-0 10
+subject-name attr ea eq some@example.com
+tunnel-group-map ca-map-DRC-0 10 193.155.130.20
+tunnel-group 193.155.130.20 ipsec-attributes
+no peer-id-validate
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Modify ip local pool";
 ############################################################
 $device = $minimal_device;

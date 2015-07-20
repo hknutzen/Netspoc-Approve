@@ -20,57 +20,47 @@ http://www.pjcj.net
 <h1>Branch Coverage</h1>
 <table>
 <tr><td class="h" align="right">File:</td><td align="left">lib/Netspoc/Approve/IOS.pm</td></tr>
-<tr><td class="h" align="right">Coverage:</td><td align="left" class="c0">49.0%</td></tr>
+<tr><td class="h" align="right">Coverage:</td><td align="left" class="c0">42.4%</td></tr>
 </table>
 <div><br/></div>
 <table>
 <tr><th>line</th><th>%</th><th colspan="2">coverage</th><th>branch</th></tr>
-<tr><td class="h"><a id="L342">342</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if (check_regex(&#39;object-group&#39;, $arg)) { }</td></tr>
-<tr><td class="h"><a id="L364">364</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if (defined(my $bits = check_int($arg)))</td></tr>
-<tr><td class="h"><a id="L379">379</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($$p{&#39;ROUTING&#39;})</td></tr>
-<tr><td class="h"><a id="L385">385</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if keys %$hash</td></tr>
-<tr><td class="h"><a id="L395">395</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">unless my $group_name = ref $what &amp;&amp; $$what{&#39;GROUP_NAME&#39;}</td></tr>
-<tr><td class="h"><a id="L396">396</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">unless my $group = $$object_groups{$group_name}</td></tr>
-<tr><td class="h"><a id="L406">406</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($$p{&#39;CRYPTO&#39;}{&#39;ISAKMP&#39;} and my $policies = $$p{&#39;CRYPTO&#39;}{&#39;ISAKMP&#39;}{&#39;POLICY&#39;})</td></tr>
-<tr><td class="h"><a id="L415">415</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (my $imap = $$intf{&#39;CRYPTO_MAP&#39;}) { }</td></tr>
+<tr><td class="h"><a id="L283">283</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if (check_regex(&#39;object-group&#39;, $arg)) { }</td></tr>
+<tr><td class="h"><a id="L311">311</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($$p{&#39;ROUTING&#39;})</td></tr>
+<tr><td class="h"><a id="L317">317</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if keys %$hash</td></tr>
+<tr><td class="h"><a id="L327">327</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">unless my $group_name = ref $what &amp;&amp; $$what{&#39;GROUP_NAME&#39;}</td></tr>
+<tr><td class="h"><a id="L328">328</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">unless my $group = $$object_groups{$group_name}</td></tr>
+<tr><td class="h"><a id="L337">337</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (my $imap = $$intf{&#39;CRYPTO_MAP&#39;}) { }</td></tr>
 <tr><td class="h"></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">elsif ($$intf{&#39;EZVPN&#39;}) { }</td></tr>
-<tr><td class="h"><a id="L417">417</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $map = $$p{&#39;CRYPTO&#39;}{&#39;MAP&#39;}{$imap}) { }</td></tr>
-<tr><td class="h"><a id="L428">428</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $def = $$p{&#39;CRYPTO&#39;}{&#39;IPSEC&#39;}{&#39;CLIENT_EZVPN&#39;}{$ezvpn}) { }</td></tr>
-<tr><td class="h"><a id="L437">437</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if ($crypto_map_found and $ezvpn_client_found)</td></tr>
-<tr><td class="h"><a id="L441">441</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($crypto_map_found) { }</td></tr>
+<tr><td class="h"><a id="L339">339</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $map = $$p{&#39;CRYPTO_MAP&#39;}{$imap}) { }</td></tr>
+<tr><td class="h"><a id="L350">350</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $def = $$p{&#39;CRYPTO_IPSEC_CLIENT_EZVPN&#39;}{$ezvpn}) { }</td></tr>
+<tr><td class="h"><a id="L359">359</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if ($crypto_map_found and $ezvpn_client_found)</td></tr>
+<tr><td class="h"><a id="L363">363</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($crypto_map_found) { }</td></tr>
 <tr><td class="h"></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">elsif ($ezvpn_client_found) { }</td></tr>
-<tr><td class="h"><a id="L443">443</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($map_used{$cm_name})</td></tr>
-<tr><td class="h"><a id="L452">452</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if $$entry{&#39;GDOI&#39;}</td></tr>
-<tr><td class="h"><a id="L453">453</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $acl_name = $$entry{&#39;MATCH_ADDRESS&#39;}) { }</td></tr>
-<tr><td class="h"><a id="L454">454</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $acl = $$p{&#39;ACCESS_LIST&#39;}{$acl_name}) { }</td></tr>
-<tr><td class="h"><a id="L469">469</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (my $acl_name = $$entry{&quot;ACCESS_GROUP_$what&quot;})</td></tr>
-<tr><td class="h"><a id="L470">470</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $acl = $$p{&#39;ACCESS_LIST&#39;}{$acl_name}) { }</td></tr>
-<tr><td class="h"><a id="L478">478</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $peers = $$entry{&#39;PEER&#39;}) { }</td></tr>
-<tr><td class="h"><a id="L484">484</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $trans_name = $$entry{&#39;TRANSFORM&#39;})</td></tr>
-<tr><td class="h"><a id="L485">485</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $trans = $$p{&#39;CRYPTO&#39;}{&#39;IPSEC&#39;}{&#39;TRANSFORM&#39;}{$trans_name}) { }</td></tr>
-<tr><td class="h"><a id="L503">503</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($ezvpn_used{$ez_name})</td></tr>
-<tr><td class="h"><a id="L510">510</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $acl_name = $$entry{&#39;ACL&#39;}) { }</td></tr>
-<tr><td class="h"><a id="L511">511</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $acl = $$p{&#39;ACCESS_LIST&#39;}{$acl_name}) { }</td></tr>
-<tr><td class="h"><a id="L525">525</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $num = $$entry{&#39;V_INTERFACE&#39;}) { }</td></tr>
-<tr><td class="h"><a id="L527">527</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if ($$p{&#39;IF&#39;}{$intf}) { }</td></tr>
-<tr><td class="h"><a id="L536">536</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $peers = $$entry{&#39;PEER&#39;}) { }</td></tr>
-<tr><td class="h"><a id="L580">580</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($line =~ /$regex/)</td></tr>
-<tr><td class="h"><a id="L585">585</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($line =~ /$regex/)</td></tr>
-<tr><td class="h"><a id="L598">598</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/)</td></tr>
-<tr><td class="h"><a id="L601">601</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($output =~ /(cisco\s+\S+) .*memory/i)</td></tr>
-<tr><td class="h"><a id="L620">620</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">unless ($$self{&#39;COMPARE&#39;})</td></tr>
-<tr><td class="h"><a id="L631">631</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if @$lines</td></tr>
-<tr><td class="h"><a id="L662">662</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($$lines[0] =~ /^Building configuration/) { }</td></tr>
+<tr><td class="h"><a id="L365">365</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($map_used{$cm_name})</td></tr>
+<tr><td class="h"><a id="L373">373</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if $$entry{&#39;GDOI&#39;}</td></tr>
+<tr><td class="h"><a id="L378">378</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (my $acl_name = $$entry{&quot;ACCESS_GROUP_$what&quot;})</td></tr>
+<tr><td class="h"><a id="L379">379</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless $$p{&#39;ACCESS_LIST&#39;}{$acl_name}</td></tr>
+<tr><td class="h"><a id="L389">389</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($ezvpn_used{$ez_name})</td></tr>
+<tr><td class="h"><a id="L397">397</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $num = $$entry{&#39;V_INTERFACE&#39;}) { }</td></tr>
+<tr><td class="h"><a id="L399">399</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if ($$p{&#39;IF&#39;}{$intf}) { }</td></tr>
+<tr><td class="h"><a id="L446">446</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($line =~ /$regex/)</td></tr>
+<tr><td class="h"><a id="L451">451</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($line =~ /$regex/)</td></tr>
+<tr><td class="h"><a id="L464">464</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/)</td></tr>
+<tr><td class="h"><a id="L467">467</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($output =~ /(cisco\s+\S+) .*memory/i)</td></tr>
+<tr><td class="h"><a id="L486">486</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">unless ($$self{&#39;COMPARE&#39;})</td></tr>
+<tr><td class="h"><a id="L497">497</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if @$lines</td></tr>
+<tr><td class="h"><a id="L528">528</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($$lines[0] =~ /^Building configuration/) { }</td></tr>
 <tr><td class="h"></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">elsif (grep {$_ =~ /startup-config file open failed/i;} @$lines) { }</td></tr>
-<tr><td class="h"><a id="L663">663</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($$lines[-1] =~ /\[OK\]/) { }</td></tr>
-<tr><td class="h"><a id="L672">672</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if (not $retries) { }</td></tr>
-<tr><td class="h"><a id="L689">689</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if $$self{&#39;COMPARE&#39;}</td></tr>
-<tr><td class="h"><a id="L694">694</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if $self-&gt;check_conf_mode</td></tr>
-<tr><td class="h"><a id="L698">698</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($out =~ /save/i)</td></tr>
-<tr><td class="h"><a id="L718">718</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">unless $$self{&#39;RELOAD_SCHEDULED&#39;}</td></tr>
-<tr><td class="h"><a id="L724">724</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($force)</td></tr>
-<tr><td class="h"><a id="L738">738</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if $self-&gt;check_conf_mode</td></tr>
-<tr><td class="h"><a id="L769">769</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($$output_ref =~ /
+<tr><td class="h"><a id="L529">529</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($$lines[-1] =~ /\[OK\]/) { }</td></tr>
+<tr><td class="h"><a id="L538">538</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if (not $retries) { }</td></tr>
+<tr><td class="h"><a id="L555">555</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if $$self{&#39;COMPARE&#39;}</td></tr>
+<tr><td class="h"><a id="L560">560</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if $self-&gt;check_conf_mode</td></tr>
+<tr><td class="h"><a id="L564">564</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($out =~ /save/i)</td></tr>
+<tr><td class="h"><a id="L584">584</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">unless $$self{&#39;RELOAD_SCHEDULED&#39;}</td></tr>
+<tr><td class="h"><a id="L590">590</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($force)</td></tr>
+<tr><td class="h"><a id="L604">604</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if $self-&gt;check_conf_mode</td></tr>
+<tr><td class="h"><a id="L635">635</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($$output_ref =~ /
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^ (.*?)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# Prefix from original command
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(?:\r\n{1,2}){3}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# 3 empty lines
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\x07 [*]{3}\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# BELL + ***
@@ -78,61 +68,29 @@ http://www.pjcj.net
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[*]{3}\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# ***
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(.*) $&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# Postfix from original command
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/sx)</td></tr>
-<tr><td class="h"><a id="L787">787</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($prefix =~ / \n $/msx and $postfix eq &#39;\\r\\n&#39;) { }</td></tr>
+<tr><td class="h"><a id="L653">653</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($prefix =~ / \n $/msx and $postfix eq &#39;\\r\\n&#39;) { }</td></tr>
 <tr><td class="h"></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">elsif (not $prefix and $postfix =~ /^ [\r\n]* $/sx) { }</td></tr>
-<tr><td class="h"><a id="L814">814</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (my $cached = $$self{&#39;CONNECTION&#39;})</td></tr>
-<tr><td class="h"><a id="L819">819</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">unless ($$self{&#39;CONSOLE&#39;})</td></tr>
-<tr><td class="h"><a id="L822">822</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">$ip ? :</td></tr>
-<tr><td class="h"><a id="L840">840</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if $self-&gt;check_conf_mode and not $$self{&#39;COMPARE&#39;}</td></tr>
-<tr><td class="h"><a id="L845">845</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($line =~ /^\*\D*(\d+).*?([\d.]+)$/) { }</td></tr>
-<tr><td class="h"><a id="L851">851</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">unless my $src_ip = quad2int($s_ip)</td></tr>
-<tr><td class="h"><a id="L855">855</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if $self-&gt;check_conf_mode and not $$self{&#39;COMPARE&#39;}</td></tr>
-<tr><td class="h"><a id="L859">859</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($line =~ /Local host:\s([\d.]+),\sLocal port:\s(\d+)/i) { }</td></tr>
-<tr><td class="h"><a id="L865">865</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">unless my $dst_ip = quad2int($d_ip)</td></tr>
-<tr><td class="h"><a id="L878">878</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if $$conf_entry{&#39;MODE&#39;} eq &#39;deny&#39;</td></tr>
-<tr><td class="h"><a id="L902">902</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (not ref $conf) { }</td></tr>
-<tr><td class="h"></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">elsif (ref $conf eq &#39;SCALAR&#39;) { }</td></tr>
-<tr><td class="h"></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">elsif (ref $conf eq &#39;ARRAY&#39;) { }</td></tr>
-<tr><td class="h"></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">elsif (ref $conf eq &#39;HASH&#39;) { }</td></tr>
-<tr><td class="h"><a id="L903">903</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (not ref $spoc) { }</td></tr>
-<tr><td class="h"><a id="L904">904</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if $conf eq $spoc</td></tr>
-<tr><td class="h"><a id="L914">914</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if (ref $spoc eq &#39;SCALAR&#39;) { }</td></tr>
-<tr><td class="h"><a id="L915">915</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if $self-&gt;crypto_struct_equal($$conf, $$spoc, $changes, $indent)</td></tr>
-<tr><td class="h"><a id="L926">926</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (ref $spoc eq &#39;ARRAY&#39;) { }</td></tr>
-<tr><td class="h"><a id="L929">929</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (@$conf == @$spoc) { }</td></tr>
-<tr><td class="h"><a id="L932">932</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($self-&gt;crypto_struct_equal($$conf[$i], $$spoc[$i], $changes, $indent))</td></tr>
-<tr><td class="h"><a id="L955">955</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (ref $spoc eq &#39;HASH&#39;) { }</td></tr>
-<tr><td class="h"><a id="L958">958</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($key =~ /^ACCESS_GROUP_(IN|OUT)$/) { }</td></tr>
-<tr><td class="h"></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">elsif ($key =~ /^(?:name|orig|line|
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FILTER_ACL|MATCH_ACL|SEQU|TRANSFORM)$/x) { }</td></tr>
-<tr><td class="h"></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">elsif (exists $$spoc{$key}) { }</td></tr>
-<tr><td class="h"><a id="L959">959</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless my $sequ = $$conf{&#39;SEQU&#39;}</td></tr>
-<tr><td class="h"><a id="L965">965</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($spoc_acl) { }</td></tr>
-<tr><td class="h"><a id="L966">966</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">unless ($self-&gt;acl_equal($$conf{&#39;FILTER_ACL&#39;}{&#39;LIST&#39;}, $$spoc{&#39;FILTER_ACL&#39;}{&#39;LIST&#39;}, $conf_acl, $spoc_acl, $key))</td></tr>
-<tr><td class="h"><a id="L991">991</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($key eq &#39;MATCH_ADDRESS&#39;) { }</td></tr>
-<tr><td class="h"><a id="L994">994</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($self-&gt;acl_equal($$conf{&#39;MATCH_ACL&#39;}{&#39;LIST&#39;}, $$spoc{&#39;MATCH_ACL&#39;}{&#39;LIST&#39;}, $$conf{$key}, $$spoc{$key}, $key))</td></tr>
-<tr><td class="h"><a id="L1008">1008</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($self-&gt;crypto_struct_equal($$conf{$key}, $$spoc{$key}, $changes, $indent))</td></tr>
-<tr><td class="h"><a id="L1026">1026</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (exists $$conf{$key}) { }</td></tr>
-<tr><td class="h"></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">elsif ($key =~ /^ACCESS_GROUP_(IN|OUT)$/) { }</td></tr>
-<tr><td class="h"></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">elsif ($key =~ /^(?:name|orig|line|
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FILTER_ACL|MATCH_ACL|SEQU|TRANSFORM)$/x) { }</td></tr>
-<tr><td class="h"><a id="L1031">1031</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless my $sequ = $$conf{&#39;SEQU&#39;}</td></tr>
-<tr><td class="h"><a id="L1064">1064</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">unless keys %{$$spoc{&#39;CRYPTO&#39;};}</td></tr>
-<tr><td class="h"><a id="L1068">1068</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (my $spoc_isakmp = $$spoc{&#39;CRYPTO&#39;}{&#39;ISAKMP&#39;})</td></tr>
-<tr><td class="h"><a id="L1071">1071</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (my $conf_isakmp = $$conf{&#39;CRYPTO&#39;}{&#39;ISAKMP&#39;}) { }</td></tr>
-<tr><td class="h"><a id="L1072">1072</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if ($self-&gt;crypto_struct_equal($conf_isakmp, $spoc_isakmp, $changes, &#39;&#39;)) { }</td></tr>
-<tr><td class="h"><a id="L1089">1089</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($$spoc{&#39;CRYPTO&#39;}{&#39;MAP&#39;})</td></tr>
-<tr><td class="h"><a id="L1097">1097</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($$spoc{&#39;IF&#39;}{$intf}{&#39;CRYPTO_MAP&#39;}) { }</td></tr>
-<tr><td class="h"><a id="L1102">1102</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if ($$conf{&#39;IF&#39;}{$intf}{&#39;CRYPTO_MAP&#39;})</td></tr>
-<tr><td class="h"><a id="L1112">1112</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($conf_map_name)</td></tr>
-<tr><td class="h"><a id="L1119">1119</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($self-&gt;crypto_struct_equal($$conf{&#39;CRYPTO&#39;}{&#39;MAP&#39;}{$conf_map_name}, $$spoc{&#39;CRYPTO&#39;}{&#39;MAP&#39;}{$spoc_map_name}, $changes, &#39;&#39;))</td></tr>
-<tr><td class="h"><a id="L1136">1136</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">$access_group =~ /_IN$/ ? :</td></tr>
-<tr><td class="h"><a id="L1143">1143</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($conf_acl)</td></tr>
-<tr><td class="h"><a id="L1146">1146</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($spoc_acl) { }</td></tr>
-<tr><td class="h"><a id="L1165">1165</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (keys %remove_acls)</td></tr>
-<tr><td class="h"><a id="L1178">1178</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (exists $$spoc{&#39;CRYPTO&#39;}{&#39;IPSEC&#39;})</td></tr>
-<tr><td class="h"><a id="L1184">1184</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if (exists $$conf{&#39;CRYPTO&#39;}{&#39;IPSEC&#39;}) { }</td></tr>
-<tr><td class="h"><a id="L1186">1186</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if ($self-&gt;crypto_struct_equal($$conf{&#39;CRYPTO&#39;}{&#39;IPSEC&#39;}, $$spoc{&#39;CRYPTO&#39;}{&#39;IPSEC&#39;}, $changes, &#39;&#39;)) { }</td></tr>
+<tr><td class="h"><a id="L680">680</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (my $cached = $$self{&#39;CONNECTION&#39;})</td></tr>
+<tr><td class="h"><a id="L685">685</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">unless ($$self{&#39;CONSOLE&#39;})</td></tr>
+<tr><td class="h"><a id="L688">688</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">$ip ? :</td></tr>
+<tr><td class="h"><a id="L706">706</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if $self-&gt;check_conf_mode and not $$self{&#39;COMPARE&#39;}</td></tr>
+<tr><td class="h"><a id="L711">711</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($line =~ /^\*\D*(\d+).*?([\d.]+)$/) { }</td></tr>
+<tr><td class="h"><a id="L717">717</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">unless my $src_ip = quad2int($s_ip)</td></tr>
+<tr><td class="h"><a id="L721">721</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if $self-&gt;check_conf_mode and not $$self{&#39;COMPARE&#39;}</td></tr>
+<tr><td class="h"><a id="L725">725</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">if ($line =~ /Local host:\s([\d.]+),\sLocal port:\s(\d+)/i) { }</td></tr>
+<tr><td class="h"><a id="L731">731</a></td><td class="c0">0</td><td class="c0">T</td><td class="c0">F</td><td class="s">unless my $dst_ip = quad2int($d_ip)</td></tr>
+<tr><td class="h"><a id="L744">744</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if $$conf_entry{&#39;MODE&#39;} eq &#39;deny&#39;</td></tr>
+<tr><td class="h"><a id="L763">763</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless my $sequ = $$conf_entry{&#39;SEQU&#39;}</td></tr>
+<tr><td class="h"><a id="L770">770</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($conf_acl and $spoc_acl)</td></tr>
+<tr><td class="h"><a id="L771">771</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if $self-&gt;acl_equal($$conf_acl{&#39;LIST&#39;}, $$spoc_acl{&#39;LIST&#39;}, $confacl_name, $spocacl_name, $attr)</td></tr>
+<tr><td class="h"><a id="L777">777</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($spoc_acl)</td></tr>
+<tr><td class="h"><a id="L794">794</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($conf_acl)</td></tr>
+<tr><td class="h"><a id="L795">795</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">unless ($spoc_acl)</td></tr>
+<tr><td class="h"><a id="L809">809</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if (@$conf_map != @$spoc_map)</td></tr>
+<tr><td class="h"><a id="L825">825</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($$spoc{&#39;CRYPTO_MAP&#39;})</td></tr>
+<tr><td class="h"><a id="L837">837</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">unless ($spoc_map_name)</td></tr>
+<tr><td class="h"><a id="L838">838</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if ($conf_map_name)</td></tr>
+<tr><td class="h"><a id="L844">844</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($conf_map_name)</td></tr>
 </table>
 </body>
 </html>
