@@ -1,5 +1,11 @@
 {{$NEXT}}
 
+1.100     2015-07-20 16:28:08+02:00 Europe/Berlin
+
+ - Fixed bug where tunnel-group with IP address occosionally was
+   tried to define twice. 
+   This occured if a corresponding tunnel-group-map was added.
+
 1.099     2015-06-29 11:40:47+02:00 Europe/Berlin
 
  - Crypto commands for IOS are assumed to be configured mostly manually now.
