@@ -1440,36 +1440,43 @@ sub make_equal {
 
 sub unify_anchors {
     my ( $self, $conf, $spoc, $structure ) = @_;
+    my %seen;
 
-    for my $key ( keys %$structure ) {
+    # Iterate over anchors on device.
+    # We use separte loops for conf_keys and spoc_keys,
+    # because TUNNEL_GROUP_DEFINE is both, anchor and 
+    # referenced by TUNNEL_GROUP_MAP.
+    for my $key (sort keys %$structure) {
         my $value = $structure->{$key};
-        next if not $value->{anchor};
-#	info("Processing anchor $key ... ");
+        $value->{anchor} or next;
+#	info("Processing conf anchor $key ... ");
         my $conf_anchor = $conf->{$key};
-        my $spoc_anchor = $spoc->{$key};
-	my %seen;
-
-	# Iterate over anchors on device.
-        for my $conf_key ( sort keys %$conf_anchor ) {
-	    $seen{$conf_key} = 1;
-	    my $new_conf = 
-		$self->make_equal( $conf, $spoc, $key,
-				   $conf_key, $conf_key,
-				   $structure );
+        for my $conf_key (sort keys %$conf_anchor) {
+	    $seen{$key}->{$conf_key} = 1;
+	    my $new_conf = $self->make_equal( $conf, $spoc, $key,
+                                              $conf_key, $conf_key,
+                                              $structure );
 	    if ( $new_conf && $conf_key ne $new_conf ) {
 		internal_err "Anchors known so far are made equal by " .
 		    "changing their attributes, not by transfer. " .
 		    "(Anchor in conf: $key:$conf_key)";
 	    }
 	}
-	# Iterate over anchors in netspoc (without those already
-	# processed iterating over anchors on device).
-        for my $spoc_key ( keys %$spoc_anchor ) {
-	    next if $seen{$spoc_key};
-	    my $new_spoc = 
-		$self->make_equal( $conf, $spoc, $key,
-				   $spoc_key, $spoc_key,
-				   $structure );
+    }
+
+    # Iterate over anchors in netspoc (without those already
+    # processed iterating over anchors on device).
+    for my $key (sort keys %$structure) {
+        my $value = $structure->{$key};
+        $value->{anchor} or next;
+#	info("Processing spoc anchor $key ... ");
+        my $conf_anchor = $conf->{$key};
+        my $spoc_anchor = $spoc->{$key};
+        for my $spoc_key (sort keys %$spoc_anchor) {
+	    next if $seen{$key}->{$spoc_key};
+	    my $new_spoc = $self->make_equal( $conf, $spoc, $key,
+                                              $spoc_key, $spoc_key,
+                                              $structure );
 	}
     }
 }
@@ -1504,7 +1511,7 @@ sub change_modified_attributes {
 sub transfer1 {
     my ( $self, $spoc, $parse_name, $spoc_name, $structure ) = @_;
 
-#    info("PROCESS $parse_name:$spoc_name"); 
+    info("PROCESS $parse_name:$spoc_name"); 
     my $spoc_value = object_for_name( $spoc, $parse_name,
 				      $spoc_name, 'no_err' );
 
@@ -1527,12 +1534,13 @@ sub transfer1 {
 	# Do actual transfer after recursion so
 	# that we start with the leaves.
 	my $method = $parse->{transfer};
+        debug "Spoc transfer" if $spoc_value->{transfer};
 	if ( $spoc_value->{transfer} and $method ) {
 	    if ( my $transferred_as = $spoc_value->{transferred_as} ) {
-		#info("$spoc_name already transferred as $transferred_as! ");
+		info("$spoc_name already transferred as $transferred_as! ");
 	    }
 	    else {
-                info("Transfer $parse_name $spoc_name");
+                info("Transfer1 $parse_name $spoc_name");
 		$spoc_value->{transferred_as} = 
                     $spoc_value->{new_name} || $spoc_value->{name};
 		$self->$method( $spoc, $structure, $parse_name, $spoc_name );
@@ -1548,7 +1556,7 @@ sub transfer1 {
 
 
         # Change attributes of items in place.
-#        info("Change $parse_name $spoc_name");
+        info("Change $parse_name $spoc_name");
         $self->change_modified_attributes($spoc, $parse_name, $spoc_name, 
                                           $structure);
     }
