@@ -28,7 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 package Netspoc::Approve::Cisco_FW;
 
-our $VERSION = '1.101'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.102'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;

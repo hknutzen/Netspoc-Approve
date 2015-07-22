@@ -36,7 +36,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.101'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.102'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -114,6 +114,8 @@ my %PORT_Names_TCP = (
     'chargen'           => 19,
     'citrix-ica'        => 1494,
     'cmd'               => 514,
+    'connectedapps-plain' => 15001, 
+    'connectedapps-tls' => 15002,
     'ctiqbe'		=> 2748,
     'daytime'           => 13,
     'discard'           => 9,
@@ -139,6 +141,7 @@ my %PORT_Names_TCP = (
     'login'             => 513,
     'lotusnotes'        => 1352,
     'lpd'               => 515,
+    'msrpc'             => 135,
     'netbios-ssn'       => 139,
     'nfs'               => 2049,
     'nntp'              => 119,
@@ -194,6 +197,7 @@ my %PORT_Names_UDP = (
     'radius-acct'   => 1646,
     'rip'           => 520,
     'ripng'         => 521,
+    'ripv6'         => 521,
     'sip'           => 5060,
     'snmp'          => 161,
     'snmptrap'      => 162,
