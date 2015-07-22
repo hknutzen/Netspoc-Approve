@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.100'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.101'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -737,20 +737,20 @@ sub compare_crypto_map_entries {
                 and next;
         }
 
+        $self->enter_conf_mode();
+
         # Add ACL to device.
         if ($spoc_acl) {
 
             # Add new ACL
             $self->schedule_reload(5);
             info("Creating new ACL");
-            $self->enter_conf_mode();
             my $new_acl = $self->define_acl($conf, $spoc, $spocacl_name);
 
             # Assign new acl to crypto map
             info("Assigning $new_acl");
             $self->cmd("crypto map $conf_entry->{name} $sequ");
             $self->cmd("set ip access-group $new_acl $in_out");
-            $self->leave_conf_mode();
             $self->cancel_reload();
         }
         
@@ -764,6 +764,7 @@ sub compare_crypto_map_entries {
             }
             $self->remove_acl($conf_acl);
         }
+        $self->leave_conf_mode();
     }
 }
 
