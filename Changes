@@ -1,5 +1,10 @@
 {{$NEXT}}
 
+1.102     2015-07-22 17:06:42+02:00 Europe/Berlin
+
+ - Added port names msrpc, ripv6, connectedapps-plain, connectedapps-tls
+   for Cisco ISR-4321 router.
+
 1.101     2015-07-22 09:56:51+02:00 Europe/Berlin
 
  - Fix: Enter conf mode before removing crypto filter ACL.
