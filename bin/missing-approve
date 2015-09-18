@@ -47,7 +47,7 @@ compare_files () {
 
 cd $CODE 
 for device in * ; do
-    case $device in *.raw) continue;; esac
+    case $device in *.*|\*) continue;; esac
     file=$STATUS/$device
     if [ ! -r $file ] ; then
         # Device has never been approved
