@@ -1,3 +1,14 @@
+1.103     2015-09-22 16:54:12+02:00 Europe/Berlin
+
+ - No longer show annoying 'PROCESS/Change' messages when approving
+   Cisco firewall.
+ - Prepare for upcoming change of Netspoc to two pass compiler:
+   - Ignore any file with extension in pxx/code, not only *.raw files.
+   - newpolicy.pl 
+     - adds symlink pxx+1/code/.prev pointing to pxx/code
+     - removes pxx/code/*.{config,rules} after pxx+1/code has successfully
+       been generated.
+
 1.102     2015-07-22 17:06:42+02:00 Europe/Berlin
 
  - Added port names msrpc, ripv6, connectedapps-plain, connectedapps-tls

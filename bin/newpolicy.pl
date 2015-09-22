@@ -18,7 +18,7 @@ Integrates NetSPoC with version control / build management.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -142,7 +142,7 @@ system('cvs', '-Q', 'checkout', '-P', '-d', 'src', $module) == 0 or
     log_abort("Can't checkout to $psrc: $!");
 
 # Read current policy name from POLICY file.
-my $fcount;
+my $fcount = 0;
 my $policy_file = "$psrc/$module/POLICY";
 if (open(my $policy_fh, '<', $policy_file)) {
     my $line = <$policy_fh>;
@@ -152,20 +152,26 @@ if (open(my $policy_fh, '<', $policy_file)) {
     ($fcount) = ($line =~ m'^#? *p(\d+) ') or
 	log_abort("No valid policy name found in $policy_file");
 }
-else {
-    $fcount = 0;
-}
 
 # Read current policy name from symbolic link.
-my $lcount;
-if(my $name = readlink $link) {
+my $lcount = 0;
+my $prev_policy;
+if($prev_policy = readlink $link) {
 
     # Link must have name "p<number>".
-    ($lcount) = ($name =~ /^p(\d+)$/) or
-	log_abort("Invalid policy name '$name' found in $link");
+    ($lcount) = ($prev_policy =~ /^p(\d+)$/) or
+	log_abort("Invalid policy name '$prev_policy' found in $link");
 }
-else {
-    $lcount = 0;
+
+# Create symlink from new to old code directory,
+# to speed up pass 2 of Netspoc compiler.
+my $prev_link;
+if ($prev_policy) {
+   mkdir $pcode or abort("Error: can't create $pcode: $!");
+   my $prev_code = "../../$prev_policy/code";
+   $prev_link = "$pcode/.prev";
+   symlink $prev_code, $prev_link or
+       log_abort("Failed to create symlink $prev_link to $prev_code");
 }
 
 # Compare $fcount and $lcount.
@@ -218,6 +224,13 @@ if ($? == 0) {
     symlink $policy, $link or
 	log_abort("Failed to create symlink $link to $policy");
     log_line("Updated current policy to '$policy'\n");
+
+    # Cleanup previous code directory.
+    # Remove huge and no longer used files from pass 1.
+    if ($prev_policy) {
+        my $prev_code = "$policydb/$prev_policy/code";
+        unlink glob("$prev_code/*.config $prev_code/*.rules");
+    }
 
     # Run newpolicy_hooks on newly created policy.
     if (my $hooks = $config->{newpolicy_hooks}) {
