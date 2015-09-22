@@ -1511,7 +1511,7 @@ sub change_modified_attributes {
 sub transfer1 {
     my ( $self, $spoc, $parse_name, $spoc_name, $structure ) = @_;
 
-    info("PROCESS $parse_name:$spoc_name"); 
+#    info("PROCESS $parse_name:$spoc_name"); 
     my $spoc_value = object_for_name( $spoc, $parse_name,
 				      $spoc_name, 'no_err' );
 
@@ -1534,13 +1534,13 @@ sub transfer1 {
 	# Do actual transfer after recursion so
 	# that we start with the leaves.
 	my $method = $parse->{transfer};
-        debug "Spoc transfer" if $spoc_value->{transfer};
+#        debug "Spoc transfer" if $spoc_value->{transfer};
 	if ( $spoc_value->{transfer} and $method ) {
 	    if ( my $transferred_as = $spoc_value->{transferred_as} ) {
-		info("$spoc_name already transferred as $transferred_as! ");
+#		info("$spoc_name already transferred as $transferred_as! ");
 	    }
 	    else {
-                info("Transfer1 $parse_name $spoc_name");
+#                info("Transfer1 $parse_name $spoc_name");
 		$spoc_value->{transferred_as} = 
                     $spoc_value->{new_name} || $spoc_value->{name};
 		$self->$method( $spoc, $structure, $parse_name, $spoc_name );
@@ -1556,7 +1556,7 @@ sub transfer1 {
 
 
         # Change attributes of items in place.
-        info("Change $parse_name $spoc_name");
+#        info("Change $parse_name $spoc_name");
         $self->change_modified_attributes($spoc, $parse_name, $spoc_name, 
                                           $structure);
     }
