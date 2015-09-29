@@ -706,6 +706,11 @@ sub get_my_connection {
 sub is_device_access {
     my ($self, $conf_entry) = @_;
     return 0 if $conf_entry->{MODE} eq 'deny';
+
+    # Encrypted traffic may be used to access this device.
+    my $proto = $conf_entry->{TYPE};
+    return 1 if $proto eq 50 || $proto eq 51;
+
     my ($device_src, $device_dst, $device_proto) = $self->get_my_connection();
     return
 	$self->ip_netz_a_in_b($device_src, $conf_entry->{SRC}) &&
