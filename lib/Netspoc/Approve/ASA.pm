@@ -71,63 +71,15 @@ sub get_parse_info {
     };
 
 # ASA 8.4 and later
-####
+# Command is ignored,
+# but must be parsed as lon we parse old pre 8.4 nat command
 # nat (inside,outside) [line] source static|dynamic 
 #  <object>|any <object>|any|interface
 #  [destination static <object>|interface <object>|any] [dns] [unidirectional] 
     $info->{'nat _skip source'} =     
     $info->{'nat _skip _skip source'} = {
-        store => 'TWICE_NAT',
-        multi => 1,
-        parse => ['seq',
-                  { store_multi => ['LOCAL_IF', 'GLOBAL_IF'], 
-                    parse => \&get_paren_token },
-
-                  # Ignore line number. It is used implicitly from {orig}.
-                  # This version supports only "1" as value.
-                  { parse => sub { 
-                      my ($arg) = @_;
-                      my $line = check_int($arg);
-                      if (defined($line) && $line != 1) {
-                          unread($arg);
-                          err_at_line($arg, 'Only line number "1" is supported');
-                      }
-                      return;
-                                   
-                    },
-                  },
-                  { store => 'TYPE', parse => qr/static|dynamic/ },
-                  { store => 'FROM', parse => \&get_token },
-                  { store => 'TO' , parse => \&get_token },
-                  ['cond1',
-                   { parse => qr/destination/ },
-                   { store => 'DST_TYPE', parse => qr/static/ },
-                   { store => 'DST_FROM', parse => \&get_token },
-                   { store => 'DST_TO' , parse => \&get_token } ],
-                  { store => 'DNS', parse => qr/dns/ },
-                  { store => 'UNIDIRECTIONAL', parse => qr/unidirectional/ },
-            ]
+        parse => \&skip,
     };
-
-# object network <name>
-#  subnet <ip> <mask>
-#  range <ip> <ip>
-#  host <ip>
-    $info->{'object network'} = {
-        store => 'OBJECT',
-        named => 1,
-        subcmd => {
-            subnet => { store => 'SUBNET',
-                        parse => ['seq',
-                                  { store => 'BASE', parse => \&get_ip },
-                                  { store => 'MASK', parse => \&get_ip } ] },
-            range => { store => 'RANGE',
-                       parse => ['seq',
-                                 { store => 'FROM', parse => \&get_ip },
-                                 { store => 'TO', parse => \&get_ip } ] },
-            host  => { store => 'HOST', parse => \&get_ip },
-        }
-    };        
 
     $info->{'no sysopt connection permit-vpn'} = {
 	store => ['NO_SYSOPT_CONNECTION_PERMIT_VPN', 'name', 'value'],
@@ -364,10 +316,6 @@ sub get_parse_info {
 
 sub postprocess_config {
     my ( $self, $p ) = @_;
-
-    if( $p->{NAT_CONTROL} ) {
-	abort("Please disable 'nat-control'");
-    }
 
     for my $name (keys %{$p->{OBJECT}}) {
 

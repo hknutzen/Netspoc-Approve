@@ -62,7 +62,7 @@ check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 
 ############################################################
-$title = "Parse static, global, nat";
+$title = "Parse pre 8.4 dstatic, global, nat";
 ############################################################
 $in = <<END;
 global (outside) 1 10.48.56.5 netmask 255.255.255.255
@@ -76,63 +76,6 @@ global (outside) 1 10.48.56.5 netmask 255.255.255.255
 nat (inside) 1 10.48.48.0 255.255.248.0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
-
-############################################################
-$title = "Parse ASA 8.4 nat";
-############################################################
-$in = <<END;
-object network 10.9.1.33_255.255.255.255
- subnet 10.9.1.33 255.255.255.255
-object network 1.1.1.23_255.255.255.255
- subnet 1.1.1.23 255.255.255.255
-nat (inside,outside) 1 source static 10.9.1.33_255.255.255.255 1.1.1.23_255.255.255.255
-object network 10.9.1.0_255.255.255.0
- subnet 10.9.1.0 255.255.255.0
-object network 1.1.1.16-1.1.1.31
- range 1.1.1.16 1.1.1.31
-nat (inside,outside) source dynamic 10.9.1.0_255.255.255.0 1.1.1.16-1.1.1.31
-END
-
-$out = <<END;
-object network 1.1.1.16-1.1.1.31
-range 1.1.1.16 1.1.1.31
-object network 1.1.1.23_255.255.255.255
-subnet 1.1.1.23 255.255.255.255
-object network 10.9.1.0_255.255.255.0
-subnet 10.9.1.0 255.255.255.0
-object network 10.9.1.33_255.255.255.255
-subnet 10.9.1.33 255.255.255.255
-nat (inside,outside) 1 source static 10.9.1.33_255.255.255.255 1.1.1.23_255.255.255.255
-nat (inside,outside) source dynamic 10.9.1.0_255.255.255.0 1.1.1.16-1.1.1.31
-END
-check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
-
-############################################################
-$title = "Modify ASA 8.4 NAT";
-############################################################
-$device = $minimal_device;
-$device .= <<'END';
-object network 10.9.1.33_255.255.255.255
- subnet 10.9.1.33 255.255.255.255
-object network 1.1.1.23_255.255.255.255
- subnet 1.1.1.23 255.255.255.255
-nat (inside,outside) source static 10.9.1.33_255.255.255.255 1.1.1.23_255.255.255.255
-END
-
-$in = <<'END';
-object network 10.9.1.33_255.255.255.255
- subnet 10.9.1.33 255.255.255.255
-object network 1.1.1.23_255.255.255.255
- subnet 1.1.1.23 255.255.255.255
-nat (inside,outside) 1 source static any any destination static 1.1.1.23_255.255.255.255 10.9.1.33_255.255.255.255
-END
-
-$out = <<END;
-no nat (inside,outside) source static 10.9.1.33_255.255.255.255 1.1.1.23_255.255.255.255
-nat (inside,outside) 1 source static any any destination static 1.1.1.23_255.255.255.255 10.9.1.33_255.255.255.255
-END
-
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Parse crypto map, dynamic map with tunnel-group";
