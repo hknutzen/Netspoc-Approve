@@ -1,5 +1,16 @@
 {{$NEXT}}
 
+1.104     2015-10-02 14:52:24+02:00 Europe/Berlin
+
+ - An ACL line that permits ESP or AH (protocol 50 or 51)
+   is no longer moved inside an existing ACL.
+   A new ACL is created instead.
+   This is done to prevent accidental lock out from device,
+   if the device is accessed via an ESP/AH tunnel.
+ - Twice NAT command of ASA >= 8.4 isn't touched by approve any longer.
+   Twice NAT and the corresponding "network object" commands
+   have to be configured manually now.
+
 1.103     2015-09-22 16:54:12+02:00 Europe/Berlin
 
  - No longer show annoying 'PROCESS/Change' messages when approving
