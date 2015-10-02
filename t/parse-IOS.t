@@ -176,8 +176,8 @@ $title = "Change ACL";
 $device = <<END;
 ip access-list extended test-DRC-0
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq ntp
- permit esp 10.0.5.0 0.0.0.255 host 10.0.1.11
- permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
+ permit gre 10.0.5.0 0.0.0.255 host 10.0.1.11
+ permit igmp 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
 ! permit udp host 10.0.12.3 host 10.0.1.11 eq 80
  permit tcp any host 10.0.1.11 range 7937 8999
@@ -193,11 +193,11 @@ $in = <<END;
 ip access-list extended test
  permit icmp any host 10.0.1.11 3 3
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
- permit 50 10.0.5.0 0.0.0.255 host 10.0.1.11
+ permit 47 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
  permit udp host 10.0.12.3 host 10.0.1.11 eq 80
 ! permit tcp any host 10.0.1.11 range 7937 8999
- permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
+ permit igmp 10.0.5.0 0.0.0.255 host 10.0.1.11
  deny ip any any log-input
 
 interface Serial1
@@ -212,7 +212,7 @@ no 60000\\N 1 permit icmp any host 10.0.1.11 3 3
 40001 permit udp host 10.0.12.3 host 10.0.1.11 eq 80
 no 70000\\N 40003 deny ip any any log-input
 no 50000
-no 30000\\N 40002 permit ah 10.0.5.0 0.0.0.255 host 10.0.1.11
+no 30000\\N 40002 permit igmp 10.0.5.0 0.0.0.255 host 10.0.1.11
 ip access-list resequence test-DRC-0 10 10
 END
 
@@ -439,6 +439,47 @@ ip access-list extended test-DRC-1
 permit tcp any host 10.1.13.33
 permit tcp any host 10.1.13.31
 permit tcp any host 10.1.13.32
+deny ip any any
+interface Ethernet1
+ip access-group test-DRC-1 in
+no ip access-list extended test-DRC-0
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Don't change ACL where ESP/AH may permit administrative access";
+############################################################
+$device = <<END;
+ip access-list extended test-DRC-0
+ permit icmp any host 10.1.13.31
+ permit icmp any host 10.1.13.32
+ permit esp any host 10.1.13.31
+ permit tcp any host 10.1.13.33
+ deny ip any any
+
+interface Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$in = <<END;
+ip access-list extended test
+ permit esp any host 10.1.13.31
+ permit icmp any host 10.1.13.31
+ permit icmp any host 10.1.13.32
+ permit tcp any host 10.1.13.33
+ deny ip any any
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+ip access-list extended test-DRC-1
+permit esp any host 10.1.13.31
+permit icmp any host 10.1.13.31
+permit icmp any host 10.1.13.32
+permit tcp any host 10.1.13.33
 deny ip any any
 interface Ethernet1
 ip access-group test-DRC-1 in

@@ -28,7 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 package Netspoc::Approve::Cisco_FW;
 
-our $VERSION = '1.103'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.104'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -921,39 +921,6 @@ sub transfer_lines {
 	$equal{$s} and next;
         $self->{CHANGE}->{$type} = 1;
 	$self->cmd($s->{orig});
-    }
-}
-
-sub add_object_lines {
-    my ($self, $conf, $spoc) = @_;
-    my $conf_hash = $conf->{OBJECT} || {};
-    my $spoc_hash = $spoc->{OBJECT} || {};
-    for my $name (sort keys %$spoc_hash) { 
-        $self->{CHANGE}->{OBJECT} ||= 0;
-        next if $conf_hash->{$name};
-        $self->{CHANGE}->{OBJECT} = 1;
-        my $value = $spoc_hash->{$name};
-
-        # Code from Netspoc contains line number for some commands.
-	$self->cmd($value->{orig});
-        for my $type (qw(SUBNET RANGE HOST)) {
-            if (my $subcmd = $value->{$type}) {
-                $self->cmd($subcmd->{orig});
-                last;
-            }
-        }
-    }
-}
-
-sub delete_object_lines {
-    my ($self, $conf, $spoc) = @_;
-    my $conf_hash = $conf->{OBJECT} || {};
-    my $spoc_hash = $spoc->{OBJECT} || {};
-    for my $name (sort keys %$conf_hash) { 
-        $self->{CHANGE}->{OBJECT} ||= 0;
-        next if $spoc_hash->{$name};
-        $self->{CHANGE}->{OBJECT} = 1;
-	$self->cmd("no $conf_hash->{$name}->{orig}");
     }
 }
 
@@ -2291,11 +2258,9 @@ sub transfer {
     $self->traverse_netspoc_tree( $spoc, $structure );
     $self->remove_unneeded_on_device( $conf, $structure );
 
-    $self->add_object_lines($conf, $spoc);
-    for my $type ( qw( STATIC GLOBAL NAT TWICE_NAT) ) {
+    for my $type ( qw(STATIC GLOBAL NAT) ) {
         $self->transfer_lines($conf, $spoc, $type);
     }
-    $self->delete_object_lines($conf, $spoc);
     $self->leave_conf_mode();
 }
 
