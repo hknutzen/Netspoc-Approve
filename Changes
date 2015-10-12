@@ -1,3 +1,10 @@
+1.105     2015-10-12 14:36:40+02:00 Europe/Berlin
+
+ - NAT commands (nat, global, static) are ignored now for all versions
+   of ASA, even for ASA with version < 8.4.
+ - Handling of NAT at old PIX devices is currently unchanged,
+   but support for these devices will be dropped at end of year.
+
 1.104     2015-10-02 14:52:24+02:00 Europe/Berlin
 
  - An ACL line that permits ESP or AH (protocol 50 or 51)

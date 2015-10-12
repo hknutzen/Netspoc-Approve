@@ -34,7 +34,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.104'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.105'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -64,21 +64,6 @@ sub get_parse_info {
 		'management-only' => { 
 		    store => 'MANAGEMENT_ONLY', default => 1 },
 	    }
-    };
-    $info->{'nat-control'} = {
-	store => 'NAT_CONTROL',
-	default => 1,
-    };
-
-# ASA 8.4 and later
-# Command is ignored,
-# but must be parsed as lon we parse old pre 8.4 nat command
-# nat (inside,outside) [line] source static|dynamic 
-#  <object>|any <object>|any|interface
-#  [destination static <object>|interface <object>|any] [dns] [unidirectional] 
-    $info->{'nat _skip source'} =     
-    $info->{'nat _skip _skip source'} = {
-        parse => \&skip,
     };
 
     $info->{'no sysopt connection permit-vpn'} = {

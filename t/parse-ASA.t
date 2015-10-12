@@ -62,20 +62,26 @@ check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 
 ############################################################
-$title = "Parse pre 8.4 dstatic, global, nat";
+$title = "Ignore ASA pre 8.4 static, global, nat";
 ############################################################
-$in = <<END;
+# Differences are ignored.
+
+$device = $minimal_device;
+$device .= <<'END';
 global (outside) 1 10.48.56.5 netmask 255.255.255.255
 nat (inside) 1 10.48.48.0 255.255.248.0
 static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
+END
+$in = <<END;
+global (outside) 1 10.4.56.5 netmask 255.255.255.255
+nat (inside) 1 10.4.8.0 255.255.248.0
+static (outside,inside) 10.1.0.0 172.1.0.0 netmask 255.255.0.0
 END
 
 $out = <<END;
-static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
-global (outside) 1 10.48.56.5 netmask 255.255.255.255
-nat (inside) 1 10.48.48.0 255.255.248.0
 END
-check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Parse crypto map, dynamic map with tunnel-group";
@@ -165,11 +171,9 @@ username jon.doe@token.example.com nopassword
 username jon.doe@token.example.com attributes
 service-type remote-access
 vpn-framed-ip-address 10.1.1.67 255.255.254.0
-exit
 username jon.doe@token.example.com attributes
 vpn-filter value vpn-filter-DRC-0
 vpn-group-policy VPN-group-DRC-0
-exit
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
@@ -240,11 +244,9 @@ $out = <<'END';
 username jon.doe@token.example.com attributes
 vpn-framed-ip-address 10.11.22.33 255.255.0.0
 vpn-idle-timeout 60
-exit
 username jon.doe@token.example.com attributes
 no password-storage
 no vpn-simultaneous-logins
-exit
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 

@@ -165,7 +165,7 @@ static (outside,inside) 10.7.0.0 172.29.0.0 netmask 255.255.0.0
 static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
 END
 
-eq_or_diff( approve('ASA', '', $spoc, $raw ), $out, $title );
+eq_or_diff( approve('PIX', '', $spoc, $raw ), $out, $title );
 
 ############################################################
 $title = "Merging IOS ACL";

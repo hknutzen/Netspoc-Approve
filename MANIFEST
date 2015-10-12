@@ -128,5 +128,8 @@ t/parse-ACE.t
 t/parse-ASA.t
 t/parse-IOS.t
 t/parse-NX-OS.t
+t/parse-PIX.t
+t/parse-PIX.t~
+t/parse_PIX.t~
 t/raw.t
 tidyall.ini

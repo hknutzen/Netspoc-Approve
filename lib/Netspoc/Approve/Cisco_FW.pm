@@ -28,7 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 package Netspoc::Approve::Cisco_FW;
 
-our $VERSION = '1.104'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.105'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -170,100 +170,6 @@ sub get_parse_info {
 	# This interferes with parsing of ACL and object-groups.
 	name => {
 	    error => "'name' command must not be used",
-	},
-
-#  global [(<ext_if_name>)] <nat_id>
-#         {<global_ip>[-<global_ip>] [netmask <global_mask>]} | interface
-#
-	global => {
-	    store => 'GLOBAL',
-	    multi => 1,
-	    parse => ['seq',
-		      { store => 'EXT_IF_NAME', parse => \&get_paren_token },
-		      { store => 'NAT_ID', parse => \&get_token },
-		      ['or',
-		       { store => 'INTERFACE', parse => qr/interface/ },
-		       ['seq',
-			{ store_multi => ['BEGIN', 'END'], 
-			  parse => \&get_ip_pair },
-			['cond1',
-			 { parse => qr/netmask/ },
-			 { store => 'NETMASK', parse => \&get_ip } ]]]] },
-
-# PIX and ASA pre 8.4
-####
-# nat [(<real_ifc>)] <nat-id>
-#     {<real_ip> [<mask>]} | {access-list <acl_name>}
-#     [dns] [norandomseq] [outside] [<max_conn> [<emb_limit>]] 
-	nat => {
-	    store => 'NAT',
-	    multi => 1,
-	    parse => ['seq',
-		      { store => 'IF_NAME', parse => \&get_paren_token },
-		      { store => 'NAT_ID', parse => \&get_token },
-		      ['or',
-		       ['cond1',
-			{ parse => qr/access-list/ },
-			{ store => 'ACCESS_LIST', parse => \&get_token } ],
-		       ['seq',
-			{ store => 'BASE', parse => \&get_ip },
-			{ store => 'MASK', parse => \&get_ip } ]],
-		      { store => 'DNS', parse => qr/dns/ },
-		      { store => 'OUTSIDE', parse => qr/outside/ },
-		      ['seq',
-		       { store => 'MAX_CONS', 
-			 parse => \&check_int,
-			 default => 0 },
-		       { store => 'EMB_LIMIT', 
-			 parse => \&check_int,
-			 default => 0 } ],
-		      { store => 'NORANDOMSEQ', parse => qr/norandomseq/ } ] },
-# static [(local_ifc,global_ifc)] {global_ip | interface} 
-#        {local_ip [netmask mask] | access-list acl_name} 
-#        [dns] [norandomseq] [max_conns [emb_limit]]
-# static [(local_ifc,global_ifc)] {tcp | udp} {global_ip | interface} 
-#        global_port 
-#        {local_ip local_port [netmask mask] | access-list acl_name}
-#        [dns] [norandomseq] [max_conns [emb_limit]]
-	static => {
-	    store => 'STATIC',
-	    multi => 1,
-	    parse => ['seq',
-		      { store_multi => ['LOCAL_IF', 'GLOBAL_IF'], 
-			parse => \&get_paren_token },
-		      { store => 'TYPE', 
-			parse => qr/tcp|udp/, default => 'ip' },
-		      ['or',
-#		       { store => 'INTERFACE', parse => qr/interface/ },
-		       { store => 'GLOBAL_IP', parse => \&get_ip } ],
-		      ['cond1',
-		       { parse => \&test_ne, params => ['ip', '$TYPE'] },
-		       { store => 'GLOBAL_PORT', 
-			 parse => 'parse_port', params => ['$TYPE'] } ],
-		      ['or',
-#		       ['cond1',
-#			{ parse => qr/access-list/ },
-#			{ store => 'ACCESS_LIST', parse => \&get_token } ],
-		       ['seq',
-			{ store => 'LOCAL_IP', parse => \&get_ip },
-			['cond1',
-			 { parse => \&test_ne, params => ['ip', '$TYPE'] },
-			 { store => 'LOCAL_PORT', 
-			   parse => 'parse_port', params => ['$TYPE'] } ],
-			['cond1',
-			 { parse => qr/netmask/ },
-			 { store => 'NETMASK', 
-			   parse => \&get_ip, 
-			   default => 0xffffffff } ]]],
-		      ['seq',
-		       { store => 'MAX_CONS', 
-			 parse => \&check_int,
-			 default => 0 },
-		       { store => 'EMB_LIMIT', 
-			 parse => \&check_int,
-			 default => 0 } ],
-		      { store => 'DNS', parse => qr/dns/ },
-		      { store => 'NORANDOMSEQ', parse => qr/norandomseq/ } ],
 	},
 
 # route if_name ip_address netmask gateway_ip [metric]
