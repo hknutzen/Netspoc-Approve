@@ -630,6 +630,28 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Interface with dhcp address ";
+############################################################
+$device = <<END;
+interface Ethernet1
+ ip address dhcp
+interface Ethernet2
+ ip address 10.0.0.1 255.255.255.0
+END
+
+$in = <<END;
+interface Ethernet1
+ ip address negotiated
+interface Ethernet2
+ ip address 10.0.0.1 255.255.255.0
+END
+
+$out = <<END;
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Unknown interface in VRF";
 ############################################################
 $device = <<END;

@@ -76,6 +76,7 @@ sub get_parse_info {
 	      store => 'ADDRESS',
 	      parse => ['or', 
 			{ store => 'DYNAMIC', parse => qr/negotiated/, },
+			{ store => 'DYNAMIC', parse => qr/dhcp/, },
 			['seq',
 			 { store => 'BASE', parse => \&check_ip, },
 			 { store => 'MASK', parse => \&check_ip, } ]] },
