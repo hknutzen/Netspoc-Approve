@@ -1,3 +1,7 @@
+1.106     2015-12-02 16:41:11+01:00 Europe/Berlin
+
+ - Accept interface with 'ip address dhcp' as negotiated interface.
+
 1.105     2015-10-12 14:36:40+02:00 Europe/Berlin
 
  - NAT commands (nat, global, static) are ignored now for all versions

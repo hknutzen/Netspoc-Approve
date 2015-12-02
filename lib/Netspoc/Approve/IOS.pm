@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.105'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.106'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -76,6 +76,7 @@ sub get_parse_info {
 	      store => 'ADDRESS',
 	      parse => ['or', 
 			{ store => 'DYNAMIC', parse => qr/negotiated/, },
+			{ store => 'DYNAMIC', parse => qr/dhcp/, },
 			['seq',
 			 { store => 'BASE', parse => \&check_ip, },
 			 { store => 'MASK', parse => \&check_ip, } ]] },
