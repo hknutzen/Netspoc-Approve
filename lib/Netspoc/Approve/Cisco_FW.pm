@@ -2232,7 +2232,7 @@ sub define_structure {
                              parse_name => 'IPSEC_PROPOSAL' }, 
             ],
 	    transfer => 'transfer_dynamic_map',
-	    remove   => 'remove_obj',
+	    remove   => 'remove_dynamic_map',
         },
 	CRYPTO_MAP_SEQ => {
 	    attributes => [ qw(NAT_T_DISABLE PEER PFS REVERSE_ROUTE
