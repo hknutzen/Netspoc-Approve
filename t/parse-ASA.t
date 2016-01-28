@@ -653,7 +653,7 @@ crypto dynamic-map name1@example.com 20 set security-association lifetime second
 clear configure crypto map crypto-outside 65533
 no crypto dynamic-map name1@example.com 20 set pfs group2
 no crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a Trans3
-no crypto dynamic-map name4@example.com 40 match address crypto-outside-65533
+clear configure crypto dynamic-map name4@example.com 40
 no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-sha-hmac
 no crypto ipsec ikev1 transform-set Trans3 esp-aes-256 esp-md5-hmac
 clear configure access-list crypto-outside-65533

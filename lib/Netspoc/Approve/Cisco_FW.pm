@@ -28,7 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 package Netspoc::Approve::Cisco_FW;
 
-our $VERSION = '1.106'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.107'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -2232,7 +2232,7 @@ sub define_structure {
                              parse_name => 'IPSEC_PROPOSAL' }, 
             ],
 	    transfer => 'transfer_dynamic_map',
-	    remove   => 'remove_obj',
+	    remove   => 'remove_dynamic_map',
         },
 	CRYPTO_MAP_SEQ => {
 	    attributes => [ qw(NAT_T_DISABLE PEER PFS REVERSE_ROUTE
