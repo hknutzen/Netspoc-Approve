@@ -144,30 +144,6 @@ END
 eq_or_diff( approve_err('NX-OS', '', '', $raw ), $out, $title );
 
 ############################################################
-$title = "Merging static";
-############################################################
-$spoc = <<END;
-static (outside,inside) 10.7.0.0 172.29.0.0 netmask 255.255.0.0
-static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
-END
-
-$raw = <<END;
-static (outside,inside) 10.8.0.0 172.30.0.0 netmask 255.255.0.0
-static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
-static (outside,inside) 10.0.0.0 172.0.0.0 netmask 255.0.0.0
-END
-
-$out = <<END;
-static (outside,inside) 10.8.0.0 172.30.0.0 netmask 255.255.0.0
-static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
-static (outside,inside) 10.0.0.0 172.0.0.0 netmask 255.0.0.0
-static (outside,inside) 10.7.0.0 172.29.0.0 netmask 255.255.0.0
-static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
-END
-
-eq_or_diff( approve('PIX', '', $spoc, $raw ), $out, $title );
-
-############################################################
 $title = "Merging IOS ACL";
 ############################################################
 $device = <<END;

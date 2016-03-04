@@ -272,6 +272,7 @@ $in = <<END;
 ip access-list extended test
  permit ip any host 10.0.1.1
  permit ip any host 10.0.1.2
+ permit icmp any any 0
  permit ip any host 10.0.1.3
 
 interface Ethernet1
@@ -282,7 +283,8 @@ $out = <<END;
 ip access-list resequence test 10000 10000
 ip access-list extended test
 10001 permit ip any host 10.0.1.2
-10002 permit ip any host 10.0.1.3
+10002 permit icmp any any 0
+10003 permit ip any host 10.0.1.3
 ip access-list resequence test 10 10
 END
 

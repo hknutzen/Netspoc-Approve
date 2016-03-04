@@ -28,7 +28,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 package Netspoc::Approve::Cisco_FW;
 
-our $VERSION = '1.107'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.108'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -699,16 +699,6 @@ my @known_status =
      qr/^\d+ bytes copied in /,
      qr/^\s*$/, # empty line
      qr/^\[OK\]/,
-     # identity nat
-     qr/will be identity translated for outbound/,
-     # identity nat
-     qr/nat 0 0.0.0.0 will be non-translated/,
-     # PAT
-     qr/Global \d+\.\d+\.\d+\.\d+ will be Port Address Translated/,
-     # global (xxx) interface
-     # PIX: "xxx interface address added to PAT pool"
-     # ASA: "INFO: xxx interface address added to PAT pool"
-     qr/interface address added to PAT pool/,
      # Multi line, expected warning.
      qr /WARNING: L2L tunnel-groups that have names which are not an IP/,
      qr /address may only be used if the tunnel authentication/,
@@ -802,32 +792,6 @@ sub attr_eq {
 	$a->{$k} eq $b->{$k} or return 0;
     }
     return 1;
-}
-
-sub transfer_lines {
-    my ($self, $conf, $spoc, $type) = @_;
-    my %equal;
-    my $conf_lines = $conf->{$type} || [];
-    my $spoc_lines = $spoc->{$type} || [];
-    for my $d (@{$conf_lines}) { 
-        for my $s (@{$spoc_lines}) {
-            if ($self->attr_eq($d, $s)) {
-                $equal{$d} = $equal{$s} = 1;
-                last;
-            }
-        }
-    }
-    for my $d (@{$conf_lines}) {
-        $self->{CHANGE}->{$type} ||= 0;
-	$equal{$d} and next;
-        $self->{CHANGE}->{$type} = 1;
-	$self->cmd("no $d->{orig}");
-    }
-    for my $s (@{$spoc_lines}) {
-	$equal{$s} and next;
-        $self->{CHANGE}->{$type} = 1;
-	$self->cmd($s->{orig});
-    }
 }
 
 sub generate_names_for_transfer {
@@ -2164,9 +2128,6 @@ sub transfer {
     $self->traverse_netspoc_tree( $spoc, $structure );
     $self->remove_unneeded_on_device( $conf, $structure );
 
-    for my $type ( qw(STATIC GLOBAL NAT) ) {
-        $self->transfer_lines($conf, $spoc, $type);
-    }
     $self->leave_conf_mode();
 }
 
