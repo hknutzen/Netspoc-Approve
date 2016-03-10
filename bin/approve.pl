@@ -6,7 +6,7 @@
 # Does history logging and writes status files.
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
 # (c) 2007 by Arne Spetzler
 #
 # This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,7 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.108'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.109'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
@@ -154,16 +154,15 @@ my ($warnings, $errors, $changes);
 $errors++ if $failed;
 if (open(my $log, '<', $logfile)) { ## no critic (ProhibitUnusedVariables)
     while (<$log>) {
+        my $silent;
 	if (/WARNING>>>/) {
             $warnings++;
         }
         elsif (/ERROR>>>/) {
             if ($brief && /TIMEOUT/) {
-                next;
+                $silent = 1;
             }
-            else {
-                $errors++;
-            }
+            $errors++;
         }
         elsif (/^comp:.*\*\*\*/) {
             $changes++;
@@ -171,7 +170,7 @@ if (open(my $log, '<', $logfile)) { ## no critic (ProhibitUnusedVariables)
         else {
             next; 
         }
-        print $brief ? "$device:$_" : $_;
+        print($brief ? "$device:$_" : $_) if not $silent;
         chomp;
         log_history("RES: $_");
     }

@@ -1,3 +1,8 @@
+1.109     2016-03-10 16:06:13+01:00 Europe/Berlin
+
+ - Show TIMEOUT error in history file, even if approve is called 
+   with option '--brief'.
+
 1.108     2016-03-04 14:51:13+01:00 Europe/Berlin
 
  - Support for NAT commands (nat, global, static) has been dropped 
