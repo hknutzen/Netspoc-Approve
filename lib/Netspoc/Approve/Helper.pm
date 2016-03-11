@@ -80,7 +80,7 @@ sub quad2int {
 }
 
 sub int2quad {
-    return join('.', unpack('C4', pack("N", $_[0])));
+    return sprintf "%vd", pack 'N', $_[0];
 }
 
 sub is_ip {
