@@ -475,21 +475,40 @@ sub prepare_device {
 }
 
 # Output of "write mem":
+# 1.
 # Building configuration...
 # Compressed configuration from 22772 bytes to 7054 bytes[OK]
-#
+# 2.
 # Building configuration...
 # [OK]
+# 3.
+# Warning: Attempting to overwrite an NVRAM configuration previously written
+# by a different version of the system image.
+# Overwrite the previous NVRAM configuration?[confirm]
+# Building configuration...
+# Compressed configuration from 10194 bytes to 5372 bytes[OK]
 sub write_mem {
     my ($self) = @_;
     my $cmd = 'write memory';
 
-    # 5 retries, 3 seconds intervall
+    # 5 retries, 3 seconds interval
     my ($retries, $seconds) = (5, 3);
     info("Writing config to nvram");
     $retries++;
+    local $self->{ENAPROMPT} = qr/$self->{ENAPROMPT}|\[confirm\]/;
     while ($retries--) {
         my $lines = $self->get_cmd_output($cmd);
+
+        # Handle case 3.
+        if ($lines->[-1] =~ /Overwrite the previous NVRAM configuration/) {
+
+            # Confirm with empty command.
+            $lines = $self->get_cmd_output('');
+            info('write mem: confirmed overwrite');
+
+            # Ignore leading empty line.
+            shift @$lines if not $lines->[0];
+        }
 	if ($lines->[0] =~ /^Building configuration/) {
 	    if ($lines->[-1] =~ /\[OK\]/) {
 		info("write mem: found [OK]");
@@ -510,7 +529,7 @@ sub write_mem {
             }
         }
         else {
-            abort("write mem: unexpected result", @$lines);
+            abort("write mem: unexpected result:", @$lines);
         }
     }
 }
