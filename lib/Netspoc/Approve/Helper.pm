@@ -32,7 +32,7 @@ require Exporter;
 use strict;
 use warnings;
 
-our $VERSION = '1.109'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.110'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(info abort err_info warn_info internal_err debug
@@ -80,7 +80,7 @@ sub quad2int {
 }
 
 sub int2quad {
-    return join('.', unpack('C4', pack("N", $_[0])));
+    return sprintf "%vd", pack 'N', $_[0];
 }
 
 sub is_ip {

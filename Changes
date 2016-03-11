@@ -1,3 +1,8 @@
+1.110     2016-03-11 14:58:17+01:00 Europe/Berlin
+
+ - Automatically confirm "Overwrite the previous NVRAM configuration",
+   after a preceding IOS update.
+
 1.109     2016-03-10 16:06:13+01:00 Europe/Berlin
 
  - Show TIMEOUT error in history file, even if approve is called 
