@@ -1,7 +1,7 @@
 
 =head1 DESCRIPTION
 
-Remote configure Cisco ASA and PIX version 7.x.
+Remote configure Cisco ASA.
 
 =head1 COPYRIGHT AND DISCLAIMER
 
@@ -455,9 +455,6 @@ sub postprocess_config {
     $self->SUPER::postprocess_config($p);
 }
 
-
-# This is different for PIX and ASA, so we have this method in both
-# modules Cisco_FW.pm and here. Inheritance is your friend :-) .
 sub acl_removal_cmd {
     my ( $self, $acl_name ) = @_;
     return "clear configure access-list $acl_name";

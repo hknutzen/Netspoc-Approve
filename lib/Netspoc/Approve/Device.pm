@@ -623,7 +623,7 @@ sub process_routing {
             $self->{CHANGE}->{ROUTING} = 1;
             my $cmd = $self->route_add($r, $vrf);
             
-            # PIX and ASA don't allow two routes to identical
+            # ASA doesn't allow two routes to identical
             # destination. Remove and add routes in one transaction.
             for my $c (@$conf_routing) {
                 next if $c->{DELETE};

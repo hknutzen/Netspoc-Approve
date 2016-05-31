@@ -1,7 +1,7 @@
 
 =head1 DESCRIPTION
 
-Base class for Cisco firewalls (ASA, PIX)
+Base class for Cisco firewalls (ASA)
 
 =head1 COPYRIGHT AND DISCLAIMER
 
@@ -181,7 +181,7 @@ sub get_parse_info {
 		      { store => 'BASE', parse => \&get_ip },
 		      { store => 'MASK', parse => \&get_ip },
 		      { store => 'NEXTHOP', parse => \&get_ip },
-		      # don't store METRIC, values seem to be arbitrary for PIX
+		      # don't store METRIC, values seem to be arbitrary.
 		      { parse => \&check_int } ],
 	},
 
@@ -929,7 +929,7 @@ sub ACL_line_discipline {
     return (1, 1, 0, 0);            
 }
 
-# Access to ASA and PIX isn't controlled by ACL.
+# Access to ASA isn't controlled by ACL.
 sub is_device_access {
     my ($self, $conf_entry) = @_;
     return 0;
@@ -2268,12 +2268,6 @@ sub mark_as_unchanged {
     return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_unchanged($parse_name);
 }
-
-sub acl_removal_cmd {
-    my ( $self, $acl_name ) = @_;
-    return "no access-list $acl_name";
-}
-
 
 # Packages must return a true value;
 1;
