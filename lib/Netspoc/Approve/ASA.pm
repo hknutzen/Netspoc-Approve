@@ -31,7 +31,6 @@ package Netspoc::Approve::ASA;
 use base "Netspoc::Approve::Cisco";
 use strict;
 use warnings;
-use IO::Socket ();
 use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
