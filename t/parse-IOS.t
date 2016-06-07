@@ -414,6 +414,8 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 ############################################################
 $title = "Don't change ACL line which permit administrative access";
 ############################################################
+# Device IP is 10.1.13.33
+
 $device = <<END;
 ip access-list extended test-DRC-0
  permit tcp any host 10.1.13.31
@@ -526,12 +528,63 @@ interface Ethernet1
 END
 
 $out = <<END;
+ip access-list resequence crypto-filter-Ethernet1-1 10000 10000
+ip access-list extended crypto-filter-Ethernet1-1
+1 permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+no 10000
+ip access-list resequence crypto-filter-Ethernet1-1 10 10
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Don't change crypto file ACL which permit administrative access";
+############################################################
+# Device IP is 10.1.13.33
+
+$device = <<END;
+ip access-list extended crypto-Ethernet1-1-DRC-0
+ permit ip any 10.127.18.0 0.0.0.255
 ip access-list extended crypto-filter-Ethernet1-1-DRC-0
-permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+ permit tcp any host 10.1.13.31
+ permit tcp any host 10.1.13.32
+ permit tcp any host 10.1.13.33
+ deny ip any any
+crypto map crypto-Ethernet1 1 ipsec-isakmp
+ match address crypto-Ethernet1-1-DRC-0
+ set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
+ set peer 10.156.4.206
+
+interface Ethernet1
+ crypto map crypto-Ethernet1
+END
+
+$in = <<END;
+ip access-list extended crypto-Ethernet1-1
+ permit ip any 10.127.18.0 0.0.0.255
+ip access-list extended crypto-filter-Ethernet1-1
+ permit tcp any host 10.1.13.33
+ permit tcp any host 10.1.13.31
+ permit tcp any host 10.1.13.32
+ deny ip any any
+crypto map crypto-Ethernet1 1 ipsec-isakmp
+ match address crypto-Ethernet1-1
+ set ip access-group crypto-filter-Ethernet1-1 in
+ set peer 10.156.4.206
+
+interface Ethernet1
+ crypto map crypto-Ethernet1
+END
+
+$out = <<END;
+ip access-list extended crypto-filter-Ethernet1-1-DRC-1
+permit tcp any host 10.1.13.33
+permit tcp any host 10.1.13.31
+permit tcp any host 10.1.13.32
 deny ip any any
-crypto map VPN 1
-set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
-no ip access-list extended crypto-filter-Ethernet1-1
+crypto map crypto-Ethernet1 1
+set ip access-group crypto-filter-Ethernet1-1-DRC-1 in
+no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
@@ -572,12 +625,11 @@ interface Ethernet1
 END
 
 $out = <<END;
-ip access-list extended crypto-filter-Ethernet1-1-DRC-0
-permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
-deny ip any any
-crypto map crypto-Ethernet1 1
-set ip access-group crypto-filter-Ethernet1-1-DRC-0 out
-no ip access-list extended crypto-filter-Ethernet1-1
+ip access-list resequence crypto-filter-Ethernet1-1 10000 10000
+ip access-list extended crypto-filter-Ethernet1-1
+1 permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+no 10000
+ip access-list resequence crypto-filter-Ethernet1-1 10 10
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
