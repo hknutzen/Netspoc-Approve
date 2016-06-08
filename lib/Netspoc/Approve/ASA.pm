@@ -899,7 +899,8 @@ sub postprocess_config {
 	}
 	else {
 	    $anchor = $p->{CA_CERT_MAP}->{$tgm_name} or
-		abort("'$tgm->{orig}' references unknown ca cert map '$tgm_name'");
+		abort("'$tgm->{orig}' references unknown" .
+                      " ca cert map '$tgm_name'");
 	}
         
         $anchor->{TUNNEL_GROUP_DEFINE} = $tg_name;
@@ -923,10 +924,12 @@ sub postprocess_config {
         for my $cgm (values %$hash) {
             my $ca_map_name = $cgm->{name};
             my $cert = $p->{CA_CERT_MAP}->{$ca_map_name} or 
-                abort("'$cgm->{orig}' references unknown ca cert map '$ca_map_name'");
+                abort("'$cgm->{orig}' references unknown" .
+                      " ca cert map '$ca_map_name'");
             my $tg_name = $cgm->{TUNNEL_GROUP};
             $p->{TUNNEL_GROUP_DEFINE}->{$tg_name} or
-                abort("'$cgm->{orig}' references unknown tunnel-group $tg_name");
+                abort("'$cgm->{orig}' references unknown" .
+                      " tunnel-group $tg_name");
             $cert->{WEB_TUNNEL_GROUP} = $tg_name;
         }
 
@@ -2224,8 +2227,8 @@ sub transfer_default_group {
 
 sub transfer_user {
     my ( $self, $spoc, $structure, $parse_name, $username ) = @_;
-    my $user = $spoc->{$parse_name}->{$username};
-    abort("No user-object found for $username") unless $user;
+    my $user = $spoc->{$parse_name}->{$username} or
+        abort("No user-object found for $username");
     my @cmds;
     push @cmds, "username $username nopassword";
     push @cmds, item_conf_mode_cmd( $parse_name, $username );
@@ -2271,9 +2274,9 @@ sub remove_tunnel_group {
 
 sub transfer_group_policy {
     my ( $self, $spoc, $structure, $parse_name, $gp_name ) = @_;
-    my $group_policy = $spoc->{$parse_name}->{$gp_name};
+    my $group_policy = $spoc->{$parse_name}->{$gp_name} or
+        abort("No group-policy-object found for $gp_name");
     my $new_gp = $group_policy->{new_name};
-    abort("No group-policy-object found for $gp_name") unless $group_policy;
     my @cmds;
     push @cmds, "group-policy $new_gp internal";
     push @cmds, item_conf_mode_cmd( $parse_name, $new_gp );
