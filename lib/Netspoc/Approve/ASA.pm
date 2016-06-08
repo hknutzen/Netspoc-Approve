@@ -866,18 +866,18 @@ sub postprocess_config {
     # Propagate ip address and shutdown status from hardware interface 
     # to logical interface.
     for my $entry ( values %{ $p->{HWIF} } ) {
-	if (my $name = $entry->{IF_NAME}) {
-	    my $intf = $p->{IF}->{$name} = { name => $name };
-	    if( my $address = $entry->{ADDRESS} ) {
-		$intf->{BASE} = $address->{BASE};
-		$intf->{MASK} = $address->{MASK};
-	    }
-	    $intf->{SHUTDOWN} = $entry->{SHUTDOWN};
-	}
+	my $name = $entry->{IF_NAME} or next;
+        my $intf = $p->{IF}->{$name} = { name => $name };
+        if( my $address = $entry->{ADDRESS} ) {
+            $intf->{BASE} = $address->{BASE};
+            $intf->{MASK} = $address->{MASK};
+        }
+        $intf->{SHUTDOWN} = $entry->{SHUTDOWN};
     }
     delete $p->{HWIF};
 
-    for my $what (qw(TUNNEL_GROUP_GENERAL TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN)) {
+    for my $what (qw(TUNNEL_GROUP_GENERAL TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN)) 
+    {
         for my $name (keys %{$p->{$what}}) {
             my $base = $p->{TUNNEL_GROUP_DEFINE}->{$name} or 
                 abort("Missing type definition for tunnel-group $name");
@@ -951,18 +951,17 @@ sub postprocess_config {
     # Convert IDENTIFIER to lower-case, because it gets
     # stored on device in lower-case anyway.
     for my $cert ( values %{$p->{CA_CERT_MAP}} ) {
-	if ( my $id = $cert->{IDENTIFIER} ) {
-	    $id = lc( $id );
-	    $cert->{IDENTIFIER} = $id;
-	    if(my $old_cert = $p->{CERT_ANCHOR}->{$id}) {
-		my $old_name = $old_cert->{name};
-		my $new_name = $cert->{name};
-		abort("Two ca cert map items use" .
-                      " identical subject-name: '$old_name', '$new_name'");
-	    }
-	    $p->{CERT_ANCHOR}->{$id} = { CA_CERT_MAP => $cert->{name},
-					 name => $id };
-	}
+	my $id = $cert->{IDENTIFIER} or next;
+        $id = lc( $id );
+        $cert->{IDENTIFIER} = $id;
+        if(my $old_cert = $p->{CERT_ANCHOR}->{$id}) {
+            my $old_name = $old_cert->{name};
+            my $new_name = $cert->{name};
+            abort("Two ca cert map items use" .
+                  " identical subject-name: '$old_name', '$new_name'");
+        }
+        $p->{CERT_ANCHOR}->{$id} = { CA_CERT_MAP => $cert->{name},
+                                     name => $id };
     }
 
     # Make 'nopassword'-property of a user an attribute of
@@ -1321,14 +1320,12 @@ sub equalize_attributes {
     for my $key (qw(next next_list)) {
 	my $next = $parse->{$key} or next;
         for my $next_key (@$next) {
-            my $next_attr_name  = $next_key->{attr_name};
-            my $next_parse_name = $next_key->{parse_name};
-            my $conf_next = $conf_value->{$next_attr_name};
+            my $next_attr_name = $next_key->{attr_name};
+            my $conf_next = $conf_value->{$next_attr_name} or next;
             my $spoc_next = $spoc_value->{$next_attr_name};
-            if ( $conf_next && !$spoc_next ) {
+            if ( not $spoc_next ) {
                 $modified = 1;
-                $conf_value->{remove_attr}->{$next_attr_name} =
-                    $conf_next;
+                $conf_value->{remove_attr}->{$next_attr_name} = $conf_next;
             }
         }
     }
@@ -1833,17 +1830,11 @@ sub traverse_netspoc_tree {
 	my $method = $parse->{transfer};
 	for my $spoc_name ( sort keys %$spoc_hash ) {
 	    my $spoc_value = $spoc->{$parse_name}->{$spoc_name};
-	    if ( $spoc_value->{transfer} ) {
-		if ( my $transferred_as = $spoc_value->{transferred_as} ) {
-		    #info("$spoc_name already transferred as $transferred_as! ");
-		}
-		else {
-                    info("Transfer $parse_name $spoc_name");
-		    $self->$method( $spoc, $structure,
-				    $parse_name, $spoc_name );
-		    $spoc_value->{transferred_as} = $spoc_value->{new_name};
-		}
-	    }
+	    $spoc_value->{transfer} or next;
+            next if $spoc_value->{transferred_as};
+            info("Transfer $parse_name $spoc_name");
+            $self->$method( $spoc, $structure, $parse_name, $spoc_name );
+            $spoc_value->{transferred_as} = $spoc_value->{new_name};
 	}
     }
  
@@ -1857,8 +1848,7 @@ sub traverse_netspoc_tree {
 
 	# Iterate over anchors in netspoc.
         for my $spoc_name ( sort keys %$spoc_anchor ) {
-	    $self->transfer1( $spoc, $key,
-			      $spoc_name, $structure );
+	    $self->transfer1( $spoc, $key, $spoc_name, $structure );
 	}
     }
 
@@ -1868,14 +1858,14 @@ sub traverse_netspoc_tree {
 	my $spoc_hash = $spoc->{$parse_name};
 	for my $spoc_name ( sort keys %$spoc_hash ) {
 	    my $spoc_value = $spoc->{$parse_name}->{$spoc_name};
-	    if($spoc_value->{add_entries} || $spoc_value->{del_entries} 
-               || $spoc_value->{modify_cmds}) 
-            {
-		my $method = $structure->{$parse_name}->{modify};
-		my $conf_name = $spoc_value->{name_on_dev};
-                info("Modify $parse_name $conf_name");
-		$self->$method( $spoc_value, $conf_name );
-	    }	    
+	    $spoc_value->{add_entries} or 
+                $spoc_value->{del_entries} or 
+                $spoc_value->{modify_cmds} or 
+                next;
+            my $method = $structure->{$parse_name}->{modify};
+            my $conf_name = $spoc_value->{name_on_dev};
+            info("Modify $parse_name $conf_name");
+            $self->$method( $spoc_value, $conf_name );
 	}
     }	
 }
@@ -1994,7 +1984,7 @@ sub mark_connected_objects {
 
     for my $key ( keys %$structure ) {
         my $value = $structure->{$key};
-        next if not $value->{anchor};
+        $value->{anchor} or next;
 
         my $conf_anchor = $conf->{$key};
 
@@ -2501,21 +2491,18 @@ sub get_next_names {
     my ($parse_info, $object) = @_;
     my @result;
     for my $key (qw(next next_list)) {
-	if (my $next = $parse_info->{$key}) {
-	    for my $next_key ( @$next ) {
-		my $next_attr_name  = $next_key->{attr_name};
-		my $next_parse_name = $next_key->{parse_name};
-		if ( my $conf_next = $object->{$next_attr_name} ) {
-		    if ($key eq 'next_list') {
-			push @result, 
-			map [ $next_parse_name, $_ ], @$conf_next;
-		    }
-		    else {
-			push @result, [ $next_parse_name, $conf_next ];
-		    }
-		}
-	    }
-	}
+	my $next = $parse_info->{$key} or next;
+        for my $next_key ( @$next ) {
+            my $next_attr_name  = $next_key->{attr_name};
+            my $next_parse_name = $next_key->{parse_name};
+            my $conf_next = $object->{$next_attr_name} or next;
+            if ($key eq 'next_list') {
+                push @result, map [ $next_parse_name, $_ ], @$conf_next;
+            }
+            else {
+                push @result, [ $next_parse_name, $conf_next ];
+            }
+        }
     }
     return @result;
 }
