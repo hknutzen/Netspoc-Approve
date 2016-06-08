@@ -1708,80 +1708,65 @@ sub unify_anchors {
 
 sub change_modified_attributes {
     my ($self, $spoc, $parse_name, $spoc_name, $structure) = @_;
-
+    my $parse = $structure->{$parse_name} or return;
     my $spoc_value = $spoc->{$parse_name}->{$spoc_name};
 
-    if ( my $parse = $structure->{$parse_name} ) {
+    # Change attributes marked accordingly.
+    if ( my $attr = $spoc_value->{change_attr} ) {
+        $self->change_attributes( $parse_name, $spoc_name, $spoc_value, $attr );
+    }
 
-	# Change attributes marked accordingly.
-	if ( my $attr = $spoc_value->{change_attr} ) {
-	    $self->change_attributes( $parse_name, $spoc_name,
-				      $spoc_value, $attr );
-	}
-
-	# Enter recursion ...
-	for my $pair (get_next_names($parse, $spoc_value)) {
-	    my ($next_parse_name, $spoc_next) = @$pair;
-	    $self->change_modified_attributes( $spoc, $next_parse_name,
-					       $spoc_next, $structure );
-	}
+    # Enter recursion ...
+    for my $pair (get_next_names($parse, $spoc_value)) {
+        my ($next_parse_name, $spoc_next) = @$pair;
+        $self->change_modified_attributes( $spoc, $next_parse_name,
+                                           $spoc_next, $structure );
     }
 }
 
-#
 # Transfer marked objects.
-#
 sub transfer1 {
     my ( $self, $spoc, $parse_name, $spoc_name, $structure ) = @_;
-
-#    info("PROCESS $parse_name:$spoc_name"); 
+    my $parse = $structure->{$parse_name} or return;
     my $spoc_value = $spoc->{$parse_name}->{$spoc_name};
 
-    if ( my $parse = $structure->{$parse_name} ) {
-        my @postponed;
-	for my $pair (get_next_names($parse, $spoc_value)) {
-	    my ($next_parse_name, $spoc_next) = @$pair;
+    my @postponed;
+    for my $pair (get_next_names($parse, $spoc_value)) {
+        my ($next_parse_name, $spoc_next) = @$pair;
 
-            # Child object must be defined, but must only be
-            # transferred after parent object has been defined.
-            if ($structure->{$next_parse_name}->{postpone}) {
-                push @postponed, $pair;
-            }
-            else {
-                $self->transfer1( $spoc, $next_parse_name,
-                                  $spoc_next, $structure );
-            }
-	}
-
-	# Do actual transfer after recursion so
-	# that we start with the leaves.
-	my $method = $parse->{transfer};
-#        debug "Spoc transfer" if $spoc_value->{transfer};
-	if ( $spoc_value->{transfer} and $method ) {
-	    if ( my $transferred_as = $spoc_value->{transferred_as} ) {
-#		info("$spoc_name already transferred as $transferred_as! ");
-	    }
-	    else {
-#                info("Transfer1 $parse_name $spoc_name");
-		$spoc_value->{transferred_as} = 
-                    $spoc_value->{new_name} || $spoc_value->{name};
-		$self->$method( $spoc, $structure, $parse_name, $spoc_name );
-	    }
-	}
-
-        # Process postponed objects.
-	for my $pair (@postponed) {
-	    my ($next_parse_name, $spoc_next) = @$pair;
+        # Child object must be defined, but must only be
+        # transferred after parent object has been defined.
+        if ($structure->{$next_parse_name}->{postpone}) {
+            push @postponed, $pair;
+        }
+        else {
             $self->transfer1( $spoc, $next_parse_name,
                               $spoc_next, $structure );
-	}
-
-
-        # Change attributes of items in place.
-#        info("Change $parse_name $spoc_name");
-        $self->change_modified_attributes($spoc, $parse_name, $spoc_name, 
-                                          $structure);
+        }
     }
+
+    # Do actual transfer after recursion so that we start with leaves.
+    my $method = $parse->{transfer};
+    if ( $spoc_value->{transfer} and $method ) {
+        if ( not $spoc_value->{transferred_as} ) {
+#           info("Transfer1 $parse_name $spoc_name");
+            $spoc_value->{transferred_as} = 
+                $spoc_value->{new_name} || $spoc_value->{name};
+            $self->$method( $spoc, $structure, $parse_name, $spoc_name );
+        }
+    }
+
+    # Process postponed objects.
+    for my $pair (@postponed) {
+        my ($next_parse_name, $spoc_next) = @$pair;
+        $self->transfer1( $spoc, $next_parse_name, $spoc_next, $structure );
+    }
+
+
+    # Change attributes of items in place.
+#   info("Change $parse_name $spoc_name");
+    $self->change_modified_attributes($spoc, $parse_name, $spoc_name, 
+                                      $structure);
 }
 
 # Entry point for tree traversal (starting with
