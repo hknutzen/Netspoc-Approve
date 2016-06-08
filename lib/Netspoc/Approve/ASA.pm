@@ -2084,7 +2084,7 @@ sub change_attributes {
         # global command and as subcommand of this conf mode.
         push @cmds, 'exit' if $parse_name eq 'USERNAME';
     }
-    map { $self->cmd( $_ ) } @cmds;
+    $self->cmd( $_ ) for @cmds;
     $spoc_value->{change_done} = 1;
 }
 
@@ -2137,7 +2137,7 @@ sub remove_attributes {
     # Exit 'username attributes', because 'webvpn' is used as
     # global command and as subcommand of this conf mode.
     push @cmds, 'exit' if $parse_name eq 'USERNAME';
-    map { $self->cmd( $_ ) } @cmds;
+    $self->cmd( $_ ) for @cmds;
 }
 
 sub transfer_interface {
@@ -2159,7 +2159,7 @@ sub transfer_crypto_map_seq {
     my @cmds;
     push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $object, 'attributes' );
-    map { $self->cmd( $_ ) } @cmds;
+    $self->cmd( $_ ) for @cmds;
 }
 
 sub remove_crypto_map_seq {
@@ -2179,7 +2179,7 @@ sub transfer_dynamic_map {
     my @cmds;
     push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $object, 'attributes' );
-    map { $self->cmd( $_ ) } @cmds;
+    $self->cmd( $_ ) for @cmds;
 }
 
 sub remove_dynamic_map {
@@ -2202,7 +2202,7 @@ sub transfer_ca_cert_map {
     push @cmds, item_conf_mode_cmd( $parse_name, $new_cert_map );
     push @cmds, add_attribute_cmds($structure, $parse_name, $object, 
                                    'attributes');
-    map { $self->cmd( $_ ) } @cmds;
+    $self->cmd( $_ ) for @cmds;
 }
 
 sub remove_ca_cert_map {
@@ -2231,8 +2231,8 @@ sub transfer_user {
     push @cmds, item_conf_mode_cmd( $parse_name, $username );
     push @cmds, add_attribute_cmds( $structure, $parse_name, $user, 
                                     'attributes' );
-    push @cmds, 'exit' if $parse_name eq 'USERNAME';
-    map { $self->cmd( $_ ) } @cmds;
+    push @cmds, 'exit';
+    $self->cmd( $_ ) for @cmds;
 }
 
 sub remove_user {
@@ -2261,7 +2261,7 @@ sub transfer_tunnel_group {
 	push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $obj, 'attributes' );
     }
-    map { $self->cmd( $_ ) } @cmds;
+    $self->cmd( $_ ) for @cmds;
 }
 
 sub remove_tunnel_group {
@@ -2280,7 +2280,7 @@ sub transfer_group_policy {
     push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $group_policy, 'attributes' );
     
-    map { $self->cmd( $_ ) } @cmds;
+    $self->cmd( $_ ) for @cmds;
 }
 
 sub remove_group_policy {
@@ -2299,7 +2299,7 @@ sub transfer_ipsec_proposal {
     push @cmds, $cmd;
     push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $obj, 'attributes' );
-    map { $self->cmd( $_ ) } @cmds;    
+    $self->cmd( $_ ) for @cmds;    
 }
 
 sub remove_obj {
@@ -2347,7 +2347,7 @@ sub transfer_object_group {
     my $cmd = $group->{orig};
     $cmd =~ s/^(\S+ \S+ )(\S+)(.*)/$1$new_name$3/;
     $self->cmd($cmd);
-    map( { $self->cmd( $_->{orig} ) } @{ $group->{OBJECT} } );
+    $self->cmd( $_->{orig} ) for @{ $group->{OBJECT} };
 }
 
 sub modify_object_group {
@@ -2355,10 +2355,10 @@ sub modify_object_group {
     my $cmd = "object-group $spoc->{TYPE} $conf_name";
     $self->cmd($cmd);
     if($spoc->{add_entries}) {
-	map( { $self->cmd( $_->{orig} ) } @{ $spoc->{add_entries} } );
+	$self->cmd( $_->{orig} ) for @{ $spoc->{add_entries} };
     }
     if($spoc->{del_entries}) {
-	map( { $self->cmd( "no $_->{orig}" ) } @{ $spoc->{del_entries} } );
+	$self->cmd( "no $_->{orig}" ) for @{ $spoc->{del_entries} };
     }
 }
 
@@ -2369,7 +2369,7 @@ sub transfer_acl {
     my $new_name = $acl->{new_name};
     my @cmds = map({ $self->subst_ace_name_og($_, $new_name) } 
                    @{ $acl->{LIST} });
-    map { $self->cmd( $_ ) } @cmds;
+    $self->cmd( $_ ) for @cmds;
 }
 
 sub modify_acl {
