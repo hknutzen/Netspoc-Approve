@@ -1013,7 +1013,7 @@ sub postprocess_config {
     delete $p->{ACCESS_GROUP};
 
     # Separate "crypto map name seq" vs. "crypto map name interface"
-    # "name seq" is stored with key "name:seq".
+    # "name seq" is stored with key "name seq".
     my @no_crypto_seq = grep { $_ !~ / / } keys %{$p->{CRYPTO_MAP}};
     my $seq = $p->{CRYPTO_MAP_SEQ} = delete $p->{CRYPTO_MAP};
     my $map = $p->{CRYPTO_MAP} = {};
@@ -2137,17 +2137,14 @@ sub transfer_crypto_map_seq {
     my ( $self, $spoc, $structure, $parse_name, $name_seq ) = @_;
 
     my $object = $spoc->{$parse_name}->{$name_seq};
-    my @cmds;
-    push @cmds, add_attribute_cmds( $structure, $parse_name,
-				    $object, 'attributes' );
+    my @cmds = add_attribute_cmds( $structure, $parse_name,
+                                   $object, 'attributes' );
     $self->cmd( $_ ) for @cmds;
 }
 
 sub remove_crypto_map_seq {
     my ( $self, $conf, $structure, $parse_name, $name_seq ) = @_;
-    my $object = $conf->{$parse_name}->{$name_seq};
-    my $name = $object->{name};
-    $self->cmd("clear configure crypto map $name");
+    $self->cmd("clear configure crypto map $name_seq");
 }
 
 sub transfer_dynamic_map {
