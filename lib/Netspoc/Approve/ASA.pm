@@ -1046,11 +1046,6 @@ sub postprocess_config {
     }
 }
 
-sub acl_removal_cmd {
-    my ( $self, $acl_name ) = @_;
-    return "clear configure access-list $acl_name";
-}
-
 sub set_pager {
     my ($self) = @_;
     $self->device_cmd('terminal pager 0');
@@ -2150,12 +2145,9 @@ sub transfer_crypto_map_seq {
 
 sub remove_crypto_map_seq {
     my ( $self, $conf, $structure, $parse_name, $name_seq ) = @_;
-
     my $object = $conf->{$parse_name}->{$name_seq};
     my $name = $object->{name};
-    my $prefix = "crypto map $name";
-    my $cmd = "clear configure $prefix";
-    $self->cmd( $cmd );
+    $self->cmd("clear configure crypto map $name");
 }
 
 sub transfer_dynamic_map {
@@ -2170,13 +2162,10 @@ sub transfer_dynamic_map {
 
 sub remove_dynamic_map {
     my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
-
     my $object = $conf->{$parse_name}->{$obj_name};
     my $name = $object->{name};
     my $seq  = $object->{SEQ};
-    my $prefix = "crypto dynamic-map $name $seq";
-    my $cmd = "clear configure $prefix";
-    $self->cmd( $cmd );
+    $self->cmd("clear configure crypto dynamic-map $name $seq");
 }
 
 sub transfer_ca_cert_map {
@@ -2193,9 +2182,7 @@ sub transfer_ca_cert_map {
 
 sub remove_ca_cert_map {
     my ( $self, $conf, $structure, $parse_name, $cert_map ) = @_;
-    my $object = $conf->{$parse_name}->{$cert_map};
-    my $cmd = "clear configure crypto ca certificate map $cert_map";
-    $self->cmd( $cmd );
+    $self->cmd("clear configure crypto ca certificate map $cert_map");
 }
 
 sub transfer_default_group {
@@ -2223,9 +2210,7 @@ sub transfer_user {
 
 sub remove_user {
     my ( $self, $conf, $structure, $parse_name, $username ) = @_;
-    my @cmds;
-    my $cmd = "clear configure username $username";
-    $self->cmd( $cmd );
+    $self->cmd("clear configure username $username");
 }
 
 sub transfer_tunnel_group {
@@ -2271,8 +2256,7 @@ sub transfer_group_policy {
 
 sub remove_group_policy {
     my ( $self, $spoc, $structure, $parse_name, $gp_name ) = @_;
-    my $cmd = "clear configure group-policy $gp_name";
-    $self->cmd( $cmd );
+    $self->cmd("clear configure group-policy $gp_name");
 }
 
 sub transfer_ipsec_proposal {
@@ -2396,9 +2380,8 @@ sub modify_acl {
 }
 
 sub remove_acl {
-    my ( $self, $conf, $structure, $parse_name, $acl ) = @_;
-    my $cmd = $self->acl_removal_cmd( $acl );
-    $self->cmd( $cmd );
+    my ( $self, $conf, $structure, $parse_name, $acl_name ) = @_;
+    $self->cmd("clear configure access-list $acl_name");
 }
 
 sub item_conf_mode_cmd {
