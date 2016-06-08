@@ -2137,8 +2137,7 @@ sub transfer_crypto_map_seq {
     my ( $self, $spoc, $structure, $parse_name, $name_seq ) = @_;
 
     my $object = $spoc->{$parse_name}->{$name_seq};
-    my @cmds = add_attribute_cmds( $structure, $parse_name,
-                                   $object, 'attributes' );
+    my @cmds = add_attribute_cmds( $structure, $parse_name, $object );
     $self->cmd( $_ ) for @cmds;
 }
 
@@ -2151,9 +2150,7 @@ sub transfer_dynamic_map {
     my ( $self, $spoc, $structure, $parse_name, $name ) = @_;
 
     my $object = $spoc->{$parse_name}->{$name};
-    my @cmds;
-    push @cmds, add_attribute_cmds( $structure, $parse_name,
-				    $object, 'attributes' );
+    my @cmds = add_attribute_cmds( $structure, $parse_name, $object );
     $self->cmd( $_ ) for @cmds;
 }
 
@@ -2172,8 +2169,7 @@ sub transfer_ca_cert_map {
     my $new_cert_map = $object->{new_name};
     my @cmds;
     push @cmds, item_conf_mode_cmd( $parse_name, $new_cert_map );
-    push @cmds, add_attribute_cmds($structure, $parse_name, $object, 
-                                   'attributes');
+    push @cmds, add_attribute_cmds($structure, $parse_name, $object);
     $self->cmd( $_ ) for @cmds;
 }
 
@@ -2194,13 +2190,11 @@ sub transfer_default_group {
 
 sub transfer_user {
     my ( $self, $spoc, $structure, $parse_name, $username ) = @_;
-    my $user = $spoc->{$parse_name}->{$username} or
-        abort("No user-object found for $username");
+    my $user = $spoc->{$parse_name}->{$username};
     my @cmds;
     push @cmds, "username $username nopassword";
     push @cmds, item_conf_mode_cmd( $parse_name, $username );
-    push @cmds, add_attribute_cmds( $structure, $parse_name, $user, 
-                                    'attributes' );
+    push @cmds, add_attribute_cmds( $structure, $parse_name, $user );
     push @cmds, 'exit';
     $self->cmd( $_ ) for @cmds;
 }
@@ -2226,8 +2220,7 @@ sub transfer_tunnel_group {
 
     else {
 	push @cmds, item_conf_mode_cmd( $parse_name, $new_name );
-	push @cmds, add_attribute_cmds( $structure, $parse_name,
-				    $obj, 'attributes' );
+	push @cmds, add_attribute_cmds( $structure, $parse_name, $obj );
     }
     $self->cmd( $_ ) for @cmds;
 }
@@ -2238,22 +2231,20 @@ sub remove_tunnel_group {
 }
 
 sub transfer_group_policy {
-    my ( $self, $spoc, $structure, $parse_name, $gp_name ) = @_;
-    my $group_policy = $spoc->{$parse_name}->{$gp_name} or
-        abort("No group-policy-object found for $gp_name");
-    my $new_gp = $group_policy->{new_name};
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $spoc->{$parse_name}->{$obj_name};
+    my $new_name = $obj->{new_name};
     my @cmds;
-    push @cmds, "group-policy $new_gp internal";
-    push @cmds, item_conf_mode_cmd( $parse_name, $new_gp );
-    push @cmds, add_attribute_cmds( $structure, $parse_name,
-				    $group_policy, 'attributes' );
+    push @cmds, "group-policy $new_name internal";
+    push @cmds, item_conf_mode_cmd( $parse_name, $new_name );
+    push @cmds, add_attribute_cmds( $structure, $parse_name, $obj );
     
     $self->cmd( $_ ) for @cmds;
 }
 
 sub remove_group_policy {
-    my ( $self, $spoc, $structure, $parse_name, $gp_name ) = @_;
-    $self->cmd("clear configure group-policy $gp_name");
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    $self->cmd("clear configure group-policy $obj_name");
 }
 
 sub transfer_ipsec_proposal {
@@ -2264,8 +2255,7 @@ sub transfer_ipsec_proposal {
     $cmd =~ s/proposal $obj_name(?!\S)/proposal $new_name/;
     my @cmds;
     push @cmds, $cmd;
-    push @cmds, add_attribute_cmds( $structure, $parse_name,
-				    $obj, 'attributes' );
+    push @cmds, add_attribute_cmds( $structure, $parse_name, $obj );
     $self->cmd( $_ ) for @cmds;    
 }
 
@@ -2390,7 +2380,7 @@ sub item_conf_mode_cmd {
 }
 
 sub add_attribute_cmds {
-    my ( $structure, $parse_name, $object, $attributes ) = @_;
+    my ( $structure, $parse_name, $object ) = @_;
 
     my @cmds;
     my $prefix;
@@ -2404,7 +2394,7 @@ sub add_attribute_cmds {
 	$prefix = "crypto dynamic-map $name $seq";
     }
   ATTRIBUTE:
-    for my $attr ( @{$structure->{$parse_name}->{$attributes}} ) {
+    for my $attr ( @{$structure->{$parse_name}->{attributes}} ) {
 	my $value = $object->{$attr};
 	if (ref $value) {
 	    for my $cmd (sort keys %$value) {
@@ -2418,6 +2408,7 @@ sub add_attribute_cmds {
 
 	    # Some attributes are optional.
 	    next ATTRIBUTE if not $value;
+
 	    $attr_cmd = "$prefix $attr_cmd" if($prefix);
 	    if(not $attr_no_value{$attr}) {
 		$attr_cmd = "$attr_cmd $value";
