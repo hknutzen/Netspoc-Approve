@@ -39,17 +39,6 @@ use Netspoc::Approve::Parse_Cisco;
 
 # Global variables.
 
-my %define_object = (
-		     GROUP_POLICY => {
-			 prefix  => 'group-policy',
-			 postfix => 'internal',
-		     },
-		     USERNAME => {
-			 prefix  => 'username',
-			 postfix => 'nopassword',
-		     },
-		     );
-
 my %conf_mode_entry = (
                        TUNNEL_GROUP_GENERAL => {
                            prefix  => 'tunnel-group',
@@ -2238,7 +2227,7 @@ sub transfer_user {
     my $user = $spoc->{$parse_name}->{$username};
     abort("No user-object found for $username") unless $user;
     my @cmds;
-    push @cmds, define_item_cmd( $parse_name, $username );
+    push @cmds, "username $username nopassword";
     push @cmds, item_conf_mode_cmd( $parse_name, $username );
     push @cmds, add_attribute_cmds( $structure, $parse_name, $user, 
                                     'attributes' );
@@ -2286,7 +2275,7 @@ sub transfer_group_policy {
     my $new_gp = $group_policy->{new_name};
     abort("No group-policy-object found for $gp_name") unless $group_policy;
     my @cmds;
-    push @cmds, define_item_cmd( $parse_name, $new_gp );
+    push @cmds, "group-policy $new_gp internal";
     push @cmds, item_conf_mode_cmd( $parse_name, $new_gp );
     push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $group_policy, 'attributes' );
@@ -2424,15 +2413,6 @@ sub remove_acl {
     my ( $self, $conf, $structure, $parse_name, $acl ) = @_;
     my $cmd = $self->acl_removal_cmd( $acl );
     $self->cmd( $cmd );
-}
-
-sub define_item_cmd {
-    my ( $parse_name, $item_name ) = @_;
-    my $def = $define_object{$parse_name} or
-	internal_err("No definition for $parse_name $item_name");
-    my $prefix = $def->{prefix} or
-	internal_err("No prefix for $parse_name $item_name");
-    return "$prefix $item_name $def->{postfix}";
 }
 
 sub item_conf_mode_cmd {
