@@ -1384,10 +1384,10 @@ sub equalize_crypto {
     my ( $self, $conf, $spoc, $conf_crypto, $spoc_crypto, $structure ) = @_;
 
     my $conf_entries = [ sort by_peer 
-			 map(object_for_name($conf, 'CRYPTO_MAP_SEQ', $_),
+			 map($conf->{CRYPTO_MAP_SEQ}->{$_},
 			     @{$conf_crypto->{PEERS}}) ];
     my $spoc_entries = [ sort by_peer 
-			 map(object_for_name($spoc, 'CRYPTO_MAP_SEQ', $_),
+			 map($spoc->{CRYPTO_MAP_SEQ}->{$_},
 			     @{$spoc_crypto->{PEERS}}) ];
 
     my $modified;
@@ -1483,15 +1483,13 @@ sub make_equal {
     my ( $self, $conf, $spoc, $parse_name, $conf_name,
 	 $spoc_name, $structure ) = @_;
 
-    return unless ( $spoc_name  ||  $conf_name );
+    $spoc_name or $conf_name or return;
 
 #    info("MAKE EQUAL( $parse_name ) => CONF:$conf_name, SPOC:$spoc_name ");
 
     my $modified;
-    my $conf_value = object_for_name( $conf, $parse_name,
-				      $conf_name, 'no_err' );
-    my $spoc_value = object_for_name( $spoc, $parse_name,
-				      $spoc_name, 'no_err' );
+    my $conf_value = $conf_name && $conf->{$parse_name}->{$conf_name};
+    my $spoc_value = $spoc_name && $spoc->{$parse_name}->{$spoc_name};
 
     if ( $spoc_value ) {
 
@@ -1742,11 +1740,9 @@ sub unify_anchors {
 }
 
 sub change_modified_attributes {
-    my ( $self, $spoc, $parse_name,
-	 $spoc_name, $structure ) = @_;
+    my ($self, $spoc, $parse_name, $spoc_name, $structure) = @_;
 
-    my $spoc_value =
-	object_for_name( $spoc, $parse_name, $spoc_name );
+    my $spoc_value = $spoc->{$parse_name}->{$spoc_name};
 
     if ( my $parse = $structure->{$parse_name} ) {
 
@@ -1772,8 +1768,7 @@ sub transfer1 {
     my ( $self, $spoc, $parse_name, $spoc_name, $structure ) = @_;
 
 #    info("PROCESS $parse_name:$spoc_name"); 
-    my $spoc_value = object_for_name( $spoc, $parse_name,
-				      $spoc_name, 'no_err' );
+    my $spoc_value = $spoc->{$parse_name}->{$spoc_name};
 
     if ( my $parse = $structure->{$parse_name} ) {
         my @postponed;
@@ -1828,7 +1823,6 @@ sub transfer1 {
 sub traverse_netspoc_tree {
     my ( $self, $spoc, $structure ) = @_;
 
-
     # Transfer items ...
 
     # Process object-groups separately, because they are
@@ -1838,7 +1832,7 @@ sub traverse_netspoc_tree {
 	my $parse = $structure->{$parse_name};
 	my $method = $parse->{transfer};
 	for my $spoc_name ( sort keys %$spoc_hash ) {
-	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
+	    my $spoc_value = $spoc->{$parse_name}->{$spoc_name};
 	    if ( $spoc_value->{transfer} ) {
 		if ( my $transferred_as = $spoc_value->{transferred_as} ) {
 		    #info("$spoc_name already transferred as $transferred_as! ");
@@ -1873,7 +1867,7 @@ sub traverse_netspoc_tree {
     for my $parse_name ( qw( ACCESS_LIST OBJECT_GROUP ) ) {
 	my $spoc_hash = $spoc->{$parse_name};
 	for my $spoc_name ( sort keys %$spoc_hash ) {
-	    my $spoc_value = object_for_name( $spoc, $parse_name, $spoc_name );
+	    my $spoc_value = $spoc->{$parse_name}->{$spoc_name};
 	    if($spoc_value->{add_entries} || $spoc_value->{del_entries} 
                || $spoc_value->{modify_cmds}) 
             {
@@ -1903,7 +1897,7 @@ sub remove_unneeded_on_device {
 	my $parse = $structure->{$parse_name};
 	for my $obj_name ( sort keys %{$conf->{$parse_name}} ) {
 
-	    my $object = object_for_name( $conf, $parse_name, $obj_name );
+	    my $object = $conf->{$parse_name}->{$obj_name};
 
 	    # Remove attributes marked for deletion.
 	    if ( my $attr = $object->{remove_attr} ) {
@@ -1949,7 +1943,7 @@ sub remove_spare_objects_on_device {
       OBJECT:
 	for my $obj_name ( sort keys %{$conf->{$parse_name}} ) {
 	    
-	    my $object = object_for_name( $conf, $parse_name, $obj_name );
+	    my $object = $conf->{$parse_name}->{$obj_name};
 	    
 	    # Remove spare objects from device.
 	    next if $object->{connected};
@@ -2182,7 +2176,7 @@ sub remove_interface {
 sub transfer_crypto_map_seq {
     my ( $self, $spoc, $structure, $parse_name, $name_seq ) = @_;
 
-    my $object = object_for_name( $spoc, $parse_name, $name_seq );
+    my $object = $spoc->{$parse_name}->{$name_seq};
     my @cmds;
     push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $object, 'attributes' );
@@ -2192,7 +2186,7 @@ sub transfer_crypto_map_seq {
 sub remove_crypto_map_seq {
     my ( $self, $conf, $structure, $parse_name, $name_seq ) = @_;
 
-    my $object = object_for_name( $conf, $parse_name, $name_seq );
+    my $object = $conf->{$parse_name}->{$name_seq};
     my $name = $object->{name};
     my $prefix = "crypto map $name";
     my $cmd = "clear configure $prefix";
@@ -2202,7 +2196,7 @@ sub remove_crypto_map_seq {
 sub transfer_dynamic_map {
     my ( $self, $spoc, $structure, $parse_name, $name ) = @_;
 
-    my $object = object_for_name( $spoc, $parse_name, $name );
+    my $object = $spoc->{$parse_name}->{$name};
     my @cmds;
     push @cmds, add_attribute_cmds( $structure, $parse_name,
 				    $object, 'attributes' );
@@ -2212,7 +2206,7 @@ sub transfer_dynamic_map {
 sub remove_dynamic_map {
     my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
 
-    my $object = object_for_name( $conf, $parse_name, $obj_name );
+    my $object = $conf->{$parse_name}->{$obj_name};
     my $name = $object->{name};
     my $seq  = $object->{SEQ};
     my $prefix = "crypto dynamic-map $name $seq";
@@ -2223,7 +2217,7 @@ sub remove_dynamic_map {
 sub transfer_ca_cert_map {
     my ( $self, $spoc, $structure, $parse_name, $cert_map ) = @_;
 
-    my $object = object_for_name( $spoc, $parse_name, $cert_map );
+    my $object = $spoc->{$parse_name}->{$cert_map};
     my $new_cert_map = $object->{new_name};
     my @cmds;
     push @cmds, item_conf_mode_cmd( $parse_name, $new_cert_map );
@@ -2234,7 +2228,7 @@ sub transfer_ca_cert_map {
 
 sub remove_ca_cert_map {
     my ( $self, $conf, $structure, $parse_name, $cert_map ) = @_;
-    my $object = object_for_name( $conf, $parse_name, $cert_map );
+    my $object = $conf->{$parse_name}->{$cert_map};
     my $cmd = "clear configure crypto ca certificate map $cert_map";
     $self->cmd( $cmd );
 }
@@ -2369,7 +2363,7 @@ sub remove_no_sysopt_connection_permit_vpn {
     
 sub transfer_object_group {
     my ( $self, $spoc, $structure, $parse_name, $object_group ) = @_;
-    my $group = object_for_name( $spoc, $parse_name, $object_group );
+    my $group = $spoc->{$parse_name}->{$object_group};
     my $new_name = $group->{new_name};
     my $cmd = $group->{orig};
     $cmd =~ s/^(\S+ \S+ )(\S+)(.*)/$1$new_name$3/;
@@ -2496,31 +2490,6 @@ sub add_attribute_cmds {
 	}
     }
     return @cmds;
-}
-
-sub object_for_name {
-    my ( $c, $parse_name, $c_name, $no_err ) = @_;
-
-    return if not $c_name;
-
-    if ( $no_err && $no_err ne 'no_err' ) {
-	internal_err "Illegal parameter $no_err";
-    }
-
-    my $c_value;
-    if ( $c_name ) {
-	if ( my $parse = $c->{$parse_name} ) {
-	    if ( exists $parse->{$c_name} ) {
-		$c_value = $parse->{$c_name};
-	    }
-	}
-    }
-    if ( ! $no_err ) {
-	if ( ! $c_value ) {
-	    internal_err "No object found for $c_name";
-	}
-    }
-    return $c_value;
 }
 
 sub write_mem {
