@@ -1173,19 +1173,6 @@ sub get_config_from_device {
     $self->get_cmd_output('write term');
 }
 
-sub attr_eq {
-    my ($self, $a, $b) = @_;
-    keys %$a == keys %$b or return 0;
-    for my $k (keys %$a) {
-	next if $k eq 'orig';
-	next if $k eq 'line';
-	return 0 if defined $a->{$k} xor defined $b->{$k};
-	next if not defined $a->{$k};
-	$a->{$k} eq $b->{$k} or return 0;
-    }
-    return 1;
-}
-
 sub generate_names_for_transfer {
     my ( $conf, $spoc, $structure ) = @_;
 
