@@ -293,6 +293,32 @@ no vpn-idle-timeout
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
+############################################################
+$title = "Remove group-policy and username";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ banner value Welcome!
+ dns-server value 10.1.2.3 10.44.55.66
+ split-tunnel-policy tunnelspecified
+ vpn-idle-timeout 60
+ pfs
+username jon.doe@token.example.com nopassword
+username jon.doe@token.example.com attributes
+ vpn-group-policy VPN-group
+END
+
+$in = <<'END';
+END
+
+$out = <<'END';
+clear configure username jon.doe@token.example.com
+clear configure group-policy VPN-group
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Parse tunnel-group, group-policy, ca cert map, pool";
