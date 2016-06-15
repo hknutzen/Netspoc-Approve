@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.110'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.111'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -623,7 +623,7 @@ sub process_routing {
             $self->{CHANGE}->{ROUTING} = 1;
             my $cmd = $self->route_add($r, $vrf);
             
-            # PIX and ASA don't allow two routes to identical
+            # ASA doesn't allow two routes to identical
             # destination. Remove and add routes in one transaction.
             for my $c (@$conf_routing) {
                 next if $c->{DELETE};

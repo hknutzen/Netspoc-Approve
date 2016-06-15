@@ -197,6 +197,44 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Modify object-group";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+object-group network g1
+ network-object host 1.1.1.1
+!network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+ network-object host 5.5.5.5
+ network-object host 6.6.6.6
+ network-object host 7.7.7.7
+access-list inside extended permit ip object-group g1 any
+access-group inside in interface inside
+END
+
+$in = <<'END';
+object-group network g1
+ network-object host 1.1.1.1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+!network-object host 4.4.4.4
+ network-object host 5.5.5.5
+!! Order of lines doesn\'t matter
+ network-object host 7.7.7.7
+ network-object host 6.6.6.6
+access-list inside extended permit ip object-group g1 any
+access-group inside in interface inside
+END
+
+$out = <<'END';
+object-group network g1
+network-object host 2.2.2.2
+no network-object host 4.4.4.4
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Object group used in two ACLs; 1. occurence new, 2. unchanged";
 ############################################################
 $device = $minimal_device2;

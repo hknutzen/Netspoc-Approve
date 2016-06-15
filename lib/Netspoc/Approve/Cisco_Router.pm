@@ -6,7 +6,7 @@ Base class for Cisco routers (IOS, NX-OS)
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2011 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 
 This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@ package Netspoc::Approve::Cisco_Router;
 # Base class for Cisco routers (IOS, NX-OS)
 #
 
-our $VERSION = '1.110'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.111'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -187,24 +187,72 @@ sub unassign_acl   {
 
 sub process_interface_acls {
     my ($self, $conf, $spoc) = @_;
-    $self->{CHANGE}->{ACCESS_LIST} = 0;
+
     $self->enter_conf_mode('session');
 
-    # Analyze changes in all ACLs bound to interfaces.
-    my %acl_ready;
+    # Collect list of interface pairs.
+    my @interface_pairs;
     my $spoc_interfaces = $spoc->{IF};
     my $conf_interfaces = $conf->{IF};
     for my $name (sort keys %$spoc_interfaces){
-	my $intf = $spoc_interfaces->{$name};
         my $conf_intf = $conf_interfaces->{$name} or internal_err;
+	my $spoc_intf = $spoc_interfaces->{$name};
+        push @interface_pairs, [ $conf_intf, $spoc_intf ];
+    }
+
+    # Analyze changes in all ACLs bound to interfaces.
+    # Try to change ACLs incrementally.
+    # Get list of ACL pairs, that need to be redefined, added or removed.
+    my @acl_update_info = 
+        $self->equalize_acls_of_objects($conf, $spoc, \@interface_pairs);
+
+    for my $info (@acl_update_info) {
+        my ($intf, $in_out, $conf_acl, $spoc_acl) = @$info;
+        $self->{CHANGE}->{ACCESS_LIST} = 1;
+
+        # Add ACL to device.
+        if ($spoc_acl) {
+            $self->schedule_reload(5);
+            my $aclname = $self->define_acl($conf, $spoc, $spoc_acl->{name});
+            
+            # Assign new acl to interface.
+            $self->assign_acl($intf, $aclname, $in_out);
+            $self->cancel_reload();
+        }
+
+        # Remove ACL from device.
+        if ($conf_acl) {
+            if (not $spoc_acl) {
+                $self->unassign_acl($intf, $conf_acl->{name}, $in_out);
+            }
+            $self->remove_acl($conf_acl);
+        }
+    }
+    $self->leave_conf_mode();
+}
+
+# Equalize ACLs for list of interface pairs or list of crypto map pairs.
+sub equalize_acls_of_objects {
+    my ($self, $conf, $spoc, $object_pairs) = @_;
+
+    # Collect list of info 
+    # [interface/crypto_entry, in/out, conf_acl, spoc_acl], 
+    # about ACL pairs that need to be transferred and/or removed.
+    my @acl_update_info;
+
+    my %acl_ready;
+
+    # Pass 1: Equalize object groups of matching ACL lines.
+    for my $pair (@$object_pairs){
+        my ($conf_obj, $spoc_obj) = @$pair;
 	for my $in_out (qw(IN OUT)) {
 	    my $direction = lc($in_out);
-	    my $confacl_name = $conf_intf->{"ACCESS_GROUP_$in_out"} || '';
-	    my $spocacl_name = $intf->{"ACCESS_GROUP_$in_out"} || '';
+	    my $confacl_name = $conf_obj->{"ACCESS_GROUP_$in_out"} || '';
+	    my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
 	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
 	    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
 	    
-	    # Try to change existing ACL on device.
+	    # Try to change objects groups of existing ACL on device.
 	    if ($conf_acl and $spoc_acl) {
 		my $ready = $self->equalize_acl_groups($conf_acl, $spoc_acl);
                 if($ready) {
@@ -212,7 +260,10 @@ sub process_interface_acls {
                     next;
                 }
 	    }
-	    if ($spoc_acl) {
+
+            # ACL from netspoc will be transferred.
+            # Mark referenced object groups.
+	    elsif ($spoc_acl) {
                 $self->mark_object_group_from_acl($spoc_acl);
 	    }	
 	}
@@ -221,15 +272,14 @@ sub process_interface_acls {
     $self->modify_object_groups($conf, $spoc);
     $self->transfer_object_groups($conf, $spoc);
 
-    # Apply changes
+    # Pass 2: Try to equalize ACLs by incremental changes to ACL on device.
     my ($line_start, $line_incr) = $self->ACL_line_discipline();
     $self->{CHANGE}->{ACCESS_LIST} = 0;
-    for my $name (sort keys %$spoc_interfaces){
-	my $intf = $spoc_interfaces->{$name};
-        my $conf_intf = $conf_interfaces->{$name};
+    for my $pair (@$object_pairs){
+        my ($conf_obj, $spoc_obj) = @$pair;
 	for my $in_out (qw(IN OUT)) {
-	    my $confacl_name = $conf_intf->{"ACCESS_GROUP_$in_out"} || '';
-	    my $spocacl_name = $intf->{"ACCESS_GROUP_$in_out"} || '';
+	    my $confacl_name = $conf_obj->{"ACCESS_GROUP_$in_out"} || '';
+	    my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
 	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
 	    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
             
@@ -274,33 +324,20 @@ sub process_interface_acls {
                 # No modify_cmds: Fall through; add ACL.
             }
 
-            # Add ACL to device.
 	    if ($spoc_acl) {
                 $self->mark_object_group_from_acl($spoc_acl);
-                $self->{CHANGE}->{ACCESS_LIST} = 1;
-                $self->schedule_reload(5);
-                my $aclname = $self->define_acl($conf, $spoc, $spocacl_name);
-
-                # Assign new acl to interface.
-                info("Assigning new $in_out ACL $aclname to interface $name");
-                $self->assign_acl($intf, $aclname, $in_out);
-                $self->cancel_reload();
-	    }
-
-            # Remove ACL from device.
-	    if ($conf_acl) {
-                $self->{CHANGE}->{ACCESS_LIST} = 1;
-                if (not $spoc_acl) {
-                    info("Unassigning $in_out ACL from interface $name");
-                    $self->unassign_acl($intf, $confacl_name, $in_out);
-                }
-                $self->remove_acl($conf_acl);
+            }
+            if ($conf_acl) {
                 $self->mark_unneeded_object_group_from_acl($conf_acl);
-	    }		
+            }
+
+            # Collect pair for later processing.
+            push @acl_update_info, [$conf_obj, lc($in_out), 
+                                    $conf_acl, $spoc_acl];
 	}
     }
     $self->remove_object_groups($conf, $spoc);
-    $self->leave_conf_mode();
+    return @acl_update_info;
 }
 
 # Check if mpls is enabled at one or more interfaces in any VRF.

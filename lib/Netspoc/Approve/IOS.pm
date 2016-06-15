@@ -6,7 +6,7 @@ Remote configure Cisco IOS router
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2007 by Arne Spetzler
 
 This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.110'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.111'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -747,99 +747,87 @@ sub resequence_cmd {
 # Crypto processing
 ###############################
 
-sub compare_crypto_map_entries {
-    my ($self, $conf, $spoc, $conf_entry, $spoc_entry) = @_;
-    my $sequ = $conf_entry->{SEQU} or internal_err "Missing SEQU";
-    for my $in_out (qw(in out)) {
-        my $attr = 'ACCESS_GROUP_' . uc($in_out);
-        my $confacl_name = $conf_entry->{$attr} || '';
-        my $spocacl_name = $spoc_entry->{$attr} || '';
-        my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
-        my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
-        if ($conf_acl and $spoc_acl) {
-            $self->acl_equal($conf_acl->{LIST}, $spoc_acl->{LIST},
-                             $confacl_name, $spocacl_name, $attr)
-                and next;
-        }
+# Compare and equalize ACLs of crypto map entries.
+sub compare_crypto_maps {
+    my ($self, $conf, $spoc, $conf_map, $spoc_map) = @_;
+    if (@$conf_map != @$spoc_map) {
+        warn_info("Crypto maps $conf_map->{name} and $spoc_map->{name} differ");
+        return;
+    }
 
-        $self->enter_conf_mode();
+    # Find pairs of corresponding crypto map entries.
+    my @crypto_entry_pairs;
+    for (my $i = 0 ; $i < @$conf_map ; $i++) {
+        my $conf_entry = $conf_map->[$i];
+        my $spoc_entry = $spoc_map->[$i];
+        push @crypto_entry_pairs, [ $conf_entry, $spoc_entry ];
+    }
 
+    $self->enter_conf_mode();
+
+    # Analyze changes in all ACLs bound to crypto map entries.
+    # Try to change ACLs incrementally.
+    # Get list of ACL pairs, that need to be redefined, added or removed.
+    my @acl_update_info = 
+        $self->equalize_acls_of_objects($conf, $spoc, \@crypto_entry_pairs);
+
+    for my $info (@acl_update_info) {
+        my ($entry, $in_out, $conf_acl, $spoc_acl) = @$info;
+        my $name = $entry->{name};
+        my $sequ = $entry->{SEQU} or internal_err "Missing SEQU";
+        $self->{CHANGE}->{ACCESS_LIST} = 1;
+        
         # Add ACL to device.
         if ($spoc_acl) {
 
             # Add new ACL
             $self->schedule_reload(5);
-            info("Creating new ACL");
-            my $new_acl = $self->define_acl($conf, $spoc, $spocacl_name);
+            my $aclname = $self->define_acl($conf, $spoc, $spoc_acl->{name});
 
             # Assign new acl to crypto map
-            info("Assigning $new_acl");
-            $self->cmd("crypto map $conf_entry->{name} $sequ");
-            $self->cmd("set ip access-group $new_acl $in_out");
+            $self->cmd("crypto map $name $sequ");
+            $self->cmd("set ip access-group $aclname $in_out");
             $self->cancel_reload();
         }
-        
+
         # Remove ACL from device.
         if ($conf_acl) {
             if (not $spoc_acl) {
-                my $name = $conf_entry->{name};
-                info("Unassigning $in_out ACL from crypto map $name $sequ");
-                $self->cmd("crypto map $conf_entry->{name} $sequ");
-                $self->cmd("no set ip access-group $confacl_name $in_out");
+                $self->cmd("crypto map $name $sequ");
+                $self->cmd("no set ip access-group $conf_acl->{name} $in_out");
             }
             $self->remove_acl($conf_acl);
         }
-        $self->leave_conf_mode();
     }
-}
-
-# Compare arrays of crypto-map entries.
-sub compare_crypto_maps {
-    my ($self, $conf, $spoc, $conf_map, $spoc_map) = @_;
-    if (@$conf_map != @$spoc_map) {
-        info("Crypto maps $conf_map->{name} and $spoc_map->{name} differ");
-        return;
-    }
-    for (my $i = 0 ; $i < @$conf_map ; $i++) {
-        my $conf_entry = $conf_map->[$i];
-        my $spoc_entry = $spoc_map->[$i];
-        $self->compare_crypto_map_entries($conf, $spoc,
-                                          $conf_entry, $spoc_entry);
-    }
-    return;
+    $self->leave_conf_mode();
 }
 
 sub crypto_processing {
     my ($self, $conf, $spoc) = @_;
+    $spoc->{CRYPTO_MAP} or return;
 
-    if ($spoc->{CRYPTO_MAP}) {
-        $self->{CHANGE}->{CRYPTO} = 0;
-
-        my $spoc_interfaces = $spoc->{IF};
-        my $conf_interfaces = $conf->{IF};
-
-        # Compare crypto config which is bound to interfaces.
-        for my $name (keys %$spoc_interfaces) {
-            my $intf      = $spoc_interfaces->{$name};
-            my $conf_intf = $conf_interfaces->{$name};
-            my $spoc_map_name = $intf->{CRYPTO_MAP};
-            my $conf_map_name = $conf_intf->{CRYPTO_MAP};
-            if (not $spoc_map_name) {
-                if ($conf_map_name) {
-                    warn_info("Missing crypto map at $name from Netspoc");
-                    $self->{CHANGE}->{CRYPTO} = 1;
-                }
-                next;
+    my $spoc_interfaces = $spoc->{IF};
+    my $conf_interfaces = $conf->{IF};
+    
+    # Compare crypto config which is bound to interfaces.
+    for my $name (keys %$spoc_interfaces) {
+        my $spoc_intf = $spoc_interfaces->{$name};
+        my $conf_intf = $conf_interfaces->{$name};
+        my $spoc_map_name = $spoc_intf->{CRYPTO_MAP};
+        my $conf_map_name = $conf_intf->{CRYPTO_MAP};
+        if (not $spoc_map_name) {
+            if ($conf_map_name) {
+                warn_info("Missing crypto map at $name from Netspoc");
             }
-            if (not $conf_map_name) {
-                warn_info("Missing crypto map at $name from device");
-                $self->{CHANGE}->{CRYPTO} = 1;
-                next;
-            }
-            my $conf_map = $conf->{CRYPTO_MAP}->{$conf_map_name};
-            my $spoc_map = $spoc->{CRYPTO_MAP}->{$spoc_map_name};
-            $self->compare_crypto_maps($conf, $spoc, $conf_map, $spoc_map);
+            next;
         }
+        if (not $conf_map_name) {
+            warn_info("Missing crypto map at $name from device");
+            next;
+        }
+        my $conf_map = $conf->{CRYPTO_MAP}->{$conf_map_name};
+        my $spoc_map = $spoc->{CRYPTO_MAP}->{$spoc_map_name};
+        $self->compare_crypto_maps($conf, $spoc, $conf_map, $spoc_map);
     }
 }
 

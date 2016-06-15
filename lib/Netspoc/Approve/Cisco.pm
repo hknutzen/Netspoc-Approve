@@ -6,7 +6,7 @@ Base class for the different varieties of Cisco devices.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -31,12 +31,11 @@ package Netspoc::Approve::Cisco;
 use base "Netspoc::Approve::Device";
 use strict;
 use warnings;
-use IO::Socket ();
 use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.110'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.111'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -127,13 +126,13 @@ my %PORT_Names_TCP = (
     'ftp'               => 21,
     'ftp-data'          => 20,
     'gopher'            => 70,
-    'h323'              => 1720,	# PIX 6.3 
+    'h323'              => 1720,
     'hostname'          => 101,
     'https'             => 443,
     'ident'             => 113,
-    'imap4'             => 143,		# PIX 6.3
+    'imap4'             => 143,
     'irc'               => 194,
-    'kerberos'          => 750,		# PIX 6.3
+    'kerberos'          => 750,
     'klogin'            => 543,
     'kshell'            => 544,
     'ldap'              => 389,
@@ -149,7 +148,7 @@ my %PORT_Names_TCP = (
     'pim-auto-rp'       => 496,
     'pop2'              => 109,
     'pop3'              => 110,
-    'pptp'              => 1723,	# PIX 6.3
+    'pptp'              => 1723,
     'rsh'		=> 514,		# ASA 8.0, duplicate of 'cmd'
     'rtsp'              => 554,
     'sip'               => 5060,
@@ -182,7 +181,7 @@ my %PORT_Names_UDP = (
     'domain'        => 53,
     'echo'          => 7,
     'isakmp'        => 500,
-    'kerberos'      => 750,	# PIX 6.3
+    'kerberos'      => 750,
     'mobile-ip'     => 434,
     'nameserver'    => 42,
     'netbios-dgm'   => 138,
@@ -1269,7 +1268,7 @@ sub equalize_acl_entries {
 
                 # Overwrite relation from previous entry to current entry,
                 # if line numbers are shifted automatically.
-                # ASA, PIX only.
+                # ASA only.
                 $add_before{$prev_entry} = $spoc_entry 
                     if !$add_incr && $prev_entry;
 

@@ -42,7 +42,6 @@ my %WriteMakefileArgs = (
     "File::Temp" => 0,
     "Getopt::Long" => 0,
     "IO::Handle" => 0,
-    "IO::Socket" => 0,
     "POSIX" => 0,
     "base" => 0,
     "strict" => 0,
@@ -54,7 +53,7 @@ my %WriteMakefileArgs = (
     "Test::More" => 0,
     "lib" => 0
   },
-  "VERSION" => "1.110",
+  "VERSION" => "1.111",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -72,7 +71,6 @@ my %FallbackPrereqs = (
   "File::Temp" => 0,
   "Getopt::Long" => 0,
   "IO::Handle" => 0,
-  "IO::Socket" => 0,
   "IPC::Run3" => 0,
   "POSIX" => 0,
   "Test::Differences" => 0,
