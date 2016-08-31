@@ -282,6 +282,9 @@ sub equalize_acls_of_objects {
 	    my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
 	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
 	    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
+
+            # Nothing to do, if both IN-ACL or both OUT-ACL don't exist.
+            $conf_acl or $spoc_acl or next;
             
 	    if ($conf_acl and $spoc_acl) {
 

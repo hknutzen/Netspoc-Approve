@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 our @ISA    = qw(Exporter);
-our @EXPORT = qw(approve approve_err check_parse_and_unchanged);
+our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged);
 
 use Test::More;
 use Test::Differences;
@@ -87,6 +87,12 @@ sub approve_err {
     my($type, $conf, $spoc, $raw) = @_;
     my ($status, $stdout, $stderr) = run($type, $conf, $spoc, $raw);
     return($stderr);
+}
+
+sub approve_status {
+    my($type, $conf, $spoc, $raw) = @_;
+    my ($status, $stdout, $stderr) = run($type, $conf, $spoc, $raw);
+    return($status);
 }
 
 # Check whether output is as expected with given input

@@ -219,6 +219,33 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Compare unchanged ACL and non-existant outgoing ACL";
+############################################################
+$device = <<END;
+ip access-list extended test-DRC-0
+ deny ip any any
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$in = <<END;
+ip access-list extended test
+ deny ip any any
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+END
+
+my $status = approve_status('IOS', $device, $in);
+ok($status == 0, $title);
+
+############################################################
 $title = "Handle ACL line with remark";
 ############################################################
 $device = <<'END';
