@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 our @ISA    = qw(Exporter);
-our @EXPORT = qw(approve approve_err check_parse_and_unchanged);
+our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged);
 
 use Test::More;
 use Test::Differences;
@@ -53,7 +53,7 @@ END
     my $cmd = "$^X $perl_opt -I lib bin/drc3.pl -q $conf_file $spoc_file";
     my ($stdout, $stderr);
     run3($cmd, \undef, \$stdout, \$stderr);
-    my $status = $? >> 1;
+    my $status = $? >> 8;
     return($status, $stdout, $stderr);
 }
 
@@ -73,8 +73,8 @@ sub approve {
     my ($status, $stdout, $stderr) = run($type, $conf, $spoc, $raw);
 
     # 0: Success, 1: compare found diffs
-#    $status == 0 || $status == 1 or die "Unexpected status: $status\n";
-    $stderr and die "STDERR:\n$stderr\n";
+    $status == 0 || $status == 1 or BAIL_OUT "Unexpected status: $status\n";
+    $stderr and BAIL_OUT "STDERR:\n$stderr\n";
     my @output = split /\n/, $stdout;
 
     # Collect commands from output.
@@ -89,6 +89,12 @@ sub approve_err {
     return($stderr);
 }
 
+sub approve_status {
+    my($type, $conf, $spoc, $raw) = @_;
+    my ($status, $stdout, $stderr) = run($type, $conf, $spoc, $raw);
+    return($status);
+}
+
 # Check whether output is as expected with given input
 # AND whether output is empty for identical input.
 sub check_parse_and_unchanged {
@@ -97,10 +103,9 @@ sub check_parse_and_unchanged {
 
     $out = '';
     $title =~ /^Parse (.*)/ or
-	die "Need title starting with 'Parse' as argument!";
+	BAIL_OUT "Need title starting with 'Parse' as argument!";
     $title = "Empty out on identical in ($1)";
     eq_or_diff( approve( $type, $in, $in ), $out, $title );
 }    
-    
 
 1;

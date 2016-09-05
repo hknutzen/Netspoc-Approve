@@ -20,7 +20,7 @@ http://www.pjcj.net
 <h1>Branch Coverage</h1>
 <table>
 <tr><td class="h" align="right">File:</td><td align="left">lib/Netspoc/Approve/Cisco_Router.pm</td></tr>
-<tr><td class="h" align="right">Coverage:</td><td align="left" class="c1">81.0%</td></tr>
+<tr><td class="h" align="right">Coverage:</td><td align="left" class="c1">80.0%</td></tr>
 </table>
 <div><br/></div>
 <table>
@@ -35,25 +35,26 @@ http://www.pjcj.net
 <tr><td class="h"><a id="L147">147</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if ($group-&gt;{&#39;remove&#39;})</td></tr>
 <tr><td class="h"><a id="L157">157</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($hash-&gt;{&#39;delete&#39;}) { }</td></tr>
 <tr><td class="h"><a id="L198">198</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless my $conf_intf = $conf_interfaces-&gt;{$name}</td></tr>
-<tr><td class="h"><a id="L214">214</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($spoc_acl)</td></tr>
+<tr><td class="h"><a id="L214">214</a></td><td class="c0">50</td><td class="c3">T</td><td class="c0">F</td><td class="s">if ($spoc_acl)</td></tr>
 <tr><td class="h"><a id="L224">224</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($conf_acl)</td></tr>
 <tr><td class="h"><a id="L225">225</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">unless ($spoc_acl)</td></tr>
 <tr><td class="h"><a id="L256">256</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($conf_acl and $spoc_acl) { }</td></tr>
 <tr><td class="h"></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">elsif ($spoc_acl) { }</td></tr>
 <tr><td class="h"><a id="L258">258</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($ready)</td></tr>
-<tr><td class="h"><a id="L286">286</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($conf_acl and $spoc_acl)</td></tr>
-<tr><td class="h"><a id="L289">289</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if $acl_ready{$spoc_acl}</td></tr>
-<tr><td class="h"><a id="L294">294</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if $ready</td></tr>
-<tr><td class="h"><a id="L296">296</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (my $vcmds = $spoc_acl-&gt;{&#39;modify_cmds&#39;})</td></tr>
-<tr><td class="h"><a id="L306">306</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if $conf_acl-&gt;{&#39;orig&#39;}</td></tr>
-<tr><td class="h"><a id="L308">308</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (ref $vcmd eq &#39;ARRAY&#39;) { }</td></tr>
-<tr><td class="h"><a id="L327">327</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($spoc_acl)</td></tr>
-<tr><td class="h"><a id="L330">330</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($conf_acl)</td></tr>
-<tr><td class="h"><a id="L348">348</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if $intf-&gt;{&#39;MPLS&#39;}</td></tr>
-<tr><td class="h"><a id="L374">374</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">unless ($spoc_vrf{$vrf})</td></tr>
-<tr><td class="h"><a id="L381">381</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">unless ($spoc_vrf{$vrf})</td></tr>
-<tr><td class="h"><a id="L390">390</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (keys %removed)</td></tr>
-<tr><td class="h"><a id="L391">391</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if keys %{$$spoc{&#39;CRYPTO&#39;};}</td></tr>
+<tr><td class="h"><a id="L287">287</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">unless $conf_acl or $spoc_acl</td></tr>
+<tr><td class="h"><a id="L289">289</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($conf_acl and $spoc_acl)</td></tr>
+<tr><td class="h"><a id="L292">292</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if $acl_ready{$spoc_acl}</td></tr>
+<tr><td class="h"><a id="L297">297</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if $ready</td></tr>
+<tr><td class="h"><a id="L299">299</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (my $vcmds = $spoc_acl-&gt;{&#39;modify_cmds&#39;})</td></tr>
+<tr><td class="h"><a id="L309">309</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if $conf_acl-&gt;{&#39;orig&#39;}</td></tr>
+<tr><td class="h"><a id="L311">311</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (ref $vcmd eq &#39;ARRAY&#39;) { }</td></tr>
+<tr><td class="h"><a id="L330">330</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($spoc_acl)</td></tr>
+<tr><td class="h"><a id="L333">333</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if ($conf_acl)</td></tr>
+<tr><td class="h"><a id="L351">351</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if $intf-&gt;{&#39;MPLS&#39;}</td></tr>
+<tr><td class="h"><a id="L377">377</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">unless ($spoc_vrf{$vrf})</td></tr>
+<tr><td class="h"><a id="L384">384</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">unless ($spoc_vrf{$vrf})</td></tr>
+<tr><td class="h"><a id="L393">393</a></td><td class="c3">100</td><td class="c3">T</td><td class="c3">F</td><td class="s">if (keys %removed)</td></tr>
+<tr><td class="h"><a id="L394">394</a></td><td class="c0">50</td><td class="c0">T</td><td class="c3">F</td><td class="s">if keys %{$$spoc{&#39;CRYPTO&#39;};}</td></tr>
 </table>
 </body>
 </html>
