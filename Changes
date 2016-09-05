@@ -1,5 +1,11 @@
 {{$NEXT}}
 
+1.112     2016-09-05 09:31:28+02:00 Europe/Berlin
+
+ - Fixed wrong status from 'diamonds compare' with Cisco routers.
+   It always showed changed ACLs, even if all ACLs had been unchanged.
+   This bug had been introduced in version 1.111.
+
 1.111     2016-06-15 14:54:32+02:00 Europe/Berlin
 
  - Crypto filter ACLs are transferred incrementally for IOS routers now.
