@@ -63,6 +63,25 @@ $out = '';
 eq_or_diff(approve('IOS', $device, $device), $out, $title);
 
 ############################################################
+$title = "point-to-point interface";
+############################################################
+$device = <<END;
+interface ATM0
+ no ip address
+ no atm ilmi-keepalive
+!
+interface ATM0.7 point-to-point
+ pvc 1/32
+  bridge-dot1q encap 7
+  pppoe-client dial-pool-number 1
+!
+END
+
+$out = '';
+
+eq_or_diff(approve('IOS', $device, $device), $out, $title);
+
+############################################################
 $title = "Parse crypto EZVPN";
 ############################################################
 $device = <<END;
@@ -106,7 +125,6 @@ END
 $out = '';
 
 eq_or_diff(approve('IOS', $device, $device), $out, $title);
-
 
 ############################################################
 $title = "Parse crypto map";

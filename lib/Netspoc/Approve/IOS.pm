@@ -68,9 +68,12 @@ sub get_parse_info {
 	interface =>
 	{ store => 'IF',
 	  named => 1,
-	  parse => ['cond1',
-		    { parse => qr/type/ },
-		    { parse => qr/tunnel/ } ],
+	  parse => ['or',
+                    ['cond1',
+                     { parse => qr/type/ },
+                     { parse => qr/tunnel/ } ],
+                    ['cond1',
+                     { parse => qr/point-to-point|multipoint/ } ]],
 	  subcmd =>
 	  { 'ip address' => { 
 	      store => 'ADDRESS',
