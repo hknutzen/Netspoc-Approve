@@ -649,12 +649,19 @@ sub login_enable {
 	($user, $pass) = $self->get_aaa_password();
     }
     my $try_telnet;
+    my $expect = $con->{EXPECT};
 
     # Try SSH, if username is given and if server is reachable on SSH port.
     if ($user) {
         info("Trying SSH for login");
-        $con->{EXPECT}->spawn('ssh', '-l', $user, $ip)
-            or abort("Cannot spawn ssh: $!");
+        if (my $cmd = $ENV{SIMULATE_ROUTER}) {
+            $expect->spawn("$^X $cmd")
+                or abort("Cannot spawn simulation': $!");
+        }
+        else {
+            $expect->spawn('ssh', '-l', $user, $ip)
+                or abort("Cannot spawn ssh: $!");
+        }
         my $prompt = qr/password:|\(yes\/no\)\?/i;
         my $result = $con->con_short_wait($prompt);
         if ($result->{ERROR}) {
@@ -686,8 +693,7 @@ sub login_enable {
 
     if (!$user || $try_telnet) {
         info("Trying telnet for login");
-        $con->{EXPECT}->spawn('telnet', $ip)
-            or abort("Cannot spawn telnet: $!");
+        $expect->spawn('telnet', $ip) or abort("Cannot spawn telnet: $!");
         my $prompt = qr/username:|password:|$std_prompt/i;
         my $result = $con->con_short_wait($prompt);
         if ($result->{ERROR}) {
