@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+1.113     2016-12-06 14:49:21+01:00 Europe/Berlin
+
+ - Accept keywords 'point-to-point' and 'multipoint' in interface command.
+
 1.112     2016-09-05 09:31:28+02:00 Europe/Berlin
 
  - Fixed wrong status from 'diamonds compare' with Cisco routers.
