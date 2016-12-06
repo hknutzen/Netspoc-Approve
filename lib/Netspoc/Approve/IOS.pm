@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.112'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.113'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -68,9 +68,12 @@ sub get_parse_info {
 	interface =>
 	{ store => 'IF',
 	  named => 1,
-	  parse => ['cond1',
-		    { parse => qr/type/ },
-		    { parse => qr/tunnel/ } ],
+	  parse => ['or',
+                    ['cond1',
+                     { parse => qr/type/ },
+                     { parse => qr/tunnel/ } ],
+                    ['cond1',
+                     { parse => qr/point-to-point|multipoint/ } ]],
 	  subcmd =>
 	  { 'ip address' => { 
 	      store => 'ADDRESS',

@@ -33,7 +33,7 @@ package Netspoc::Approve::Cisco_Router;
 # Base class for Cisco routers (IOS, NX-OS)
 #
 
-our $VERSION = '1.112'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.113'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
