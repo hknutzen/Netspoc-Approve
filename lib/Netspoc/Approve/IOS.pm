@@ -142,6 +142,9 @@ sub get_parse_info {
 		       { store => 'METRIC', 
 			 parse => \&check_int, 
 			 default => 1 },
+                       ['cond1',
+                         # Ignore name.
+                        { parse => qr/name/, }, { parse => \&get_token },],
 		       ['cond1',
 			{ parse => qr/track/, },
 			{ store => 'TRACK', parse => \&get_token, },],
