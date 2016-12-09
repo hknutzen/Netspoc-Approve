@@ -66,7 +66,7 @@ my $data;
     close($fh);
 }
 
-my $delim = qr/^[#][ ]*(.+)[ ]*\n/m;
+my $delim = qr/^[#][ ]*(.*)[ ]*\n/m;
 
 # Split into preamble, cmd-a, output-a, cmd-b, output-b, ...
 my ($preamble, @output) = split($delim, $data);

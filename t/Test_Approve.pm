@@ -68,7 +68,7 @@ sub simulate {
     my $simulation_cmd = "t/simulate-cisco.pl $device_name $scenario_file";
     $ENV{SIMULATE_ROUTER} = $simulation_cmd;
 
-    # Prepare credentials file
+    # Prepare credentials file. Declare current user as system user.
     my $id = getpwuid($<);
     my $credentials_file = "$dir/credentials";
     write_file($credentials_file, <<"END");
@@ -80,6 +80,7 @@ END
     write_file($config_file, <<"END");
 netspocdir = $dir
 lockfiledir = $dir
+checkbanner = NetSPoC
 systemuser = $id
 aaa_credentials = $credentials_file
 timeout = 1
