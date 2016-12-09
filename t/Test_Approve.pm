@@ -120,7 +120,10 @@ sub approve {
     my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc, $raw);
 
     # 0: Success, 1: compare found diffs
-    $status == 0 || $status == 1 or BAIL_OUT "Unexpected status: $status\n";
+    if ($status != 0 && $status != 1) {
+        $stderr ||= '';
+        BAIL_OUT "Unexpected status: $status\n$stderr\n";
+    }
     $stderr and BAIL_OUT "STDERR:\n$stderr\n";
     my @output = split /\n/, $stdout;
 
