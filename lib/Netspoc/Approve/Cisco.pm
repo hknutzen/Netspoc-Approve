@@ -993,6 +993,9 @@ sub acl_entry2key0 {
     if (my $string = $e->{REMARK}) {
         return "remark $string";
     }
+    if ($e->{UNKNOWN}) {
+        abort("Can't compare ACL with unknown attribute:\n $e->{orig}");
+    }
 
     my @r;
     push(@r, $e->{MODE});

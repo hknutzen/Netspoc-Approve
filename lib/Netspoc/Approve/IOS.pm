@@ -218,7 +218,13 @@ sub get_parse_info {
 				  params => [ '$TYPE' ] },
 				{ store => 'SRC', parse => 'parse_address' },
 				{ store => 'DST', parse => 'parse_address' } ]],
-			      { store => 'LOG', parse => qr/log-input|log/ } ]
+			      { store => 'LOG', parse => qr/log-input|log/ },
+
+                              # Skip unknown keywords and mark line as unknown.
+                              ['cond1',
+                               { store => 'UNKNOWN', parse => \&check_token },
+                               { parse => \&skip } ],
+                        ]
 		},
 
 	    },
