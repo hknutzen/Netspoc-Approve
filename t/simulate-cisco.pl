@@ -92,7 +92,7 @@ if (my @banners = grep { m/^ \\ \w+ \/ $/x } keys %cmd2out) {
     # Substite banner markers by banner text in command lines.
     my @cmd_list = keys %cmd2out;
     for my $b_cmd (@cmd_list) {
-        my ($marker) = $b_cmd =~ /\\(\w+)\// or next;
+        my ($marker) = $b_cmd =~ /(\\\w+\/)/ or next;
         my $banner = $banner2out{$marker} or 
             die "Unknown banner marker: $marker\n";
         
