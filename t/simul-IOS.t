@@ -31,7 +31,9 @@ Enter Password:<!>
 banner motd managed by NetSPoC
 >
 # sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
+Cisco IOS Software, C800 Software (C800-UNIVERSALK9-M), Version 15.4(3)M4, RELEASE SOFTWARE (fc1)
+Technical Support: http://www.cisco.com/techsupport
+Cisco C886VA-K9 (revision 1.0) with 488524K/35763K bytes of memory.
 END
 
 $in = '';
@@ -51,7 +53,9 @@ router#
 router#term len 0
 router#term width 512
 router#sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
+Cisco IOS Software, C800 Software (C800-UNIVERSALK9-M), Version 15.4(3)M4, RELEASE SOFTWARE (fc1)
+Technical Support: http://www.cisco.com/techsupport
+Cisco C886VA-K9 (revision 1.0) with 488524K/35763K bytes of memory.
 router#
 router#configure terminal
 router#no logging console
