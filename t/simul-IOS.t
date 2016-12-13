@@ -191,4 +191,123 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "Conf mode, reload banner, small change, write mem";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd  managed by NetSPoC
+>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# sh run
+ip route 10.0.0.0 255.0.0.0 10.1.2.3
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+# \BANNER5/
+
+
+
+***
+*** --- SHUTDOWN in 00:05:00 ---
+***
+# \BANNER1/
+
+
+
+***
+*** --- SHUTDOWN in 00:01:00 ---
+***
+# reload in 5
+
+System configuration has been modified. Save? [yes/no]: <!>
+Reload reason: Reload Command
+Proceed with reload? [confirm]<!>
+# reload in 2
+Proceed with reload? [confirm]<!>
+# reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+# no ip route 10.0.0.0 25\BANNER5/5.0.0.0 10.1.2.3
+# ip \BANNER1/route 10.0.0.0 255.0.0.0 10.11.22.33
+# write memory
+Building configuration...
+  Compressed configuration from 106098 bytes to 30504 bytes[OK]
+END
+
+$in = <<'END';
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+END
+
+$out = <<'END';
+------ router.login
+Enter Password:secret
+
+banner motd  managed by NetSPoC
+>
+enable
+router#
+router#term len 0
+router#term width 512
+router#sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+router#
+router#configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#no logging console
+router#line vty 0 15
+router#logging synchronous level all
+router#ip subnet-zero
+router#ip classless
+router#end
+router#
+------ router.change
+configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#end
+router#reload in 5
+
+System configuration has been modified. Save? [yes/no]: n
+
+Reload reason: Reload Command
+Proceed with reload? [confirm]
+
+router#configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#no ip route 10.0.0.0 25
+
+
+***
+*** --- SHUTDOWN in 00:05:00 ---
+***
+5.0.0.0 10.1.2.3
+router#ip 
+
+
+***
+*** --- SHUTDOWN in 00:01:00 ---
+***
+route 10.0.0.0 255.0.0.0 10.11.22.33
+router#do reload in 2
+Proceed with reload? [confirm]
+
+router#end
+router#reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+router#
+router#write memory
+Building configuration...
+  Compressed configuration from 106098 bytes to 30504 bytes[OK]
+router#
+END
+
+simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 done_testing;
