@@ -651,7 +651,7 @@ sub handle_reload_banner {
 	}
 
 	# Because of 'logging synchronous' we are sure to get another prompt
-	# if the banner is the only output befor current prompt.
+	# if the banner is the only output before current prompt.
 	# Read next prompt and set $$output_ref to next output.
 	elsif(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
 	    info("Expecting prompt after banner");
