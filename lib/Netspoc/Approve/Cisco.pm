@@ -744,15 +744,8 @@ sub login_enable {
 }
 
 # All active interfaces on device must be known by Netspoc.
-sub checkinterfaces {
-    my ($self, $conf, $spoc, $has_mpls) = @_;
-
-    # Don't check, if Netspoc config contains no interfaces at all.
-    # The device is probably of type "managed=routing_only",
-    # and the configuration won't change any interfaces.
-    if (!keys %{ $spoc->{IF} }) {
-        return;
-    }
+sub check_device_interfaces {
+    my ($self, $conf, $spoc) = @_;
 
     my @errors;
     for my $name (sort keys %{ $conf->{IF} }) {
@@ -760,15 +753,7 @@ sub checkinterfaces {
         next if $conf_intf->{SHUTDOWN};
         $conf_intf->{ADDRESS} or $conf_intf->{UNNUMBERED} or next;
         if (my $spoc_intf = $spoc->{IF}->{$name}) {
-
-            # Compare mapping to VRF.
-	    my $conf_vrf = $conf_intf->{VRF} || '-';
-	    my $spoc_vrf = $spoc_intf->{VRF} || '-';
-	    $conf_vrf eq $spoc_vrf or 
-		push(@errors,
-		     "Different VRFs defined for interface $name:" .
-		     " Conf: $conf_vrf, Netspoc: $spoc_vrf");
-
+            
             # Compare statefulness.
             my $conf_inspect = $conf_intf->{INSPECT} ? 'enabled' : 'disabled';
             my $spoc_inspect = $spoc_intf->{INSPECT} ? 'enabled' : 'disabled';
@@ -781,21 +766,50 @@ sub checkinterfaces {
             warn_info("Interface '$name' on device is not known by Netspoc");
         }
     }
+}
+
+sub check_spoc_interfaces {
+    my ($self, $conf, $spoc, $has_mpls) = @_;
+    
+    my @errors;
     for my $name (sort keys %{ $spoc->{IF} }) {
-	next if $conf->{IF}->{$name};
+        my $spoc_intf = $spoc->{IF}->{$name};
+	if (my $conf_intf = $conf->{IF}->{$name}) {
+
+            # Compare mapping to VRF.
+	    my $spoc_vrf = $spoc_intf->{VRF} || '-';
+	    my $conf_vrf = $conf_intf->{VRF} || '-';
+	    $conf_vrf eq $spoc_vrf or 
+		push(@errors,
+		     "Different VRFs defined for interface $name:" .
+		     " Conf: $conf_vrf, Netspoc: $spoc_vrf");
+        }
+        else {
         
-        # Ignore unnumbered pseudo mpls interface
-        if ($has_mpls && $name =~ /^mpls/) {
-            my $intf = $spoc->{IF}->{$name};
-            if($intf->{UNNUMBERED}) {
+            # Ignore unnumbered pseudo mpls interface
+            if ($has_mpls && $name =~ /^mpls/ && $spoc_intf->{UNNUMBERED}) {
                 delete $spoc->{IF}->{$name};
                 next;
             }
-        }
 
-        push(@errors, "Interface '$name' from Netspoc not known on device");
+            push(@errors, "Interface '$name' from Netspoc not known on device");
+        }
     }
     @errors and abort(@errors);
+}
+
+sub checkinterfaces {
+    my ($self, $conf, $spoc, $has_mpls) = @_;
+
+    # Only check device interfaces, if Netspoc config has some
+    # access-lists or crypto config. Otherwise the device is probably
+    # of type "managed=routing_only", and Netspoc won't change any
+    # interface config.
+    if (grep { /^(?:ACCESS_LIST|CRYPTO)/ } keys %$spoc) {
+        $self->check_device_interfaces($conf, $spoc);
+    }
+
+    $self->check_spoc_interfaces($conf, $spoc, $has_mpls);
 }
 
 my %object2key_sub = (

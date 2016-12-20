@@ -789,6 +789,87 @@ END
 eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Check Netspoc interfaces";
+############################################################
+$device = <<END;
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+END
+
+$in = <<'END';
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+interface Serial3
+ ip address 10.1.3.1 255.255.255.0
+END
+
+$out = <<'END';
+ERROR>>> Interface 'Serial3' from Netspoc not known on device
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Check device interfaces";
+############################################################
+# Device interfaces are checked, if ACL or Crypto config is present.
+
+$device = <<END;
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+END
+
+$in = <<'END';
+interface Serial1
+ ip address 10.1.2.1 255.255.255.0
+ ip access-group test in
+ip access-list extended test
+ deny ip any any log-input
+END
+
+$out = <<'END';
+WARNING>>> Interface 'Serial2' on device is not known by Netspoc
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Check VRF of interfaces";
+############################################################
+$device = <<END;
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+ ip vrf forwarding 014
+interface Serial3
+ ip address 10.1.3.1 255.255.255.0
+ ip vrf forwarding 013
+END
+
+$in = <<'END';
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+ ip vrf forwarding 013
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+ ip vrf forwarding 014
+interface Serial3
+ ip address 10.1.3.1 255.255.255.0
+END
+
+$out = <<'END';
+ERROR>>> Different VRFs defined for interface Serial1: Conf: -, Netspoc: 013
+ERROR>>> Different VRFs defined for interface Serial3: Conf: 013, Netspoc: -
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Unknown interface in VRF";
 ############################################################
 $device = <<END;
