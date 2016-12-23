@@ -62,7 +62,7 @@ Compare / approve file with device or compare two files.
  -C                   compare only
  -u <username>        use username for login to remote device
  -q                   suppress info messages to STDERR
- -L <logdir>          path for saving telnet logs
+ -L <logdir>          path for saving session logs
  --LOGFILE <fullpath> path to redirect STDOUT and STDERR
  -v                   print program version
 

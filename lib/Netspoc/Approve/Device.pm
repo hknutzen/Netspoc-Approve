@@ -51,37 +51,6 @@ sub new {
 #   methods
 ###########################################################################
 
-# Get password from file.
-# Format:
-# - Comma separated values:
-#   0: <name>
-#   has at least 9 fields (Cisco Works format)
-#   8: <Telnet password>
-#   else
-#   1: <password>
-# - ignore 
-#   - empty lines.
-#   - comment lines starting with ';' or #
-sub get_cw_password {
-    my ($self) = @_;
-    my $path = $self->{CONFIG}->{passwdpath} or return;
-    my $name = $self->{NAME};
-
-    open(my $csv, '<', $path) or  ## no critic (ProhibitUnusedVariables)
-      abort("Can't open $path: $!");
-    for my $line (<$csv>) {
-        chomp $line;
-        $line =~ /^[;#]/ and next;
-        $line =~ s/[\"]//g;
-        $line or next;
-        my @fields = split(/,/, $line);
-        if ($name eq $fields[0]) {
-            return $fields[@fields >= 9 ? 8 : 1];
-        }
-    }
-    return;
-}
-
 sub match {
     my ($pattern, $name) = @_;
 

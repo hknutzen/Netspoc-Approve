@@ -34,13 +34,11 @@ my $config = {
     historydir      => undef,
     statusdir       => undef,
     checkbanner     => undef,	# regex
-    passwdpath      => undef,
     aaa_credentials => undef,	# path
     systemuser      => undef,	# username
     newpolicy_hooks => undef,	# list of paths
     timeout         => 60,
     login_timeout   => 3,
-    try_telnet      => undef,
     keep_history    => 365,   # del history older than this (in days),
 };
 

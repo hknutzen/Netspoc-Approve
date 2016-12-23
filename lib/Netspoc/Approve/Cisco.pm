@@ -635,86 +635,40 @@ sub login_enable {
     my $std_prompt = qr/[\>\#]/;
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
 
-    # First, try to get password from CiscoWorks for current device.
-    # This is used for telnet login without username.
-    my $pass = $self->get_cw_password();
+    # If running as privileged user, try to get user and password
+    # for login. Otherwise get current user or user from option
+    # '-u' and no password.
+    my ($user, $pass) = $self->get_aaa_password();
 
-    # Get username for login with ssh.
-    my $user;
-    if (! $pass) {
-
-        # If running as privileged user, try to get user and password
-        # for login. Otherwise get current user or user from option
-        # '-u' and no password.
-	($user, $pass) = $self->get_aaa_password();
-    }
-    my $try_telnet;
     my $expect = $con->{EXPECT};
-
-    # Try SSH, if username is given and if server is reachable on SSH port.
-    if ($user) {
-        info("Trying SSH for login");
-        if (my $cmd = $ENV{SIMULATE_ROUTER}) {
-            $expect->spawn("$^X $cmd")
-                or abort("Cannot spawn simulation': $!");
-        }
-        else {
-            $expect->spawn('ssh', '-l', $user, $ip)
-                or abort("Cannot spawn ssh: $!");
-        }
-        my $prompt = qr/password:|\(yes\/no\)\?/i;
-        my $result = $con->con_short_wait($prompt);
-        if ($result->{ERROR}) {
-            if ($try_telnet = $self->{CONFIG}->{try_telnet}) {
-
-                # Open fresh console for telnet command.
-                $self->con_shutdown();
-                $self->con_setup();
-                $con = $self->{CONSOLE};
-            }
-            else {
-                $con->con_error();
-            }
-        }
-        else {
-            my $match = $result->{MATCH};
-            if ($match =~ m/\(yes\/no\)\?/i) {
-                $prompt = qr/password:/i;
-                $con->con_issue_cmd('yes', $prompt);
-                info("SSH key for $ip permanently added to known hosts");
-            }
-            $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-            $prompt = qr/$prompt|$std_prompt/i;
-            $pass ||= $self->get_user_password($user);
-            $con->con_issue_cmd($pass, $prompt);
-            $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
-        }
+    info("Trying SSH for login");
+    if (my $cmd = $ENV{SIMULATE_ROUTER}) {
+        $expect->spawn("$^X $cmd")
+            or abort("Cannot spawn simulation': $!");
+    }
+    else {
+        $expect->spawn('ssh', '-l', $user, $ip)
+            or abort("Cannot spawn ssh: $!");
+    }
+    my $prompt = qr/password:|\(yes\/no\)\?/i;
+    my $result = $con->con_short_wait($prompt);
+    if ($result->{ERROR}) {
+        $con->con_error();	# This aborts.
     }
 
-    if (!$user || $try_telnet) {
-        info("Trying telnet for login");
-        $expect->spawn('telnet', $ip) or abort("Cannot spawn telnet: $!");
-        my $prompt = qr/username:|password:|$std_prompt/i;
-        my $result = $con->con_short_wait($prompt);
-        if ($result->{ERROR}) {
-            $con->con_error();
-        }
-        $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
-        if ($con->{RESULT}->{MATCH} =~ qr/username:/i) {
-            if (!$user) {
-                warn_info("Telnet asks for username,",
-                          " ignoring $self->{CONFIG}->{passwdpath}");
-                ($user, $pass) = $self->get_aaa_password();
-            }
-            $con->con_issue_cmd($user, $prompt);
-        }
-        if ($con->{RESULT}->{MATCH} =~ qr/password:/i) {
-            $pass ||= $self->get_user_password($user || 'device');
-            $con->con_issue_cmd($pass, $prompt);
-        }
+    my $match = $result->{MATCH};
+    if ($match =~ m/\(yes\/no\)\?/i) {
+        $prompt = qr/password:/i;
+        $con->con_issue_cmd('yes', $prompt);
+        info("SSH key for $ip permanently added to known hosts");
     }
+    $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+    $prompt = qr/$prompt|$std_prompt/i;
+    $pass ||= $self->get_user_password($user);
+    $con->con_issue_cmd($pass, $prompt);
+    $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
 
-    my $match = $con->{RESULT}->{MATCH};
+    $match = $con->{RESULT}->{MATCH};
     if ($match eq '>') {
 
 	# Enter enable mode. 
@@ -737,7 +691,7 @@ sub login_enable {
     # Force new prompt by issuing empty command.
     # Set prompt again because of performance impact of standard prompt.
     $self->{ENAPROMPT} = qr/\r\n.*\#[ ]?$/;
-    my $result = $self->issue_cmd('');
+    $result = $self->issue_cmd('');
     $result->{MATCH} =~ m/^(\r\n\s?\S+)\#[ ]?$/;
     my $prefix = $1;
     $self->{ENAPROMPT} = qr/$prefix\S*\#[ ]?/;
