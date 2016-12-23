@@ -159,7 +159,7 @@ sub con_issue_cmd {
 	: $con->con_wait( $prompt );
 }
 
-sub con_error {
+sub con_abort {
     my ($con) = @_;
     my $result = $con->{RESULT};
     my $err = $result->{ERROR};

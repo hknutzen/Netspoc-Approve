@@ -653,7 +653,7 @@ sub login_enable {
     my $prompt = qr/password:|\(yes\/no\)\?/i;
     my $result = $con->con_short_wait($prompt);
     if ($result->{ERROR}) {
-        $con->con_error();	# This aborts.
+        $con->con_abort();
     }
 
     my $match = $result->{MATCH};

@@ -1287,7 +1287,7 @@ sub login_enable {
     my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
     my $result = $con->con_short_wait($prompt);
     if ($result->{ERROR}) {
-        $con->con_error();
+        $con->con_abort();
     }
     if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 	$prompt = qr/$std_prompt|password:/i;
