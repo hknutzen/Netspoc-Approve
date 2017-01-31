@@ -927,12 +927,6 @@ sub postprocess_config {
     $self->postprocess_iptables($config);
 } 
 
-sub compare_chains_semantically {
-    my($self, $conf_chain, $spoc_chain, $context) = @_;
-    my($conf_acl, $conf_name) = @{$conf_chain}{qw(EXPANDED name)};
-    my($spoc_acl, $spoc_name) = @{$spoc_chain}{qw(EXPANDED name)};
-}
-
 # Compare two rules.
 # Return undef if rules are different.
 # Return targets called by these rules, if rules are equal.
