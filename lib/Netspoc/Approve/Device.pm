@@ -72,10 +72,6 @@ sub match {
 #   * matches zero or more characters
 #   ? matches one character
 # - First matching line is taken.
-#
-# Old format:
-# - Only a single line with two fields: "username password"
-# - is equivalent to "* username password"
 sub get_aaa_password {
     my ($self) = @_;
     my $pass;
@@ -102,12 +98,7 @@ sub get_aaa_password {
 
     for my $line (@lines) {
         my $count = (my ($pattern, $user, $pass) = split(' ', $line));
-
-        # Convert old format.
-        if ($count == 2 && @lines == 1) {
-            ($pattern, $user, $pass) = ( '*', $pattern, $user);
-        }
-        elsif ($count != 3) {
+        if ($count != 3) {
             abort("Expected 3 fields in lines of $aaa_credential");
         }
 
