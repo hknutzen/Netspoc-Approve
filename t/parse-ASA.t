@@ -111,7 +111,7 @@ $in = <<END;
 access-list crypto-acl1 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 access-list crypto-acl2 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 
-crypto ipsec ikev1 transform-set trans esp-3des esp-sha-hmac 
+crypto ipsec ikev1 transform-set trans esp-3des esp-sha-hmac
 crypto dynamic-map some-name 10 match address crypto-acl2
 crypto map map-outside 10 match address crypto-acl1
 crypto map map-outside 10 set pfs group2
@@ -219,7 +219,7 @@ tunnel-group 193.155.130.3 ipsec-attributes
  ikev2 remote-authentication certificate
 crypto ca certificate map cert-map 10
  subject-name attr ea eq cert@example.com
-tunnel-group-map cert-map 10 193.155.130.3 
+tunnel-group-map cert-map 10 193.155.130.3
 crypto map crypto-outside interface outside
 END
 

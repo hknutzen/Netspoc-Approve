@@ -116,7 +116,7 @@ sub con_wait {
 }
 
 # We might accidently have read multiple prompt strings.
-# This occurs, if reload banner is sent or multiple commands are sent in 
+# This occurs, if reload banner is sent or multiple commands are sent in
 # one packet.
 # Check for this case and put extra data after first prompt back into
 # accumulator of expect.
@@ -144,8 +144,8 @@ sub con_short_wait {
     my ($con, $prompt) = @_;
     my $timeout = $con->{LOGIN_TIMEOUT};
     return $con->con_wait0($prompt, $timeout);
-}            
-    
+}
+
 sub con_send_cmd {
     my ($con, $cmd) = @_;
     $con->{EXPECT}->send( $cmd );
@@ -154,8 +154,8 @@ sub con_send_cmd {
 sub con_issue_cmd {
     my ($con, $cmd, $prompt, $check_prompt1) = @_;
     $con->con_send_cmd("$cmd\n");
-    $check_prompt1 
-	? $con->con_wait_prompt1($prompt) 
+    $check_prompt1
+	? $con->con_wait_prompt1($prompt)
 	: $con->con_wait( $prompt );
 }
 

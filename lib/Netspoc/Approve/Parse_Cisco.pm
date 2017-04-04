@@ -36,7 +36,7 @@ require Exporter;
 # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
-our @EXPORT = 
+our @EXPORT =
     qw(err_at_line
        get_token get_regex get_int get_ip get_eol unread
        get_ip_pair get_ip_prefix
@@ -65,7 +65,7 @@ sub check_token {
     $arg->{pos}+1 > @$args and return;
     return $args->[$arg->{pos}++];
 }
-    
+
 sub get_token {
     my($arg) = @_;
     my $result = check_token($arg);
@@ -117,7 +117,7 @@ my %log2level = (
     errors => 3,
     warnings => 4,
     notifications => 5,
-    informational => 6, 
+    informational => 6,
     debugging => 7,
 );
 
@@ -135,7 +135,7 @@ sub check_loglevel {
         return;
     }
 }
-    
+
 sub get_ip {
     my($arg) = @_;
     my $ip = quad2int(get_token($arg));
@@ -161,7 +161,7 @@ sub get_ip_pair {
     defined $ip1 or err_at_line($arg, "Expected IP: $from");
     my $ip2 = $ip1;
     if($to) {
-	$ip2 = quad2int($to); 
+	$ip2 = quad2int($to);
 	defined $ip2 or err_at_line($arg, "Expected IP: $to");
     }
     return($ip1, $ip2);
@@ -202,7 +202,7 @@ sub get_name_in_out {
 sub get_paren_token {
     my($arg) = @_;
     my $token = get_token($arg);
-    my($inside) = ($token =~ /^\((.*)\)$/) or 
+    my($inside) = ($token =~ /^\((.*)\)$/) or
 	err_at_line($arg, 'Expected parenthesized value(s)');
     if(wantarray) {
 	split(/,/, $inside);
@@ -222,9 +222,9 @@ sub get_sorted_encr_list {
     my @result;
     my $v1 = get_token($arg);
     push @result, $v1;
-    if (my $v2 = check_token($arg)) { 
+    if (my $v2 = check_token($arg)) {
         push @result, $v2;
-        if (my $v3 = check_token($arg)) { 
+        if (my $v3 = check_token($arg)) {
             push @result, $v3;
         }
     }
@@ -237,13 +237,13 @@ sub get_sorted_encr_list {
 sub get_token_list {
     my($arg) = @_;
     my @result = (get_token($arg));
-    while (defined(my $v = check_token($arg))) { 
+    while (defined(my $v = check_token($arg))) {
         push @result, $v;
     }
     return \@result;
 }
 
-# Like bulitin function 'ne', but has additional argument $arg and 
+# Like bulitin function 'ne', but has additional argument $arg and
 # returns undef as false.
 sub test_ne {
     my($arg, $a, $b) = @_;

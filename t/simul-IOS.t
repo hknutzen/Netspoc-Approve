@@ -283,7 +283,7 @@ router#no ip route 10.0.0.0 25
 *** --- SHUTDOWN in 00:05:00 ---
 ***
 5.0.0.0 10.1.2.3
-router#ip 
+router#ip
 
 
 ***

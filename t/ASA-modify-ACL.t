@@ -358,7 +358,7 @@ object-group network g2
 object-group network g26
  network-object host 10.3.3.3
 access-list in extended permit tcp object-group g2 object-group g26
-access-list out extended permit tcp object-group g2 object-group g26 eq 25 
+access-list out extended permit tcp object-group g2 object-group g26 eq 25
 access-group in in interface inside
 access-group out in interface outside
 END

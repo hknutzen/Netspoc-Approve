@@ -15,7 +15,7 @@ Reads from STDIN and writes to STDOUT.
 A scenario file controls the simulation.
 It has multiple sections.
 The first section, in front of line starting with '#' is called preamble.
-Other sections are pairs of 
+Other sections are pairs of
  # command line
  command output line 1
  ...
@@ -45,7 +45,7 @@ The simulation will print this command line garbled by banner text.
 MARKER is any non empty string of word characters.
 
 =cut
-    
+
 use strict;
 use warnings;
 
@@ -93,9 +93,9 @@ if (my @banners = grep { m/^ \\ \w+ \/ $/x } keys %cmd2out) {
     my @cmd_list = keys %cmd2out;
     for my $b_cmd (@cmd_list) {
         my ($marker) = $b_cmd =~ /(\\\w+\/)/ or next;
-        my $banner = $banner2out{$marker} or 
+        my $banner = $banner2out{$marker} or
             die "Unknown banner marker: $marker\n";
-        
+
         # Restore original command.
         (my $cmd = $b_cmd) =~ s/\\\w+\///;
         $cmd2out{$cmd} = delete $cmd2out{$b_cmd};
@@ -127,7 +127,7 @@ sub send_line {
 $preamble ||= '';
 send_line $preamble;
 
-# Read command, 
+# Read command,
 # send command echo,
 # send corresponding output lines,
 # send prompt.
@@ -146,7 +146,7 @@ while (my $cmd = <>) {
     else {
         send_line "$cmd\n";
     }
-    
+
     last if $lookup eq 'exit';
     if (my $out = $cmd2out{$lookup}) {
         send_line $out;

@@ -18,7 +18,7 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
@@ -52,14 +52,14 @@ my $history_fh;
 sub init_history_logging {
     my ($devicename, $arguments, $user) = @_;
     my $historypath = $config->{historydir} or return;
-    my $historyfile = "$historypath/$devicename"; 
-    open($history_fh, '>>', $historyfile) or 
+    my $historyfile = "$historypath/$devicename";
+    open($history_fh, '>>', $historyfile) or
 	die "Error: Can't open $historyfile: $!\n";
-    defined(chmod(0644, $historyfile)) or 
+    defined(chmod(0644, $historyfile)) or
 	die "Error: Can't chmod $historyfile: $!\n";
     unless(flock($history_fh, LOCK_EX | LOCK_NB)){
 	die "Another approve is running: file '$historyfile' is locked\n";
-    }  
+    }
     my $date = strftime "%Y %m %e %H:%M:%S", localtime();
     print $history_fh "$date USER $user called '$arguments'\n";
 }
@@ -95,10 +95,10 @@ my $netspocdir = $config->{netspocdir};
 
 # Read current policy
 # Link is created by trusted program.
-my $policy = untaint(readlink "$netspocdir/current") or 
+my $policy = untaint(readlink "$netspocdir/current") or
     die "Error: Can't get 'current' policy directory\n";
 
-# Change to current policy directory. 
+# Change to current policy directory.
 # We can use relative pathnames now.
 chdir "$netspocdir/$policy" or
     die "Error: Can't cd to $netspocdir/$policy: $!\n";
@@ -133,7 +133,7 @@ log_history("POLICY: $policy");
 
 my $status;
 if (my $statuspath = $config->{statusdir}) {
-    $status = Netspoc::Approve::Status->new(device => $device, 
+    $status = Netspoc::Approve::Status->new(device => $device,
                                             path => $statuspath);
 }
 
@@ -168,7 +168,7 @@ if (open(my $log, '<', $logfile)) { ## no critic (ProhibitUnusedVariables)
             $changes++;
         }
         else {
-            next; 
+            next;
         }
         print($brief ? "$device:$_" : $_) if not $silent;
         chomp;

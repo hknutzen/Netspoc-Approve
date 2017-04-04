@@ -1,6 +1,6 @@
 # Configuration file for netspoc-approve
 # Install in one of these locations:
-# - /etc/netspoc-approve 
+# - /etc/netspoc-approve
 # - /usr/local/etc/netspoc-approve
 # - ~/.netspoc-approve
 # Multiple configuration files are read if present.
@@ -14,7 +14,7 @@
 # - pnnnn/code, contains one file for each device
 netspocdir  = /home/diamonds/netspoc
 
-# Directory where lockfiles are created which prevent 
+# Directory where lockfiles are created which prevent
 # concurrent access to a device.
 lockfiledir = /home/diamonds/lock
 
@@ -22,7 +22,7 @@ lockfiledir = /home/diamonds/lock
 
 # A string or regular expression.
 # The banner of a Cisco device is checked if it contains such a substring.
-# This is used to enable or lock the use of Netspoc-Approve 
+# This is used to enable or lock the use of Netspoc-Approve
 # for a specific device.
 checkbanner = NetSPoC
 
@@ -32,7 +32,7 @@ checkbanner = NetSPoC
 # b) device,x,x,x,x,x,x,x,password,...  (from CiscoWorks)
 passwdpath  = /home/diamonds/device-database/cw_pass
 
-# If approve is run by this user, 
+# If approve is run by this user,
 # read the password from file given in aaa_credentials
 systemuser  = diamonds
 
@@ -43,7 +43,7 @@ systemuser  = diamonds
 aaa_credentials = /home/diamonds/.aaa_credentials
 
 # Create a stats file for each approved or compared device.
-# Format: 
+# Format:
 statusdir   = /home/diamonds/status
 
 # Create a log file for each approved or compared device.

@@ -47,7 +47,7 @@ ip access-list extended Ethernet0_in
 interface Ethernet0
  ip access-group Ethernet0_in in
 
-ip access-list extended Ethernet1_in 
+ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
  permit 50 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
@@ -197,7 +197,7 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 
 $in = <<END;
-ip route 10.20.0.0 255.255.0.0 10.1.2.3 
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
 ip route 10.10.0.0 255.255.0.0 10.1.2.3 name y
 END
 
@@ -215,7 +215,7 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3 tag 20
 END
 
 $in = <<END;
-ip route 10.10.0.0 255.255.0.0 10.1.2.3 
+ip route 10.10.0.0 255.255.0.0 10.1.2.3
 ip route 10.20.0.0 255.255.0.0 10.1.2.3 tag 30
 END
 
@@ -305,7 +305,7 @@ ok($status == 0, $title);
 $title = "Handle ACL line with remark";
 ############################################################
 $device = <<'END';
-ip access-list extended inside 
+ip access-list extended inside
  remark Test1
  permit ip host 1.1.1.1 any
  permit ip host 2.2.2.2 any
@@ -316,7 +316,7 @@ interface Ethernet0/0
 END
 
 $in = <<'END';
-ip access-list extended inside 
+ip access-list extended inside
  permit ip host 1.1.1.1 any
  remark Test1
  permit ip host 4.4.4.4 any

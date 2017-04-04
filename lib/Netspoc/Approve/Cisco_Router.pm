@@ -48,7 +48,7 @@ sub change_acl_numbers {}
 # When adding lines in front of some line n
 # start at n-9999 and subsequent lines at n-9999+1, n-9999+1+1, ...
 sub ACL_line_discipline {
-    return (10000, 10000, -9999, 1);        
+    return (10000, 10000, -9999, 1);
 }
 
 sub mark_unneeded_object_group_from_acl {
@@ -76,7 +76,7 @@ sub define_acl {
     my ($self, $conf, $spoc, $spoc_name) = @_;
     my $spoc_acl = $spoc->{ACCESS_LIST}->{$spoc_name};
     my $entries = $spoc_acl->{LIST};
-    my $name = $self->generate_name_for_transfer($spoc_name, 
+    my $name = $self->generate_name_for_transfer($spoc_name,
                                                  $conf->{ACCESS_LIST});
     if (my $cmd = $spoc_acl->{orig}) {
         $cmd =~ s/$spoc_name\s*/$name/;
@@ -130,7 +130,7 @@ sub transfer_object_groups {
     for my $name (sort keys %$spoc_groups) {
         my $group = $spoc_groups->{$name};
         $group->{transfer} or next;
-        my $new_name = $group->{new_name} = 
+        my $new_name = $group->{new_name} =
             $self->generate_name_for_transfer($name, $conf_groups);
         my $cmd = $group->{orig};
         $cmd =~ s/ $name $ /$new_name/x;
@@ -203,7 +203,7 @@ sub process_interface_acls {
     # Analyze changes in all ACLs bound to interfaces.
     # Try to change ACLs incrementally.
     # Get list of ACL pairs, that need to be redefined, added or removed.
-    my @acl_update_info = 
+    my @acl_update_info =
         $self->equalize_acls_of_objects($conf, $spoc, \@interface_pairs);
 
     for my $info (@acl_update_info) {
@@ -214,7 +214,7 @@ sub process_interface_acls {
         if ($spoc_acl) {
             $self->schedule_reload(5);
             my $aclname = $self->define_acl($conf, $spoc, $spoc_acl->{name});
-            
+
             # Assign new acl to interface.
             $self->assign_acl($intf, $aclname, $in_out);
             $self->cancel_reload();
@@ -235,8 +235,8 @@ sub process_interface_acls {
 sub equalize_acls_of_objects {
     my ($self, $conf, $spoc, $object_pairs) = @_;
 
-    # Collect list of info 
-    # [interface/crypto_entry, in/out, conf_acl, spoc_acl], 
+    # Collect list of info
+    # [interface/crypto_entry, in/out, conf_acl, spoc_acl],
     # about ACL pairs that need to be transferred and/or removed.
     my @acl_update_info;
 
@@ -251,7 +251,7 @@ sub equalize_acls_of_objects {
 	    my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
 	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
 	    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
-	    
+
 	    # Try to change objects groups of existing ACL on device.
 	    if ($conf_acl and $spoc_acl) {
 		my $ready = $self->equalize_acl_groups($conf_acl, $spoc_acl);
@@ -265,7 +265,7 @@ sub equalize_acls_of_objects {
             # Mark referenced object groups.
 	    elsif ($spoc_acl) {
                 $self->mark_object_group_from_acl($spoc_acl);
-	    }	
+	    }
 	}
     }
 
@@ -285,7 +285,7 @@ sub equalize_acls_of_objects {
 
             # Nothing to do, if both IN-ACL or both OUT-ACL don't exist.
             $conf_acl or $spoc_acl or next;
-            
+
 	    if ($conf_acl and $spoc_acl) {
 
                 # We already know from group compare, that ACL doesn't change.
@@ -295,7 +295,7 @@ sub equalize_acls_of_objects {
                 # ACL remains unchanged. This can occur, if some group
                 # was recognized as unchanged later.
                 next if $ready;
-                
+
                 if (my $vcmds = $spoc_acl->{modify_cmds} ) {
                     $self->{CHANGE}->{ACCESS_LIST} = 1;
                     my $acl_name = $conf_acl->{name};
@@ -335,7 +335,7 @@ sub equalize_acls_of_objects {
             }
 
             # Collect pair for later processing.
-            push @acl_update_info, [$conf_obj, lc($in_out), 
+            push @acl_update_info, [$conf_obj, lc($in_out),
                                     $conf_acl, $spoc_acl];
 	}
     }
@@ -353,7 +353,7 @@ sub check_mpls {
     return;
 }
 
-# Netspoc creates a single configuration file for a device 
+# Netspoc creates a single configuration file for a device
 # having different VRFs.
 # Now remove that parts from the device configuration,
 # which are related to a  VRFs not managed by Netspoc.
@@ -362,8 +362,8 @@ sub align_vrfs {
     my ($self, $conf, $spoc) = @_;
 
     # Find VRFs used in Netspoc configuration.
-    my %spoc_vrf = 
-        map({ $_ => 1 } 
+    my %spoc_vrf =
+        map({ $_ => 1 }
             map($_->{VRF} || '', values %{ $spoc->{IF} }),
             keys %{ $spoc->{ROUTING_VRF} });
 
@@ -391,7 +391,7 @@ sub align_vrfs {
         info("Leaving VRF $vrf untouched");
     }
     if (keys %removed) {
-        keys %{ $spoc->{CRYPTO} } and 
+        keys %{ $spoc->{CRYPTO} } and
             abort("Crypto and VRF can't be used together," .
                   " if some VRF is unmanaged");
     }

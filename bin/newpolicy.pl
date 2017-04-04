@@ -50,7 +50,7 @@ my $config = Netspoc::Approve::Load_Config::load();
 my $real_uid = $<;
 
 # Get users pw entry.
-my @pwentry = getpwuid($real_uid) or 
+my @pwentry = getpwuid($real_uid) or
     abort("Can't get pwentry of UID $real_uid: $!");
 
 # Path of policy database.
@@ -114,7 +114,7 @@ my $plog  = "$next/compile.log";
 open my $log_fh, '>', $plog or abort("Can't open $plog: $!");
 sub log_line {
     my ($line) = @_;
-    print $log_fh $line; 
+    print $log_fh $line;
     print STDERR $line;
 }
 
@@ -176,9 +176,9 @@ if ($prev_policy) {
 
 # Compare $fcount and $lcount.
 # Typically both values are identical.
-# Take maximum if values are different. 
+# Take maximum if values are different.
 my $count = $fcount > $lcount ? $fcount : $lcount;
-    
+
 # Increment counter.
 $count++;
 
@@ -190,7 +190,7 @@ open(my $compile_fh, '-|', "$compiler $psrc $pcode 2>&1") or
     log_abort("Can't execute $compiler: $!");
 
 while(my $line = <$compile_fh>) {
-    log_line($line); 
+    log_line($line);
 }
 close $compile_fh;
 
@@ -212,7 +212,7 @@ if ($? == 0) {
     if (!$exists) {
         system('cvs', 'add', $pfile) == 0 or log_abort("Aborted");
     }
-    system('cvs', 'commit', '-m', $policy , $pfile) == 0 or 
+    system('cvs', 'commit', '-m', $policy , $pfile) == 0 or
         log_abort("Aborted");
 
     # Move temporary directory to final name

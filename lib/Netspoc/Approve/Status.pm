@@ -78,7 +78,7 @@ my %statfields = (
     COMP_CTIME  => 14,    # seconds since 1970 Cleartext
     COMP_TIME   => 15,    # seconds since 1970
     COMP_DTIME  => 16,    # DEV_TIME in seconds
-    MAX         => 16,              
+    MAX         => 16,
 );
 
 sub format {
@@ -139,7 +139,7 @@ sub write {
 sub getall {
     my ($self) = @_;
     my $fh = $self->{fh};
-    
+
     seek $fh, 0, 0;
     my $stat = [ split ';', (<$fh> || '') ];
 
@@ -205,11 +205,11 @@ sub finish_compare {
     }
 
     # Changed.
-    # Only update compare status, 
+    # Only update compare status,
     # - if status changes to diff for first time,
     # - or device was approved since last compare.
     elsif ($self->get('COMP_RESULT') ne 'DIFF' ||
-           $self->get('COMP_TIME') < $self->get('COMP_DTIME')) 
+           $self->get('COMP_TIME') < $self->get('COMP_DTIME'))
     {
         $set_result = 'DIFF';
     }
