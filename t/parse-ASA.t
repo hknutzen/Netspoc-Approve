@@ -60,6 +60,27 @@ END
 # AND whether output is empty for identical input.
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
+############################################################
+$title = "Abort on unknown sub command of object-group";
+############################################################
+
+$device = $minimal_device . <<'END';
+object-group network g0
+ network-object 10.0.3.0 255.255.255.0
+ unknown command
+access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
+access-group outside_in in interface ethernet0
+END
+
+$in = <<'END';
+END
+
+$out = <<END;
+ERROR>>> Unexpected command in line 7:
+>>unknown command<<
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";

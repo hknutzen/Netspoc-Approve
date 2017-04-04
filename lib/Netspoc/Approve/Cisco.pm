@@ -393,7 +393,7 @@ sub analyze_conf_lines {
 	    $level++;
 	    $first_subcmd = 1;
             if ($strict) {
-                my $msg = "Unknown command $cmd " . join(' ', @args);
+                my $msg = "Unexpected command in line $counter:\n>>$orig<<";
                 abort($msg) if $strict eq 'err';
                 warn_info($msg);
             }
