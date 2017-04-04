@@ -230,8 +230,10 @@ sub get_parse_info {
 		    parse => 'parse_address',
 		},
 		'group-object' => { 
-		    error => 'Nested object group not supported' 
+		    error => 'Nested object group not supported',
                 },
+                # Ignore description command.
+		'description' => { parse => \&skip, },
             }
         },
 	'object-group service _skip tcp' => {
@@ -248,6 +250,8 @@ sub get_parse_info {
 		'group-object' => { 
 		    error => 'Nested object group not supported' 
                 },
+                # Ignore description command.
+		'description' => { parse => \&skip, },
             }
         },
 	'object-group service _skip udp' => {
@@ -264,6 +268,8 @@ sub get_parse_info {
 		'group-object' => { 
 		    error => 'Nested object group not supported' 
                 },
+                # Ignore description command.
+		'description' => { parse => \&skip, },
             }
         },
 	'object-group service _skip tcp-udp' => {
@@ -279,6 +285,8 @@ sub get_parse_info {
 		'group-object' => { 
 		    error => 'Nested object group not supported' 
                 },
+                # Ignore description command.
+		'description' => { parse => \&skip, },
             }
         },
 	'object-group service' => {
@@ -305,6 +313,8 @@ sub get_parse_info {
 		'group-object' => { 
 		    error => 'Nested object group not supported' 
                 },
+                # Ignore description command.
+		'description' => { parse => \&skip, },
 	    }
 	},
         'object-group protocol' => {
@@ -322,7 +332,9 @@ sub get_parse_info {
                          { store => 'TYPE' ,
                            parse => 'normalize_proto', params => [ '$TYPE' ] },
                         ],
-                }
+                },
+                # Ignore description command.
+		'description' => { parse => \&skip, },
             }
         },
             

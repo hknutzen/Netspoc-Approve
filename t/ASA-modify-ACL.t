@@ -381,6 +381,40 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Ignore description in object-group";
+############################################################
+$device = $minimal_device . <<'END';
+object-group network g0
+ description test123 ###
+ network-object 10.0.3.0 255.255.255.0
+ network-object 10.0.4.0 255.255.255.0
+ network-object 10.0.5.0 255.255.255.0
+ network-object 10.0.6.0 255.255.255.0
+
+access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
+access-group outside_in in interface ethernet0
+END
+
+$in = $minimal_device . <<'END';
+object-group network g0
+ network-object 10.0.4.0 255.255.255.0
+ network-object 10.0.5.0 255.255.255.0
+ network-object 10.0.6.0 255.255.255.0
+ network-object 10.0.7.0 255.255.255.0
+
+access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
+access-group outside_in in interface ethernet0
+END
+
+$out = <<'END';
+object-group network g0
+network-object 10.0.7.0 255.255.255.0
+no network-object 10.0.3.0 255.255.255.0
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Move ACL entry with log";
 ############################################################
 $device = $minimal_device;
