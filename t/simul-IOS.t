@@ -231,7 +231,7 @@ Proceed with reload? [confirm]<!>
 *** --- SHUTDOWN ABORTED ---
 ***
 # no ip route 10.0.0.0 25\BANNER5/5.0.0.0 10.1.2.3
-# ip \BANNER1/route 10.0.0.0 255.0.0.0 10.11.22.33
+# ip\BANNER1/ route 10.0.0.0 255.0.0.0 10.11.22.33
 # write memory
 Building configuration...
   Compressed configuration from 106098 bytes to 30504 bytes[OK]
@@ -289,7 +289,7 @@ router#ip
 ***
 *** --- SHUTDOWN in 00:01:00 ---
 ***
-route 10.0.0.0 255.0.0.0 10.11.22.33
+ route 10.0.0.0 255.0.0.0 10.11.22.33
 router#do reload in 2
 Proceed with reload? [confirm]
 
