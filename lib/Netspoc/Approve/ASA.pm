@@ -2165,7 +2165,7 @@ sub remove_ca_cert_map {
 sub transfer_default_group {
     my ( $self, $spoc, $structure, $parse_name, $default ) = @_;
     my $object = $spoc->{$parse_name}->{$default};
-    my $tunnel_group_name = $object->{TUNNEL_GROUP};
+    my $tunnel_group_name = $object->{TUNNEL_GROUP_DEFINE};
     my $tunnel_group = $spoc->{TUNNEL_GROUP_DEFINE}->{$tunnel_group_name};
     my $new_default_group = $tunnel_group->{new_name} || $tunnel_group->{name};
     my $cmd = "tunnel-group-map default-group $new_default_group";
@@ -2710,4 +2710,3 @@ sub transfer {
 
 # Packages must return a true value;
 1;
-

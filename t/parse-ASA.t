@@ -155,6 +155,24 @@ END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 ############################################################
+$title = "Parse default tunnel-group-map";
+############################################################
+$in = <<END;
+tunnel-group VPN-single type remote-access
+tunnel-group VPN-single webvpn-attributes
+ authentication certificate
+tunnel-group-map default-group VPN-single
+END
+
+$out = <<END;
+tunnel-group VPN-single-DRC-0 type remote-access
+tunnel-group VPN-single-DRC-0 webvpn-attributes
+authentication certificate
+tunnel-group-map default-group VPN-single-DRC-0
+END
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+
+############################################################
 $title = "Parse username, group-policy";
 ############################################################
 $in = <<'END';
