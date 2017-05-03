@@ -1,5 +1,15 @@
 {{$NEXT}}
 
+1.114     2017-05-03 16:55:25+02:00 Europe/Berlin
+
+ - Fixed initial transfer of ASA command 'tunnel-group-map default <name>'.
+ - Fixed handling of DfltGrpPolicy.
+ - Sub command 'description' of ASA object-groups is ignored now.
+ - Ignore unknown attributes in such ACLs, that are never compared.
+ - Named static routes are supported now for IOS; name is ignored.
+ - Removed support for unused config options
+   'try_telnet', 'passwdpath', 'newpolicy_hooks'.
+
 1.113     2016-12-06 14:49:21+01:00 Europe/Berlin
 
  - Accept keywords 'point-to-point' and 'multipoint' in interface command.
@@ -22,12 +32,12 @@
 
 1.109     2016-03-10 16:06:13+01:00 Europe/Berlin
 
- - Show TIMEOUT error in history file, even if approve is called 
+ - Show TIMEOUT error in history file, even if approve is called
    with option '--brief'.
 
 1.108     2016-03-04 14:51:13+01:00 Europe/Berlin
 
- - Support for NAT commands (nat, global, static) has been dropped 
+ - Support for NAT commands (nat, global, static) has been dropped
    completely, even for Cisco PIX.
    These commands are no longer touched by Netspoc-Approve.
 
@@ -64,7 +74,7 @@
    Cisco firewall.
  - Prepare for upcoming change of Netspoc to two pass compiler:
    - Ignore any file with extension in pxx/code, not only *.raw files.
-   - newpolicy.pl 
+   - newpolicy.pl
      - adds symlink pxx+1/code/.prev pointing to pxx/code
      - removes pxx/code/*.{config,rules} after pxx+1/code has successfully
        been generated.
@@ -81,7 +91,7 @@
 1.100     2015-07-20 16:28:08+02:00 Europe/Berlin
 
  - Fixed bug where tunnel-group with IP address occosionally was
-   tried to define twice. 
+   tried to define twice.
    This occured if a corresponding tunnel-group-map was added.
 
 1.099     2015-06-29 11:40:47+02:00 Europe/Berlin
@@ -89,10 +99,10 @@
  - Crypto commands for IOS are assumed to be configured mostly manually now.
    This allows to process devices with IKEv2 configuration.
    - Existence is checked for
-     - 'crypto map ipsec-isakmp' and 
+     - 'crypto map ipsec-isakmp' and
      - 'crypto ipsec client'.
    - Filter ACLs of crypto maps are compared and updated.
-   - All other crypto commands and their sub commands are ignored and 
+   - All other crypto commands and their sub commands are ignored and
      left unchanged.
 
 1.098     2015-06-18 15:34:19+02:00 Europe/Berlin
@@ -113,8 +123,8 @@
 
 1.096     2015-01-22 10:59:03+01:00 Europe/Berlin
 
- - Approve won't check interfaces if generated config 
-   contains no interfaces at all. This occurs for device with 
+ - Approve won't check interfaces if generated config
+   contains no interfaces at all. This occurs for device with
    "managed=routing_only".
  - Added support of 'remark' lines in ACLs of Cisco IOS.
 
@@ -130,10 +140,10 @@
 
  - Added workaround for bug #100342 in Expect.pm when parsing ouput of
    Linux commands.
- - Added new config option "keep_history". 
+ - Added new config option "keep_history".
    This option determines, after how many days old history files are removed.
    The value must be >= 30. Default value is 365.
- - Script "delete-old-policies" now also removes old files 
+ - Script "delete-old-policies" now also removes old files
    in "historydir" and "statusdir".
 
 1.092     2014-06-26 14:32:25 Europe/Berlin
@@ -144,7 +154,7 @@
 
 1.091     2014-06-23 10:16:24 Europe/Berlin
 
- - Fixed approve for NX-OS again. 
+ - Fixed approve for NX-OS again.
    Ignore valid output of 'verify' command.
 
 1.090     2014-06-16 14:02:18 Europe/Berlin
@@ -152,14 +162,14 @@
  - Fixed approve for NX-OS.  If 'verify' of configuration session
    fails, the 'abort' command is called now.
  - Fixed 'newpolicy' to recognize removed file.
- 
+
 1.089     2014-05-20 10:21:48 Europe/Berlin
 
  - Ignore escape sequence following the prompt, when login to Linux device.
 
 1.088     2014-05-19 18:22:47 Europe/Berlin
 
- - Fixed call to "cvs" in newpolicy: 
+ - Fixed call to "cvs" in newpolicy:
    Must use relative pathname in server mode.
 
 1.087     2014-05-19 17:32:22 Europe/Berlin
@@ -167,7 +177,7 @@
  - The command 'newpolicy' copies the newest version of netspoc files
    from repository to a dedicated directory. From there the generated
    code is deployed to devices.
-  
+
    Until now, only a single user was allowed to invoke 'newpolicy'.
    Others had to wait until the commd had finished. This was annoying
    if code generation from a large configuration needed some time.
@@ -177,8 +187,8 @@
    - If there are no changes, it exits.
    - Otherwise it checks if these changes are already processes by some
      running instance. Then ist shows the output of that instance.
-   - If new changes are pending, it first waits for a running instance 
-     to terminate. After that, a new instance is started 
+   - If new changes are pending, it first waits for a running instance
+     to terminate. After that, a new instance is started
      to process the pending changes.
 
    'newpolicy' now calls a C-wrapper that in turn calls 'newpolicy.pl'.
@@ -190,10 +200,10 @@
  - 'newpolicy.pl' no longer checks if the 'netspoc' directory of the
    calling user is up-to-date. Only the repository is checked now.
 
- - 'newpolicy.pl' exits with status code '2', if another instance is 
+ - 'newpolicy.pl' exits with status code '2', if another instance is
    already running. It no longer prints a message in this case.
 
- - Minor fixes to suid-newpolicy. 
+ - Minor fixes to suid-newpolicy.
 
 1.086     2014-04-14 15:13:58 Europe/Berlin
 
@@ -220,7 +230,7 @@
  - Second and third transform name is optional now
    in command 'crypto ipsec transform-set' of IOS.
  - Added support for "remark" in ACL of NX-OS.
- - Added option '-u <username>' to drc3.pl to set the username for 
+ - Added option '-u <username>' to drc3.pl to set the username for
    logon to remote device.
  - Fixed command 'missing-approve' to no longer print duplicate router
    names if both, netspoc file and raw file have changed.
@@ -234,18 +244,18 @@
 1.081     2013-12-10 12:00:17 Europe/Berlin
 
  - Added support for 'destination static' in twice NAT of ASA 8.4.
- 
+
 1.080     2013-10-29 16:08:25 Europe/Berlin
 
  - Added support for keyword [APPEND] in raw files.
    This changes the behaviour of ACLs defined after this keyword.
-   The ACL is no longer prepended, but it is appended to a Netspoc 
-   generated ACL. It is appended at the end of an ACL, 
+   The ACL is no longer prepended, but it is appended to a Netspoc
+   generated ACL. It is appended at the end of an ACL,
    but before the trailing "deny any any" entry from Netspoc.
 
  - Fixed missing-approve: If last compare found diff and if it occured
    later than last approve, then show missing-approve.
-   
+
 1.079     2013-08-23 14:07:33 Europe/Berlin
 
  - Urgent bug fix: Startup config with static routes for linux
@@ -258,7 +268,7 @@
 
  - Command "approve-all" no longer operates on all devices
    but only on devices shown by missing-approve.
- - Command "missing-approve" checks for newer compare status 
+ - Command "missing-approve" checks for newer compare status
    even if last approve failed.
 
 1.077     2013-07-02 16:05:18 Europe/Berlin
@@ -293,7 +303,7 @@
  - Support 'remark' in ACL.
  - Handle ACL lines that only differ in 'log' keyword.
  - Ignore time-range when parsing ACL.
- - Use 'show hostname' and no longer the prompt 
+ - Use 'show hostname' and no longer the prompt
    to get hostname of Cisco device.
  - Command "newpolicy" now ignores files matching '.#*' in working copy.
 
@@ -304,22 +314,22 @@
  - An ACL or object-group which is unrelated to ACLs generated by Netspoc
    isn't removed any longer on ASA and PIX.
    (This is already the default for IOS and NX-OS.)
-   
+
 1.072     2013-04-24 17:28:55 Europe/Berlin
 
  - Parallel jobs started by commands 'approve-all' and 'compare-all':
-   - New optional parameter to change the number of jobs: 
+   - New optional parameter to change the number of jobs:
      approve-all [parallel-count]
    - Default value has been increased from 10 to 40
  - New config file option "newpolicy_hooks".
-   The value is a list of paths to be called 
+   The value is a list of paths to be called
    after successful run of newpolicy.
  - Added newpolicy.pl from Netspoc project.
- - Added scripts "compress-policies" and "delete-old-policies" 
+ - Added scripts "compress-policies" and "delete-old-policies"
    to be called from cron.
  - Changed all hard coded paths for netspocdir to be read
    from config file (/usr/local)/etc/netspoc-approve
- - New commandline tool 'get-netspoc-approve-conf' to read option 
+ - New commandline tool 'get-netspoc-approve-conf' to read option
    from config file.
 
 1.071     2013-03-27 14:42:57 Europe/Berlin
@@ -353,7 +363,7 @@ Bug fix realease
 
 1.067     2013-03-06 15:50:23 Europe/Berlin
 
-- Ignore that VRFs of a device which are not found 
+- Ignore that VRFs of a device which are not found
   in the config file from Netspoc.
   This allows to have mixed managed and unmanaged VRFs on the same device.
 - Ignore "crypto map ipv6" when parsing IOS config.
@@ -377,7 +387,7 @@ Bug fix realease
   - when transferring an ACL
   - which references two object-groups,
   - where both object-groups are already available on device
-  - and the netspoc name of dst object is identical to 
+  - and the netspoc name of dst object is identical to
     the device name of the src object.
   In this case a wrong ACL was transferred: src and dst were swapped.
 
@@ -434,11 +444,11 @@ Bug fix realease
 
 - Added 'vrf forwarding' as equivalent to 'ip vrf forwarding'
 - Reading of password file has been generalized
-  Simple name,password tuples are allowed now 
+  Simple name,password tuples are allowed now
   in addition to cisco works format.
-- Configuration file is read from 
+- Configuration file is read from
   /etc/netspoc-approve
-  /usr/local/etc/netspoc-approve 
+  /usr/local/etc/netspoc-approve
   ~/.netspoc-approve
 - Added support of object-group service, protocol for ASA
 - No longer compare 'crypto isakmp identity' for IOS
@@ -457,12 +467,12 @@ Bug fix realease
 
 1.052     2012-02-13
 
-- Fixed error while reading AAA_CREDENTIALS 
+- Fixed error while reading AAA_CREDENTIALS
 
 1.051     2012-02-12
 
 - Added support of changed NAT for ASA 8.4.
-- Removed unused password cruft. 
+- Removed unused password cruft.
 
 1.050     2012-01-23
 
@@ -471,11 +481,10 @@ Bug fix realease
 
 1.049    2011-12-19
 
-- Support ASA version 8.2- and 8.4-syntax for transform-set 
+- Support ASA version 8.2- and 8.4-syntax for transform-set
   of "crypto-map"-command.
 
 1.048    2011-12-13
 
-- Added support for more named port numbers: 
+- Added support for more named port numbers:
   sip => 5600, rtsp => 554
-
