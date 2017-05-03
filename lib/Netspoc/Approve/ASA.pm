@@ -1213,6 +1213,7 @@ sub generate_names_for_transfer {
                 my $type = $def->{TYPE};
                 next if $type eq 'ipsec-l2l';
             }
+            next if $parse_name eq 'GROUP_POLICY' and $name eq 'DfltGrpPolicy';
             my $obj = $hash->{$name};
 	    $obj->{new_name} =
 		$generate_names_for_transfer->( $name, $conf->{$parse_name} );
@@ -1966,7 +1967,7 @@ sub change_attributes {
     my ( $self, $parse_name, $spoc_name, $spoc_value, $attributes ) = @_;
     my @cmds;
 
-    return if $parse_name =~ /^(CERT_ANCHOR|CRYPTO_MAP_LIST)$/;
+    return if $parse_name =~ /^(CERT_ANCHOR|CRYPTO_MAP_LIST|GROUP_POLICY_ANCHOR)$/;
     return if $parse_name =~ /^TUNNEL_GROUP_(DEFINE|ANCHOR)$/;
     return if ( $spoc_value->{change_done} );
 
@@ -2217,9 +2218,11 @@ sub remove_tunnel_group {
 sub transfer_group_policy {
     my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
     my $obj = $spoc->{$parse_name}->{$obj_name};
-    my $new_name = $obj->{new_name};
+    my $new_name = $obj->{new_name} || $obj->{name};
     my @cmds;
-    push @cmds, "group-policy $new_name internal";
+    if ($new_name ne 'DfltGrpPolicy') {
+        push @cmds, "group-policy $new_name internal";
+    }
     push @cmds, item_conf_mode_cmd( $parse_name, $new_name );
     push @cmds, add_attribute_cmds( $structure, $parse_name, $obj );
 
@@ -2228,6 +2231,7 @@ sub transfer_group_policy {
 
 sub remove_group_policy {
     my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    return if $obj_name eq 'DfltGrpPolicy';
     $self->cmd("clear configure group-policy $obj_name");
 }
 

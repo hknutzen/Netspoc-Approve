@@ -216,6 +216,26 @@ vpn-group-policy VPN-group-DRC-0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
+############################################################
+$title = "Parse group-policy DfltGrpPolicy";
+############################################################
+$in = <<'END';
+group-policy DfltGrpPolicy attributes
+ banner value Willkommen!
+ vpn-idle-timeout 240
+ vpn-simultaneous-logins 1
+ vpn-tunnel-protocol ikev2
+END
+
+$out = <<'END';
+group-policy DfltGrpPolicy attributes
+banner value Willkommen!
+vpn-idle-timeout 240
+vpn-simultaneous-logins 1
+vpn-tunnel-protocol ikev2
+END
+
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 ############################################################
 $title = "Parse tunnel-group of type ipsec-l2l (IP as name)";
@@ -355,6 +375,24 @@ END
 $out = <<'END';
 clear configure username jon.doe@token.example.com
 clear configure group-policy VPN-group
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Must not remove group-policy DfltGrpPolicy";
+############################################################
+$device = $minimal_device . <<'END';
+group-policy DfltGrpPolicy attributes
+ banner value Willkommen!
+ vpn-idle-timeout 240
+ vpn-simultaneous-logins 1
+ vpn-tunnel-protocol ikev2
+END
+
+$in = '';
+
+$out = <<'END';
 END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
