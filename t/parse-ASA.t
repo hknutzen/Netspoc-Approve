@@ -60,6 +60,27 @@ END
 # AND whether output is empty for identical input.
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
+############################################################
+$title = "Abort on unknown sub command of object-group";
+############################################################
+
+$device = $minimal_device . <<'END';
+object-group network g0
+ network-object 10.0.3.0 255.255.255.0
+ unknown command
+access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
+access-group outside_in in interface ethernet0
+END
+
+$in = <<'END';
+END
+
+$out = <<END;
+ERROR>>> Unexpected command in line 7:
+>>unknown command<<
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";
@@ -90,7 +111,7 @@ $in = <<END;
 access-list crypto-acl1 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 access-list crypto-acl2 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 
-crypto ipsec ikev1 transform-set trans esp-3des esp-sha-hmac 
+crypto ipsec ikev1 transform-set trans esp-3des esp-sha-hmac
 crypto dynamic-map some-name 10 match address crypto-acl2
 crypto map map-outside 10 match address crypto-acl1
 crypto map map-outside 10 set pfs group2
@@ -130,6 +151,24 @@ crypto map map-outside 10 set ikev1 transform-set trans-DRC-0
 access-list crypto-acl2-DRC-0 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 crypto dynamic-map some-name 10 match address crypto-acl2-DRC-0
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
+END
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+
+############################################################
+$title = "Parse default tunnel-group-map";
+############################################################
+$in = <<END;
+tunnel-group VPN-single type remote-access
+tunnel-group VPN-single webvpn-attributes
+ authentication certificate
+tunnel-group-map default-group VPN-single
+END
+
+$out = <<END;
+tunnel-group VPN-single-DRC-0 type remote-access
+tunnel-group VPN-single-DRC-0 webvpn-attributes
+authentication certificate
+tunnel-group-map default-group VPN-single-DRC-0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
@@ -177,6 +216,26 @@ vpn-group-policy VPN-group-DRC-0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
+############################################################
+$title = "Parse group-policy DfltGrpPolicy";
+############################################################
+$in = <<'END';
+group-policy DfltGrpPolicy attributes
+ banner value Willkommen!
+ vpn-idle-timeout 240
+ vpn-simultaneous-logins 1
+ vpn-tunnel-protocol ikev2
+END
+
+$out = <<'END';
+group-policy DfltGrpPolicy attributes
+banner value Willkommen!
+vpn-idle-timeout 240
+vpn-simultaneous-logins 1
+vpn-tunnel-protocol ikev2
+END
+
+check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 ############################################################
 $title = "Parse tunnel-group of type ipsec-l2l (IP as name)";
@@ -198,7 +257,7 @@ tunnel-group 193.155.130.3 ipsec-attributes
  ikev2 remote-authentication certificate
 crypto ca certificate map cert-map 10
  subject-name attr ea eq cert@example.com
-tunnel-group-map cert-map 10 193.155.130.3 
+tunnel-group-map cert-map 10 193.155.130.3
 crypto map crypto-outside interface outside
 END
 
@@ -316,6 +375,24 @@ END
 $out = <<'END';
 clear configure username jon.doe@token.example.com
 clear configure group-policy VPN-group
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Must not remove group-policy DfltGrpPolicy";
+############################################################
+$device = $minimal_device . <<'END';
+group-policy DfltGrpPolicy attributes
+ banner value Willkommen!
+ vpn-idle-timeout 240
+ vpn-simultaneous-logins 1
+ vpn-tunnel-protocol ikev2
+END
+
+$in = '';
+
+$out = <<'END';
 END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);

@@ -47,7 +47,7 @@ ip access-list extended Ethernet0_in
 interface Ethernet0
  ip access-group Ethernet0_in in
 
-ip access-list extended Ethernet1_in 
+ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
  permit 50 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
@@ -189,6 +189,44 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Named static route";
+############################################################
+$device = <<END;
+ip route 10.10.0.0 255.255.0.0 10.1.2.3 name x
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+
+$in = <<END;
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+ip route 10.10.0.0 255.255.0.0 10.1.2.3 name y
+END
+
+$out = <<END;
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Tagged static route";
+############################################################
+$device = <<END;
+ip route 10.10.0.0 255.255.0.0 10.1.2.3 tag 10
+ip route 10.20.0.0 255.255.0.0 10.1.2.3 tag 20
+END
+
+$in = <<END;
+ip route 10.10.0.0 255.255.0.0 10.1.2.3
+ip route 10.20.0.0 255.255.0.0 10.1.2.3 tag 30
+END
+
+$out = <<END;
+no ip route 10.10.0.0 255.255.0.0 10.1.2.3 tag 10\\N ip route 10.10.0.0 255.255.0.0 10.1.2.3
+no ip route 10.20.0.0 255.255.0.0 10.1.2.3 tag 20\\N ip route 10.20.0.0 255.255.0.0 10.1.2.3 tag 30
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Change ACL";
 ############################################################
 $device = <<END;
@@ -267,7 +305,7 @@ ok($status == 0, $title);
 $title = "Handle ACL line with remark";
 ############################################################
 $device = <<'END';
-ip access-list extended inside 
+ip access-list extended inside
  remark Test1
  permit ip host 1.1.1.1 any
  permit ip host 2.2.2.2 any
@@ -278,7 +316,7 @@ interface Ethernet0/0
 END
 
 $in = <<'END';
-ip access-list extended inside 
+ip access-list extended inside
  permit ip host 1.1.1.1 any
  remark Test1
  permit ip host 4.4.4.4 any
@@ -746,6 +784,87 @@ interface Ethernet2
 END
 
 $out = <<END;
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Check Netspoc interfaces";
+############################################################
+$device = <<END;
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+END
+
+$in = <<'END';
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+interface Serial3
+ ip address 10.1.3.1 255.255.255.0
+END
+
+$out = <<'END';
+ERROR>>> Interface 'Serial3' from Netspoc not known on device
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Check device interfaces";
+############################################################
+# Device interfaces are checked, if ACL or Crypto config is present.
+
+$device = <<END;
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+END
+
+$in = <<'END';
+interface Serial1
+ ip address 10.1.2.1 255.255.255.0
+ ip access-group test in
+ip access-list extended test
+ deny ip any any log-input
+END
+
+$out = <<'END';
+WARNING>>> Interface 'Serial2' on device is not known by Netspoc
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Check VRF of interfaces";
+############################################################
+$device = <<END;
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+ ip vrf forwarding 014
+interface Serial3
+ ip address 10.1.3.1 255.255.255.0
+ ip vrf forwarding 013
+END
+
+$in = <<'END';
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+ ip vrf forwarding 013
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+ ip vrf forwarding 014
+interface Serial3
+ ip address 10.1.3.1 255.255.255.0
+END
+
+$out = <<'END';
+ERROR>>> Different VRFs defined for interface Serial1: Conf: -, Netspoc: 013
+ERROR>>> Different VRFs defined for interface Serial3: Conf: 013, Netspoc: -
 END
 
 eq_or_diff(approve_err('IOS', $device, $in), $out, $title);

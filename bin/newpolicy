@@ -18,7 +18,7 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
@@ -90,13 +90,13 @@ if flock -n -s 9 ; then
     POLICY=$(basename $(readlink $CURRENT || true))
     SRC=$POLICYDB/$POLICY/src
     if uptodate ; then
-        
+
         # No pending changes in repository.
         msg "Newest changeset is already available as current $POLICY"
         exit
     fi
 else
-    
+
     # newpolicy.pl is already running
     SRC=$POLICYDB/next/src
     if ! [ -d $SRC/CVS ] || uptodate ; then
@@ -109,7 +109,7 @@ else
 
         # newpolicy.pl is running
         # Handle three cases:
-        # 1. newpolicy.pl has just been started, 
+        # 1. newpolicy.pl has just been started,
         #    but compile.log was not just yet created.
         # 2. newpolicy.pl is running and compile.log is available
         # 3. newpolicy.pl is almost finished and compile.log is no longer
@@ -119,7 +119,7 @@ else
             msg "---"
         fi
     fi
-fi 9<$LOCK 
+fi 9<$LOCK
 
 # Start newpolicy.pl in background.
 # - Process must not be terminated if this script is killed.

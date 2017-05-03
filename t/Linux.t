@@ -68,7 +68,7 @@ $in = <<END;
 -A eth0_in -g c6 -d 10.10.2.0/24 -p udp
 
 -A INPUT -j ACCEPT -m state --state ESTABLISHED,RELATED
--A INPUT -j eth0_self -i eth0 
+-A INPUT -j eth0_self -i eth0
 -A INPUT -j droplog
 -A FORWARD -j ACCEPT -m state --state ESTABLISHED,RELATED
 -A FORWARD -j eth0_in -i eth0

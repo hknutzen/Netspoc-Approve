@@ -7,7 +7,7 @@
 
 char program[] = "/usr/local/bin/newpolicy.pl";
 
-int main( int argc, char *argv[]) 
+int main( int argc, char *argv[])
 {
     char cvsroot[100] = "CVSROOT=";
     char lang[100] = "LANG=";
@@ -24,5 +24,5 @@ int main( int argc, char *argv[])
     char *env[] = { cvsroot, lang, NULL };
 
     /* Call with empty argument vector and new environment. */
-    return execve(program, empty, env); 
-} 
+    return execve(program, empty, env);
+}

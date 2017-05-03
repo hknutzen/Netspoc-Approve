@@ -32,12 +32,12 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.113'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.114'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
     my $result =
-    { 
+    {
         # interface Ethernet2/1
 	'interface' => {
             store => 'IF',
@@ -45,23 +45,23 @@ sub get_parse_info {
             subcmd => {
                 'ip address' => {
                     parse =>  ['seq',
-                               { parse => \&get_ip_prefix, 
+                               { parse => \&get_ip_prefix,
                                  store_multi => ['BASE', 'MASK'] }],
                     store => 'ADDRESS',
                 },
-                'ip address _skip secondary' =>  { 
+                'ip address _skip secondary' =>  {
                     parse => \&skip }, # ignore
                 'ip unnumbered' => {
-                    parse => \&get_token, 
+                    parse => \&get_token,
                     store => 'UNNUMBERED',
                 },
                 'ip access-group _skip in' => {
-                    parse => \&get_token, 
-                    store => 'ACCESS_GROUP_IN', 
+                    parse => \&get_token,
+                    store => 'ACCESS_GROUP_IN',
                 },
                 'ip access-group _skip out' => {
-                    parse => \&get_token, 
-                    store => 'ACCESS_GROUP_OUT', 
+                    parse => \&get_token,
+                    store => 'ACCESS_GROUP_OUT',
                 },
                 'vrf member' => {
                     parse => \&get_token,
@@ -80,13 +80,13 @@ sub get_parse_info {
             named => 1,
         },
 
-# ip route ip/prefix {[interface] next-hop} 
-#          [preference] [tag id] [name nexthop-name] 
-	'ip route' => { 
+# ip route ip/prefix {[interface] next-hop}
+#          [preference] [tag id] [name nexthop-name]
+	'ip route' => {
 	    store => 'ROUTING',
 	    multi => 1,
 	    parse => ['seq',
-		      { parse => \&get_ip_prefix, 
+		      { parse => \&get_ip_prefix,
 			store_multi => ['BASE', 'MASK'] },
 		      ['or',
 		       { store => 'NEXTHOP', parse => \&check_ip, },
@@ -109,7 +109,7 @@ sub get_parse_info {
             subcmd => {
                 '_any' => {
                     leave_cmd_as_arg => 1,
-		    store => 'OBJECT', 
+		    store => 'OBJECT',
 		    multi => 1,
 		    parse =>  'parse_numbered_address',
                 }
@@ -123,7 +123,7 @@ sub get_parse_info {
             subcmd => {
                 '_any' => {
                     leave_cmd_as_arg => 1,
-		    store => 'OBJECT', 
+		    store => 'OBJECT',
 		    multi => 1,
 		    parse => 'parse_numbered_port_spec',
                 }
@@ -131,16 +131,16 @@ sub get_parse_info {
         },
 
 # permit protocol source destination
-#        [dscp dscp | precedence precedence] 
-#        [fragments] [log] [time-range time-range-name] 
+#        [dscp dscp | precedence precedence]
+#        [fragments] [log] [time-range time-range-name]
 #        [packet-length operator packet-length [packet-length]]
 # permit icmp source destination [icmp-message | icmp-type [icmp-code]]
 # permit igmp source destination [igmp-message]
 # permit ip source destination
-# permit tcp source [operator port [port] | portgroup portgroup] 
+# permit tcp source [operator port [port] | portgroup portgroup]
 #            destination [operator port [port] | portgroup portgroup]
 #        [flags] [established]
-# permit udp source [operator port [port] | portgroup portgroup] 
+# permit udp source [operator port [port] | portgroup portgroup]
 #            destination [operator port [port] | portgroup portgroup]
 	'ip access-list' => {
 	    store =>  'ACCESS_LIST',
@@ -169,29 +169,29 @@ sub get_parse_info {
                          ['cond1',
                           { store => 'TYPE', parse => qr/udp|tcp/ },
                           { store => 'SRC', parse => 'parse_address' },
-                          { store => 'SRC_PORT', 
-                            parse => 'parse_og_port_spec', 
+                          { store => 'SRC_PORT',
+                            parse => 'parse_og_port_spec',
                             params => ['$TYPE'] },
                           { store => 'DST', parse => 'parse_address' },
-                          { store => 'DST_PORT', 
-                            parse => 'parse_og_port_spec', 
+                          { store => 'DST_PORT',
+                            parse => 'parse_og_port_spec',
                             params => ['$TYPE'] },
-                          { store => 'ESTA', 
+                          { store => 'ESTA',
                             parse => qr/established/ }, ],
                          ['cond1',
                           { store => 'TYPE', parse => qr/icmp/ },
                           { store => 'SRC', parse => 'parse_address' },
                           { store => 'DST', parse => 'parse_address' },
-                          { store => 'SPEC', 
+                          { store => 'SPEC',
                             parse => 'parse_icmp_spec' }, ],
                          ['seq',
                           { store => 'TYPE', parse => \&get_token },
                           { store => 'TYPE' ,
-                            parse => 'normalize_proto', 
+                            parse => 'normalize_proto',
                             params => [ '$TYPE' ] },
                           { store => 'SRC', parse => 'parse_address' },
                           { store => 'DST', parse => 'parse_address' } ]],
-                        { store => 'LOG', parse => qr/log/ } 
+                        { store => 'LOG', parse => qr/log/ }
                         ],
 		},
 	    },
@@ -210,7 +210,7 @@ sub get_parse_info {
 
     $result;
 }
-                
+
 # addrgroup <name>
 # ip/prefixlen
 # host <ip>
@@ -301,18 +301,18 @@ sub postprocess_config {
         $intf->{VRF} ||= 'management';
     }
 }
-        
+
 sub get_config_from_device {
     my ($self) = @_;
     $self->get_cmd_output('show running-config');
 }
 
-my %known_status = 
+my %known_status =
     (
      'configure terminal' =>
      [ 'Enter configuration commands, one per line.  End with CNTL/Z.', ],
-     'configure session Netspoc' => 
-     [ qr/^Config Session started, Session ID is/, 
+     'configure session Netspoc' =>
+     [ qr/^Config Session started, Session ID is/,
        'Enter configuration commands, one per line.  End with CNTL/Z.', ],
      'verify' => [ 'Verification Successful', ],
      'commit' => [ 'Commit Successful', ],
@@ -320,7 +320,7 @@ my %known_status =
          qr/^\[.*\] +\d+%$/, qr/^Copy complete/ ],
      );
 
-my %known_warning = 
+my %known_warning =
 (
  );
 
@@ -333,7 +333,7 @@ sub cmd_check_error {
     my $error;
   LINE:
     for my $line (@$lines) {
-        
+
         # Ignore empty line
         next LINE if $line =~ /^\s*$/;
 
@@ -361,7 +361,7 @@ sub parse_version {
 	$self->{VERSION} = $1;
     }
     # cisco Nexus7000 C7010 (10 Slot) Chassis ("Supervisor module-1X")
-    if($output =~ /(cisco \s+ Nexus\S* \s+ \S+)/ix) {	
+    if($output =~ /(cisco \s+ Nexus\S* \s+ \S+)/ix) {
 	$self->{HARDWARE} = $1;
     }
 }
@@ -416,9 +416,9 @@ sub check_session {
     }
     return;
 }
-    
+
 # No op; we can't lock out from Netspoc,
-# because we use "configure session xx". 
+# because we use "configure session xx".
 sub is_device_access {
     my ($self, $conf_entry) = @_;
 }

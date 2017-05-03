@@ -48,11 +48,11 @@ while true; do
         # Other instances of this script are allowed to get the lock,
         # but newpolicy isn't.
         if flock -n -s 9 ; then
-        
+
             # We got the lock.
             # newpolicy isn't running.
             if ! changes_pending ; then
-                
+
                 # No pending changes in repository.
                 # Prüfe, ob neueste Policy erfolgreich übersetzt wurde.
                 CPOLICY=$(basename $(readlink $CURRENT || true))
@@ -62,11 +62,11 @@ while true; do
                     msg "Newest changeset has already been processed as $POLICY,"
                     msg "but processing failed."
                     show_log
-                fi 
+                fi
                 exit;
             fi
         else
-            
+
             # newpolicy is already running
             if ! changes_pending ; then
                 msg "Newest changeset is currently processed as $POLICY"
@@ -84,7 +84,7 @@ while true; do
                 # Start another newpolicy
             fi
         fi
-    fi 9<$LOCK 
+    fi 9<$LOCK
 
     newpolicy.pl || status=$?
     if [ "$status" != 2 ] ; then

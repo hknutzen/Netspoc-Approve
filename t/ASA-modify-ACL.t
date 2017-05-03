@@ -358,7 +358,7 @@ object-group network g2
 object-group network g26
  network-object host 10.3.3.3
 access-list in extended permit tcp object-group g2 object-group g26
-access-list out extended permit tcp object-group g2 object-group g26 eq 25 
+access-list out extended permit tcp object-group g2 object-group g26 eq 25
 access-group in in interface inside
 access-group out in interface outside
 END
@@ -378,6 +378,40 @@ $out = <<'END';
 access-list out line 1 extended permit tcp object-group g26 object-group g2 eq 25
 no access-list out line 2 extended permit tcp object-group g2 object-group g26 eq 25
 END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Ignore description in object-group";
+############################################################
+$device = $minimal_device . <<'END';
+object-group network g0
+ description test123 ###
+ network-object 10.0.3.0 255.255.255.0
+ network-object 10.0.4.0 255.255.255.0
+ network-object 10.0.5.0 255.255.255.0
+ network-object 10.0.6.0 255.255.255.0
+
+access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
+access-group outside_in in interface ethernet0
+END
+
+$in = $minimal_device . <<'END';
+object-group network g0
+ network-object 10.0.4.0 255.255.255.0
+ network-object 10.0.5.0 255.255.255.0
+ network-object 10.0.6.0 255.255.255.0
+ network-object 10.0.7.0 255.255.255.0
+
+access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
+access-group outside_in in interface ethernet0
+END
+
+$out = <<'END';
+object-group network g0
+network-object 10.0.7.0 255.255.255.0
+no network-object 10.0.3.0 255.255.255.0
+END
+
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################

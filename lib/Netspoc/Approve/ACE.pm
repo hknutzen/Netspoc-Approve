@@ -32,21 +32,21 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.113'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.114'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
     return
-    { 
+    {
 # interface vlan 3029
 	'interface' => {
             store => 'IF',
             named => 'from_parser',
             parse => [
                 'seq',
-                { parse => sub { 
+                { parse => sub {
                     my ($arg) = @_;
-                    
+
                     # Use concatenation "vlan 3029" as name.
                     return(get_token($arg) . ' ' . get_token($arg));
                   },
@@ -58,18 +58,18 @@ sub get_parse_info {
                                { store => 'MASK', parse => \&check_ip, } ],
                     store => 'ADDRESS',
                 },
-                'ip address _skip _skip secondary' =>  { 
+                'ip address _skip _skip secondary' =>  {
                     parse => \&skip,	# ignore
                 },
                 'access-group input' => {
-                    parse => \&get_token, 
-                    store => 'ACCESS_GROUP_IN', 
+                    parse => \&get_token,
+                    store => 'ACCESS_GROUP_IN',
                 },
             },
         },
 
 # ip route ip mask next-hop
-	'ip route' => { 
+	'ip route' => {
 	    store => 'ROUTING',
 	    multi => 1,
 	    parse => ['seq',
@@ -86,7 +86,7 @@ sub get_parse_info {
             subcmd => {
                 '_any' => {
                     leave_cmd_as_arg => 1,
-		    store => 'OBJECT', 
+		    store => 'OBJECT',
 		    multi => 1,
 		    parse =>  'parse_address',
                 }
@@ -97,7 +97,7 @@ sub get_parse_info {
         'access-list _skip ethertype' => { parse => \&skip },
 
 	'access-list' => {
-	    store => 'ACCESS_LIST', 
+	    store => 'ACCESS_LIST',
 	    multi => 1,
 	    named => 1,
             strict => 'err',
@@ -126,7 +126,7 @@ sub get_parse_info {
                     { store => 'SRC_PORT',
                       parse => 'parse_port_spec', params => ['$TYPE'] },
                     { store => 'DST', parse => 'parse_address' },
-                    { store => 'DST_PORT', 
+                    { store => 'DST_PORT',
                       parse => 'parse_port_spec', params => ['$TYPE'] } ],
                    ['cond1',
                     { store => 'TYPE', parse => qr/icmp/ },
@@ -142,7 +142,7 @@ sub get_parse_info {
         },
     };
 }
- 
+
 sub parse_object_group  {
     my ($self, $arg) = @_;
     if(check_regex('object-group', $arg)) {
@@ -155,7 +155,7 @@ sub parse_object_group  {
 
 sub parse_address {
     my ($self, $arg) = @_;
-    return 
+    return
         $self->parse_object_group($arg) || $self->SUPER::parse_address($arg);
 }
 
@@ -239,16 +239,16 @@ sub get_config_from_device {
     $self->get_cmd_output('show running-config');
 }
 
-my %known_status = 
+my %known_status =
     (
-     'configure terminal' => [ 
+     'configure terminal' => [
          'Enter configuration commands, one per line.  End with CNTL/Z.', ],
      'copy running-config startup-config' => [
-         'Generating configuration....', 
+         'Generating configuration....',
          qr/^running config of context \S+ saved$/ ],
      );
 
-my %known_warning = 
+my %known_warning =
 (
  );
 
@@ -261,7 +261,7 @@ sub cmd_check_error {
     my $error;
   LINE:
     for my $line (@$lines) {
-        
+
         # Ignore empty line
         next LINE if $line =~ /^\s*$/;
 
@@ -289,7 +289,7 @@ sub parse_version {
 	$self->{VERSION} = $1;
     }
     # Cisco ACE (slot: 3)
-    if($output =~ /(Cisco \s+ ACE\S*)/ix) {	
+    if($output =~ /(Cisco \s+ ACE\S*)/ix) {
 	$self->{HARDWARE} = $1;
     }
 }
@@ -310,10 +310,10 @@ sub is_device_access {
 sub resequence_cmd {
     my ($self, $acl_name, $start, $incr) = @_;
     my $cmd = "access-list $acl_name resequence $start $incr";
-    
+
     if ($self->{COMPARE}) {
         $self->cmd($cmd);
-        return; 
+        return;
     }
 
     while (1) {
@@ -325,7 +325,7 @@ sub resequence_cmd {
 
         # Try again.
         if (@$lines == 1 &&
-            $lines->[0] eq 
+            $lines->[0] eq
             'Error: Configuration clean up in progress, retry again') {
             info('ACL resequence command failed - trying again');
             sleep(4);
@@ -337,7 +337,7 @@ sub resequence_cmd {
     }
 }
 
-# Generate ACL entry from attributes 
+# Generate ACL entry from attributes
 # - ace, the parsed ACL entry
 # - line, the new / current line number
 # - name, the name for newly created entry.

@@ -16,7 +16,7 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
@@ -36,7 +36,7 @@ use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::ACE;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.113'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.114'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -62,7 +62,7 @@ Compare / approve file with device or compare two files.
  -C                   compare only
  -u <username>        use username for login to remote device
  -q                   suppress info messages to STDERR
- -L <logdir>          path for saving telnet logs
+ -L <logdir>          path for saving session logs
  --LOGFILE <fullpath> path to redirect STDOUT and STDERR
  -v                   print program version
 

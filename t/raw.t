@@ -152,7 +152,7 @@ interface Ethernet1
 END
 
 $spoc = <<END;
-ip access-list extended Ethernet1_in 
+ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
  deny ip any any
 interface Ethernet1
@@ -160,12 +160,12 @@ interface Ethernet1
 END
 
 $raw = <<END;
-ip access-list extended Ethernet1_in 
+ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 224.0.1.1 eq 123
 interface Ethernet1
  ip access-group Ethernet1_in in
 [APPEND]
-ip access-list extended Ethernet1_in 
+ip access-list extended Ethernet1_in
  deny ip any host 224.0.1.1 log
 interface Ethernet1
  ip access-group Ethernet1_in in

@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.113'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.114'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -50,37 +50,6 @@ sub new {
 ###########################################################################
 #   methods
 ###########################################################################
-
-# Get password from file.
-# Format:
-# - Comma separated values:
-#   0: <name>
-#   has at least 9 fields (Cisco Works format)
-#   8: <Telnet password>
-#   else
-#   1: <password>
-# - ignore 
-#   - empty lines.
-#   - comment lines starting with ';' or #
-sub get_cw_password {
-    my ($self) = @_;
-    my $path = $self->{CONFIG}->{passwdpath} or return;
-    my $name = $self->{NAME};
-
-    open(my $csv, '<', $path) or  ## no critic (ProhibitUnusedVariables)
-      abort("Can't open $path: $!");
-    for my $line (<$csv>) {
-        chomp $line;
-        $line =~ /^[;#]/ and next;
-        $line =~ s/[\"]//g;
-        $line or next;
-        my @fields = split(/,/, $line);
-        if ($name eq $fields[0]) {
-            return $fields[@fields >= 9 ? 8 : 1];
-        }
-    }
-    return;
-}
 
 sub match {
     my ($pattern, $name) = @_;
@@ -103,10 +72,6 @@ sub match {
 #   * matches zero or more characters
 #   ? matches one character
 # - First matching line is taken.
-#
-# Old format:
-# - Only a single line with two fields: "username password"
-# - is equivalent to "* username password"
 sub get_aaa_password {
     my ($self) = @_;
     my $pass;
@@ -123,9 +88,9 @@ sub get_aaa_password {
 
     # Strip leading and trailing whitespace and comments.
     for (@lines) {
-        s/^\s*//; 
-        s/\s*$//; 
-        s/^[#].*//; 
+        s/^\s*//;
+        s/\s*$//;
+        s/^[#].*//;
     }
 
     # Ignore empty lines.
@@ -133,12 +98,7 @@ sub get_aaa_password {
 
     for my $line (@lines) {
         my $count = (my ($pattern, $user, $pass) = split(' ', $line));
-
-        # Convert old format.
-        if ($count == 2 && @lines == 1) {
-            ($pattern, $user, $pass) = ( '*', $pattern, $user);
-        }
-        elsif ($count != 3) {
+        if ($count != 3) {
             abort("Expected 3 fields in lines of $aaa_credential");
         }
 
@@ -211,7 +171,7 @@ sub load_raw {
         @prepend = <$file>;
         close $file;
     }
-    
+
     # Find [APPEND] line.
     my $index;
     for (my $i = 0; $i < @prepend; $i++) {
@@ -220,7 +180,7 @@ sub load_raw {
             last;
         }
     }
-    
+
     # Split at [APPEND] line.
     my @append;
     if (defined $index) {
@@ -264,7 +224,7 @@ sub load_device {
 
 # A command line consists of two parts: command and argument.
 # A command is either a single word or a multi word command.
-# A multi word command is put together from some words at fixed positions 
+# A multi word command is put together from some words at fixed positions
 # of the word list.
 # Examples:
 # - ip access-group NAME in
@@ -274,7 +234,7 @@ sub load_device {
 # - isakmp ikev1-user-authentication|keepalive
 #   coded as "isakmp _any", takes two words, but second is unspecified.
 #   such a wildcard command may be referenced by "_cmd".
-# This function identifies 
+# This function identifies
 # - all words, which are prefix of some command.
 # Known commands are read from the hash keys of $parse_info.
 sub add_prefix_info {
@@ -314,11 +274,11 @@ sub parse_seq {
 	    }
 	    my $parser = $part->{parse};
 	    my $params = $part->{params};
-	    my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ } 
+	    my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ }
 			      $params ? @$params : ());
 	    if(my $keys = $part->{store_multi}) {
 		my @values;
-                @values = parse_line($self, $arg, $parser, @evaled) 
+                @values = parse_line($self, $arg, $parser, @evaled)
 		    if $parser;
 		for(my $i = 0; $i < @values; $i++) {
 		    $result->{$keys->[$i]} = $values[$i];
@@ -327,7 +287,7 @@ sub parse_seq {
 	    }
 	    else {
 		my $value;
-		$value = parse_line($self, $arg, $parser, @evaled) 
+		$value = parse_line($self, $arg, $parser, @evaled)
 		    if $parser;
 		if(not defined $value) {
 		    $value = $part->{default};
@@ -365,7 +325,7 @@ sub parse_seq {
     }
     return $success;
 }
-	    
+
 sub parse_line {
     my($self, $arg, $info, @params) = @_;
     my $ref = ref $info;
@@ -379,7 +339,7 @@ sub parse_line {
     }
     elsif($ref eq 'CODE') {
 	return($info->($arg, @params));
-    }   
+    }
     elsif($ref eq 'ARRAY') {
 	my $result = {};
 	parse_seq($self, $arg, $info, $result);
@@ -417,7 +377,7 @@ sub parse_config1 {
 	$value = parse_line($self, $arg, $parser, @params) if $parser;
 	get_eol($arg);
 	if(my $subcmds = $arg->{subcmd}) {
-	    my $parse_info = $cmd_info->{subcmd} or 
+	    my $parse_info = $cmd_info->{subcmd} or
 		err_at_line($arg, 'Unexpected subcommand');
 	    my $value2 = parse_config1($self, $subcmds, $parse_info);
 	    if(keys %$value2) {
@@ -469,7 +429,7 @@ sub parse_config1 {
 			next if $key =~ /(?:name|line|orig)/;
 			if(defined $old->{$key}) {
                             $old->{$key} eq $value->{$key} or
-                                err_at_line($arg, 
+                                err_at_line($arg,
                                             "Duplicate '$key' while merging");
 			}
                         else {
@@ -478,7 +438,7 @@ sub parse_config1 {
 		    }
 		}
 		else {
-		    err_at_line($arg, 
+		    err_at_line($arg,
 				'Multiple occurences of command not allowed');
 		}
 	    }
@@ -504,8 +464,8 @@ sub merge_rawdata {
     my ($self, $spoc_conf, $raw_prepend, $raw_append) = @_;
     $self->merge_acls($spoc_conf, $raw_prepend);
     $self->merge_acls($spoc_conf, $raw_append, 'append');
-    if (my @keys = grep { my $v = $raw_append->{$_}; 
-                          ref $v eq 'HASH' && keys %$v || ref $v eq 'ARRAY' } 
+    if (my @keys = grep { my $v = $raw_append->{$_};
+                          ref $v eq 'HASH' && keys %$v || ref $v eq 'ARRAY' }
         keys %$raw_append)
     {
         my $keys = join(',', @keys);
@@ -527,7 +487,7 @@ sub merge_rawdata {
                 info("Prepended $count routes${for} from raw") if $count;
             }
 	}
-            
+
 	# Array of unnamed entries: STATIC, GLOBAL, NAT
 	elsif(ref $raw_v eq 'ARRAY') {
 	    my $spoc_v = $spoc_conf->{$key} ||= [];
@@ -591,7 +551,7 @@ sub process_routing {
 
     my $spoc_vrf = $spoc_conf->{ROUTING_VRF};
     my $conf_vrf = $conf->{ROUTING_VRF};
-    
+
     my @vrfs = unique(keys %$spoc_vrf, keys %$conf_vrf);
     for my $vrf (sort @vrfs) {
         my $spoc_routing = $spoc_vrf->{$vrf};
@@ -601,7 +561,7 @@ sub process_routing {
             info("No routing specified$for - leaving routes untouched");
             next;
         }
-        
+
         $self->{CHANGE}->{ROUTING} = 0;
         for my $c (@$conf_routing) {
             for my $s (@$spoc_routing) {
@@ -622,7 +582,7 @@ sub process_routing {
             next if $r->{DELETE};
             $self->{CHANGE}->{ROUTING} = 1;
             my $cmd = $self->route_add($r, $vrf);
-            
+
             # ASA doesn't allow two routes to identical
             # destination. Remove and add routes in one transaction.
             for my $c (@$conf_routing) {
@@ -660,7 +620,7 @@ sub process_routing {
 }
 
 #################################################
-# comparing 
+# comparing
 #################################################
 
 # return value: 0: no
@@ -769,7 +729,7 @@ sub acl_line_a_eq_b {
 	for my $where (qw(SRC_PORT DST_PORT)) {
 	    my $aport = $a->{$where};
 	    my $bport = $b->{$where};
-	    return 0 if $aport->{LOW} != $bport->{LOW} or 
+	    return 0 if $aport->{LOW} != $bport->{LOW} or
 		        $aport->{HIGH} != $bport->{HIGH};
         }
 	return 0 if $a->{ESTA} xor $b->{ESTA};
@@ -839,7 +799,7 @@ sub acl_prepare {
 }
 
 # Parameter: 2 lists with protocols A and B
-# Result: 
+# Result:
 # A hash having entries a->b->1 for protocols where intersection is not empty.
 sub prot_relation {
     my ($aprot, $bprot) = @_;
@@ -855,7 +815,7 @@ sub prot_relation {
 }
 
 # Parameter: 2 lists with objects A and B
-# Result: 
+# Result:
 # A hash having entries a->b->1 for elements where intersection is not empty.
 sub obj_relation {
     my ($aobj, $bobj) = @_;
@@ -914,7 +874,7 @@ sub acl_array_compare_a_in_b {
 
     my $log_mismatch = 0;
 
-  OUTER: 
+  OUTER:
     for my $s (@$ac) {
 	my @currentdenylist;
 	if ($s->{MODE} eq 'deny') {
@@ -947,7 +907,7 @@ sub acl_array_compare_a_in_b {
 	my @found =
 	    sort { $a->{line} <=> $b->{line} }
 	get_hash_matches($matches, $p_rel, $s_rel, $d_rel, $bhash);
-      INNER: 
+      INNER:
 	for my $p (@found) {
 	    my $result = $self->acl_line_a_in_b($s, $p);
 	    if ($result == 1) {
@@ -964,7 +924,7 @@ sub acl_array_compare_a_in_b {
 
 		    # full permit
 		    # check if found deny is subset of @currentdenylist
-		  SUBSET: 
+		  SUBSET:
 		    for my $deny (@deny_int) {
 			for my $cd (@currentdenylist) {
 			    if ($self->acl_line_a_in_b($deny, $cd) == 1) {
@@ -1125,7 +1085,7 @@ sub get_cmd_output {
     my ($self, $cmd) = @_;
     my $out = $self->shcmd($cmd);
     my $need_reload;
-    $self->{RELOAD_SCHEDULED} and 
+    $self->{RELOAD_SCHEDULED} and
 	$self->handle_reload_banner(\$out) and $need_reload = 1;
     # NX-OS uses mixed line breaks: \r, \r\n, \r\r\n
     my @lines = split(/\r{0,2}\n|\r/, $out);
@@ -1312,7 +1272,7 @@ sub mark_as_unchanged {
 sub print_change_status {
     my ($self) = @_;
     for my $key (sort keys %{$self->{CHANGE}}) {
-	if($self->{CHANGE}->{$key}) { 
+	if($self->{CHANGE}->{$key}) {
 	    info("comp: *** $key changed ***");
 	}
 	else {
@@ -1382,7 +1342,7 @@ sub logging {
 		or abort("Can't chmod logdir $dirname: $!");
 	}
 
-	# Check -d again, because some other process may have created 
+	# Check -d again, because some other process may have created
 	# the directory in the meantime.
 	elsif (! -d $dirname) {
 	    abort("Can't create $dirname: $!");
@@ -1412,7 +1372,7 @@ sub logging {
           or abort("Can't aquire lock file $lockfile: $!");
 
         # Make newly created lock file writable for other users.
-        $file_exists 
+        $file_exists
           or chmod(0666, $lockfile)
           or abort("Can't chmod lockfile $lockfile: $!");
         flock($lock_fh, LOCK_EX | LOCK_NB)

@@ -2,7 +2,7 @@
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -34,13 +34,10 @@ my $config = {
     historydir      => undef,
     statusdir       => undef,
     checkbanner     => undef,	# regex
-    passwdpath      => undef,
     aaa_credentials => undef,	# path
     systemuser      => undef,	# username
-    newpolicy_hooks => undef,	# list of paths
     timeout         => 60,
     login_timeout   => 3,
-    try_telnet      => undef,
     keep_history    => 365,   # del history older than this (in days),
 };
 

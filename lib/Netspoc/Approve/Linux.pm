@@ -34,7 +34,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.113'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.114'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
@@ -65,7 +65,7 @@ sub get_parse_info {
 	    parse => ['seq',
 		      { parse => qr/unicast|local|broadcast|multicast|throw|unreachable|prohibit|blackhole|nat/,
 			store => 'TYPE', default => 'unicast' },
-		      { parse => \&get_ip_prefix, 
+		      { parse => \&get_ip_prefix,
 			store_multi => ['BASE', 'MASK'] },
 		      ['cond1',
 		       { parse => qr/via/ },
@@ -108,7 +108,7 @@ sub get_parse_info {
 	# :INPUT ACCEPT [68024:74200042]
 	# :FORWARD ACCEPT [0:0]
 	# :OUTPUT ACCEPT [54724:5982979]
-	# -A INPUT -s 10.1.2.3 -j ACCEPT 
+	# -A INPUT -s 10.1.2.3 -j ACCEPT
 	# COMMIT
 	# # Comment
 	'*' => {
@@ -120,7 +120,7 @@ sub get_parse_info {
 		    named => 1,
 		    parse => 'parse_policy',
 		},
-		'-A' => { 
+		'-A' => {
 		    multi => 1,
 		    store => 'RULES',
 		    named => 1,
@@ -142,7 +142,7 @@ sub get_parse_info {
 #      first element, the command name, consists of multiple tokens,
 #      if prefix tokens are used.
 # - subcmd: sub-commands related to current command
-# 
+#
 # $config->[{args => [$cmd, @args], subcmd => [{args => [$cmd @args]}, ...]},
 #           {args => [$cmd, @args], subcmd => [...]}
 #        ..]
@@ -174,7 +174,7 @@ sub analyze_conf_lines {
 	my $cmd = shift(@args);
 	if(my $prefix_info = $parse_info->{_prefix}) {
 	    my $prefix = $cmd;
-	    while($prefix_info = $prefix_info->{$prefix} and 
+	    while($prefix_info = $prefix_info->{$prefix} and
 		  keys %$prefix_info)
 	    {
 		$prefix = shift(@args);
@@ -184,8 +184,8 @@ sub analyze_conf_lines {
 
 	# Remember current line number, set parse position.
 	# Remember the original line.
-	my $new_cmd = { line => $counter, 
-			pos  => 0, 
+	my $new_cmd = { line => $counter,
+			pos  => 0,
 			orig => $orig,
 			args => [ $cmd, @args ], };
 
@@ -232,7 +232,7 @@ sub parse_policy {
     return($policy eq '-') ? undef : $policy;
 }
 
-# -A INPUT -s 10.1.2.3 -p tcp ! --syn -j ACCEPT 
+# -A INPUT -s 10.1.2.3 -p tcp ! --syn -j ACCEPT
 sub parse_rule {
     my($self, $arg) = @_;
 
@@ -419,7 +419,7 @@ sub rule_code {
 	push @result, "--sport $v" if defined $v;
 	$v = range_code($rule->{DST_PORT});
 	push @result, "--dport $v" if defined $v;
-	push @result, "! --syn" if $rule->{ESTA};	
+	push @result, "! --syn" if $rule->{ESTA};
     }
     elsif($type eq 'icmp') {
 	push @result, "-p $type";
@@ -432,7 +432,7 @@ sub rule_code {
     push @result, "-j " . mode_code($mode) if $mode;
     return(join(' ', @result));
 }
-	
+
 
 my $normalize = {
     '-j' => {
@@ -469,10 +469,10 @@ my $normalize = {
 	extern => \&icmp_code,
     },
     '-p' => {
-	intern => sub { my($v) = @_; 
-                        $v = lc $v; 
-                        $v =~ s/^vrrp$/112/; 
-                        $v =~ s/^ipv6-icmp$/58/; 
+	intern => sub { my($v) = @_;
+                        $v = lc $v;
+                        $v =~ s/^vrrp$/112/;
+                        $v =~ s/^ipv6-icmp$/58/;
                         $v;
         },
 	extern => sub { $_[0] },
@@ -498,7 +498,7 @@ my $normalize = {
 			},
 	extern => sub { $_[0] },
     },
-};	
+};
 
 # Normalize values of iptables rules.
 # For builtin chains, the value is converted to a normalized string.
@@ -558,7 +558,7 @@ sub normalize {
 	    }
 	    my $size = $spec->{size};
 	    defined $size or $size = 1;
-	    @{[ split(' ', $v) ]} == $size or 
+	    @{[ split(' ', $v) ]} == $size or
 		abort("$key needs $size arguments but got '$v'");
 	    my $negate = '';
 	    if($v =~/^!/) {
@@ -589,7 +589,7 @@ sub intersect_rule {
 		my($b1, $m1) = @{$v1}{qw(BASE MASK)};
 		my($b2, $m2) = @{$v2}{qw(BASE MASK)};
 
-		# Switch values, such that b1/m1 is the larger network 
+		# Switch values, such that b1/m1 is the larger network
 		# (with smaller mask).
 		($b1, $m1, $b2, $m2) = ($b2, $m2, $b1, $m1) if ($m1 > $m2);
 
@@ -608,14 +608,14 @@ sub intersect_rule {
 	    elsif($k1 eq '--icmp-type') {
 		my($t1, $c1) = @{$v1}{qw(TYPE CODE)};
 		my($t2, $c2) = @{$v2}{qw(TYPE CODE)};
-		$t1 == $t2 
+		$t1 == $t2
 		    or internal_err "Empty intersection with '$k1' (type)";
-		my $c = (not defined $c1) 
-		      ? $c2 
-		      : (not defined $c2) 
-		      ? $c1 
-		      : ($c1 == $c2) 
-		      ? $c1 
+		my $c = (not defined $c1)
+		      ? $c2
+		      : (not defined $c2)
+		      ? $c1
+		      : ($c1 == $c2)
+		      ? $c1
 		      : internal_err "Empty intersection with '$k1' (code)";
 		$result->{$k1} = { TYPE => $t1, CODE => $c};
 	    }
@@ -626,7 +626,7 @@ sub intersect_rule {
 		$result->{$k1} = $v1;
 	    }
 	    elsif($k1 eq '-j' or $k1 eq '-g') {
-		
+
 		# Ignore $v1, because it is a chain name by calling convention.
 		$result->{$k1} = $v2;
 	    }
@@ -663,7 +663,7 @@ sub disjoint {
 		my($b1, $m1) = @{$v1}{qw(BASE MASK)};
 		my($b2, $m2) = @{$v2}{qw(BASE MASK)};
 
-		# Switch values, such that b1/m1 is the larger network 
+		# Switch values, such that b1/m1 is the larger network
 		# (with smaller mask).
 		($b1, $m1, $b2, $m2) = ($b2, $m2, $b1, $m1) if ($m1 > $m2);
 
@@ -681,12 +681,12 @@ sub disjoint {
 		my($t1, $c1) = @{$v1}{qw(TYPE CODE)};
 		my($t2, $c2) = @{$v2}{qw(TYPE CODE)};
 		$t1 == $t2 or return 1;
-		my $c = (not defined $c1) 
-		      ? $c2 
-		      : (not defined $c2) 
-		      ? $c1 
-		      : ($c1 == $c2) 
-		      ? $c1 
+		my $c = (not defined $c1)
+		      ? $c2
+		      : (not defined $c2)
+		      ? $c1
+		      : ($c1 == $c2)
+		      ? $c1
 		      : return 1;
 	    }
 
@@ -726,7 +726,7 @@ sub expand_chain {
 	    }
 	}
 
-	my $target = $rule->{'-j'} || $rule->{'-g'} or 
+	my $target = $rule->{'-j'} || $rule->{'-g'} or
 	    abort("Missing target in rule");
 
 	# Ignore LOG target; it can't be compared currently.
@@ -825,8 +825,8 @@ sub postprocess_iptables {
 	};
 	for my $name (keys %$policies) {
 	    next if $new->{$name};
-	    $new->{$name} = { name => $name, 
-			      RULES => [], 
+	    $new->{$name} = { name => $name,
+			      RULES => [],
 			      POLICY => $policies->{$name} };
 	}
 	$table = $new;
@@ -900,8 +900,8 @@ sub merge_acls {
 	    info("$msg to chain '$chain_name' of table '$table_name'");
 	}
     }
-}	    
-    
+}
+
 sub postprocess_routes {
     my ($self, $config) = @_;
     return if ! $config->{ROUTING};
@@ -919,18 +919,12 @@ sub postprocess_routes {
 	push(@routes, $entry);
     }
     $config->{ROUTING_VRF}->{''} = \@routes;
-}    
+}
 
 sub postprocess_config {
     my ($self, $config) = @_;
     $self->postprocess_routes($config);
     $self->postprocess_iptables($config);
-} 
-
-sub compare_chains_semantically {
-    my($self, $conf_chain, $spoc_chain, $context) = @_;
-    my($conf_acl, $conf_name) = @{$conf_chain}{qw(EXPANDED name)};
-    my($spoc_acl, $spoc_name) = @{$spoc_chain}{qw(EXPANDED name)};
 }
 
 # Compare two rules.
@@ -964,7 +958,7 @@ sub compare_rules {
 	# Rules call no chain, only used as counter.
 	return('', '');
     }
-}	
+}
 
 # Compare two chains.
 sub chains_equal {
@@ -975,7 +969,7 @@ sub chains_equal {
     # Compare semantically
     if(not($conf_chain->{NON_COMPARABLE} or $spoc_chain->{NON_COMPARABLE})) {
 	return $self->acl_equal($conf_chain->{EXPANDED},
-				$spoc_chain->{EXPANDED}, 
+				$spoc_chain->{EXPANDED},
 				$c_name, $s_name, $context);
     }
 
@@ -984,8 +978,8 @@ sub chains_equal {
     my $spoc_rules = $spoc_chain->{RULES} || [];
     my $conf_count = @$conf_rules;
     my $spoc_count = @$spoc_rules;
-    my $msg = ($c_name eq $s_name) 
-	    ? "Chains '$c_name'" 
+    my $msg = ($c_name eq $s_name)
+	    ? "Chains '$c_name'"
 	    : "Chains '$c_name' and '$s_name";
     info("Comparing $msg textually");
     if($conf_count != $spoc_count) {
@@ -1002,7 +996,7 @@ sub chains_equal {
 	    my $s_chain = $s_chains->{$s_target};
 	    if($c_chain and $s_chain) {
 		my $context = $conf_chain->{name};
-		$self->chains_equal($c_chains, $s_chains, 
+		$self->chains_equal($c_chains, $s_chains,
 				    $c_chain, $s_chain, $context)
 		    or $equal = 0;
 	    }
@@ -1026,7 +1020,7 @@ sub chains_equal {
 # - Compare rule sets of builtin chains pairwise:
 #   - both rules are identical: ok
 #   - rules differ only for called chain: compare chains semantically
-#   - else: report builtin chains as different 
+#   - else: report builtin chains as different
 sub process_iptables {
     my ($self, $conf, $spoc) = @_;
     my $conf_tables = $conf->{IPTABLES};
@@ -1055,7 +1049,7 @@ sub process_iptables {
 	    $self->chains_equal($conf_chains, $spoc_chains,
 				$conf_chain, $spoc_chain, $tname)
 		or $changed = 1;
-	}   
+	}
     }
     for my $tname (keys %$spoc_tables) {
         if (!$conf_tables->{$tname}) {
@@ -1125,7 +1119,7 @@ sub do_scp {
     my $ip = $self->{IP};
     my $user = $config->{user};
     my @args =
-	       ($mode eq 'put') 
+	       ($mode eq 'put')
 	     ? ($src, "$user\@$ip:$dst")
 	     : ($mode eq 'get')
 	     ? ("$user\@$ip:$src", $dst)
@@ -1140,7 +1134,7 @@ sub write_startup_routing {
     my ($self, $spoc, $file) = @_;
     local $\ = "\n";
 
-    # Create and open temporary file. 
+    # Create and open temporary file.
     # File is automatically removed when the program exits.
     my ($fh, $tmpname) = tempfile(UNLINK => 1) or abort("Can't create tempfile: $!");
     print $fh '#!/bin/sh';
@@ -1165,7 +1159,7 @@ sub write_startup_iptables {
     my ($self, $spoc, $file) = @_;
     my $path = $self->find_iptables_restore_cmd();
     local $\ = "\n";
-    my ($fh, $tmpname) = tempfile(UNLINK => 1) or 
+    my ($fh, $tmpname) = tempfile(UNLINK => 1) or
         abort("Can't create tempfile: $!");
     print $fh "#!$path";
     print $fh '# Generated by NetSPoC';
@@ -1203,17 +1197,17 @@ sub transfer {
 
     return if $self->{COMPARE};
 
-    # Copy startup routing config to temporary file on device. 
+    # Copy startup routing config to temporary file on device.
     if ($self->{CHANGE}->{ROUTING}) {
-        my $tmp_routing = $config->{tmp_routing}; 
+        my $tmp_routing = $config->{tmp_routing};
         $self->write_startup_routing($spoc_conf, $tmp_routing);
     }
-    
+
     # Copy startup iptables config to temporary file on device.
     # Change iptables configuration of device.
     if ($self->{CHANGE}->{ACL}) {
         my $tmp_iptables = $config->{tmp_iptables};
-        $self->write_startup_iptables($spoc_conf, $tmp_iptables); 
+        $self->write_startup_iptables($spoc_conf, $tmp_iptables);
         $self->cmd("chmod a+x $tmp_iptables");
         info("Changing iptables running config");
         $self->cmd($tmp_iptables);
@@ -1225,27 +1219,27 @@ sub write_mem {
 
     # Change routing startup configuration of device.
     my $tmp_routing = $config->{tmp_routing};
-    my $startup_routing = $config->{device_routing_file};   
+    my $startup_routing = $config->{device_routing_file};
     if ($self->{CHANGE}->{ROUTING}) {
-        
+
         # Running config has already been changed differentially.
-        info("Writing routing startup config");  
+        info("Writing routing startup config");
         $self->cmd("mv -f $tmp_routing $startup_routing");
     }
-    
+
     # Change iptables startup configuration of device.
     my $tmp_iptables = $config->{tmp_iptables};
     my $startup_iptables = $config->{device_iptables_file};
     if ($self->{CHANGE}->{ACL}) {
-        info("Writing iptables startup config");  
+        info("Writing iptables startup config");
         $self->cmd("mv -f $tmp_iptables $startup_iptables");
     }
-    
+
     # Write configuration to flash if platform has this cmd.
     if((my $cmd = $config->{store_flash_cmd}) &&
-       $self->cmd_ok('ls /etc/router-version')) 
+       $self->cmd_ok('ls /etc/router-version'))
     {
-        info("Saving config to flash");  
+        info("Saving config to flash");
         $self->cmd($cmd);
     }
 }
@@ -1287,7 +1281,7 @@ sub login_enable {
     my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
     my $result = $con->con_short_wait($prompt);
     if ($result->{ERROR}) {
-        $con->con_error();
+        $con->con_abort();
     }
     if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 	$prompt = qr/$std_prompt|password:/i;
