@@ -2231,7 +2231,6 @@ sub transfer_group_policy {
 
 sub remove_group_policy {
     my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
-    return if $obj_name eq 'DfltGrpPolicy';
     $self->cmd("clear configure group-policy $obj_name");
 }
 
