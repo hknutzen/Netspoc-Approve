@@ -6,7 +6,7 @@ Base class for Cisco routers (IOS, NX-OS)
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2011 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 
 This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@ package Netspoc::Approve::Cisco_Router;
 # Base class for Cisco routers (IOS, NX-OS)
 #
 
-our $VERSION = '1.114'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.115'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -390,10 +390,8 @@ sub align_vrfs {
         $vrf ||= 'global';
         info("Leaving VRF $vrf untouched");
     }
-    if (keys %removed) {
-        keys %{ $spoc->{CRYPTO} } and
-            abort("Crypto and VRF can't be used together," .
-                  " if some VRF is unmanaged");
+    if (keys %removed and grep { /^CRYPTO/ } keys %$spoc) {
+        abort("Crypto and VRF can't be used together, if some VRF is unmanaged");
     }
 }
 

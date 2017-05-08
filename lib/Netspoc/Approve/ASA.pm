@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.114'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.115'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 
@@ -2231,7 +2231,6 @@ sub transfer_group_policy {
 
 sub remove_group_policy {
     my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
-    return if $obj_name eq 'DfltGrpPolicy';
     $self->cmd("clear configure group-policy $obj_name");
 }
 

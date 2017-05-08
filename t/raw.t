@@ -211,4 +211,54 @@ $out = '';
 eq_or_diff( approve('Linux', '', $spoc, $raw ), $out, $title );
 
 ############################################################
+$title = "Add crypto";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/1
+ nameif outside
+END
+
+$spoc = <<'END';
+interface Ethernet0/1
+ nameif outside
+END
+
+$raw = <<'END';
+crypto ipsec ikev1 transform-set ESP-3DES-MD5 esp-3des esp-md5-hmac
+crypto ipsec ikev1 transform-set ESP-AES-256-SHA esp-aes-256 esp-sha-hmac
+crypto ipsec ikev1 transform-set ESP-3DES-SHA esp-3des esp-sha-hmac
+crypto ipsec ikev1 transform-set ESP-AES-256-MD5 esp-aes-256 esp-md5-hmac
+
+crypto dynamic-map outside_dyn_map 20 set pfs
+crypto dynamic-map outside_dyn_map 20 set ikev1 transform-set ESP-AES-256-SHA ESP-3DES-MD5
+crypto dynamic-map outside_dyn_map 20 set reverse-route
+crypto map outside_map 65535 ipsec-isakmp dynamic outside_dyn_map
+crypto map outside_map interface outside
+
+group-policy DfltGrpPolicy attributes
+ vpn-tunnel-protocol ikev1
+ password-storage enable
+ pfs enable
+ nem enable
+END
+
+$out = <<'END';
+crypto ipsec ikev1 transform-set ESP-AES-256-SHA-DRC-0 esp-aes-256 esp-sha-hmac
+crypto ipsec ikev1 transform-set ESP-3DES-MD5-DRC-0 esp-3des esp-md5-hmac
+crypto dynamic-map outside_dyn_map 20 set pfs group2
+crypto dynamic-map outside_dyn_map 20 set reverse-route
+no crypto dynamic-map outside_dyn_map 20 set ikev1 transform-set
+crypto dynamic-map outside_dyn_map 20 set ikev1 transform-set ESP-AES-256-SHA-DRC-0 ESP-3DES-MD5-DRC-0
+crypto map outside_map 65535 ipsec-isakmp dynamic outside_dyn_map
+group-policy DfltGrpPolicy attributes
+nem enable
+password-storage enable
+pfs enable
+vpn-tunnel-protocol ikev1
+END
+
+eq_or_diff( approve('ASA', $device, $spoc, $raw ), $out, $title );
+
+############################################################
 done_testing;

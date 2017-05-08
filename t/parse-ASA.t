@@ -380,7 +380,7 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Must not remove group-policy DfltGrpPolicy";
+$title = "Clear group-policy DfltGrpPolicy";
 ############################################################
 $device = $minimal_device . <<'END';
 group-policy DfltGrpPolicy attributes
@@ -393,6 +393,7 @@ END
 $in = '';
 
 $out = <<'END';
+clear configure group-policy DfltGrpPolicy
 END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
