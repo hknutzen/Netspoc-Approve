@@ -33,7 +33,7 @@ package Netspoc::Approve::Cisco_Router;
 # Base class for Cisco routers (IOS, NX-OS)
 #
 
-our $VERSION = '1.115'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.116'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -356,7 +356,7 @@ sub check_mpls {
 # Netspoc creates a single configuration file for a device
 # having different VRFs.
 # Now remove that parts from the device configuration,
-# which are related to a  VRFs not managed by Netspoc.
+# which are related to VRFs not managed by Netspoc.
 # This way, we leave unmanaged VRFs unchanged.
 sub align_vrfs {
     my ($self, $conf, $spoc) = @_;
@@ -373,11 +373,12 @@ sub align_vrfs {
     my %removed;
     my $intf = $conf->{IF};
     for my $name (keys %$intf) {
-        my $vrf = $intf->{$name}->{VRF} || '';
-        if (!$spoc_vrf{$vrf}) {
-            delete $intf->{$name};
-            $removed{$vrf} = 1;
-        }
+        my $val = $intf->{$name};
+        my $vrf = $val->{VRF} || '';
+        next if $spoc_vrf{$vrf};
+        next if $val->{SHUTDOWN};
+        delete $intf->{$name};
+        $removed{$vrf} = 1;
     }
     my $routing = $conf->{ROUTING_VRF};
     for my $vrf (keys %$routing) {
@@ -390,11 +391,7 @@ sub align_vrfs {
         $vrf ||= 'global';
         info("Leaving VRF $vrf untouched");
     }
-    if (keys %removed and grep { /^CRYPTO/ } keys %$spoc) {
-        abort("Crypto and VRF can't be used together, if some VRF is unmanaged");
-    }
 }
-
 
 sub transfer {
     my ($self, $conf, $spoc) = @_;
