@@ -621,7 +621,7 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
-$title = "Don't change crypto file ACL which permit administrative access";
+$title = "Don't change crypto filter ACL which permit administrative access";
 ############################################################
 # Device IP is 10.1.13.33
 
@@ -911,5 +911,50 @@ $title = "Managed and unmanaged VRF in one device";
 $in =~ s/ip route 10.20.0.0 255.255.0.0 10.1.2.3//msg;
 $out = '';
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Crypto of unmanaged VRF is left unchanged";
+############################################################
+$device = <<'END';
+ip access-list extended crypto-filter2
+ permit tcp host 10.1.1.1 host 10.2.2.2 eq 80
+ip access-list extended crypto-filter-Ethernet1-1-DRC-0
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+ deny ip any any
+crypto map crypto-Ethernet1 1 ipsec-isakmp
+ set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
+ set peer 10.156.4.206
+crypto map crypto-Ethernet2 1 ipsec-isakmp
+ set ip access-group crypto-filter2 in
+ set peer 10.156.1.2
+
+interface Ethernet1
+ crypto map crypto-Ethernet1
+interface Ethernet2
+ ip vrf forwarding 013
+ crypto map crypto-Ethernet2
+END
+
+$in = <<'END';
+ip access-list extended crypto-filter-Ethernet1-1-DRC-0
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+ deny ip any any
+crypto map crypto-Ethernet1 1 ipsec-isakmp
+ set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
+ set peer 10.156.4.206
+
+interface Ethernet1
+ crypto map crypto-Ethernet1
+END
+
+$out = <<'END';
+ip access-list resequence crypto-filter-Ethernet1-1-DRC-0 10000 10000
+ip access-list extended crypto-filter-Ethernet1-1-DRC-0
+1 permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+no 10000
+ip access-list resequence crypto-filter-Ethernet1-1-DRC-0 10 10
+END
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
 ############################################################
 done_testing;
