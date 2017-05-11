@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+1.116     2017-05-11 12:20:13+02:00 Europe/Berlin
+
+ - Removed unneeded check for crypto with unmanaged VRF.
+
 1.115     2017-05-08 17:51:21+02:00 Europe/Berlin
 
  - Fixed wrong warnings from previous version
