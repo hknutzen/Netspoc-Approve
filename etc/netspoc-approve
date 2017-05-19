@@ -26,40 +26,26 @@ lockfiledir = /home/diamonds/lock
 # for a specific device.
 checkbanner = NetSPoC
 
-# Password file to automatically login via telnet to a device.
-# Format of the file: lines with comma separated values
-# a) device,passwort
-# b) device,x,x,x,x,x,x,x,password,...  (from CiscoWorks)
-passwdpath  = /home/diamonds/device-database/cw_pass
-
 # If approve is run by this user,
 # read the password from file given in aaa_credentials
 systemuser  = diamonds
 
 # Password file for systemuser.
-# Username and password is used to automatically login via ssh
-# to any device which isn't found in passwdpath.
-# Format: username password
+# Found credentials are used to automatically login via ssh.
 aaa_credentials = /home/diamonds/.aaa_credentials
 
-# Create a stats file for each approved or compared device.
+# Create a status file for each approved or compared device.
 # Format:
 statusdir   = /home/diamonds/status
 
 # Create a log file for each approved or compared device.
 historydir  = /home/diamonds/history
 
-# List of paths to be called after successful run of newpolicy
-#newpolicy_hooks = path1 path2
-
 # Timeout in seconds during established session
 #timeout = 500
 
 # Timeout in seconds when establishing new session to device.
 #login_timeout = 10
-
-# Try telnet if ssh fails
-#try_telnet = 1
 
 # Delete policy directories in "netspocdir" after this many days.
 # keep_history = 365
