@@ -6,7 +6,7 @@ Base class for all supported devices
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
