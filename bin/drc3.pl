@@ -33,7 +33,6 @@ use Netspoc::Approve::Linux;
 use Netspoc::Approve::IOS;
 use Netspoc::Approve::ASA;
 use Netspoc::Approve::NX_OS;
-use Netspoc::Approve::ACE;
 use Netspoc::Approve::Helper;
 
 # VERSION: inserted by DZP::OurPkgVersion
@@ -45,7 +44,6 @@ my %type2class = (
     IOS     => 'Netspoc::Approve::IOS',
     ASA     => 'Netspoc::Approve::ASA',
     'NX-OS' => 'Netspoc::Approve::NX_OS',
-    'ACE'   => 'Netspoc::Approve::ACE',
 );
 
 ####################################################################
@@ -150,5 +148,3 @@ else {
 banner_msg('STOP');
 
 $job->unlock($name);
-
-
