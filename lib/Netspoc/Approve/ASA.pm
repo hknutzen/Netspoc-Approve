@@ -1853,17 +1853,13 @@ sub remove_unneeded_on_device {
 	    # Remove unneeded object from device.
 	    next if $object->{needed};
 
+            # Only remove object that has been substituted by new
+            # object from Netspoc.
+            next if not $object->{connected};
+
 	    # Do not remove users that have their own explicit
 	    # password (e.g. 'netspoc'-user used to access device).
 	    next if ( $parse_name eq 'USERNAME'  && ! $object->{NOPASSWORD} );
-
-            # Only remove object that either has previously been
-            # defined by Netspoc or that has been substituted by new
-            # object from Netspoc.
-            # This excludes manual ACLs used for eg. BGP.
-            if ($parse_name ne 'CRYPTO_MAP_SEQ') {
-                next if $obj_name !~ /DRC-\d+$/ and not $object->{connected};
-            }
 
             info("Remove unneeded $parse_name $obj_name");
             my $method = $parse->{remove};
