@@ -844,6 +844,26 @@ sub get_parse_info {
     };
 }
 
+my %default_tunnel_groups = (
+    DefaultL2LGroup => 'ipsec-l2l',
+    DefaultRAGroup  => 'remote-access',
+    DefaultWEBVPNGroup => 'webvpn',
+    );
+
+sub get_tunnel_group_define {
+    my ($self, $p, $tg_name) = @_;
+    if (my $tg = $p->{TUNNEL_GROUP_DEFINE}->{$tg_name}) {
+        return $tg;
+    }
+    elsif (my $type = $default_tunnel_groups{$tg_name}) {
+        return $p->{TUNNEL_GROUP_DEFINE}->{$tg_name} = { name => $tg_name,
+                                                         TYPE => $type };
+    }
+    else {
+        return;
+    }
+}
+
 sub postprocess_config {
     my ( $self, $p ) = @_;
 
@@ -863,7 +883,7 @@ sub postprocess_config {
     for my $what (qw(TUNNEL_GROUP_GENERAL TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN))
     {
         for my $name (keys %{$p->{$what}}) {
-            my $base = $p->{TUNNEL_GROUP_DEFINE}->{$name} or
+            my $base = $self->get_tunnel_group_define($p, $name) or
                 abort("Missing type definition for tunnel-group $name");
 
             # Add links to related commands.
@@ -891,16 +911,12 @@ sub postprocess_config {
 	}
 
         $anchor->{TUNNEL_GROUP_DEFINE} = $tg_name;
-	if ($p->{TUNNEL_GROUP_DEFINE}->{$tg_name}) {
+	if ($self->get_tunnel_group_define($p, $tg_name)) {
             $TG_used_by_TG_map{$tg_name} = 1;
-        }
-        elsif($tg_name =~ /^(?:DefaultL2LGroup)$/) {
-            $p->{TUNNEL_GROUP_DEFINE}->{$tg_name} ||= { name => $tg_name,
-                                                        type => 'ipsec-l2l'};
         }
         else {
             abort("'$tgm->{orig}' references unknown tunnel-group $tg_name");
-	}
+        }
     }
 
     # Not needed any longer.
@@ -926,7 +942,7 @@ sub postprocess_config {
                 abort("'$cgm->{orig}' references unknown" .
                       " ca cert map '$ca_map_name'");
             my $tg_name = $cgm->{TUNNEL_GROUP};
-            $p->{TUNNEL_GROUP_DEFINE}->{$tg_name} or
+            $self->get_tunnel_group_define($p, $tg_name) or
                 abort("'$cgm->{orig}' references unknown" .
                       " tunnel-group $tg_name");
             $cert->{WEB_TUNNEL_GROUP} = $tg_name;
@@ -979,11 +995,11 @@ sub postprocess_config {
 						  GROUP_POLICY => $dflt_gp };
     }
 
-    # 'DefaultWEBVPNGroup' must not be removed, even if not referenced.
-    $dflt_gp = 'DefaultWEBVPNGroup';
-    if ( $p->{TUNNEL_GROUP_DEFINE}->{$dflt_gp} ) {
-	$p->{DEFAULT_WEBVPN_GROUP}->{$dflt_gp} = { name => $dflt_gp,
-						   TUNNEL_GROUP => $dflt_gp };
+    # Connect elements referenced by default tunnel groups.
+    for my $tg_name (keys %default_tunnel_groups) {
+        $p->{TUNNEL_GROUP_DEFINE}->{$tg_name} or next;
+        $p->{DEFAULT_TUNNEL_GROUP}->{$tg_name} = { name => $tg_name,
+                                                   TUNNEL_GROUP => $tg_name };
     }
 
     # ASA has only default VRF.
@@ -2215,6 +2231,10 @@ sub transfer_tunnel_group {
 
 sub remove_tunnel_group {
     my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+
+    # Default tunnel groups must not be removed, even if not referenced.
+    return if $default_tunnel_groups{$obj_name};
+
     $self->cmd("clear configure tunnel-group $obj_name");
 }
 
@@ -2669,7 +2689,7 @@ sub define_structure {
 	    remove   => sub {},
 	},
 
-	DEFAULT_WEBVPN_GROUP => {
+	DEFAULT_TUNNEL_GROUP => {
 	    anchor => 1,
 	    next => [ { attr_name  => 'TUNNEL_GROUP',
 			parse_name => 'TUNNEL_GROUP_DEFINE', },

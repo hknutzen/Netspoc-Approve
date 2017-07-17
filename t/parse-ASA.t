@@ -532,6 +532,25 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Must not delete default tunnel-group";
+############################################################
+
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group DefaultRAGroup ipsec-attributes
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+END
+
+$in = <<'END';
+END
+
+$out = <<'END';
+no tunnel-group DefaultRAGroup ipsec-attributes
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Modify ip local pool";
 ############################################################
 $device = $minimal_device;
