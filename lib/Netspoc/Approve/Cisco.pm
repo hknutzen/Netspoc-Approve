@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.116'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.117'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -1106,7 +1106,7 @@ sub subst_ace_name_og {
     my ($self, $ace, $name) = @_;
     my $cmd = $ace->{orig};
 
-    # Only applicable for model ASA und ACE.
+    # Only applicable for model ASA.
     $cmd =~ s/^access-list \S+/access-list $name/;
 
     for my $where ( qw( TYPE SRC DST SRC_PORT DST_PORT ) ) {
@@ -1403,4 +1403,3 @@ sub equalize_acl {
 
 # Packages must return a true value;
 1;
-

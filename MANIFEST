@@ -95,7 +95,6 @@ cover_db/t-raw-t--subroutine.html
 cover_db/t-raw-t.html
 dist.ini
 etc/netspoc-approve
-lib/Netspoc/Approve/ACE.pm
 lib/Netspoc/Approve/ASA.pm
 lib/Netspoc/Approve/Cisco.pm
 lib/Netspoc/Approve/Cisco_Router.pm
@@ -111,7 +110,6 @@ lib/Netspoc/Approve/Status.pm
 patches/Expect.pm.patch
 suid-support/Makefile
 suid-support/README
-suid-support/diamonds
 suid-support/diamonds.c
 suid-support/sudoers
 suid-support/suid-newpolicy
@@ -119,7 +117,6 @@ suid-support/suid-newpolicy.c
 t/ASA-modify-ACL.t
 t/Linux.t
 t/Test_Approve.pm
-t/parse-ACE.t
 t/parse-ASA.t
 t/parse-IOS.t
 t/parse-NX-OS.t

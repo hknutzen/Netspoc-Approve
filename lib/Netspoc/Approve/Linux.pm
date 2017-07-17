@@ -6,7 +6,7 @@ Remote configure Linux iptables and routing
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.116'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.117'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
@@ -274,540 +274,11 @@ sub parse_rule {
     return $rule;
 }
 
-# Convert string to internal representation and vice versa.
-sub mode2intern {
-    my($token) = @_;
-    if($token eq 'ACCEPT') {
-	return 'permit';
-    }
-    elsif($token eq 'DROP') {
-	return 'deny';
-    }
-    else {
-
-	# Leave chain target unchanged.
-	return $token;
-    }
-}
-
-sub prefix2intern {
-    my($token) = @_;
-    my($addr, $prefix) = split(m'/', $token, 2);
-    my $base = quad2int($addr);
-    my $mask;
-    defined $base or abort("Expected IP: $addr");
-    if(defined $prefix) {
-	if($prefix =~ /^\d+$/) {
-	    $prefix <= 32 or
-		abort("Expected IP prefix: $prefix");
-	    $mask = 2**32 - 2**(32 - $prefix);
-	}
-	else {
-	    $mask = quad2int($prefix);
-	    defined $mask or abort("Expected IP mask: $mask");
-	}
-    }
-    else {
-	$mask = 0xffffffff;
-    }
-    return({ BASE => $base, MASK => $mask });
-}
-
-sub range2intern {
-    my($token) = @_;
-    my($low, $high) = split(':', $token);
-    if(defined $high) {
-	$low eq '' and $low = 0;
-	$high eq '' and $high = 65535;
-    }
-    else{
-	$high = $low;
-    }
-    return({ LOW => $low, HIGH => $high });
-}
-
-sub icmp2intern {
-    my($token) = @_;
-    my($type, $code) = split('/', $token);
-    return({ TYPE => $type, CODE => $code });
-}
-
-sub mask2prefix {
-    my($mask) = @_;
-    my $prefix = 0;
-    while($mask) {
-	($mask & 0x80000000) or abort("Invalid mask: ", int2quad($mask));
-	$mask &= 0x7fffffff;
-	$mask <<= 1;
-	$prefix++;
-    }
-    $prefix;
-}
-
-sub mode_code {
-    my($mode) = @_;
-    if($mode eq 'permit') {
-	return 'ACCEPT';
-    }
-    elsif($mode eq 'deny') {
-	return 'DROP';
-    }
-    else {
-	return $mode;
-    }
-}
-
-# Given an IP and mask, return its address
-# as "x.x.x.x/x" or "x.x.x.x" if prefix == 32.
-sub prefix_code {
-    my ($spec) = @_;
-    my ($ip, $mask) =  @{$spec}{qw(BASE MASK)};
-    my $ip_code     = int2quad($ip);
-    my $prefix_code = mask2prefix($mask);
-    return $prefix_code == 32 ? $ip_code : "$ip_code/$prefix_code";
-}
-
-sub range_code {
-    my ($spec) = @_;
-    my($v1, $v2) = @{$spec}{qw(LOW HIGH)};
-    if ($v1 == $v2) {
-	return "$v1";
-    }
-    elsif ($v1 == 0 and $v2 == 65535) {
-	return;
-    }
-    elsif ($v2 == 65535) {
-	return "$v1:";
-    }
-    elsif ($v1 == 0) {
-	return ":$v2";
-    }
-    else {
-	return "$v1:$v2";
-    }
-};
-
-sub icmp_code {
-    my($spec) = @_;
-    my($type, $code) = @{$spec}{qw(TYPE CODE)};
-    if (defined($type)) {
-	if (defined($code)) {
-	    return "$type/$code";
-	}
-	else {
-	    return $type;
-	}
-    }
-    else {
-	return;
-    }
-}
-
-sub rule_code {
-    my($rule) = @_;
-    my ($mode, $type, $src, $dst, $log) = @{$rule}{qw(MODE TYPE SRC DST)};
-
-    my @result;
-    push @result, "-s " . prefix_code($src) if $src->{BASE} != 0;
-    push @result, "-d " . prefix_code($dst) if $dst->{BASE} != 0;
-    if($type eq 'ip') {
-	;
-    }
-    elsif($type eq 'tcp' || $type eq 'udp') {
-	push @result, "-p $type";
-	my $v = range_code($rule->{SRC_PORT});
-	push @result, "--sport $v" if defined $v;
-	$v = range_code($rule->{DST_PORT});
-	push @result, "--dport $v" if defined $v;
-	push @result, "! --syn" if $rule->{ESTA};
-    }
-    elsif($type eq 'icmp') {
-	push @result, "-p $type";
-	my $v = icmp_code($rule->{SPEC});
-	push @result, "--icmp-type $v" if defined $v;
-    }
-    else {
-	push @result, "-p $type";
-    }
-    push @result, "-j " . mode_code($mode) if $mode;
-    return(join(' ', @result));
-}
-
-
-my $normalize = {
-    '-j' => {
-	intern => \&mode2intern,
-	extern => \&mode_code,
-    },
-    '-g' => {
-	intern => \&mode2intern,
-	extern => \&mode_code,
-    },
-    '-s' => {
-	intern => \&prefix2intern,
-	extern => \&prefix_code,
-    },
-    '-d' => {
-	intern => \&prefix2intern,
-	extern => \&prefix_code,
-    },
-    '--syn' => {
-	must_negate => 1,
-	intern => sub { '!' },
-	extern => sub { '!' },
-    },
-    '--sport' => {
-	intern => \&range2intern,
-	extern => \&range_code,
-    },
-    '--dport' => {
-	intern => \&range2intern,
-	extern => \&range_code,
-    },
-    '--icmp-type' => {
-	intern => \&icmp2intern,
-	extern => \&icmp_code,
-    },
-    '-p' => {
-	intern => sub { my($v) = @_;
-                        $v = lc $v;
-                        $v =~ s/^vrrp$/112/;
-                        $v =~ s/^ipv6-icmp$/58/;
-                        $v;
-        },
-	extern => sub { $_[0] },
-    },
-    '--state' => {
-	non_comparable => 1,
-
-	# RELATED,ESTABLISHED -> ESTABLISHED,RELATED
-	intern => sub { join(',', sort(split(/,/, $_[0]))) },
-	extern => sub { $_[0] },
-    },
-    '--set-mark' => {
-	non_comparable => 1,
-	intern => sub { my($v) = @_;
-
-			# Ignore default mask.
-			$v =~ s(\/0xffffffff$)()i;
-
-			# Convert from hex to decimal.
-			$v =~ s/^0x[0-9a-f]+/hex($v)/ie;
-
-                        return $v;
-			},
-	extern => sub { $_[0] },
-    },
-};
-
-# Normalize values of iptables rules.
-# For builtin chains, the value is converted to a normalized string.
-# For user defined chains, values are stored in internal representation.
-# For user defined chains, only simple key / value pairs and "! --syn" are allowed.
-sub normalize {
-    my($chain, $chains) = @_;
-    for my $rule (@{ $chain->{RULES} }) {
-
-	# Ignore match option for standard protocols.
-	if(my $v = $rule->{'-m'}) {
-	    my $proto = $rule->{'-p'} || '';
-	    if(lc($v) eq lc($proto)) {
-		delete $rule->{'-m'};
-	    }
-	}
-
-	# Check, if no target is called.
-	if(not ($rule->{'-j'} or $rule->{'-g'})) {
-	    $chain->{NON_COMPARABLE} = 1;
-	}
-
-	# Check, if a builtin target other than ACCEPT or DROP is called.
-	# Rule with LOG isn't checked, because it is ignored later.
-	elsif(my $v = $rule->{'-j'}) {
-	    if(not $chains->{$v}) {
-		next if $v eq 'LOG';
-		if(not ($v eq 'DROP' or $v eq 'ACCEPT')) {
-		    $chain->{NON_COMPARABLE} = 1;
-		}
-	    }
-	}
-
-	# --set-xmark is equivalent to --set-mark for default mask /0xffffffff
-	if(my $v = $rule->{'--set-xmark'}) {
-	    if($v !~ m'/' || $v =~ m'/0xffffffff$'i) {
-		delete $rule->{'--set-xmark'};
-		$rule->{'--set-mark'} = $v;
-	    }
-	}
-
-	for my $key (keys %$rule) {
-	    next if $key !~ /^-/;
-	    my $spec = $normalize->{$key};
-	    if(not $spec) {
-		$chain->{NON_COMPARABLE} = 1;
-		next;
-	    }
-	    $chain->{NON_COMPARABLE} = 1 if $spec->{non_comparable};
-	}
-	for my $key (keys %$rule) {
-	    next if $key !~ /^-/;
-	    my $v = $rule->{$key};
-	    my $spec = $normalize->{$key};
-	    if(not $spec) {
-		next;
-	    }
-	    my $size = $spec->{size};
-	    defined $size or $size = 1;
-	    @{[ split(' ', $v) ]} == $size or
-		abort("$key needs $size arguments but got '$v'");
-	    my $negate = '';
-	    if($v =~/^!/) {
-
-		# Extract '!' and replace it by ''.
-		$negate = substr($v, 0, 1, '');
-	    }
-	    if($spec->{must_negate} xor $negate) {
-		$chain->{NON_COMPARABLE} = 1;
-	    }
-	    $v = $spec->{intern}->($v);
-	    $rule->{intern}->{$key} = $v;
-	    $v = $negate . $spec->{extern}->($v);
-	    $rule->{$key} = $v;
-	}
-    }
-}
-
-# Helper function for flattening chains.
-sub intersect_rule {
-    my($rule1, $rule2) = @_;
-    my $result;
-    for my $k1 (keys %$rule1) {
-	my $v1 = $rule1->{$k1};
-	if(exists $rule2->{$k1}) {
-	    my $v2 = $rule2->{$k1};
-	    if($k1 eq '-s' || $k1 eq '-d') {
-		my($b1, $m1) = @{$v1}{qw(BASE MASK)};
-		my($b2, $m2) = @{$v2}{qw(BASE MASK)};
-
-		# Switch values, such that b1/m1 is the larger network
-		# (with smaller mask).
-		($b1, $m1, $b2, $m2) = ($b2, $m2, $b1, $m1) if ($m1 > $m2);
-
-		# The smaller network must fit into the larger one.
-		($b2 & $m1) == $b1 or internal_err "Empty intersection with '$k1'";
-		$result->{$k1} = { BASE => $b2, MASK => $m2 };
-	    }
-	    elsif($k1 eq '--sport' || $k1 eq '--dport') {
-		my($l1, $h1) = @{$v1}{qw(LOW HIGH)};
-		my($l2, $h2) = @{$v2}{qw(LOW HIGH)};
-		my $max = ($l1 > $l2) ? $l1 : $l2;
-		my $min = ($h1 < $h2) ? $h1 : $h2;
-		$max <= $min or internal_err "Empty intersection in '$k1'";
-		$result->{$k1} = { LOW => $max, HIGH => $min };
-	    }
-	    elsif($k1 eq '--icmp-type') {
-		my($t1, $c1) = @{$v1}{qw(TYPE CODE)};
-		my($t2, $c2) = @{$v2}{qw(TYPE CODE)};
-		$t1 == $t2
-		    or internal_err "Empty intersection with '$k1' (type)";
-		my $c = (not defined $c1)
-		      ? $c2
-		      : (not defined $c2)
-		      ? $c1
-		      : ($c1 == $c2)
-		      ? $c1
-		      : internal_err "Empty intersection with '$k1' (code)";
-		$result->{$k1} = { TYPE => $t1, CODE => $c};
-	    }
-
-	    # For protocol 'ip', no key 'p' is present.
-	    elsif($k1 eq '-p') {
-		$v1 eq $v2 or internal_err "Empty intersection in '$k1'";
-		$result->{$k1} = $v1;
-	    }
-	    elsif($k1 eq '-j' or $k1 eq '-g') {
-
-		# Ignore $v1, because it is a chain name by calling convention.
-		$result->{$k1} = $v2;
-	    }
-	    elsif($k1 eq 'name' or $k1 eq 'line' or $k1 eq 'orig') {
-		;
-	    }
-	    else {
-		internal_err "Unexpected '$k1' during intersection";
-	    }
-	}
-	else {
-	    $result->{$k1} = $v1;
-	}
-    }
-    for my $k2 (keys %$rule2) {
-
-	# Has already been processed above.
-	next if exists $rule1->{$k2};
-
-	$result->{$k2} = $rule2->{$k2};
-    }
-    $result;
-}
-
-# Helper function while checking validity of '-g'
-sub disjoint {
-    my($rule1, $rule2) = @_;
-    my $result;
-    for my $k1 (keys %$rule1) {
-	my $v1 = $rule1->{$k1};
-	if(exists $rule2->{$k1}) {
-	    my $v2 = $rule2->{$k1};
-	    if($k1 eq '-s' || $k1 eq '-d') {
-		my($b1, $m1) = @{$v1}{qw(BASE MASK)};
-		my($b2, $m2) = @{$v2}{qw(BASE MASK)};
-
-		# Switch values, such that b1/m1 is the larger network
-		# (with smaller mask).
-		($b1, $m1, $b2, $m2) = ($b2, $m2, $b1, $m1) if ($m1 > $m2);
-
-		# The smaller network must fit into the larger one.
-		($b2 & $m1) == $b1 or return 1
-	    }
-	    elsif($k1 eq '--sport' || $k1 eq '--dport') {
-		my($l1, $h1) = @{$v1}{qw(LOW HIGH)};
-		my($l2, $h2) = @{$v2}{qw(LOW HIGH)};
-		my $max = ($l1 > $l2) ? $l1 : $l2;
-		my $min = ($h1 < $h2) ? $h1 : $h2;
-		$max <= $min or return 1;
-	    }
-	    elsif($k1 eq '--icmp-type') {
-		my($t1, $c1) = @{$v1}{qw(TYPE CODE)};
-		my($t2, $c2) = @{$v2}{qw(TYPE CODE)};
-		$t1 == $t2 or return 1;
-		my $c = (not defined $c1)
-		      ? $c2
-		      : (not defined $c2)
-		      ? $c1
-		      : ($c1 == $c2)
-		      ? $c1
-		      : return 1;
-	    }
-
-	    # For protocol 'ip', no key '-p' is present.
-	    elsif($k1 eq '-p') {
-		$v1 eq $v2 or return 1;
-	    }
-	    elsif($k1 eq '-j' or $k1 eq '-g') {
-		;
-	    }
-	    else {
-		internal_err "Unexpected '$k1' during disjoint test";
-	    }
-	}
-    }
-    return 0;
-}
-
-# Process all rules of current chain and flatten calls to sub-chains.
-# Mark chains which can't be flattend because of unknown attributes.
-sub expand_chain {
-    my($chain, $chains) = @_;
-    return $chain->{EXPANDED} if $chain->{EXPANDED};
-    my $rules = $chain->{RULES};
-    my @result;
-    for(my $i = 0; $i < @$rules; $i++) {
-	my $rule = $rules->[$i];
-
-	# We only accept the goto flag '-g' as equivalent to '-j' if
-	# all following rules of the same chain are disjoint to current rule.
-	if($rule->{'-g'}) {
-	    for (my $j = $i+1; $j < @$rules; $j++) {
-		my $next = $rules->[$j];
-		disjoint($rule->{intern}, $next->{intern}) or
-		    abort("Unsupported '-g' for rules",
-                          "'$rule->{orig}', '$next->{orig}'");
-	    }
-	}
-
-	my $target = $rule->{'-j'} || $rule->{'-g'} or
-	    abort("Missing target in rule");
-
-	# Ignore LOG target; it can't be compared currently.
-	next if $target eq 'LOG';
-
-	# Terminal target.
-	if(not $chains->{$target}) {
-	    push @result, $rule->{intern};
-	    next;
-	}
-	my $called_chain = $chains->{$target};
-	$called_chain->{NON_COMPARABLE} and
-	    abort("Expand: Must not call '$target' from '$chain->{name}'");
-	my $expanded = expand_chain($called_chain, $chains);
-	for my $erule (@$expanded) {
-	    push @result, intersect_rule($rule->{intern}, $erule);
-	}
-    }
-    $chain->{EXPANDED} = \@result;
-    \@result;
-}
-
-my %iptables2intern = (
-    '-p' => [ 'TYPE', 'ip' ],
-    '-s' => [ 'SRC', { BASE => 0, MASK => 0 } ],
-    '-d' => [ 'DST', { BASE => 0, MASK => 0 } ],
-    '--sport' => [ 'SRC_PORT', { LOW => 0, HIGH => 65535 } ],
-    '--dport' => [ 'DST_PORT', { LOW => 0, HIGH => 65535 } ],
-    '--icmp-type' => [ 'SPEC', {} ],
-    '--syn' => [ 'ESTA' ],
-    '-j' => [ 'MODE' ],
-    '-g' => [ 'MODE' ],
-);
-
-# Convert expanded rules to internal format used in acl_array_compare_a_in_b.
-sub convert_rules {
-    my($chain) = @_;
-    my $rules = $chain->{EXPANDED};
-    my @converted_result;
-    my $line = 1;
-    for my $rule (@$rules) {
-	my $converted;
-	for my $key (sort keys %$rule) {
-
-	    # Ignore internal keys not starting with '-'.
-	    next if $key !~ /^-/;
-
-	    my $value = $rule->{$key};
-
-	    if(my $spec = $iptables2intern{$key}) {
-		my $conv_key = $spec->[0];
-		$converted->{$conv_key} = $value;
-	    }
-	    else {
-		abort("Key $key not supported in" .
-                      " chain '$chain->{name}' of iptables");
-	    }
-	}
-	for my $spec (values %iptables2intern) {
-	    my($key, $default) = @$spec;
-	    next if not defined $default;
-	    if(not exists $converted->{$key}) {
-		$converted->{$key} = $default;
-	    }
-	}
-	$converted->{orig} = rule_code($converted);
-	$converted->{line} = $line++;
-	push @converted_result, $converted;
-    }
-    $chain->{EXPANDED} = \@converted_result;
-    return \@converted_result;
-}
-
-# First convert parse tree into a simpler format.
+# Convert parse tree into a simpler format.
 # Pre:
 # IPTABLES->{$table}->{RULES|POLICY}->{$chain}
 # Post:
 # IPTABLES->{$table}->{$chain}->{RULES|POLICY}
-#
-# Convert parsed iptables data to that format which is parsed from cisco
-# devices. Then we can reuse the code to compare ACLs.
 sub postprocess_iptables {
     my ($self, $p) = @_;
 
@@ -830,20 +301,6 @@ sub postprocess_iptables {
 			      POLICY => $policies->{$name} };
 	}
 	$table = $new;
-    }
-
-    for my $chains (values %$tables) {
-	for my $chain (values %$chains) {
-	    normalize($chain, $chains);
-	}
-	for my $chain (values %$chains) {
-	    next if $chain->{NON_COMPARABLE};
-	    expand_chain($chain, $chains);
-	}
-	for my $chain (values %$chains) {
-	    next if $chain->{NON_COMPARABLE};
-	    convert_rules($chain);
-	}
     }
 }
 
@@ -927,137 +384,49 @@ sub postprocess_config {
     $self->postprocess_iptables($config);
 }
 
-# Compare two rules.
-# Return undef if rules are different.
-# Return targets called by these rules, if rules are equal.
-sub compare_rules {
-    my($r1, $r2) = @_;
-    keys %$r1 == keys %$r2 or return;
-    my $jump;
-    for my $k (keys %$r1) {
-
-	# Ignore internal keys like 'name', 'line', 'orig'.
-	next if $k !~ /^-/;
-	if($k eq '-j' or $k eq '-g') {
-	    $jump = $k;
-	    next;
-	}
-	my $v1 = $r1->{$k};
-	my $v2 = $r2->{$k};
-	return if not $v2;
-	return if not $v1 eq $v2;
-    }
-    if(my $k = $jump) {
-	my $v1 = $r1->{$k};
-	my $v2 = $r2->{$k};
-	return if not defined $v2;
-	return($v1, $v2);
-    }
-    else {
-
-	# Rules call no chain, only used as counter.
-	return('', '');
-    }
-}
-
-# Compare two chains.
-sub chains_equal {
-    my($self, $c_chains, $s_chains, $conf_chain, $spoc_chain, $context) = @_;
-    my $c_name = $conf_chain->{name};
-    my $s_name = $spoc_chain->{name};
-
-    # Compare semantically
-    if(not($conf_chain->{NON_COMPARABLE} or $spoc_chain->{NON_COMPARABLE})) {
-	return $self->acl_equal($conf_chain->{EXPANDED},
-				$spoc_chain->{EXPANDED},
-				$c_name, $s_name, $context);
-    }
-
-    # Compare textually
-    my $conf_rules = $conf_chain->{RULES} || [];
-    my $spoc_rules = $spoc_chain->{RULES} || [];
-    my $conf_count = @$conf_rules;
-    my $spoc_count = @$spoc_rules;
-    my $msg = ($c_name eq $s_name)
-	    ? "Chains '$c_name'"
-	    : "Chains '$c_name' and '$s_name";
-    info("Comparing $msg textually");
-    if($conf_count != $spoc_count) {
-	info("$msg of $context have different",
-             " length: $conf_count at device, $spoc_count at netspoc");
-	return 0;
-    }
-    my $equal = 1;
-    for (my $i = 0; $i < $conf_count; $i++) {
-	if(my($c_target, $s_target) = compare_rules($conf_rules->[$i],
-						    $spoc_rules->[$i]))
-	{
-	    my $c_chain = $c_chains->{$c_target};
-	    my $s_chain = $s_chains->{$s_target};
-	    if($c_chain and $s_chain) {
-		my $context = $conf_chain->{name};
-		$self->chains_equal($c_chains, $s_chains,
-				    $c_chain, $s_chain, $context)
-		    or $equal = 0;
-	    }
-	    elsif($c_target ne $s_target) {
-		my $which = $i+1;
-		info("Rules $which of $msg of $context",
-                     " have different target '$c_target' vs. '$s_target'");
-		$equal = 0;
-	    }
-	}
-	else {
-	    my $which = $i+1;
-	    info("Rules $which of $msg of $context are different");
-	    $equal = 0;
-	}
-    }
-    return $equal;
-}
-
-# - Iterate over all available tables.
-# - Compare rule sets of builtin chains pairwise:
-#   - both rules are identical: ok
-#   - rules differ only for called chain: compare chains semantically
-#   - else: report builtin chains as different
-sub process_iptables {
-    my ($self, $conf, $spoc) = @_;
-    my $conf_tables = $conf->{IPTABLES};
-    my $spoc_tables = $spoc->{IPTABLES};
-    my $changed = 0;
-    for my $tname (keys %$conf_tables) {
-	info("Comparing table '$tname'");
-	my $conf_chains = $conf_tables->{$tname};
-	my $spoc_chains = $spoc_tables->{$tname};
-	if(not $spoc_chains) {
-	  $changed = 1;
-	  info("Extra table on device: $tname");
-	  next;
-	}
-	for my $cname (keys %$conf_chains) {
-	    my $conf_chain = $conf_chains->{$cname};
-
-	    # Only check builtin chains.
-	    next if not $conf_chain->{POLICY};
-	    my $spoc_chain = $spoc_chains->{$cname};
-	    if(not $spoc_chain) {
-		$changed = 1;
-		info("Extra chain on device: $cname");
-		next;
-	    }
-	    $self->chains_equal($conf_chains, $spoc_chains,
-				$conf_chain, $spoc_chain, $tname)
-		or $changed = 1;
-	}
-    }
-    for my $tname (keys %$spoc_tables) {
-        if (!$conf_tables->{$tname}) {
-          $changed = 1;
-	  info("Extra table from Netspoc: $tname");
+sub value_equal {
+    my ($conf, $spoc) = @_;
+    if (my $type = ref $conf) {
+        if ($type eq 'HASH') {
+            return hash_equal($conf, $spoc);
+        }
+        else {
+            return array_equal($conf, $spoc);
         }
     }
-    $self->{CHANGE}->{ACL} = $changed;
+    else {
+        return $conf eq $spoc;
+    }
+}
+
+sub hash_equal {
+    my ($conf, $spoc) = @_;
+    keys %$conf == keys %$spoc or return;
+    for my $key (keys %$conf) {
+        next if $key =~ /(?:name|line|orig)/;
+        value_equal($conf->{$key}, $spoc->{$key}) or return;
+    }
+    return 1;
+}
+
+sub array_equal {
+    my ($conf, $spoc) = @_;
+    @$conf == @$spoc or return;
+    for (my $i = 0; $i < @$conf; $i++) {
+        value_equal($conf->[$i], $spoc->[$i]) or return;
+    }
+    return 1;
+}
+
+# Compare iptables config recursively.
+sub compare_iptables {
+    my ($self, $conf, $spoc) = @_;
+    $self->{CHANGE}->{ACL} = 0;
+    if (not hash_equal($conf->{IPTABLES}, $spoc->{IPTABLES})) {
+        $self->{CHANGE}->{ACL} = 1;
+        my $lines = $self->get_iptables_config($spoc);
+        $self->cmd($_) for @$lines;
+    }
 }
 
 sub status_ok {
@@ -1150,38 +519,49 @@ sub write_startup_routing {
 
 sub find_iptables_restore_cmd {
     my ($self) = @_;
+    if ( $self->{COMPARE} ) {
+        return "/sbin/iptables-restore";
+    }
     my $path = ($self->get_cmd_output('which iptables-restore'))->[0] or
         abort("Can't find path of 'iptables-restore'");
     return $path;
 }
 
-sub write_startup_iptables {
-    my ($self, $spoc, $file) = @_;
+sub get_iptables_config {
+    my ($self, $spoc) = @_;
     my $path = $self->find_iptables_restore_cmd();
-    local $\ = "\n";
-    my ($fh, $tmpname) = tempfile(UNLINK => 1) or
-        abort("Can't create tempfile: $!");
-    print $fh "#!$path";
-    print $fh '# Generated by NetSPoC';
+    my @result;
+    push @result, "#!$path";
+    push @result, '# Generated by NetSPoC';
     my $iptables = $spoc->{IPTABLES};
     for my $tname (keys %$iptables) {
 	my $chains = $iptables->{$tname};
-	print $fh "*$tname";
+	push @result, "*$tname";
 	for my $cname (sort keys %$chains) {
 	    my $chain = $chains->{$cname};
 	    my $policy = $chain->{POLICY} || '-';
-	    print $fh ":$cname $policy";
+	    push @result, ":$cname $policy";
 	}
 	for my $cname (sort keys %$chains) {
 	    my $chain = $chains->{$cname};
 	    for my $rule (@{$chain->{RULES}}) {
 		my $line = $rule->{orig};
 		chomp $line;
-		print $fh $line;
+		push @result, $line;
 	    }
 	}
-	print $fh 'COMMIT';
+	push @result, 'COMMIT';
     }
+    return \@result;
+}
+
+sub write_startup_iptables {
+    my ($self, $spoc, $file) = @_;
+    my $lines = $self->get_iptables_config($spoc);
+    my ($fh, $tmpname) = tempfile(UNLINK => 1) or
+        abort("Can't create tempfile: $!");
+    local $\ = "\n";
+    print $fh, $_ for @$lines;
     close $fh or abort("Can't close $tmpname: $!");
     $self->do_scp('put', $tmpname, $file);
 }
@@ -1193,7 +573,7 @@ sub transfer {
     $self->process_routing($conf, $spoc_conf);
 
     # This only compares.
-    $self->process_iptables($conf, $spoc_conf);
+    $self->compare_iptables($conf, $spoc_conf);
 
     return if $self->{COMPARE};
 
@@ -1311,4 +691,3 @@ sub login_enable {
 
 # Packages must return a true value;
 1;
-

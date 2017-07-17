@@ -131,14 +131,14 @@ tunnel-group-map some-name 10 some-name
 END
 
 $out = <<END;
-tunnel-group some-name type ipsec-l2l
-tunnel-group some-name ipsec-attributes
+tunnel-group some-name-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0 ipsec-attributes
 ikev2 local-authentication certificate Trustpoint2
 ikev2 remote-authentication certificate
 peer-id-validate nocheck
 crypto ca certificate map some-name-DRC-0 10
 subject-name attr ea eq some-name
-tunnel-group-map some-name-DRC-0 10 some-name
+tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
 access-list crypto-acl1-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
 crypto map map-outside 10 set peer 97.98.99.100
@@ -496,7 +496,7 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Modify tunnel-group l2l ipsec-attributes";
+$title = "Change IP tunnel-group to mapped tunnel-group";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
@@ -518,6 +518,7 @@ tunnel-group-map ca-map 20 193.155.130.20
 END
 
 $out = <<'END';
+tunnel-group 193.155.130.20 type ipsec-l2l
 tunnel-group 193.155.130.20 ipsec-attributes
 ikev2 local-authentication certificate Trustpoint2
 ikev2 remote-authentication certificate
@@ -525,8 +526,27 @@ trust-point ASDM_TrustPoint5
 crypto ca certificate map ca-map-DRC-0 10
 subject-name attr ea eq some@example.com
 tunnel-group-map ca-map-DRC-0 10 193.155.130.20
-tunnel-group 193.155.130.20 ipsec-attributes
-no peer-id-validate
+no tunnel-group 193.155.130.20 ipsec-attributes
+clear configure tunnel-group 193.155.130.20
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Must not delete default tunnel-group";
+############################################################
+
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group DefaultRAGroup ipsec-attributes
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+END
+
+$in = <<'END';
+END
+
+$out = <<'END';
+no tunnel-group DefaultRAGroup ipsec-attributes
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 

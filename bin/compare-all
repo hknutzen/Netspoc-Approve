@@ -13,5 +13,5 @@ cd $DIR/current/code
 
 for device in * ; do
     case $device in *.*|\*) continue;; esac
-    echo diamonds compare $device
+    echo diamonds compare --brief $device
 done | start-jobs -q $PARALLEL
