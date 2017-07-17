@@ -1,5 +1,18 @@
 {{$NEXT}}
 
+1.117     2017-07-17 14:18:51+02:00 Europe/Berlin
+
+ - Tunnel groups "DefaultL2LGroup", "DefaultRAGroup", "DefaultWEBVPNGroup"
+   are now all recognized and are never removed from config.
+ - Better handle tunnel group with IP as name,
+   that also is referenced by tunnel-group-map.
+ - Command 'compare-all' now calls 'diamonds compare' with
+   option '--brief' to suppress timeout messages.
+ - No longer do semantic comparison of iptables.
+   Iptables configs are compared textually now.
+   If any difference is found, the whole new config is printed.
+ - Model 'ACE' isn't supported any longer.
+
 1.116     2017-05-11 12:20:13+02:00 Europe/Berlin
 
  - Removed unneeded check for crypto with unmanaged VRF.
