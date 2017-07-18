@@ -1128,6 +1128,8 @@ my @known_status =
      qr /address may only be used if the tunnel authentication/,
      qr /method is Digital Certificates and\/or The peer is/,
      qr /configured to use Aggressive Mode/,
+     # Expected warning from "managed=local"
+     qr/^WARNING: Same object-group is used more than once in one config line[.] This config is redundant[.] Please use seperate object-groups/,
      # ASA: general info
      qr/^INFO:/,
       );
