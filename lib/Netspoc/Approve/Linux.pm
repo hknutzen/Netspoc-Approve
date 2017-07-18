@@ -34,7 +34,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.117'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
@@ -304,6 +304,93 @@ sub postprocess_iptables {
     }
 }
 
+my %normalize = (
+
+    '-s' => sub {
+        my($v) = @_;
+        $v =~ s(/32$)();
+        return $v;
+    },
+
+    # Lowercase protocol names.
+    # Use numbers for some protocol names.
+    '-p' => sub {
+        my($v) = @_;
+        $v = lc $v;
+        $v =~ s/^vrrp$/112/;
+        $v =~ s/^ipv6-icmp$/58/;
+        return $v;
+    },
+
+    '--dport' => sub {
+        my($v) = @_;
+        $v =~ s/^0:/:/;
+        $v =~ s/:65535$/:/;
+        return $v;
+    },
+
+    # RELATED,ESTABLISHED -> ESTABLISHED,RELATED
+    '--state' => sub {
+        my($v) = @_;
+        $v = join(',', sort(split(/,/, $v)));
+        return $v;
+    },
+    '--set-mark' => sub {
+        my($v) = @_;
+
+        # Ignore default mask.
+        $v =~ s(/0xffffffff$)()i;
+
+        # Convert from hex to decimal.
+        $v =~ s/^0x[0-9a-f]+/hex($v)/ie;
+
+        return $v;
+    },
+    '--log-level' => sub {
+        my($v) = @_;
+        $v =~ s/^debug$/7/;
+        return $v;
+    },
+);
+$normalize{'-d'} = $normalize{'-s'};
+
+# Normalize values of iptables rules.
+sub normalize {
+    my($p) = @_;
+    my $tables = $p->{IPTABLES};
+    for my $table (values %$tables) {
+        for my $chain (values %$table) {
+            for my $rule (@{ $chain->{RULES} }) {
+
+                # Ignore match option for standard protocols.
+                if(my $v = $rule->{'-m'}) {
+                    my $proto = $rule->{'-p'} || '';
+                    if(lc($v) eq lc($proto)) {
+                        delete $rule->{'-m'};
+                    }
+                }
+
+                # --set-xmark is equivalent to --set-mark
+                # for default mask /0xffffffff
+                if(my $v = $rule->{'--set-xmark'}) {
+                    if($v !~ m'/' || $v =~ m'/0xffffffff$'i) {
+                        delete $rule->{'--set-xmark'};
+                        $rule->{'--set-mark'} = $v;
+                    }
+                }
+
+                for my $key (keys %$rule) {
+                    next if $key !~ /^-/;
+                    my $v = $rule->{$key};
+                    my $fun = $normalize{$key} or next;
+                    $v = $fun->($v);
+                    $rule->{$key} = $v;
+                }
+            }
+        }
+    }
+}
+
 sub merge_acls {
     my ($self, $spoc_conf, $raw_conf, $append) = @_;
     my $spoc_tables = $spoc_conf->{IPTABLES};
@@ -382,48 +469,72 @@ sub postprocess_config {
     my ($self, $config) = @_;
     $self->postprocess_routes($config);
     $self->postprocess_iptables($config);
+    normalize($config);
 }
 
-sub value_equal {
+sub value_differ {
     my ($conf, $spoc) = @_;
     if (my $type = ref $conf) {
         if ($type eq 'HASH') {
-            return hash_equal($conf, $spoc);
+            return hash_differ($conf, $spoc);
         }
         else {
-            return array_equal($conf, $spoc);
+            return array_differ($conf, $spoc);
         }
     }
     else {
-        return $conf eq $spoc;
+        $conf ||= '';
+        $spoc ||= '';
+        if ($conf eq $spoc) {
+            return;
+        }
+        else {
+            return "[$conf<->$spoc]";
+        }
     }
 }
 
-sub hash_equal {
+sub hash_differ {
     my ($conf, $spoc) = @_;
-    keys %$conf == keys %$spoc or return;
-    for my $key (keys %$conf) {
+    if (keys %$conf != keys %$spoc) {
+        my $c_extra = join(',', grep { not $spoc->{$_} } keys %$conf);
+        my $s_extra = join(',', grep { not $spoc->{$_} } keys %$conf);
+                           return "[keys: $c_extra<->$s_extra]";
+    }
+    for my $key (sort keys %$conf) {
         next if $key =~ /(?:name|line|orig)/;
-        value_equal($conf->{$key}, $spoc->{$key}) or return;
+        if (my $diff = value_differ($conf->{$key}, $spoc->{$key})) {
+            return "$key:$diff";
+        }
     }
-    return 1;
+    return;
 }
 
-sub array_equal {
+sub array_differ {
     my ($conf, $spoc) = @_;
-    @$conf == @$spoc or return;
-    for (my $i = 0; $i < @$conf; $i++) {
-        value_equal($conf->[$i], $spoc->[$i]) or return;
+    if(@$conf != @$spoc) {
+        my $c_size = @$conf;
+        my $s_size = @$spoc;
+        return "[size: $c_size<->$s_size]";
     }
-    return 1;
+    for (my $i = 0; $i < @$conf; $i++) {
+        if (my $diff = value_differ($conf->[$i], $spoc->[$i])) {
+            return "$i:$diff";
+        }
+    }
+    return;
 }
 
 # Compare iptables config recursively.
 sub compare_iptables {
     my ($self, $conf, $spoc) = @_;
     $self->{CHANGE}->{ACL} = 0;
-    if (not hash_equal($conf->{IPTABLES}, $spoc->{IPTABLES})) {
-        $self->{CHANGE}->{ACL} = 1;
+    my $diff = value_differ($conf->{IPTABLES}, $spoc->{IPTABLES}) or return;
+    info("iptables differs at $diff");
+    $self->{CHANGE}->{ACL} = 1;
+
+    # Show complete config if anything changed.
+    if ($self->{COMPARE}) {
         my $lines = $self->get_iptables_config($spoc);
         $self->cmd($_) for @$lines;
     }
@@ -561,7 +672,7 @@ sub write_startup_iptables {
     my ($fh, $tmpname) = tempfile(UNLINK => 1) or
         abort("Can't create tempfile: $!");
     local $\ = "\n";
-    print $fh, $_ for @$lines;
+    print $fh $_ for @$lines;
     close $fh or abort("Can't close $tmpname: $!");
     $self->do_scp('put', $tmpname, $file);
 }

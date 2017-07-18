@@ -1,3 +1,7 @@
+1.118     2017-07-18 16:03:16+02:00 Europe/Berlin
+
+ - Fixed approve and compare for Linux.
+
 1.117     2017-07-17 14:18:51+02:00 Europe/Berlin
 
  - Tunnel groups "DefaultL2LGroup", "DefaultRAGroup", "DefaultWEBVPNGroup"
