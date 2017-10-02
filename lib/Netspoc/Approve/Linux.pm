@@ -474,7 +474,7 @@ sub postprocess_config {
 
 sub value_differ {
     my ($conf, $spoc) = @_;
-    if (my $type = ref $conf) {
+    if (my $type = ref $conf || ref $spoc) {
         if ($type eq 'HASH') {
             return hash_differ($conf, $spoc);
         }
@@ -496,10 +496,10 @@ sub value_differ {
 
 sub hash_differ {
     my ($conf, $spoc) = @_;
-    if (keys %$conf != keys %$spoc) {
-        my $c_extra = join(',', grep { not $spoc->{$_} } keys %$conf);
-        my $s_extra = join(',', grep { not $spoc->{$_} } keys %$conf);
-                           return "[keys: $c_extra<->$s_extra]";
+    my $c_extra = join(',', grep { not exists $spoc->{$_} } keys %$conf);
+    my $s_extra = join(',', grep { not exists $conf->{$_} } keys %$spoc);
+    if ($c_extra || $s_extra) {
+        return "[keys: $c_extra<->$s_extra]";
     }
     for my $key (sort keys %$conf) {
         next if $key =~ /(?:name|line|orig)/;
@@ -530,13 +530,20 @@ sub compare_iptables {
     my ($self, $conf, $spoc) = @_;
     $self->{CHANGE}->{ACL} = 0;
     my $diff = value_differ($conf->{IPTABLES}, $spoc->{IPTABLES}) or return;
-    info("iptables differs at $diff");
     $self->{CHANGE}->{ACL} = 1;
+    my $msg = "iptables differs at $diff";
 
     # Show complete config if anything changed.
     if ($self->{COMPARE}) {
+
+        # Print info to STDOUT for simpler testing,
+        # because info messages are suppressed during testing.
+        print("$msg\n");
         my $lines = $self->get_iptables_config($spoc);
         $self->cmd($_) for @$lines;
+    }
+    else {
+        info($msg);
     }
 }
 
