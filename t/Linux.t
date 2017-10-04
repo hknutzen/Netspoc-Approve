@@ -310,4 +310,120 @@ END
 eq_or_diff(approve($type, $device, $in), $out, $title);
 
 ############################################################
+$title = "Unknown command";
+############################################################
+$device = <<END;
+foo
+END
+
+$in = '';
+
+$out = <<END;
+ERROR>>> Unknown command
+ERROR>>>  at line 1, pos 0:
+ERROR>>> >>foo<<
+END
+
+eq_or_diff(approve_err($type, $device, $in), $out, $title);
+
+############################################################
+$title = "Unexpected trailing '!'";
+############################################################
+$device = <<END;
+*filter
+:FORWARD DROP
+-A FORWARD -i eth1 -j ACCEPT -p TCP --syn !
+END
+
+$in = '';
+
+$out = <<END;
+ERROR>>> Unexpected trailing \'!\'
+ERROR>>>  at line 3, pos 10:
+ERROR>>> >>-A FORWARD -i eth1 -j ACCEPT -p TCP --syn !<<
+END
+
+eq_or_diff(approve_err($type, $device, $in), $out, $title);
+
+############################################################
+$title = "Negation at option or at arg";
+############################################################
+$device = <<END;
+*filter
+:FORWARD DROP
+-A FORWARD -i eth1 -j ACCEPT ! -p TCP
+END
+
+$in = <<END;
+*filter
+:FORWARD DROP
+-A FORWARD -i eth1 -j ACCEPT -p ! TCP
+END
+
+$out = '';
+
+eq_or_diff(approve($type, $device, $in), $out, $title);
+
+############################################################
+$title = "TCP-flags as syn option ";
+############################################################
+$device = <<END;
+*filter
+:FORWARD DROP
+-A FORWARD -i eth1 -j ACCEPT -p TCP ! --syn
+END
+
+$in = <<END;
+*filter
+:FORWARD DROP
+-A FORWARD -i eth1 -j ACCEPT -p TCP ! --tcp-flags FIN,SYN,RST,ACK SYN
+END
+
+$out = '';
+
+eq_or_diff(approve($type, $device, $in), $out, $title);
+
+############################################################
+$title = "Ignore option '-m' ";
+############################################################
+
+$device = <<END;
+*filter
+:FORWARD DROP
+-A FORWARD -i eth1 -j ACCEPT -m tcp -p TCP
+END
+
+$in = <<END;
+*filter
+:FORWARD DROP
+-A FORWARD -i eth1 -j ACCEPT -p TCP
+END
+
+$out = '';
+
+eq_or_diff(approve($type, $device, $in), $out, $title);
+
+############################################################
+$title = "--set-mark and --xsetmark ";
+############################################################
+
+$device = <<END;
+*mangle
+:PREROUTING ACCEPT
+-A PREROUTING -j MARK --set-xmark 0x01 -p TCP --dport 80
+-A PREROUTING -j MARK --set-xmark 0x0f/0xffffffff -p TCP --dport 81
+END
+
+$in = <<END;
+*mangle
+:PREROUTING ACCEPT
+-A PREROUTING -j MARK --set-mark 1 -p TCP --dport 80
+-A PREROUTING -j MARK --set-mark 15 -p TCP --dport 81
+END
+
+$out = '';
+
+eq_or_diff(approve($type, $device, $in), $out, $title);
+
+############################################################
 done_testing;
