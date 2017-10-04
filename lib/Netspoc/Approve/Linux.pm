@@ -270,7 +270,7 @@ sub parse_rule {
 	}
 	$rule->{$key} = $v;
     }
-    $negate_next_cmd and err_at_line "Unexpected trailing '!'";
+    $negate_next_cmd and err_at_line($arg, "Unexpected trailing '!'");
     return $rule;
 }
 
