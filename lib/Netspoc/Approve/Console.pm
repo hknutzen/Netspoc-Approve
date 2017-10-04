@@ -111,7 +111,7 @@ sub con_wait {
     my ($con, $prompt) = @_;
     my $timeout = $con->{TIMEOUT};
     my $result = $con->con_wait0($prompt, $timeout);
-    $con->con_error() if $result->{ERROR};
+    $con->con_abort() if $result->{ERROR};
     return $result;
 }
 
