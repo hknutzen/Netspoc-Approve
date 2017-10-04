@@ -415,7 +415,7 @@ sub merge_acls {
 		next;
 	    }
 	    if(not $spoc_chain->{POLICY}) {
-		abort("Must not redefine chain '$spoc_chain' from rawdata");
+		abort("Must not redefine chain '$chain_name' from rawdata");
 	    }
 
             # Prepend/append raw acl.
