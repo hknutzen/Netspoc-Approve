@@ -96,4 +96,29 @@ END
 simul_run($title, 'Linux', $scenario, $in, $out);
 
 ############################################################
+$title = "Unexpected echo in response to command input";
+############################################################
+$scenario = <<'END';
+$scenario = <<'END';
+prompt#
+# \BANNER1/
+xxx
+# echo $?
+0
+# una\BANNER1/me -r
+3.2.89-2.custom
+END
+
+$in = '';
+
+$out = <<'END';
+ERROR>>> Got unexpected echo in response to 'uname -r':
+'unaxxx
+me -r
+3.2.89-2.custom'
+END
+
+simul_err($title, 'Linux', $scenario, $in, $out);
+
+############################################################
 done_testing;
