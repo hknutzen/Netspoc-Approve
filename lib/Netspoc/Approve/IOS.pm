@@ -671,6 +671,38 @@ sub handle_reload_banner {
     }
 }
 
+# Read my vty and my IP by command "sh users"
+# Output of command:
+# *  7 vty 1     netspoc   idle                 00:00:00 10.11.12.13
+# Output seen from IOS 12.4(3f):
+# * vty 322      netspoc   idle                 00:00:00 10.11.12.13
+# ==> take first number as vty and IP at end of line
+# and return found vty number and ip address.
+sub read_vty_and_remote_ip {
+    my ($self) = @_;
+    my $cmd = 'sh users | incl ^\*';
+    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
+    my $lines = $self->get_cmd_output($cmd);
+    my $line = $lines->[0] or return;
+    chomp $line;
+    my ($vty, $s_ip);
+    $line =~ /^\*\D*(\d+).*?([\d.]+)$/ or return;
+    return ($1, $2);
+}
+
+# Read tcp details of current vty.
+# Return local IP and local port.
+sub read_vty_details {
+    my ($self, $vty) = @_;
+    my $cmd = "sh tcp $vty | incl Local host:";
+    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
+    my $lines = $self->get_cmd_output($cmd);
+    my $line = $lines->[0] or return;
+    my ($port, $d_ip);
+    $line =~ /Local host:\s([\d.]+),\sLocal port:\s(\d+)/i or return;
+    return ($1, $2);
+}
+
 sub get_my_connection {
     my ($self) = @_;
     if (my $cached = $self->{CONNECTION}) {
@@ -691,39 +723,12 @@ sub get_my_connection {
 
     # With real device, read IP from device, because IP from netspoc may have
     # been changed by NAT.
-
-    # Read my vty and my IP by command "sh users"
-    # Output:
-    # *  7 vty 1     netspoc   idle                 00:00:00 10.11.12.13
-    # Output seen from IOS 12.4(3f):
-    # * vty 322      netspoc   idle                 00:00:00 10.11.12.13
-    # ==> take first number as vty and IP at end of line.
-    my $cmd = 'sh users | incl ^\*';
-    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
-    my $lines = $self->get_cmd_output($cmd);
-    my $line = $lines->[0];
-    chomp $line;
-    my ($vty, $s_ip);
-    if ($line =~ /^\*\D*(\d+).*?([\d.]+)$/) {
-	($vty, $s_ip) = ($1, $2);
-    }
-    else {
+    my ($vty, $s_ip) = $self->read_vty_and_remote_ip() or
 	abort("Can't determine my vty");
-    }
     my $src_ip = quad2int($s_ip) or abort("Can't parse src ip: $s_ip");
 
-    # Read tcp details for my connection.
-    $cmd = "sh tcp $vty | incl Local host:";
-    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
-    $lines = $self->get_cmd_output($cmd);
-    $line = $lines->[0];
-    my ($port, $d_ip);
-    if ($line =~ /Local host:\s([\d.]+),\sLocal port:\s(\d+)/i) {
-	($d_ip, $port) = ($1, $2);
-    }
-    else {
+    my ($d_ip, $port) = $self->read_vty_details($vty) or
 	abort("Can't determine remote ip and port of my TCP session");
-    }
     my $dst_ip = quad2int($d_ip) or abort("Can't parse remote ip: $d_ip");
     info("My connection: $s_ip -> $d_ip:$port");
     my $src = { BASE => $src_ip, MASK => 0xffffffff };
