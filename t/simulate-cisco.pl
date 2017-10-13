@@ -71,6 +71,11 @@ my $delim = qr/^[#][ ]*(.*)[ ]*\n/m;
 # Split into preamble, cmd-a, output-a, cmd-b, output-b, ...
 my ($preamble, @output) = split($delim, $data);
 
+# Remove trailing linefeed.
+# In case of last line of preamble being a prompt.
+# If linefeed is really needed, then add two linefeeds to scenario file.
+chomp $preamble if $preamble;
+
 # Build mapping from command line to output lines.
 my %cmd2out;
 while (@output) {

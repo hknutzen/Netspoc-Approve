@@ -633,23 +633,13 @@ sub get_identity {
 sub login_enable {
     my ($self) = @_;
     my $std_prompt = qr/[\>\#]/;
-    my($con, $ip) = @{$self}{qw(CONSOLE IP)};
 
     # If running as privileged user, try to get user and password
     # for login. Otherwise get current user or user from option
     # '-u' and no password.
     my ($user, $pass) = $self->get_aaa_password();
 
-    my $expect = $con->{EXPECT};
-    info("Trying SSH for login");
-    if (my $cmd = $ENV{SIMULATE_ROUTER}) {
-        $expect->spawn("$^X $cmd")
-            or abort("Cannot spawn simulation': $!");
-    }
-    else {
-        $expect->spawn('ssh', '-l', $user, $ip)
-            or abort("Cannot spawn ssh: $!");
-    }
+    my ($con, $ip) = $self->connect_ssh($user);
     my $prompt = qr/password:|\(yes\/no\)\?/i;
     my $result = $con->con_short_wait($prompt);
     if ($result->{ERROR}) {

@@ -603,6 +603,7 @@ sub route_del {
 
 sub do_scp {
     my ($self, $mode, $src, $dst) = @_;
+    return if $ENV{SIMULATE_ROUTER};
     my $ip = $self->{IP};
     my $user = $config->{user};
     my @args =
@@ -767,15 +768,13 @@ sub set_terminal {
 
 sub search_banner {
     my ($self, $string) = @_;
-    return $self->cmd_ok("grep '$string' /etc/issue");
+    return $self->get_cmd_output("grep '$string' /etc/issue");
 }
 
 sub login_enable {
     my ($self) = @_;
     my $std_prompt = qr/\r\n\S*\s?[\%\>\$\#]\s?(?:\e\S*)?$/;
-    my($con, $ip) = @{$self}{qw(CONSOLE IP)};
-    $con->{EXPECT}->spawn('ssh', '-l', $config->{user}, $ip)
-	or abort("Cannot spawn ssh: $!");
+    my ($con, $ip) = $self->connect_ssh($config->{user});
     my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
     my $result = $con->con_short_wait($prompt);
     if ($result->{ERROR}) {
@@ -802,7 +801,7 @@ sub login_enable {
     # Don't use '#', because it is used as comment character
     # in output of iptables-save.
     # This is a workaround for bug #100342 in Expect.pm.
-    my $new_prompt = 'netspoc#';
+    my $new_prompt = 'router#';
     $self->device_cmd("PS1=$new_prompt");
     $self->{ENAPROMPT} = qr/\r\n \Q$new_prompt\E $/x;
 }

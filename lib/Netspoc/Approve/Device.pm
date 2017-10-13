@@ -896,6 +896,22 @@ sub con_set_logtype {
     $con->set_logfile($logfile);
 }
 
+sub connect_ssh {
+    my ($self, $user) = @_;
+    my($con, $ip) = @{$self}{qw(CONSOLE IP)};
+    my $expect = $con->{EXPECT};
+    info("Trying SSH for login");
+    if (my $cmd = $ENV{SIMULATE_ROUTER}) {
+        $expect->spawn("$^X $cmd")
+            or abort("Cannot spawn simulation': $!");
+    }
+    else {
+        $expect->spawn('ssh', '-l', $user, $ip)
+            or abort("Cannot spawn ssh: $!");
+    }
+    return $con, $ip;
+}
+
 sub prepare_device {
     my ($self) = @_;
     $self->con_set_logtype('login');

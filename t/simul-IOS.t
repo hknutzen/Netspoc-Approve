@@ -47,8 +47,7 @@ Are you sure you want to continue connecting (yes/no)? yes
 Enter Password:secret
 
 banner motd managed by NetSPoC
->
-enable
+>enable
 router#
 router#term len 0
 router#term width 512
@@ -88,7 +87,6 @@ Enter Password:secret
 
 banner motd managed by NetSPoC
 (router)#
-
 router#term len 0
 router#term width 512
 router#sh ver
@@ -166,8 +164,7 @@ banner motd ===                                                           ===
 banner motd ===              -----  managed by NetSPoC  ----              ===
 banner motd ===                                                           ===
 banner motd =================================================================
->
-enable
+>enable
 router#
 router#term len 0
 router#term width 512
@@ -246,8 +243,7 @@ $out = <<'END';
 Enter Password:secret
 
 banner motd  managed by NetSPoC
->
-enable
+>enable
 router#
 router#term len 0
 router#term width 512
