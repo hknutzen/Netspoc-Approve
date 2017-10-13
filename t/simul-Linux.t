@@ -99,7 +99,7 @@ simul_run($title, 'Linux', $scenario, $in, $out);
 $title = "Unexpected echo in response to command input";
 ############################################################
 $scenario = <<'END';
-$scenario = <<'END';
+
 prompt#
 # \BANNER1/
 xxx
@@ -119,6 +119,34 @@ me -r
 END
 
 simul_err($title, 'Linux', $scenario, $in, $out);
+
+############################################################
+$title = "Command with failure status";
+############################################################
+$scenario = <<'END';
+
+prompt#
+END
+
+$in = '';
+
+$out = <<'END';
+ERROR>>> PS1=router# failed (exit status)
+END
+
+simul_err($title, 'Linux', $scenario, $in, $out);
+
+############################################################
+$title = "SSH timeout";
+############################################################
+$scenario = '';
+$in = '';
+
+$out = <<'END';
+ERROR>>> TIMEOUT
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
 done_testing;
