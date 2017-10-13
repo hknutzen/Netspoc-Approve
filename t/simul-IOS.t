@@ -294,6 +294,166 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "Must not move ACL line permitting device access";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd  managed by NetSPoC
+>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# sh run
+ip access-list extended Ethernet0_in
+ permit ip host 10.1.1.1 host 10.2.2.1
+ permit tcp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 22
+ permit ip host 10.1.1.1 host 10.2.2.2
+ permit ip host 10.1.1.1 host 10.2.2.3
+ deny ip any any
+interface Ethernet0
+ ip access-group Ethernet0_in in
+# sh users | incl ^\*
+*  7 vty 1     router   idle                 00:00:00 10.0.6.11
+# sh tcp 7 | incl Local host:
+Local host: 10.0.1.11, Local port: 22
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+# reload in 5
+
+System configuration has been modified. Save? [yes/no]: <!>
+Reload reason: Reload Command
+Proceed with reload? [confirm]<!>
+# reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+# write memory
+Building configuration...
+  Compressed configuration from 106098 bytes to 30504 bytes[OK]
+END
+
+# This router is accessed at address 10.0.1.11
+# and ACL line premitting this access would be moved.
+# But this situation is recognized and hence the whole ACL
+# defined again.
+$in = <<'END';
+ip access-list extended Ethernet0_in
+ permit ip host 10.1.1.1 host 10.2.2.1
+ permit ip host 10.1.1.1 host 10.2.2.2
+ permit tcp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 22
+ permit ip host 10.1.1.1 host 10.2.2.3
+ deny ip any any
+interface Ethernet0
+ ip access-group Ethernet0_in in
+ deny ip any any
+END
+
+$out = <<'END';
+------ router.login
+Enter Password:secret
+
+banner motd  managed by NetSPoC
+>enable
+router#
+router#term len 0
+router#term width 512
+router#sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+router#
+router#configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#no logging console
+router#line vty 0 15
+router#logging synchronous level all
+router#ip subnet-zero
+router#ip classless
+router#end
+router#
+------ router.change
+configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#do sh users | incl ^\*
+*  7 vty 1     router   idle                 00:00:00 10.0.6.11
+router#do sh tcp 7 | incl Local host:
+Local host: 10.0.1.11, Local port: 22
+router#do reload in 5
+
+System configuration has been modified. Save? [yes/no]: n
+
+Reload reason: Reload Command
+Proceed with reload? [confirm]
+
+router#ip access-list extended Ethernet0_in-DRC-0
+router#permit ip host 10.1.1.1 host 10.2.2.1
+router#permit ip host 10.1.1.1 host 10.2.2.2
+router#permit tcp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 22
+router#permit ip host 10.1.1.1 host 10.2.2.3
+router#deny ip any any
+router#interface Ethernet0
+router#ip access-group Ethernet0_in-DRC-0 in
+router#do reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+router#
+router#no ip access-list extended Ethernet0_in
+router#end
+router#write memory
+Building configuration...
+  Compressed configuration from 106098 bytes to 30504 bytes[OK]
+router#
+END
+
+simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "Unknown vty";
+############################################################
+(my $scenario2 = $scenario) =~ s/[*]  7 vty.*//;
+
+$out = <<'END';
+ERROR>>> Can't determine my vty
+END
+
+simul_err($title, 'IOS', $scenario2, $in, $out);
+
+############################################################
+$title = "Unknown source IP of vty";
+############################################################
+($scenario2 = $scenario) =~ s/00:00:00 10\.0\.6\.11/00:00:00 10.0../;
+
+$out = <<'END';
+ERROR>>> Can't parse src ip: 10.0..
+END
+
+simul_err($title, 'IOS', $scenario2, $in, $out);
+
+############################################################
+$title = "Unknown tcp connection for vty";
+############################################################
+($scenario2 = $scenario) =~ s/Local host: .*, Local port: .*//;
+
+$out = <<'END';
+ERROR>>> Can't determine remote ip and port of my TCP session
+END
+
+simul_err($title, 'IOS', $scenario2, $in, $out);
+
+############################################################
+$title = "Unknown router IP from tcp connection";
+############################################################
+($scenario2 = $scenario) =~ s/Local host: 10\.0\.1\.11/Local host: 10.0../;
+
+$out = <<'END';
+ERROR>>> Can't parse remote ip: 10.0..
+END
+
+simul_err($title, 'IOS', $scenario2, $in, $out);
+
+############################################################
 $title = "SSH timeout";
 ############################################################
 $scenario = '';
