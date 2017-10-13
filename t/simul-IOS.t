@@ -9,18 +9,6 @@ use Test_Approve;
 my($scenario, $in, $out, $title);
 
 ############################################################
-$title = "SSH timeout";
-############################################################
-$scenario = '';
-$in = '';
-
-$out = <<'END';
-ERROR>>> TIMEOUT
-END
-
-simul_err($title, 'IOS', $scenario, $in, $out);
-
-############################################################
 $title = "Login with unknown SSH key + enable";
 ############################################################
 $scenario = <<'END';
@@ -304,6 +292,18 @@ router#
 END
 
 simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "SSH timeout";
+############################################################
+$scenario = '';
+$in = '';
+
+$out = <<'END';
+ERROR>>> TIMEOUT
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
 done_testing;
