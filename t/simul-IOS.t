@@ -294,6 +294,215 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "write mem: overwrite previous NVRAM";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd  managed by NetSPoC
+>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# sh run
+ip route 10.0.0.0 255.0.0.0 10.1.2.3
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+# reload in 5
+
+System configuration has been modified. Save? [yes/no]: <!>
+Reload reason: Reload Command
+Proceed with reload? [confirm]<!>
+# reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+# write memory
+Warning: Attempting to overwrite an NVRAM configuration previously written by a different version of the system image.
+Overwrite the previous NVRAM configuration?[confirm]<!>
+Building configuration...
+  Compressed configuration from 10194 bytes to 5372 bytes[OK]
+END
+
+$in = <<'END';
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+END
+
+$out = <<'END';
+------ router.login
+Enter Password:secret
+
+banner motd  managed by NetSPoC
+>enable
+router#
+router#term len 0
+router#term width 512
+router#sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+router#
+router#configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#no logging console
+router#line vty 0 15
+router#logging synchronous level all
+router#ip subnet-zero
+router#ip classless
+router#end
+router#
+------ router.change
+configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#end
+router#reload in 5
+
+System configuration has been modified. Save? [yes/no]: n
+
+Reload reason: Reload Command
+Proceed with reload? [confirm]
+
+router#configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#no ip route 10.0.0.0 255.0.0.0 10.1.2.3
+router#ip route 10.0.0.0 255.0.0.0 10.11.22.33
+router#end
+router#reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+router#
+router#write memory
+Warning: Attempting to overwrite an NVRAM configuration previously written by a different version of the system image.
+Overwrite the previous NVRAM configuration?[confirm]
+
+Building configuration...
+  Compressed configuration from 10194 bytes to 5372 bytes[OK]
+router#
+END
+
+simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "write mem: abort on too large config";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd  managed by NetSPoC
+>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# sh run
+ip route 10.0.0.0 255.0.0.0 10.1.2.3
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+# reload in 5
+
+System configuration has been modified. Save? [yes/no]: <!>
+Reload reason: Reload Command
+Proceed with reload? [confirm]<!>
+# reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+# write memory
+Building configuration...
+Compressed configuration is too large for nvram
+Truncate config?? [no]:
+END
+
+$in = <<'END';
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+END
+
+$out = <<'END';
+ERROR>>> write mem: failed, config may be truncated
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "write mem: retry if startup-config open failed";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd  managed by NetSPoC
+>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# sh run
+ip route 10.0.0.0 255.0.0.0 10.1.2.3
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+# reload in 5
+
+System configuration has been modified. Save? [yes/no]: <!>
+Reload reason: Reload Command
+Proceed with reload? [confirm]<!>
+# reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+# write memory
+startup-config file open failed (Device or resource busy)
+END
+
+$in = <<'END';
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+END
+
+$out = <<'END';
+WARNING>>> write mem: startup-config open failed - trying again
+WARNING>>> write mem: startup-config open failed - trying again
+ERROR>>> write mem: startup-config open failed - giving up
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "write mem: unexpected output";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd  managed by NetSPoC
+>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# sh run
+ip route 10.0.0.0 255.0.0.0 10.1.2.3
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+# reload in 5
+
+System configuration has been modified. Save? [yes/no]: <!>
+Reload reason: Reload Command
+Proceed with reload? [confirm]<!>
+# reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+# write memory
+foo
+END
+
+$in = <<'END';
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+END
+
+$out = <<'END';
+ERROR>>> write mem: unexpected result:
+ERROR>>> foo
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 $title = "Unexpected command output";
 ############################################################
 $scenario = <<'END';
