@@ -195,6 +195,15 @@ Enter configuration commands, one per line.  End with CNTL/Z.
 ***
 *** --- SHUTDOWN in 00:05:00 ---
 ***
+# \BANNER5_start/
+
+
+
+***
+*** --- SHUTDOWN in 00:05:00 ---
+***
+
+router#
 # \BANNER1/
 
 
@@ -215,6 +224,7 @@ Proceed with reload? [confirm]<!>
 ***
 *** --- SHUTDOWN ABORTED ---
 ***
+# \BANNER5_start/ip route 10.1.2.0 255.255.255.0 10.1.2.3
 # no ip route 10.0.0.0 25\BANNER5/5.0.0.0 10.1.2.3
 # ip\BANNER1/ route 10.0.0.0 255.0.0.0 10.11.22.33
 # write memory
@@ -224,6 +234,7 @@ END
 
 $in = <<'END';
 ip route 10.0.0.0 255.0.0.0 10.11.22.33
+ip route 10.1.2.0 255.255.255.0 10.1.2.3
 END
 
 $out = <<'END';
@@ -260,6 +271,14 @@ Proceed with reload? [confirm]
 
 router#configure terminal
 Enter configuration commands, one per line.  End with CNTL/Z.
+router#
+
+
+***
+*** --- SHUTDOWN in 00:05:00 ---
+***
+
+router#ip route 10.1.2.0 255.255.255.0 10.1.2.3
 router#no ip route 10.0.0.0 25
 
 
