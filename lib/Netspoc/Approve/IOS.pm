@@ -634,15 +634,10 @@ sub handle_reload_banner {
 #	info("Prefix: $prefix");
 #	info("Postfix: $postfix");
 
-	# Ignore $postfix if it's only a newline added by 'logging synchronous'
-	if ($prefix =~ / \n $/msx and $postfix eq '\r\n') {
-	    $$output_ref = $prefix;
-	}
-
 	# Because of 'logging synchronous' we are sure to get another prompt
 	# if the banner is the only output before current prompt.
 	# Read next prompt and set $$output_ref to next output.
-	elsif(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
+	if(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
 	    info("Expecting prompt after banner");
 	    my $con = $self->{CONSOLE};
 	    $con->con_wait($self->{ENAPROMPT});
