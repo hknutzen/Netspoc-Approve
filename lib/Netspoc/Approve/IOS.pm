@@ -492,8 +492,8 @@ sub write_mem {
     my ($self) = @_;
     my $cmd = 'write memory';
 
-    # 5 retries, 3 seconds interval
-    my ($retries, $seconds) = (5, 3);
+    # 2 retries, 3 seconds interval
+    my ($retries, $seconds) = (2, 3);
     info("Writing config to nvram");
     $retries++;
     local $self->{ENAPROMPT} = qr/$self->{ENAPROMPT}|\[confirm\]/;
