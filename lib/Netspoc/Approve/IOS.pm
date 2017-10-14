@@ -406,13 +406,8 @@ my %known_status =
      'configure terminal' => [ qr/^Enter configuration commands/, ],
      );
 
-my %known_warning =
-(
- );
-
 # Check unexpected lines:
 # - known status messages
-# - known warning messages
 # - unknown messages, handled as error messages.
 sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
@@ -421,12 +416,6 @@ sub cmd_check_error {
     for my $line (@$lines) {
 	for my $regex (@{ $known_status{$cmd} }) {
 	    if($line =~ $regex) {
-		next LINE;
-	    }
-	}
-	for my $regex (@{ $known_warning{$cmd} }) {
-	    if($line =~ $regex) {
-                warn_info($line);
 		next LINE;
 	    }
 	}
