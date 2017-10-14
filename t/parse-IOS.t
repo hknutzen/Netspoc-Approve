@@ -35,7 +35,7 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
-$title = "Parse routing and ACL";
+$title = "Parse routing object-group and ACL";
 ############################################################
 $device = <<END;
 
@@ -47,8 +47,12 @@ ip access-list extended Ethernet0_in
 interface Ethernet0
  ip access-group Ethernet0_in in
 
+object-group network g1
+ host 10.0.1.11
+ 10.0.2.0 0.0.0.255
+
 ip access-list extended Ethernet1_in
- permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+ permit udp 10.0.6.0 0.0.0.255 object-group g1 eq 123
  permit 50 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
  permit tcp any host 10.0.1.11 range 7937 8999
@@ -273,6 +277,71 @@ ip access-list resequence test-DRC-0 10 10
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Change object-group";
+############################################################
+$device = <<END;
+object-group network g1-DRC-0
+ host 10.0.1.11
+ host 10.0.1.12
+ host 10.0.1.13
+object-group network g2-DRC-0
+ 10.0.6.0 0.0.0.255
+
+ip access-list extended test-DRC-0
+ permit udp object-group g2-DRC-0 object-group g1-DRC-0 eq ntp
+ deny ip any any
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$in = <<END;
+object-group network g1
+ host 10.0.1.11
+ host 10.0.1.13
+object-group network g2
+ 10.0.5.0 0.0.0.128
+ 10.0.6.0 0.0.0.255
+
+ip access-list extended test
+ permit udp object-group g2 object-group g1 eq ntp
+ deny ip any any
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+object-group network g1-DRC-0
+no host 10.0.1.12
+object-group network g2-DRC-0
+10.0.5.0 0.0.0.128
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Unknown object-group";
+############################################################
+$device = <<END;
+ip access-list extended test-DRC-0
+ permit udp object-group g1-DRC-0 host 10.0.1.11 eq ntp
+ deny ip any any
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$out = <<'END';
+ERROR>>> Can't find OBJECT_GROUP g1-DRC-0 referenced by test-DRC-0
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
 
 ############################################################
 $title = "Compare unchanged ACL and non-existant outgoing ACL";
