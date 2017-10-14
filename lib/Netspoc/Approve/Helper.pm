@@ -79,15 +79,6 @@ sub quad2int {
     return $1 << 24 | $2 << 16 | $3 << 8 | $4;
 }
 
-sub int2quad {
-    return sprintf "%vd", pack 'N', $_[0];
-}
-
-sub is_ip {
-    my ( $obj ) = @_;
-    return $obj =~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
-}
-
 sub max {
     my $max = shift(@_);
     for my $el (@_) {
