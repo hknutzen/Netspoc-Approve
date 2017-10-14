@@ -6,7 +6,7 @@ use Test::Differences;
 use lib 't';
 use Test_Approve;
 
-my($scenario, $in, $out, $title);
+my($scenario, $scenario2, $in, $out, $title);
 
 ############################################################
 $title = "Login with unknown SSH key + enable";
@@ -294,6 +294,30 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "Unexpected command output";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd  managed by NetSPoC
+>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+foo
+END
+
+$in = '';
+
+$out = <<'END';
+ERROR>>> Unexpected output of 'configure terminal'
+ERROR>>> Enter configuration commands, one per line.  End with CNTL/Z.
+ERROR>>> foo
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 $title = "Must not move ACL line permitting device access";
 ############################################################
 $scenario = <<'END';
@@ -412,7 +436,7 @@ simul_run($title, 'IOS', $scenario, $in, $out);
 ############################################################
 $title = "Unknown vty";
 ############################################################
-(my $scenario2 = $scenario) =~ s/[*]  7 vty.*//;
+($scenario2 = $scenario) =~ s/[*]  7 vty.*//;
 
 $out = <<'END';
 ERROR>>> Can't determine my vty
