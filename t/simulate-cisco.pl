@@ -88,10 +88,15 @@ while (@output) {
 my %cmd2b_cmd;
 if (my @banners = grep { m/^ \\ \w+ \/ $/x } keys %cmd2out) {
 
-    # Finde banner definitions.
+    # Find banner definitions.
     my %banner2out;
     for my $banner (@banners) {
-        $banner2out{$banner} = delete $cmd2out{$banner};
+        my $out = delete $cmd2out{$banner};
+
+        # Special case: Remove linefeed if prompt is part of output.
+        $out =~ s/#\n$/#/m;
+
+        $banner2out{$banner} = $out;
     }
 
     # Substite banner markers by banner text in command lines.
