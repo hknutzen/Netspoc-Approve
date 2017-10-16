@@ -667,7 +667,7 @@ sub login_enable {
 	if ($con->{RESULT}->{MATCH} ne '#') {
 
 	    # Enable password required.
-	    $pass = $self->{ENABLE_PASS} || $pass;
+            # Use login password as enable password.
 	    $con->con_issue_cmd($pass, $prompt);
 	}
 	if ($con->{RESULT}->{MATCH} ne '#') {
