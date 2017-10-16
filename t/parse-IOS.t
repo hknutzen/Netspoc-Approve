@@ -443,6 +443,32 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "ACL with unknown keyword";
+############################################################
+$device = <<END;
+ip access-list extended test
+ permit ip any host 10.0.1.1 fragments
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$in = <<END;
+ip access-list extended test
+ permit ip any host 10.0.1.1
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$out = <<'END';
+ERROR>>> Can't compare ACL with unknown attribute:
+ permit ip any host 10.0.1.1 fragments
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Can't change ACL with more than 9999 lines";
 ############################################################
 $device = <<END;
