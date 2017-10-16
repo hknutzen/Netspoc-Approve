@@ -443,6 +443,28 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Can't change ACL with more than 9999 lines";
+############################################################
+$device = <<END;
+interface Ethernet1
+ ip access-group test in
+
+ip access-list extended test
+END
+
+for my $port (1 .. 10000) {
+   $device .= " permit tcp any host 10.0.1.1 eq $port\n";
+}
+
+$in = $device . " permit tcp any host 10.0.1.1 eq 60000\n";
+
+$out = <<END;
+ERROR>>> Can\'t handle ACL test with 10000 or more entries
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Change ACL, prevent lockout";
 #
 # ACL lines must be deleted in reversed order,
