@@ -144,7 +144,7 @@ END
 eq_or_diff( approve_err('NX-OS', '', '', $raw ), $out, $title );
 
 ############################################################
-$title = "Merging IOS ACL";
+$title = "Merge IOS ACL";
 ############################################################
 $device = <<END;
 interface Ethernet1
@@ -184,7 +184,101 @@ END
 eq_or_diff( approve('IOS', $device, $spoc, $raw ), $out, $title );
 
 ############################################################
-$title = "Merging Linux chains";
+$title = "Add IOS ACL";
+############################################################
+$device = <<END;
+interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
+END
+
+$spoc = <<END;
+ip access-list extended Ethernet1_in
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+ deny ip any any
+interface Ethernet1
+ ip access-group Ethernet1_in in
+END
+
+$raw = <<END;
+ip access-list extended Ethernet1_out
+ deny ip host 10.0.6.1 any
+interface Ethernet1
+ ip access-group Ethernet1_out out
+END
+
+$out = <<END;
+ip access-list extended Ethernet1_in-DRC-0
+permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+deny ip any any
+interface Ethernet1
+ip access-group Ethernet1_in-DRC-0 in
+ip access-list extended Ethernet1_out-DRC-0
+deny ip host 10.0.6.1 any
+interface Ethernet1
+ip access-group Ethernet1_out-DRC-0 out
+END
+
+eq_or_diff( approve('IOS', $device, $spoc, $raw ), $out, $title );
+
+############################################################
+$title = "Name clash with IOS ACL";
+############################################################
+$device = <<END;
+interface Ethernet0
+ ip address 10.0.5.1 255.255.255.0
+interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
+END
+
+$spoc = <<END;
+interface Ethernet1
+ ip access-group Ethernet1_in in
+END
+
+$raw = <<END;
+ip access-list extended Ethernet0_in
+ deny ip host 10.0.6.1 any
+interface Ethernet0
+ ip access-group Ethernet0_in out
+END
+
+$out = <<'END';
+WARNING>>> Interface Ethernet0 referenced in raw doesn't exist in Netspoc
+END
+
+eq_or_diff( approve_err('IOS', $device, $spoc, $raw ), $out, $title );
+
+############################################################
+$title = "Name clash with IOS ACL";
+############################################################
+$device = <<END;
+interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
+END
+
+$spoc = <<END;
+ip access-list extended Ethernet1_in
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+ deny ip any any
+interface Ethernet1
+ ip access-group Ethernet1_in in
+END
+
+$raw = <<END;
+ip access-list extended Ethernet1_in
+ deny ip host 10.0.6.1 any
+interface Ethernet1
+ ip access-group Ethernet1_in out
+END
+
+$out = <<END;
+ERROR>>> Name clash for 'Ethernet1_in' of ACCESS_LIST from raw
+END
+
+eq_or_diff( approve_err('IOS', $device, $spoc, $raw ), $out, $title );
+
+############################################################
+$title = "Merge Linux chains";
 ############################################################
 
 $spoc = <<END;
