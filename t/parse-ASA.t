@@ -83,6 +83,26 @@ END
 eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "object-group of type tcp-udp";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+object-group service g1 tcp-udp
+ port-object eq domain
+ port-object eq http
+access-list outside_in extended permit object-group g1 any any
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+ERROR>>> Expected port number or port name
+ERROR>>>  at line 7, pos 3:
+ERROR>>> >>port-object eq http<<
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";
 ############################################################
 # Differences are ignored.
