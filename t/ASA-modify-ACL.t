@@ -197,7 +197,38 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Modify object-group";
+$title = "Modify type of object-group";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+object-group service g1 tcp
+ port-object range 135 139
+
+access-list outside_in extended permit object-group g1 any host 10.0.1.11
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$in = <<'END';
+object-group service g1 udp
+ port-object range 135 139
+
+access-list outside_in extended permit object-group g1 any host 10.0.1.11
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+object-group service g1-DRC-0 udp
+port-object range 135 139
+access-list outside_in line 1 extended permit object-group g1-DRC-0 any host 10.0.1.11
+no access-list outside_in line 2 extended permit object-group g1 any host 10.0.1.11
+no object-group service g1 tcp
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Modify object-group; referenced multiple times";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
@@ -209,7 +240,8 @@ object-group network g1
  network-object host 5.5.5.5
  network-object host 6.6.6.6
  network-object host 7.7.7.7
-access-list inside extended permit ip object-group g1 any
+access-list inside extended permit ip object-group g1 host 10.0.1.1
+access-list inside extended permit ip object-group g1 host 10.0.1.2
 access-group inside in interface inside
 END
 
@@ -223,7 +255,8 @@ object-group network g1
 !! Order of lines doesn\'t matter
  network-object host 7.7.7.7
  network-object host 6.6.6.6
-access-list inside extended permit ip object-group g1 any
+access-list inside extended permit ip object-group g1 host 10.0.1.1
+access-list inside extended permit ip object-group g1 host 10.0.1.2
 access-group inside in interface inside
 END
 
