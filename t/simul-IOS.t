@@ -57,6 +57,87 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "SSH login + enable password";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd managed by NetSPoC
+>
+# enable
+Password:<!>
+# sh ver
+Cisco IOS Software, C800 Software (C800-UNIVERSALK9-M), Version 15.4(3)M4, RELEASE SOFTWARE (fc1)
+Technical Support: http://www.cisco.com/techsupport
+Cisco C886VA-K9 (revision 1.0) with 488524K/35763K bytes of memory.
+END
+
+$in = '';
+
+$out = <<'END';
+--router.login
+Enter Password:secret
+
+banner motd managed by NetSPoC
+>enable
+Password:secret
+
+router#
+router#term len 0
+router#term width 512
+router#sh ver
+Cisco IOS Software, C800 Software (C800-UNIVERSALK9-M), Version 15.4(3)M4, RELEASE SOFTWARE (fc1)
+Technical Support: http://www.cisco.com/techsupport
+Cisco C886VA-K9 (revision 1.0) with 488524K/35763K bytes of memory.
+router#
+router#configure terminal
+router#no logging console
+router#line vty 0 15
+router#logging synchronous level all
+router#ip subnet-zero
+router#ip classless
+router#end
+router#
+END
+
+simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "SSH login failed";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+Enter Password:<!>
+END
+
+$in = '';
+
+$out = <<'END';
+ERROR>>> Authentication failed
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "SSH login + enable password failed";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd managed by NetSPoC
+>
+# enable
+Password:<!>
+Password:<!>
+END
+
+$in = '';
+
+$out = <<'END';
+ERROR>>> Authentication for enable mode failed
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 $title = "SSH login without enable";
 ############################################################
 $scenario = <<'END';
