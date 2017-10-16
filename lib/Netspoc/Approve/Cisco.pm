@@ -6,7 +6,7 @@ Base class for the different varieties of Cisco devices.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -1369,15 +1369,9 @@ sub equalize_acl_entries {
         push(@vcmds, $vcmd2 ? [ $vcmd1, $vcmd2] : $vcmd1);
     }
 
-    if (@vcmds) {
-
-        # ACL will be modified incrementally.
-        $spoc_acl->{modify_cmds} = \@vcmds;
-        return 0;
-    }
-    else {
-        return 1;
-    }
+    # ACL will be modified incrementally.
+    $spoc_acl->{modify_cmds} = \@vcmds;
+    return 0;
 }
 
 # Return value:
