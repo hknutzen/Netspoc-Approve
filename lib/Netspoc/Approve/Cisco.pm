@@ -284,8 +284,9 @@ sub analyze_conf_lines {
 		$level = $sub_level;
 	    }
 	    else {
+                chomp $line;
 		abort("Expected indentation '$level' but got '$sub_level'" .
-                      " at line $counter:\n",
+                      " at line $counter:",
                       ">>$line<<");
 	    }
 	}
@@ -300,8 +301,9 @@ sub analyze_conf_lines {
 		    # Skip certificate data.
 		}
 		else {
+                    chomp $line;
 		    abort("Expected indentation '$level' but got '$sub_level'" .
-                          " at line $counter:\n",
+                          " at line $counter:",
                           ">>$line<<");
 		}
 	    }

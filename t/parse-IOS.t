@@ -35,6 +35,73 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Bad indentation after first subcommand";
+############################################################
+$device = <<END;
+object-group network g1
+ host 10.0.1.11
+  10.0.2.0 0.0.0.255
+END
+
+$out = <<'END';
+ERROR>>> Expected indentation '1' but got '2' at line 3:
+ERROR>>> >>  10.0.2.0 0.0.0.255<<
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Higher indentation of subcommands";
+############################################################
+$device = <<END;
+object-group network g1
+  host 10.0.1.11
+  10.0.2.0 0.0.0.255
+END
+
+$out = '';
+
+eq_or_diff(approve('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Bad indentation after subcommands";
+############################################################
+$device = <<END;
+object-group network g1
+  host 10.0.1.11
+  10.0.2.0 0.0.0.255
+ object-group network g2
+END
+
+$out = <<'END';
+ERROR>>> Expected indentation '0' but got '1' at line 4:
+ERROR>>> >> object-group network g2<<
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Certificate chain";
+############################################################
+$device = <<'END';
+crypto pki certificate chain VPND012345
+ certificate 6D0002F1B7E1307AF07D82AEEF00000002F1B7
+  00000000 11111111 22222222 33333333 44444444 55555555 66666666 77777777
+  88888888 99999999 AAAAAAAA BBBBBBBB CCCCCCCC DDDDDDDD EEEEEEEE FFFFFFFF
+  ABCDEFAB EEEEFFFF EE
+  	quit
+ip route 0.0.0.0 0.0.0.0 10.2.2.2
+END
+
+$in = << 'END';
+ip route 0.0.0.0 0.0.0.0 10.2.2.2
+END
+
+$out = '';
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Parse routing object-group and ACL";
 ############################################################
 $device = <<END;
