@@ -746,7 +746,7 @@ crypto ipsec ikev1 transform-set Trans1a esp-3des esp-md5-hmac
 crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 crypto ipsec ikev1 transform-set Trans2 esp-aes-192 esp-sha-hmac
 crypto ipsec ikev2 ipsec-proposal Proposal1
- protocol esp encryption aes192
+ protocol esp encryption aes192 aes 3des
  protocol esp integrity  sha
 access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
@@ -763,7 +763,7 @@ END
 $in = <<'END';
 crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
 crypto ipsec ikev2 ipsec-proposal Proposal1
- protocol esp encryption aes256
+ protocol esp encryption aes192 aes256
  protocol esp integrity  sha
 access-list crypto-outside-1 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
@@ -785,7 +785,7 @@ crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
 no crypto map crypto-outside 2 set ikev1 transform-set
 crypto map crypto-outside 2 set ikev1 transform-set Trans1a
 crypto ipsec ikev2 ipsec-proposal Proposal1-DRC-0
-protocol esp encryption aes256
+protocol esp encryption aes192 aes256
 protocol esp integrity sha
 no crypto map crypto-outside 3 set ikev2 ipsec-proposal
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1-DRC-0
@@ -797,6 +797,22 @@ clear configure access-list crypto-outside-1
 END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "To many encryption types";
+############################################################
+$device .= <<'END';
+crypto ipsec ikev2 ipsec-proposal Proposal1
+ protocol esp encryption aes192 aes 3des des
+END
+
+$out = <<'END';
+ERROR>>> Unexpected token 'des'
+ERROR>>>  at line 22, pos 7:
+ERROR>>> >>protocol esp encryption aes192 aes 3des des<<
+END
+
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
 
 ############################################################
 $title = "Insert, change and delete dynamic crypto map";
