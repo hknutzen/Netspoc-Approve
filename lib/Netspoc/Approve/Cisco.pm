@@ -493,9 +493,6 @@ sub parse_port_spec {
         $low = $port;
         $high = $self->parse_port($arg, $proto);
     }
-    else {
-        internal_err();
-    }
     return ({ LOW => $low, HIGH => $high });
 }
 
