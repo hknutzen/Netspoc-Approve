@@ -61,12 +61,14 @@ sub warn_info {
 }
 
 sub internal_err {
-    my ($package, $file, $line, $sub) = caller 1;
-    abort("Internal error in $sub: ", @_);
+    # uncoverable subroutine
+    my ($package, $file, $line, $sub) = caller 1; # uncoverable statement
+    abort("Internal error in $sub: ", @_);	  # uncoverable statement
 }
 
 sub debug {
-    info(@_);
+    # uncoverable subroutine
+    info(@_);	  # uncoverable statement
 }
 
 sub quad2int {
