@@ -174,6 +174,41 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "Compare unchanged";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd managed by NetSPoC
+(router)#
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
+# sh run
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+
+$in = <<'END';
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+
+$out = '';
+
+simul_compare($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "Compare changed";
+############################################################
+
+$in = <<'END';
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+END
+
+$out = <<'END';
+no ip route 10.20.0.0 255.255.0.0 10.1.2.3\N ip route 10.20.0.0 255.255.0.0 10.1.2.99
+END
+
+simul_compare($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 $title = "Unknown device version";
 ############################################################
 $scenario = <<'END';

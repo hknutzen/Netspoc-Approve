@@ -5,7 +5,7 @@ use warnings;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged
-                 simul_run simul_err);
+                 simul_run simul_err simul_compare);
 
 use Test::More;
 use Test::Differences;
@@ -56,7 +56,8 @@ sub run {
 }
 
 sub simulate {
-    my ($type, $scenario, $spoc) = @_;
+    my ($type, $scenario, $spoc, $options) = @_;
+    $options ||= '';
 
     my $device_name = 'router';
     my $spoc_file = prepare_spoc($type, $device_name, $spoc);
@@ -89,7 +90,7 @@ END
     # Set new HOME directory, because $config_file is searched there.
     $ENV{HOME} = $dir;
 
-    return run("bin/drc3.pl -q -L $dir $spoc_file");
+    return run("bin/drc3.pl -q -L $dir $options $spoc_file");
 }
 
 sub compare_files {
@@ -115,6 +116,14 @@ my %ignore =
      'write memory' => 1,
     );
 
+sub filter_compare_output {
+    my ($stdout) = @_;
+    my @output = split /\n/, $stdout;
+    my @cmds = map { s/^> //; $_ } @output;
+    @cmds = grep { !$ignore{$_}} @cmds;
+    return(join("\n", @cmds, ''));
+}
+
 sub approve {
     my($type, $conf, $spoc, $raw) = @_;
     my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc, $raw);
@@ -125,12 +134,7 @@ sub approve {
         BAIL_OUT "Unexpected status: $status\n$stderr\n";
     }
     $stderr and BAIL_OUT "STDERR:\n$stderr\n";
-    my @output = split /\n/, $stdout;
-
-    # Collect commands from output.
-    my @cmds = map { s/^> //; $_ } @output;
-    @cmds = grep { !$ignore{$_}} @cmds;
-    return(join("\n", @cmds, ''));
+    return filter_compare_output($stdout);
 }
 
 sub approve_err {
@@ -192,6 +196,18 @@ sub simul_err {
     }
 
     eq_or_diff($stderr, $expected, $title);
+}
+
+sub simul_compare {
+    my($title, $type, $scenario, $spoc, $expected) = @_;
+    my ($status, $stdout, $stderr) = simulate($type, $scenario, $spoc, '-C');
+    if ($status != 0) {
+        diag("Unexpected failure:\n$stderr");
+        fail($title);
+        return;
+    }
+    my $output = filter_compare_output($stdout);
+    eq_or_diff($output, $expected, $title);
 }
 
 # Check whether output is as expected with given input
