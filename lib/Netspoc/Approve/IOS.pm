@@ -81,8 +81,8 @@ sub get_parse_info {
 			{ store => 'DYNAMIC', parse => qr/negotiated/, },
 			{ store => 'DYNAMIC', parse => qr/dhcp/, },
 			['seq',
-			 { store => 'BASE', parse => \&check_ip, },
-			 { store => 'MASK', parse => \&check_ip, } ]] },
+			 { store => 'BASE', parse => \&get_ip, },
+			 { store => 'MASK', parse => \&get_ip, } ]] },
 	    'ip address _skip _skip secondary' =>  {
 		parse => \&skip }, # ignore
 	    'ip unnumbered' => {
