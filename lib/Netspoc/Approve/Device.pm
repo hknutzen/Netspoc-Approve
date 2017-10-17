@@ -488,13 +488,6 @@ sub merge_rawdata {
             }
 	}
 
-	# Array of unnamed entries: STATIC, GLOBAL, NAT
-	elsif(ref $raw_v eq 'ARRAY') {
-	    my $spoc_v = $spoc_conf->{$key} ||= [];
-	    unshift(@$spoc_v, @$raw_v);
-	    my $count = @$raw_v;
-	    info("Prepended $count entries of $key from raw") if $count;
-	}
 	# Hash of named entries: USERNAME, ...
 	else {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
