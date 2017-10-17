@@ -221,7 +221,7 @@ END
 eq_or_diff( approve('IOS', $device, $spoc, $raw ), $out, $title );
 
 ############################################################
-$title = "Name clash with IOS ACL";
+$title = "Reference unknown interface";
 ############################################################
 $device = <<END;
 interface Ethernet0
@@ -276,6 +276,35 @@ ERROR>>> Name clash for 'Ethernet1_in' of ACCESS_LIST from raw
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc, $raw ), $out, $title );
+
+############################################################
+$title = "Name clash with object-group";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/1
+ nameif inside
+END
+
+$spoc = <<'END';
+object-group network g1
+ network-object host 2.2.2.2
+access-list inside extended permit ip object-group g1 any
+access-group inside in interface inside
+interface Ethernet0/1
+ nameif inside
+END
+
+$raw = <<'END';
+object-group network g1
+ network-object host 1.1.1.1
+END
+
+$out = <<'END';
+ERROR>>> Name clash for 'g1' of OBJECT_GROUP from raw
+END
+
+eq_or_diff(approve_err('ASA', $device, $spoc, $raw), $out, $title);
 
 ############################################################
 $title = "Merge Linux chains";
@@ -347,7 +376,6 @@ ERROR>>> Must not redefine chain 'c1' from rawdata
 END
 
 eq_or_diff( approve_err('Linux', '', $spoc, $raw ), $out, $title );
-
 
 ############################################################
 $title = "Add crypto";
