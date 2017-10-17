@@ -20,8 +20,9 @@ my $minimal_device = '';
 $title = "Parse Routing";
 ############################################################
 $in = <<END;
+ip route add 10.1.11.1 via 10.10.1.7
 ip route add 10.1.11.0/24 via 10.10.1.6
-ip route add 0.0.0.0/0 via 10.9.9.9
+ip route add default via 10.9.9.9
 END
 
 $out = $in;
