@@ -695,13 +695,10 @@ sub get_my_connection {
 
     # In file compare mode use IP from netspoc file or 1.2.3.4 if not available.
     if (not $self->{CONSOLE}) {
-	my $any = { BASE => 0, MASK => 0 };
-	my $ip = quad2int($self->{IP} || '1.2.3.4');
-	my $dst = $ip ? { BASE => $ip, MASK => 0xffffffff } : $any;
-	my $range = { TYPE => 'tcp',
-		      SRC_PORT => { LOW => 0, HIGH => 0xffff },
-		      DST_PORT => { LOW => 22, HIGH => 23 } };
-	my $cached = $self->{CONNECTION} = [ $any, $dst, $range ];
+	my $any  = 0;
+	my $dst  = quad2int($self->{IP} || '1.2.3.4');
+	my $port = 22;
+	my $cached = $self->{CONNECTION} = [ $any, $dst, $port ];
 	return @$cached;
     }
 
@@ -715,13 +712,27 @@ sub get_my_connection {
 	abort("Can't determine remote ip and port of my TCP session");
     my $dst_ip = quad2int($d_ip) or abort("Can't parse remote ip: $d_ip");
     info("My connection: $s_ip -> $d_ip:$port");
-    my $src = { BASE => $src_ip, MASK => 0xffffffff };
-    my $dst = { BASE => $dst_ip, MASK => 0xffffffff };
-    my $range = { TYPE => 'tcp',
-		  SRC_PORT => { LOW => 0, HIGH => 0xffff },
-		  DST_PORT => { LOW => $port, HIGH => $port } };
-    my $cached = $self->{CONNECTION} = [ $src, $dst, $range ];
+    my $cached = $self->{CONNECTION} = [ $src_ip, $dst_ip, $port ];
     return @$cached;
+}
+
+sub ip_in_net {
+    my ($ip, $net) = @_;
+    my $m = $net->{MASK};
+    return ($m & $ip) == ($m & $net->{BASE});
+}
+
+sub port_in_proto {
+    my ($port, $proto) = @_;
+    my $type = $proto->{TYPE};
+    if ($type eq 'ip') {
+        return 1;
+    }
+    if ($type eq 'tcp') {
+        my $range = $proto->{DST_PORT};
+        return ($range->{LOW} <= $port && $port <= $range->{HIGH});
+    }
+    return 0;
 }
 
 sub is_device_access {
@@ -732,11 +743,11 @@ sub is_device_access {
     my $proto = $conf_entry->{TYPE};
     return 1 if $proto eq "50" || $proto eq "51";
 
-    my ($device_src, $device_dst, $device_proto) = $self->get_my_connection();
+    my ($device_src, $device_dst, $device_port) = $self->get_my_connection();
     return
-	$self->ip_netz_a_in_b($device_src, $conf_entry->{SRC}) &&
-	$self->ip_netz_a_in_b($device_dst, $conf_entry->{DST}) &&
-	$self->services_a_in_b($device_proto, $conf_entry);
+	ip_in_net($device_src, $conf_entry->{SRC}) &&
+	ip_in_net($device_dst, $conf_entry->{DST}) &&
+	port_in_proto($device_port, $conf_entry);
 }
 
 sub resequence_cmd {
