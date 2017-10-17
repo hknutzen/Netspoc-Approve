@@ -453,21 +453,22 @@ $title = "Move ACL entry with log";
 $device = $minimal_device;
 $device .= <<'END';
 access-list inside extended permit ip host 1.1.1.1 any log
-access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended permit ip host 2.2.2.2 any log 5 interval 30
 access-list inside extended deny ip any any log warnings
 access-group inside in interface inside
 END
 
 $in = <<'END';
-access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended permit ip host 2.2.2.2 any log interval 30
 access-list inside extended permit ip host 1.1.1.1 any log errors
 access-list inside extended deny ip any any
 access-group inside in interface inside
 END
 
 $out = <<'END';
-no access-list inside line 3 extended deny ip any any log warnings\N access-list inside line 3 extended deny ip any any
-no access-list inside line 1 extended permit ip host 1.1.1.1 any log\N access-list inside line 2 extended permit ip host 1.1.1.1 any log errors
+no access-list inside line 2 extended permit ip host 2.2.2.2 any log 5 interval 30\N access-list inside line 1 extended permit ip host 2.2.2.2 any log interval 30
+no access-list inside line 3 extended deny ip any any log warnings\N access-list inside line 2 extended deny ip any any
+no access-list inside line 3 extended permit ip host 1.1.1.1 any log\N access-list inside line 2 extended permit ip host 1.1.1.1 any log errors
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
