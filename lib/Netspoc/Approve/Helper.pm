@@ -35,7 +35,7 @@ use warnings;
 # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
-our @EXPORT = qw(info abort err_info warn_info internal_err debug
+our @EXPORT = qw(info abort warn_info internal_err debug
                  quiet quad2int int2quad is_ip max
 );
 
@@ -54,10 +54,6 @@ sub say_stderr {
 sub abort {
     say_stderr("ERROR>>> ", $_) for @_;
     exit -1;
-}
-
-sub err_info {
-    say_stderr("ERROR>>> ", @_);
 }
 
 sub warn_info {
