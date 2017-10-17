@@ -807,7 +807,6 @@ sub con_shutdown {
         $con->{TIMEOUT} = $con->{LOGIN_TIMEOUT};
         $con->con_issue_cmd('exit', eof);
     }
-#    $con->print_logfile(banner_msg('STOP'));
     delete $self->{CONSOLE};
 }
 
