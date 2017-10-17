@@ -102,7 +102,7 @@ $out = '';
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
-$title = "Parse routing object-group and ACL";
+$title = "Parse routing, object-group and ACL";
 ############################################################
 $device = <<END;
 
@@ -255,6 +255,23 @@ $out = <<END;
 ip route 10.10.0.0 255.255.0.0 10.1.2.3
 no ip route 10.40.0.0 255.255.0.0 10.1.2.3\\N ip route 10.40.0.0 255.255.0.0 10.1.2.4
 no ip route 10.30.0.0 255.255.0.0 10.1.2.3
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Leave routing unchanged";
+############################################################
+$device = <<END;
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+ip route 10.30.0.0 255.255.0.0 10.1.2.3
+ip route 10.40.0.0 255.255.0.0 10.1.2.3
+END
+
+$in = <<END;
+END
+
+$out = <<END;
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
