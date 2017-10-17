@@ -103,6 +103,56 @@ END
 eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
 
 ############################################################
+$title = "Port specifer 'neq'";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended permit tcp any any neq 22
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+ERROR>>> port specifier 'neq' not implemented
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
+$title = "Unknown port specifer";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended permit tcp any any foo 22
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+ERROR>>> Unexpected token 'foo'
+ERROR>>>  at line 5, pos 8:
+ERROR>>> >>access-list outside_in extended permit tcp any any foo 22<<
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
+$title = "Different port specifers";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended permit tcp any any eq 22
+access-list outside_in extended permit tcp any any gt 1023
+access-list outside_in extended permit tcp any any lt 9
+access-list outside_in extended permit tcp any any range www 90
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+END
+
+eq_or_diff(approve('ASA', $device, $device), $out, $title);
+
+############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";
 ############################################################
 # Differences are ignored.
