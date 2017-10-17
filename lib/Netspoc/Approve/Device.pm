@@ -320,6 +320,7 @@ sub parse_seq {
 	    last if not $success;
 	}
 	else {
+            # uncoverable statement
 	    internal_err "Expected 'seq|cond1|or' but got $type";
 	}
     }
@@ -347,6 +348,7 @@ sub parse_line {
 	return($result);
     }
     else {
+        # uncoverable statement
 	internal_err "Unexpected parse attribute: $info";
     }
 }

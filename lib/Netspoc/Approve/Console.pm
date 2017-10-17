@@ -70,18 +70,10 @@ sub set_logfile {
         or abort("Couldn't chmod $logfile: $!");
 }
 
-# If called in an array context, expect() will return
-# ($matched_pattern_position, $error, $success-
-# fully_matching_string, $before_match, and $after_match).
-#
-# Possible values of $error are undef, indi-
-# cating no error, '1:TIMEOUT' indicating that $timeout
-# seconds had elapsed without a match, '2:EOF' indicat-
-# ing an eof was read from $object, '3: spawn
-# id($fileno) died' indicating that the process exited
-# before matching and '4:$!' indicating whatever error
-# was set in $ERRNO during the last read on $object's
-# handle.
+# If called in an array context, expect() will return 5 values:
+# matched_pattern_position, error,
+# success-fully_matching_string,
+# before_match, after_match.
 sub con_wait0 {
     my ($con, $prompt, $timeout) = @_;
     my $exp = $con->{EXPECT};
@@ -150,6 +142,14 @@ sub con_issue_cmd {
 	: $con->con_wait( $prompt );
 }
 
+# Possible values of $error are undef, indi-
+# cating no error, '1:TIMEOUT' indicating that $timeout
+# seconds had elapsed without a match, '2:EOF' indicat-
+# ing an eof was read from $object, '3: spawn
+# id($fileno) died' indicating that the process exited
+# before matching and '4:$!' indicating whatever error
+# was set in $ERRNO during the last read on $object's
+# handle.
 sub con_abort {
     my ($con) = @_;
     my $result = $con->{RESULT};

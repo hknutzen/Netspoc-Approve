@@ -1250,6 +1250,7 @@ sub equalize_attributes {
     my $modified;
     my $parse = $structure->{$parse_name};
     if ( not ( $structure && $parse_name ) ) {
+        # uncoverable statement
 	internal_err "Structure or parse_name not defined";
     }
 
@@ -1701,6 +1702,7 @@ sub unify_anchors {
                                               $conf_key, $conf_key,
                                               $structure );
 	    if ( $new_conf && $conf_key ne $new_conf ) {
+                # uncoverable statement
 		internal_err "Anchors known so far are made equal by " .
 		    "changing their attributes, not by transfer. " .
 		    "(Anchor in conf: $key:$conf_key)";
