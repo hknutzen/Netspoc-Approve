@@ -602,6 +602,37 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Missing type definition for tunnel-group";
+############################################################
+
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group tunnel1 ipsec-attributes
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+END
+
+$out = <<'END';
+ERROR>>> Missing type definition for tunnel-group tunnel1
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
+$title = "tunnelgroup-map references unknown tunnel-group";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+crypto ca certificate map ca-map 10
+ subject-name attr ea eq some@example.com
+tunnel-group-map ca-map 20 193.155.130.20
+END
+
+$out = <<'END';
+ERROR>>> 'tunnel-group-map ca-map 20 193.155.130.20' references unknown tunnel-group 193.155.130.20
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
 $title = "Must not delete default tunnel-group";
 ############################################################
 
