@@ -957,12 +957,13 @@ sub postprocess_config {
     # as attribute CA_CERT_MAP.
     # Convert IDENTIFIER to lower-case, because it gets
     # stored on device in lower-case anyway.
-    for my $cert ( values %{$p->{CA_CERT_MAP}} ) {
+    for my $ca_map_name (sort keys %{$p->{CA_CERT_MAP}}) {
+        my $cert = $p->{CA_CERT_MAP}->{$ca_map_name};
 	my $id = $cert->{IDENTIFIER} or next;
         $id = lc( $id );
         $cert->{IDENTIFIER} = $id;
         if(my $old_cert = $p->{CERT_ANCHOR}->{$id}) {
-            my $old_name = $old_cert->{name};
+            my $old_name = $old_cert->{CA_CERT_MAP};
             my $new_name = $cert->{name};
             abort("Two ca cert map items use" .
                   " identical subject-name: '$old_name', '$new_name'");
