@@ -42,6 +42,34 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Increment index of names";
+############################################################
+$device = <<END;
+object-group network g0-DRC-0
+ network-object 10.0.6.0 255.255.255.0
+access-list outside_in extended permit udp object-group g0-DRC-0 any eq 80
+access-group outside_in in interface outside
+END
+
+$in = <<END;
+object-group network g0
+ network-object 10.0.5.0 255.255.255.0
+object-group network g1
+ network-object 10.0.6.0 255.255.255.0
+access-list outside_in extended permit udp object-group g0 any eq 79
+access-list outside_in extended permit udp object-group g1 any eq 80
+access-group outside_in in interface outside
+END
+
+$out = <<END;
+object-group network g0-DRC-1
+network-object 10.0.5.0 255.255.255.0
+access-list outside_in line 1 extended permit udp object-group g0-DRC-1 any eq 79
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Parse routing and ACL with object-groups";
 ############################################################
 $in = <<END;
@@ -819,7 +847,6 @@ access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.1
 crypto map crypto-outside 1 set ikev1 transform-set Trans1b
-crypto map crypto-outside 1 set pfs group2
 access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
 crypto map crypto-outside 3 match address crypto-outside-3
 crypto map crypto-outside 3 set peer 10.0.0.3
@@ -836,9 +863,7 @@ access-list crypto-outside-1 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.2
 crypto map crypto-outside 1 set ikev1 transform-set Trans1
-crypto map crypto-outside 1 set pfs group2
-access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
-crypto map crypto-outside 3 match address crypto-outside-3
+crypto map crypto-outside 1 set pfs group1
 crypto map crypto-outside 3 set peer 10.0.0.3
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1
 crypto map crypto-outside 3 set pfs group1
@@ -847,7 +872,7 @@ END
 $out = <<'END';
 access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 2 set peer 10.0.0.2
-crypto map crypto-outside 2 set pfs group2
+crypto map crypto-outside 2 set pfs group1
 crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
 no crypto map crypto-outside 2 set ikev1 transform-set
 crypto map crypto-outside 2 set ikev1 transform-set Trans1a
@@ -858,9 +883,11 @@ no crypto map crypto-outside 3 set ikev2 ipsec-proposal
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1-DRC-0
 crypto map crypto-outside 3 set pfs group1
 clear configure crypto map crypto-outside 1
+no crypto map crypto-outside 3 match address crypto-outside-3
 no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 no crypto ipsec ikev2 ipsec-proposal Proposal1
 clear configure access-list crypto-outside-1
+clear configure access-list crypto-outside-3
 END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
@@ -868,14 +895,14 @@ eq_or_diff(approve('ASA', $device, $in), $out, $title);
 ############################################################
 $title = "To many encryption types";
 ############################################################
-$device .= <<'END';
+$device = <<'END';
 crypto ipsec ikev2 ipsec-proposal Proposal1
  protocol esp encryption aes192 aes 3des des
 END
 
 $out = <<'END';
 ERROR>>> Unexpected token 'des'
-ERROR>>>  at line 22, pos 7:
+ERROR>>>  at line 2, pos 7:
 ERROR>>> >>protocol esp encryption aes192 aes 3des des<<
 END
 

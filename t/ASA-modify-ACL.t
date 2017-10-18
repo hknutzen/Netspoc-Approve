@@ -171,6 +171,29 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Change standard ACL non incrementally";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list inside standard permit host 1.1.1.1
+access-group inside in interface inside
+END
+
+$in = <<'END';
+access-list inside standard permit host 1.1.1.1
+access-list inside standard permit 2.2.2.2 255.255.255.254
+access-group inside in interface inside
+END
+
+$out = <<'END';
+access-list inside-DRC-0 standard permit host 1.1.1.1
+access-list inside-DRC-0 standard permit 2.2.2.2 255.255.255.254
+access-group inside-DRC-0 in interface inside
+clear configure access-list inside
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Add object-group";
 ############################################################
 $device = $minimal_device;
