@@ -42,6 +42,40 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Add sysopt";
+############################################################
+
+$device = <<'END';
+END
+
+$in = <<'END';
+no sysopt connection permit-vpn
+END
+
+$out = <<END;
+no sysopt connection permit-vpn
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Remove sysopt";
+############################################################
+
+$device = <<'END';
+no sysopt connection permit-vpn
+END
+
+$in = <<'END';
+END
+
+$out = <<END;
+sysopt connection permit-vpn
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Increment index of names";
 ############################################################
 $device = <<END;
@@ -598,6 +632,31 @@ webvpn
 certificate-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
 END
 check_parse_and_unchanged('ASA', $minimal_device, $in, $out, $title);
+
+############################################################
+$title = "Remove tunnel-group, crypto-ca-cert-map, tunnel-group-map";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+tunnel-group VPN-tunnel ipsec-attributes
+ trust-point ASDM_TrustPoint4
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+$in = <<'END';
+END
+
+$out = <<'END';
+clear configure crypto ca certificate map ca-map
+no tunnel-group VPN-tunnel ipsec-attributes
+clear configure tunnel-group VPN-tunnel
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Modify tunnel-group ipsec-attributes";
