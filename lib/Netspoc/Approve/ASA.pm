@@ -1547,7 +1547,10 @@ sub make_equal {
 
             if ($modified) {
                 if (!$modify_cmds) {
-                    $spoc_value->{transfer} = 1;
+
+                    # This should never happen, because ACLs are
+                    # always changed incrementally for ASA.
+                    $spoc_value->{transfer} = 1; # uncoverable statement
                 }
 
                 # Standard access-list can't be changed incrementally
