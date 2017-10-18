@@ -2123,18 +2123,6 @@ sub remove_attributes {
     $self->cmd( $_ ) for @cmds;
 }
 
-sub transfer_interface {
-    my ( $self, $spoc, $structure, $parse_name, $intf ) = @_;
-    abort("Transfer $intf: Interfaces MUST be same" .
-          " on device and in netspoc");
-}
-
-sub remove_interface {
-    my ( $self, $conf, $structure, $parse_name, $intf ) = @_;
-    abort("Remove $intf: Interfaces MUST be same" .
-          " on device and in netspoc");
-}
-
 sub transfer_crypto_map_seq {
     my ( $self, $spoc, $structure, $parse_name, $name_seq ) = @_;
 
@@ -2508,8 +2496,11 @@ sub define_structure {
 			parse_name => 'ACCESS_LIST', },
 		      ],
 	    attributes => [],
-	    transfer => 'transfer_interface',
-	    remove   => 'remove_interface',
+
+            # No attributes 'transfer' and 'remove' needed.
+            # New interface from Netspoc will abort with
+            # "Interface from Netspoc not known on device".
+            # Additional interface from device will be silently ignored.
 	},
 	CRYPTO_MAP_LIST => {
 	    anchor => 1,
