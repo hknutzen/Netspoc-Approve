@@ -470,7 +470,7 @@ sub get_parse_info {
 	'crypto map _skip interface'      => { parse => \&skip, },
 
 	'crypto map' => {
-	    store => 'CRYPTO_MAP',
+	    store => 'CRYPTO_MAP_SEQ',
 	    named => 'from_parser',
 	    merge => 1,
 	    parse => ['seq',
@@ -1045,17 +1045,9 @@ sub postprocess_config {
     # We don't need "ACCESS_GROUP" anymore ...
     delete $p->{ACCESS_GROUP};
 
-    # Separate "crypto map name seq" vs. "crypto map name interface"
-    # "name seq" is stored with key "name seq".
-    my @no_crypto_seq = grep { $_ !~ / / } keys %{$p->{CRYPTO_MAP}};
-    my $seq = $p->{CRYPTO_MAP_SEQ} = delete $p->{CRYPTO_MAP};
-    my $map = $p->{CRYPTO_MAP} = {};
-    for my $key (@no_crypto_seq) {
-	$map->{$key} = delete $seq->{$key};
-    }
-
     # Add entries of CRYPTO_MAP_SEQ to attribute PEER of artificial
     # anchor CRYPTO_MAP_LIST.
+    my $seq = $p->{CRYPTO_MAP_SEQ};
     my $lists = $p->{CRYPTO_MAP_LIST} = {};
     my %peers;
     for my $name (sort keys %$seq) {
