@@ -22,6 +22,26 @@ my $device_type = 'ASA';
 my $title;
 
 ############################################################
+$title = "Interface with and without IP address";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/0
+ nameif inside
+ ip address 10.1.1.0 255.255.255.0
+END
+
+$in = <<'END';
+interface Ethernet0/0
+ nameif inside
+END
+
+$out = <<END;
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Parse routing and ACL with object-groups";
 ############################################################
 $in = <<END;
@@ -467,6 +487,22 @@ clear configure group-policy DfltGrpPolicy
 END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Duplicate ca certificate map";
+############################################################
+$device = $minimal_device . <<'END';
+crypto ca certificate map map1 10
+ subject-name attr ea co @sub.example.com
+crypto ca certificate map map2 10
+ subject-name attr ea co @sub.example.com
+END
+
+$out = <<'END';
+ERROR>>> Two ca cert map items use identical subject-name: 'map1', 'map2'
+END
+
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
 
 ############################################################
 $title = "Parse tunnel-group, group-policy, ca cert map, pool";
