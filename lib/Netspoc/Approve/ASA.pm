@@ -1170,7 +1170,7 @@ sub parse_version {
     if($output =~ /Version +(\d+\.\d+)/i) {
 	$self->{VERSION} = $1;
     }
-    if($output =~ /Hardware:\s+(\S+),/i) {
+    if($output =~ /Hardware:\s+(\S+?),?/i) {
 	$self->{HARDWARE} = $1;
     }
 }
