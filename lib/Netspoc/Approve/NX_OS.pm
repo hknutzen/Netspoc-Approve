@@ -320,13 +320,8 @@ my %known_status =
          qr/^\[.*\] +\d+%$/, qr/^Copy complete/ ],
      );
 
-my %known_warning =
-(
- );
-
 # Check unexpected lines:
 # - known status messages
-# - known warning messages
 # - unknown messages, handled as error messages.
 sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
@@ -339,12 +334,6 @@ sub cmd_check_error {
 
 	for my $pattern (@{ $known_status{$cmd} }) {
 	    if(ref($pattern) ? $line =~ $pattern : $line eq $pattern) {
-		next LINE;
-	    }
-	}
-	for my $regex (@{ $known_warning{$cmd} }) {
-	    if($line =~ $regex) {
-                warn_info($line);
 		next LINE;
 	    }
 	}
@@ -458,4 +447,3 @@ sub transfer {
 
 # Packages must return a true value;
 1;
-
