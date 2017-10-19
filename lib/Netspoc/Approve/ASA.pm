@@ -1129,10 +1129,6 @@ my @known_status =
 
 my @known_warning =
     (
-     # overlapping statics from netspoc
-     qr/overlapped\/redundant/,
-     # overlapping statics with global from netspoc
-     qr/static overlaps/,
      # route warnings
      qr/Route already exists/,
      # object-group warnings
