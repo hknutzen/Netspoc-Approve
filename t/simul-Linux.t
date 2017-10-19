@@ -146,7 +146,7 @@ $out = <<'END';
 ERROR>>> TIMEOUT
 END
 
-simul_err($title, 'IOS', $scenario, $in, $out);
+simul_err($title, 'Linux', $scenario, $in, $out);
 
 ############################################################
 done_testing;
