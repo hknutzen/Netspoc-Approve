@@ -424,14 +424,12 @@ sub vrf_route_mode {
 
 sub route_add {
     my($self, $entry, $vrf) = @_;
-    my $indent = $vrf ? ' ' : '';
-    return("$indent$entry->{orig}");
+    return($entry->{orig});
 }
 
 sub route_del {
     my($self, $entry, $vrf) = @_;
-    my $indent = $vrf ? ' ' : '';
-    return("${indent}no $entry->{orig}");
+    return("no $entry->{orig}");
 }
 
 sub write_mem {

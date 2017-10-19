@@ -178,7 +178,7 @@ END
 
 $out = <<END;
 vrf context 013
- ip route 10.40.0.0/16 10.1.2.4
+ip route 10.40.0.0/16 10.1.2.4
 END
 
 eq_or_diff(approve('NX-OS', $device, $in), $out, $title);

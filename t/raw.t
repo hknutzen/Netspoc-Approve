@@ -81,9 +81,9 @@ $out = <<END;
 ip route 10.22.0.0/16 10.1.2.4
 ip route 10.22.0.0/16 10.1.2.4
 vrf context one
- ip route 10.20.0.0/19 10.1.2.3
+ip route 10.20.0.0/19 10.1.2.3
 vrf context two
- ip route 10.0.0.0/8 10.1.2.2
+ip route 10.0.0.0/8 10.1.2.2
 END
 
 eq_or_diff( approve('NX-OS', '', $spoc, $raw ), $out, $title );
