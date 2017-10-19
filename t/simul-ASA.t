@@ -3,6 +3,7 @@
 use strict;
 use Test::More;
 use Test::Differences;
+
 use lib 't';
 use Test_Approve;
 
@@ -20,14 +21,14 @@ Type help or '?' for a list of available commands.
 router>
 # sh pager
 pager lines 24
-# terminal pager 0
+
 # sh term
 
 Width = 80, no monitor
 terminal interactive
 # sh ver
-Cisco Adaptive Security Appliance Software Version 9.4(4)5 <context>
-Hardware:   ASA5585-SSP-40
+Cisco Adaptive Security Appliance Software Version 9.4(4)5
+Hardware:   ASA5550, 4096 MB RAM, CPU Pentium 4 3000 MHz
 Configuration last modified by netspoc at 10:40:44.291 CEDT Thu Oct 19 2017
 # show hostname
 router
@@ -47,6 +48,7 @@ router>enable
 router#
 router#sh pager
 pager lines 24
+
 router#terminal pager 0
 router#sh term
 
@@ -56,8 +58,8 @@ router#configure terminal
 router#terminal width 511
 router#end
 router#sh ver
-Cisco Adaptive Security Appliance Software Version 9.4(4)5 <context>
-Hardware:   ASA5585-SSP-40
+Cisco Adaptive Security Appliance Software Version 9.4(4)5
+Hardware:   ASA5550, 4096 MB RAM, CPU Pentium 4 3000 MHz
 Configuration last modified by netspoc at 10:40:44.291 CEDT Thu Oct 19 2017
 router#show hostname
 router
