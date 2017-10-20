@@ -98,31 +98,6 @@ sub con_wait {
     return $result;
 }
 
-# We might accidently have read multiple prompt strings.
-# This occurs, if reload banner is sent or multiple commands are sent in
-# one packet.
-# Check for this case and put extra data after first prompt back into
-# accumulator of expect.
-sub con_wait_prompt1 {
-    my ($con, $prompt) = @_;
-
-    $con->con_wait($prompt);
-
-    # Prompt was found.
-    # Check for multiple prompts, find first one.
-    my $result = $con->{RESULT};
-    my $exp = $con->{EXPECT};
-    if ($result->{BEFORE} =~ /^(.*?)($prompt)(.*)$/) {
-	debug("Found multiple prompts");
-#	debug("Before: $1");
-	$result->{BEFORE} = $1;
-	my $accum = $3 . $result->{MATCH} . $exp->clear_accum();
-	$exp->set_accum($accum);
-	debug("Put back: $accum");
-	$result->{MATCH} = $2;
-    }
-}
-
 sub con_short_wait {
     my ($con, $prompt) = @_;
     my $timeout = $con->{LOGIN_TIMEOUT};
@@ -135,11 +110,9 @@ sub con_send_cmd {
 }
 
 sub con_issue_cmd {
-    my ($con, $cmd, $prompt, $check_prompt1) = @_;
+    my ($con, $cmd, $prompt) = @_;
     $con->con_send_cmd("$cmd\n");
-    $check_prompt1
-	? $con->con_wait_prompt1($prompt)
-	: $con->con_wait( $prompt );
+    $con->con_wait($prompt);
 }
 
 # Possible values of $error are undef, indi-

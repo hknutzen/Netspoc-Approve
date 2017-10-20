@@ -72,7 +72,7 @@ END
 simul_run($title, 'ASA', $scenario, $in, $out);
 
 ############################################################
-$title = "Login, set terminal, empty config";
+$title = "Change routing, move ACL with two commands in one line";
 ############################################################
 $scenario = <<'END';
 managed by NetSPoC
@@ -91,6 +91,11 @@ Hardware:   ASA5585-SSP-40
 router
 # write term
 route inside 0.0.0.0 0.0.0.0 10.1.2.3
+access-list inside extended permit ip host 1.1.1.1 any
+access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended permit ip host 3.3.3.3 any
+access-list inside extended permit ip host 4.4.4.4 any
+access-group inside in interface inside
 # write memory
 Building configuration...
 Cryptochecksum: abcdef01 44444444 12345678 98765432
@@ -101,12 +106,27 @@ END
 
 $in = <<'END';
 route inside 0.0.0.0 0.0.0.0 10.1.2.4
+access-list inside extended permit ip host 1.1.1.1 any
+access-list inside extended permit ip host 4.4.4.4 any
+access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended permit ip host 3.3.3.3 any
+access-group inside in interface inside
 END
 
+# Two commands to change route and access-list
+# are send in one packet.
+# This results in two prompts received in one packet.
+# Expect library is expected to stop on first prompt
+# (see Bug #100342 for Expect). Otherwise this test should fail.
 $out = <<'END';
 --router.config
 write term
 route inside 0.0.0.0 0.0.0.0 10.1.2.3
+access-list inside extended permit ip host 1.1.1.1 any
+access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended permit ip host 3.3.3.3 any
+access-list inside extended permit ip host 4.4.4.4 any
+access-group inside in interface inside
 router#
 --router.change
 configure terminal
@@ -114,6 +134,8 @@ router#no route inside 0.0.0.0 0.0.0.0 10.1.2.3
 router#route inside 0.0.0.0 0.0.0.0 10.1.2.4
 router#end
 router#configure terminal
+router#no access-list inside line 4 extended permit ip host 4.4.4.4 any
+router#access-list inside line 2 extended permit ip host 4.4.4.4 any
 router#end
 router#write memory
 Building configuration...
