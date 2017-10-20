@@ -226,7 +226,7 @@ sub parse_address {
     }
     elsif (check_regex('host', $arg)) {
         $ip   = get_ip($arg);
-        $mask = 0xffffffff;
+        $mask = pack('N', 0xffffffff);
     }
     else {
         ($ip, $mask) = get_ip_prefix($arg);

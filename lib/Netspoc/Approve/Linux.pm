@@ -391,8 +391,16 @@ sub normalize {
     }
 }
 
+##############################################################################
+# Purpose    : Adds acls from another config hash to the netspoc ipv4 config
+#              hash. Unless $mode equals 'prepend', new acls are added at
+#              the beginning of acl array.
+# Parameters : $self - current job
+#              $spoc - ipv4 netspoc config in $result - hash format.
+#              $raw_conf - raw or ipv6 config in $result - hash format.
+#              $mode - 'append', 'prepend', 'ipv6', indicates operational mode.
 sub merge_acls {
-    my ($self, $spoc_conf, $raw_conf, $append) = @_;
+    my ($self, $spoc_conf, $raw_conf, $mode) = @_;
     my $spoc_tables = $spoc_conf->{IPTABLES};
     my $raw_tables = $raw_conf->{IPTABLES};
     for my $table_name (keys %$raw_tables) {
@@ -422,7 +430,7 @@ sub merge_acls {
             my $msg;
             my $spoc_entries = $spoc_chain->{RULES} ||= [];
             my $raw_entries = $raw_chain->{RULES};
-            if ($append) {
+            if ($mode eq 'append') {
                 $msg = 'Appending';
 
                 # Find last non deny line.

@@ -119,7 +119,6 @@ my $job = $class->new(
     IP     => shift(@ip),
 );
 
-
 # Handle file compare first, which can be run
 # - without device's IP and password
 # - without calling Load_Config (so we can use compare_files for testing).
@@ -129,7 +128,6 @@ if ($file2) {
 }
 
 $job->{USER} = delete $opts{u} || getpwuid($>);
-$job->{IP} or abort("Can't get IP from $spoc_file");
 $job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 
 # Enable logging if configured.

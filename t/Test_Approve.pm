@@ -26,21 +26,34 @@ sub write_file {
 }
 
 sub prepare_spoc {
-    my ($type, $device_name, $spoc, $raw) = @_;
+    my ($type, $device_name, $spoc4, $spoc6, $raw4, $raw6, $hdr4, $hdr6) = @_;
 
     # Header for Netspoc input
     my $comment = $type eq 'Linux' ? '#' : '!';
-    my $header = <<"END";
+    ($hdr4 and $hdr6) or my $header = <<"END";
 $comment [ BEGIN router:$device_name ]
 $comment [ Model = $type ]
 $comment [ IP = 10.1.13.33 ]
 
 END
-    $spoc = $header . $spoc;
-    my $spoc_file = "$code_dir/$device_name";
-    write_file($spoc_file, $spoc);
-    write_file("$spoc_file.raw", $raw) if $raw;
-    return $spoc_file;
+
+    my @filename = ("$code_dir/$device_name", "$code_dir/ipv6/$device_name");
+    my @file = ($spoc4, $spoc6);
+    my @raw = ($raw4, $raw6);
+    my @header = ($hdr4, $hdr6);
+
+    -e "$code_dir/ipv6/" or `mkdir "$code_dir/ipv6/"`;
+    for (my $i=0; $i <= 1; $i++) {
+        defined $file[$i] and $file[$i] =
+            ($header? $header : $header[$i]) . $file[$i];
+        $file[$i] and write_file($filename[$i], $file[$i]);
+        not $file[$i] and -e $filename[$i] and `rm $filename[$i]`;
+        $raw[$i] and write_file("$filename[$i].raw", $raw[$i]);
+        not $raw[$i] and -e "$filename[$i].raw" and `rm $filename[$i].raw`;
+    }
+    (defined $spoc6 or defined $raw6) or `rmdir "$code_dir/ipv6/"`;
+
+    return "$code_dir/$device_name";
 }
 
 sub run {
@@ -99,9 +112,10 @@ END
 }
 
 sub compare_files {
-    my($type, $conf, $spoc, $raw) = @_;
+    my($type, $conf, $spoc4, $spoc6, $raw4, $raw6, $hdr4, $hdr6) = @_;
 
-    my $spoc_file = prepare_spoc($type, 'test', $spoc, $raw);
+    my $spoc_file = prepare_spoc($type, 'test', $spoc4, $spoc6,
+                                 $raw4, $raw6, $hdr4, $hdr6);
 
     # Prepare device file.
     my $conf_file = "$dir/conf";
@@ -130,8 +144,9 @@ sub filter_compare_output {
 }
 
 sub approve {
-    my($type, $conf, $spoc, $raw) = @_;
-    my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc, $raw);
+    my($type, $conf, $spoc4, $spoc6, $raw4, $raw6, $hdr4, $hdr6) = @_;
+    my ($status, $stdout, $stderr) =
+        compare_files($type, $conf, $spoc4, $spoc6, $raw4, $raw6, $hdr4, $hdr6);
 
     # 0: Success, 1: compare found diffs
     if ($status != 0 && $status != 1) {
@@ -143,8 +158,10 @@ sub approve {
 }
 
 sub approve_err {
-    my($type, $conf, $spoc, $raw) = @_;
-    my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc, $raw);
+    my($type, $conf, $spoc_v4, $spoc_v6, $raw4, $raw6, $hdr4, $hdr6) = @_;
+    my ($status, $stdout, $stderr) =
+        compare_files($type, $conf, $spoc_v4, $spoc_v6, $raw4, $raw6,
+                      $hdr4, $hdr6);
     return($stderr);
 }
 
