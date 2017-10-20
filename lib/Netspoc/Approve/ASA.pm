@@ -145,7 +145,11 @@ my %attr_need_remove = (
                         TRANSFORM_SET_IKEV1   => 1,
                         );
 
-
+#########################################################################
+# Purpose    : Specifies parsing directions for any ASA command known
+#              by netspoc within a hash.
+# Parameters : $self - current job
+# Returns    : Hash with parsing directions.
 sub get_parse_info {
     my ($self) = @_;
     my $null = {
@@ -174,6 +178,23 @@ sub get_parse_info {
                       { parse => \&check_int } ],
         },
 
+# ipv6 route if_name ipv6-prefix/prefix-length ipv6-address
+# [administrative-distance|tunneled]
+# Administrative-distance equals metric in IPv4 routing, handle it as in IPv4.
+# Tunneled is not provided for in IPv4, and likewise in IPv6.
+# IPv6 routing is stored under a different key to achieve seperated
+# IPv4 and IPv6 routing entries on device.
+        'ipv6 route' => {
+	    store => 'ROUTING6',
+	    multi => 1,
+	    parse => ['seq',
+		      { store => 'IF', parse => \&get_token },
+                      { parse => \&get_ip_prefix,
+                                 store_multi => ['BASE', 'MASK'] },
+		      { store => 'NEXTHOP', parse => \&get_ip },
+                      { parse => \&check_int } ],
+	},
+
         interface => {
             store => 'HWIF',
             named => 1,
@@ -196,9 +217,17 @@ sub get_parse_info {
                                ['cond1',
                                 { parse => qr/standby/ },
                                 { store => 'STANDBY', parse => \&get_ip } ]]] },
-                'management-only' => {
-                    store => 'MANAGEMENT_ONLY', default => 1 },
-            }
+                'ipv6 address' => {
+                    store => 'ADDRESS',
+		    parse =>  ['seq',
+                               { parse => \&get_ip_prefix,
+                                 store_multi => ['BASE', 'MASK'] },
+                               ['cond1',
+                                { parse => qr/standby/ },
+                                { store => 'STANDBY', parse => \&get_ip }]]},
+		'management-only' => {
+		    store => 'MANAGEMENT_ONLY', default => 1 },
+	    }
         },
 
         'no sysopt connection permit-vpn' => {
@@ -864,6 +893,12 @@ sub get_tunnel_group_define {
     }
 }
 
+##############################################################################
+# Purpose    : Make necessary adjustments in result hash config representation.
+# Parameters : $self - current job
+#              $p - Result hash containing all commands from config sorted
+#                   by type ('store' attribute from parsing information).
+# Result     : Adjusted result hash.
 sub postprocess_config {
     my ( $self, $p ) = @_;
 
@@ -1005,6 +1040,7 @@ sub postprocess_config {
 
     # ASA has only default VRF.
     $p->{ROUTING_VRF}->{''} = delete $p->{ROUTING} if $p->{ROUTING};
+    $p->{ROUTING6_VRF}->{''} = delete $p->{ROUTING6} if $p->{ROUTING6};
 
     # For each access list, change array of access list entries to
     # hash element with attribute 'LIST'.
@@ -1197,6 +1233,13 @@ sub get_config_from_device {
     $self->get_cmd_output('write term');
 }
 
+#########################################################################
+# Purpose    : Generate new names for objects referenced within $spoc hash
+#            : for Transfer. New names are:  <spoc-name>-DRC-<index>.
+# Parameters : $conf - device config in result hash format.
+#            : $spoc - netspoc generated config in result hash format.
+#            : $structure - structure definition hash from define_structure().
+# Result     : New names are stored within netspoc config hash.
 sub generate_names_for_transfer {
     my ( $conf, $spoc, $structure ) = @_;
 
@@ -1924,6 +1967,15 @@ sub remove_spare_objects_on_device {
     }
 }
 
+##############################################################################
+# Purpose    : Recursively mark connected objects.
+# Parameters : $self - current job
+#            : $conf - netspoc or device configuration in result hash format.
+#            : $parse_name  - current key/object type from structure hash.
+#            : $object - hash representation of one specific object of
+#                $parse_name taken from $conf hash.
+#            : $structure - ASA specific structure hash.
+# Result     : 'connected' flag is set for connected objects.
 sub mark_connected {
     my ( $self, $conf, $parse_name, $object, $structure ) = @_;
 
@@ -1953,6 +2005,12 @@ sub mark_connected {
     }
 }
 
+#########################################################################
+# Purpose    : Identify unconnected objects.
+# Parameters : $self - current job
+#            : $conf - netspoc or device config in result hash format.
+#            : $structure - structure hash as given by define_structure.
+# Result     : Warnings about unconected objects within netspoc config.
 sub mark_connected_objects {
     my ( $self, $conf, $structure ) = @_;
 
@@ -2423,9 +2481,18 @@ sub write_mem {
     $self->cmd('write memory');
 }
 
+##############################################################################
+# Purpose    : Check which connected objects exists for given object in config.
+# Parameters : $parse_info - value of a certain key (= object type) from
+#                structure hash.
+#              $object - a specific object representation of that type from
+#                config hash.
+# Returns    : Array with name and type pairs of objects linked to $object.
 sub get_next_names {
     my ($parse_info, $object) = @_;
     my @result;
+
+    # Check whether there is another connection for given object type.
     for my $key (qw(next next_list)) {
         my $next = $parse_info->{$key} or next;
         for my $next_key ( @$next ) {
@@ -2467,6 +2534,14 @@ sub mark_as_unchanged {
     return if $parse_name eq 'CRYPTO_MAP_LIST';
     $self->SUPER::mark_as_unchanged($parse_name);
 }
+
+#########################################################################
+# Purpose    : Defines the structure hash. One purpose of this hash is to
+#              show how config objects are linked to each other. Links are
+#              stored within 'next' or 'next_list' entries, with parse_name
+#              holding the type of linked object and attr_name giving the key
+#              to find the name of the connected object.
+# Returns    : Structure hash.
 
 sub define_structure {
     my $self = shift;

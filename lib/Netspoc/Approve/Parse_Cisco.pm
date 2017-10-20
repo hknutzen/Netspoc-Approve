@@ -30,6 +30,8 @@ package Netspoc::Approve::Parse_Cisco;
 use strict;
 use warnings;
 use Netspoc::Approve::Helper;
+use NetAddr::IP::Util;
+use Regexp::IPv6 qw($IPv6_re);
 
 require Exporter;
 
@@ -39,10 +41,10 @@ our @ISA = qw(Exporter);
 our @EXPORT =
     qw(err_at_line
        get_token get_regex get_int get_ip get_eol unread
-       get_ip_pair get_ip_prefix
+       get_ip_pair get_ip_prefix get_ipv6_prefix
        check_token check_regex check_int check_loglevel check_ip
        get_sorted_encr_list get_token_list
-       skip get_to_eol
+       get_name_in_out get_paren_token skip get_to_eol
  );
 
 sub err_at_line {
@@ -59,6 +61,13 @@ sub err_at_line {
     abort( @msg, " at line $line, pos $pos:", ">>$arg->{orig}<<");
 }
 
+#########################################################################
+# Purpose    : Check whether there is another entry in $args-array. If so,
+#              return it and increment $arg->{pos} by one, so that next position
+#              will be read by next call.
+# Parameters : $arg - hash entry of a command within config-hash generated
+#              by sub analyze_conf_lines.
+# Returns    : Next entry of $arg->{$args} (contains an array: [ $cmd, @args ]).
 sub check_token {
     my($arg) = @_;
     my $args = $arg->{args};
@@ -138,7 +147,14 @@ sub check_loglevel {
 
 sub get_ip {
     my($arg) = @_;
-    my $ip = quad2int(get_token($arg));
+    my $ip_string = get_token($arg);
+    my $ip;
+    if ($ip_string =~ m/:/) {
+        $ip = NetAddr::IP::Util::ipv6_aton($ip_string);
+    }
+    else {
+        $ip = quad2bitstr($ip_string);
+    }
     defined $ip or err_at_line($arg, "Missing IP");
     return $ip;
 }
@@ -146,7 +162,7 @@ sub get_ip {
 sub check_ip {
     my($arg) = @_;
     my $token = check_token($arg) or return;
-    my $ip = quad2int($token);
+    my $ip = quad2bitstr($token);
     return $ip if defined $ip;
     unread($arg);
     return;
@@ -157,12 +173,12 @@ sub get_ip_pair {
     my($arg) = @_;
     my $pair = get_token($arg);
     my($from, $to) = split(/-/, $pair, 2);
-    my $ip1 = quad2int($from);
+    my $ip1 = quad2bitstr($from);
     defined $ip1 or err_at_line($arg, "Expected IP: $from");
     my $ip2 = $ip1;
     if($to) {
-        $ip2 = quad2int($to);
-        defined $ip2 or err_at_line($arg, "Expected IP: $to");
+	$ip2 = quad2bitstr($to);
+	defined $ip2 or err_at_line($arg, "Expected IP: $to");
     }
     return($ip1, $ip2);
 }
@@ -173,22 +189,58 @@ sub get_ip_prefix {
     my $pair = get_token($arg);
     my($base, $mask);
     if($pair eq 'default') {
-        $base = $mask = 0;
+	$base = $mask = pack('N', 0);
     }
     else {
-        my($addr, $prefix) = split(m'/', $pair, 2);
-        $base = quad2int($addr);
+        # Is IP/prefix pair.
+	my($addr, $prefix) = split(m'/', $pair, 2);
+        my @big_to_little_endian = (7,5,3,1,-1,-3,-5,-7);
+
+        $addr =~ /(:?$IPv6_re|::)/ and my $is_v6 = 1;
+        $base = $is_v6? NetAddr::IP::Util::ipv6_aton($addr)
+            :quad2bitstr($addr);
         defined $base or err_at_line($arg, "Expected IP: $addr");
+
         if(defined $prefix) {
-            ($prefix =~ /^\d+$/ && $prefix <= 32) or
+            ($prefix =~ /^\d+$/ && $prefix <= ($is_v6? 128 : 32)) or
                 err_at_line($arg, "Expected IP prefix: $prefix");
-            $mask = 2**32 - 2**(32 - $prefix);
+            $mask = $is_v6?NetAddr::IP::Util::ipv6_aton('0:0:0:0:0:0:0:0')
+                : pack('N', 0x00000000);
+            for (my $pos = 0; $pos < $prefix; $pos++) {
+                my $bitpos = $pos + $big_to_little_endian[$pos % 8];
+                vec($mask, $bitpos, 1) = 1;
+            }
         }
         else {
-            $mask = 0xffffffff;
+            $mask = $is_v6? NetAddr::IP::Util::ipv6_aton(
+                        'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
+                : pack('N', 0xffffffff);
         }
     }
     return($base, $mask);
+}
+
+# parse arguments like 'ip access-group <name> in'
+sub get_name_in_out {
+    my($arg) = @_;
+    my $name = get_token($arg);
+    my $direction = get_regex('in|out', $arg);
+    return { $direction => $name };
+}
+
+sub get_paren_token {
+    my($arg) = @_;
+    my $token = get_token($arg);
+    my($inside) = ($token =~ /^\((.*)\)$/) or
+	err_at_line($arg, 'Expected parenthesized value(s)');
+    if(wantarray) {
+	split(/,/, $inside);
+    }
+    else {
+	my($result, @rest) = split(/,/, $inside);
+	@rest and err_at_line($arg, 'Expected exactly one parenthesized value');
+	$result;
+    }
 }
 
 # Read list of auth. and encr. methods.

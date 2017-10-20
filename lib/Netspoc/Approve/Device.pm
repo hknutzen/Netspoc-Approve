@@ -133,21 +133,54 @@ sub get_user_password {
 sub get_spoc_data {
     my ($self, $spocfile) = @_;
     my $type;
+    my $seen = 0;
     my @ip;
-    open(my $file, '<', $spocfile) or abort("Can't open $spocfile: $!");
-    while (my $line = <$file>) {
-        if ($line =~ /\[ Model = (\S+) ]/) {
-            $type = $1;
+    my $fh;
+    my $dir = File::Basename::dirname($spocfile);
+    my $filename =  File::Basename::basename($spocfile);
+
+    for my $file ($spocfile, "$dir/ipv6/$filename") {
+
+        if (-e $file) {
+            open($fh, '<', $file) or abort("Can't open $file: $!");
+            while (my $line = <$fh>) {
+                if ($line =~ /\[ Model = (\S+) ]/) {
+                    if ($seen > 0) {
+                        $type ne $1 and
+                            abort ("Ambiguous model specification " .
+                                   "for device $filename: $type, $1.");
+                    }
+                    $type = $1;
+                }
+                if ($line =~ /\[ IP = (\S+) ]/) {
+                    @ip = split(/,/, $1);
+                    last;
+                }
+            }
+            close $fh;
+            $seen++;
         }
-        if ($line =~ /\[ IP = (\S+) ]/) {
-            @ip = split(/,/, $1);
-            last;
+        else  {
+            next;
         }
     }
-    close $file;
+
+    if (@ip == 0) {
+        my $msg = "Can not get IP from ";
+        $msg .= $seen > 1? $filename : "ipv6/$filename";
+        $msg .= " or ipv6/$filename" if $seen > 1;
+        $msg .= ".";
+        abort $msg;
+    }
+
     return($type, @ip);
 }
 
+#########################################################################
+# Purpose    : Reads every line of given config file into an array.
+# Parameters : $self - current job
+#            : $path - Path to config file.
+# Returns    : Array containing lines of config file
 sub load_spocfile {
     my ($self, $path) = @_;
     my @result;
@@ -162,7 +195,7 @@ sub load_spocfile {
 }
 
 sub load_raw {
-    my ($self, $path) = @_;
+    my ($self, $path, $dual_stack) = @_;
     my $raw = "$path.raw";
     my @prepend;
     if (-f $raw) {
@@ -171,12 +204,24 @@ sub load_raw {
         close $file;
     }
 
-    # Find [APPEND] line.
+    # Find [APPEND] line. Check for proper any usage.
     my $index;
     for (my $i = 0; $i < @prepend; $i++) {
+
+        if ($dual_stack){
+            # Ignore comment lines.
+            my $file = $path =~ /\/ipv6\//?
+                "ipv6/" . basename($path) : basename($path);
+            next if $self->isa('Linux')?
+                $prepend[$i] =~ /^\s*#/ : $prepend[$i] =~ /^ *!/;
+            $prepend[$i] =~ /\s+any\s+/ and
+                abort("Usage of bare any in " . $file . ".raw line " .
+                      ($i+1) . " is not allowed for dual stack device.");
+        }
+
         if ($prepend[$i] =~ /^\[APPEND\]\s*$/) {
             $index = $i;
-            last;
+            $dual_stack or last;
         }
     }
 
@@ -201,15 +246,67 @@ sub load_raw {
     return \@prepend, \@append;
 }
 
+#########################################################################
+# Purpose    : Loads a netspoc config file (IPv4 or IPv6) and the associated
+#              raw file of a device into config hashes. Merges raw hash
+#              into config hash.
+# Parameters : $self - current job
+#              $path - $path of netspoc config file.
+# Returns    : Config hash including .raw input.
+sub prepare_config {
+    my ($self, $path, $dual_stack) = @_;
+
+    my $lines;
+    $lines = $self->load_spocfile($path) if -f $path;
+    $lines and my $conf = $self->parse_config($lines);
+
+    # Merge rawdata into config
+    my ($prepend, $append, $raw_prepend, $raw_append);
+    if (-f "$path.raw") {
+        ($prepend, $append) = $self->load_raw($path, $dual_stack);
+        $raw_prepend  = $self->parse_config($prepend, 'strict');
+        $raw_append   = $self->parse_config($append, 'strict');
+    }
+
+    if ($raw_prepend or $raw_append) {
+        $conf or $conf = {};
+        $self->merge($conf, $raw_prepend, $raw_append);
+    }
+
+    return $conf;
+}
+
+#########################################################################
+# Purpose    : Loads and parses all netspoc input files for a device (<file>,
+#              <file>.raw, <file>.ipv6, <file>.ipv6.raw, into a common
+#              config hash. Structure of config hash is given by device
+#              specific parse_info subroutine.
+# Parameters : $self - current job
+#              $path - $path of netspoc ipv4 config file.
+# Returns    : Combined ipv4/ipv6 config hash from all input files.
 sub load_spoc {
     my ($self, $path) = @_;
-    my $lines     = $self->load_spocfile($path);
-    my $conf      = $self->parse_config($lines);
-    my ($prepend, $append) = $self->load_raw($path);
-    my $raw_prepend  = $self->parse_config($prepend, 'strict');
-    my $raw_append   = $self->parse_config($append, 'strict');
-    $self->merge_rawdata($conf, $raw_prepend, $raw_append);
-    return($conf);
+
+    my $dir = File::Basename::dirname($path);
+    my $filename =  File::Basename::basename($path);
+    my $path6 = "$dir/ipv6/$filename";
+
+    # Identify Dual Stack Devices. Use of 'any' is forbidden in raw file then.
+    (-e $path or -e "$path.raw") and (-e $path6 or -e "$path6.raw")
+        and my $dual_stack = 1;
+
+    my $conf = $self->prepare_config($path, $dual_stack);
+    my $conf6 = $self->prepare_config("$path6", $dual_stack);
+
+    # Check whether both IPv4 and IPv6 config exist. Merge if so.
+    if ($conf and $conf6) {
+        $self->merge($conf, $conf6, undef, 'ipv6');
+        return($conf);
+    }
+    else {
+        $conf and return $conf;
+        $conf6 and return $conf6;
+    }
 }
 
 sub load_device {
@@ -221,21 +318,25 @@ sub load_device {
     return($conf);
 }
 
-# A command line consists of two parts: command and argument.
-# A command is either a single word or a multi word command.
-# A multi word command is put together from some words at fixed positions
-# of the word list.
-# Examples:
-# - ip access-group NAME in
-#   coded as "ip access-group _skip in", takes first two words and 4th word.
-# - tunnel-group NAME type TYPE
-#   coded as "tunnel-group _skip type"
-# - isakmp ikev1-user-authentication|keepalive
-#   coded as "isakmp _any", takes two words, but second is unspecified.
-#   such a wildcard command may be referenced by "_cmd".
-# This function identifies
-# - all words, which are prefix of some command.
-# Known commands are read from the hash keys of $parse_info.
+#########################################################################
+# Purpose    : Generate a dictionary tree structure for config commands.
+#              E.g. commands: foo, bar, foo bar, foo bar baz, dict:
+#              foo=>{
+#                 bar => {
+#                   baz =>{}
+#                 }
+#              },
+#              bar =>{}
+# Parameters : $self - current job
+#            : $parse_info - device specific parsing information hash.
+#                 Holds command strings as hash keys, with '_skip' or '_any'
+#                 replacing variable values ( = the commands arguments).
+# Result     : Command dictionary is stored within $parse_info->{_prefix},
+#              subcommand dictionarys are stored within the 'subcmd' entry
+#              of a command. ($parse_info->{<command>}->{subcmd}->{_prefix})
+# Comments   : isakmp ikev1-user-authentication|keepalive coded as
+#              "isakmp _any", takes two words, but second is unspecified.
+#              such a wildcard command may be referenced by "_cmd".
 sub add_prefix_info {
     my ($self, $parse_info) = @_;
     my $result = {};
@@ -247,9 +348,11 @@ sub add_prefix_info {
             $hash->{$word} ||= {};
             $hash = $hash->{$word};
         }
-        if(my $subcmd = $parse_info->{$key}->{subcmd}) {
-            $self->add_prefix_info($subcmd);
-        }
+
+        # Add dict for subcommands within 'subcmd' entry of every command.
+	if(my $subcmd = $parse_info->{$key}->{subcmd}) {
+	    $self->add_prefix_info($subcmd);
+	}
     }
     $parse_info->{_prefix} = $result if keys %$result;
 }
@@ -314,25 +417,38 @@ sub parse_seq {
     return $success;
 }
 
+#########################################################################
+# Purpose    : Parse command within args following parsing directions from
+#              $info.
+# Parameters : $self - current job
+#              $arg - command hash from config-array.
+#              $info - parser value from parse_info hash.
+#              @params - Command parameters as defined in parse_info hash.
+# Returns    : Parsed command, might be in hash format, if it consists of
+#              more than one argument.
 sub parse_line {
     my($self, $arg, $info, @params) = @_;
     my $ref = ref $info;
     if(not $ref) {
 
-        # A method name.
-        return($self->$info($arg, @params));
+	# A method name. Execute method with $arg and @params as arguments.
+	return($self->$info($arg, @params));
     }
     elsif($ref eq 'Regexp') {
-        return(check_regex($info, $arg));
+
+        # Return token (next position in $arg->{$args}), if it matches.
+	return(check_regex($info, $arg));
     }
     elsif($ref eq 'CODE') {
         return($info->($arg, @params));
     }
     elsif($ref eq 'ARRAY') {
-        my $result = {};
-        parse_seq($self, $arg, $info, $result);
-        not keys %$result and $result = undef;
-        return($result);
+
+        # E.g. ['seq',...], ['or',...], ['cond1',...]
+	my $result = {};
+	parse_seq($self, $arg, $info, $result);
+	not keys %$result and $result = undef;
+	return($result);
     }
     else {
         # uncoverable statement
@@ -340,8 +456,20 @@ sub parse_line {
     }
 }
 
-# $config are prepared config lines.
-# $parse_info describes grammar.
+#########################################################################
+# Purpose    : Sort and store commands found in $config according to their
+#              type within a hash $result. It has a key for every commandtype
+#              found in config, named after the 'store' attribute of the
+#              command as specified within parsing information. As value,
+#              a hash is stored. It contains the name of every single command
+#              of the type as keys and the commands in hash form as specified
+#              by parsing information as values.
+# Parameters : $self - current job
+#            : $config - Array representing the config. Contains one hash
+#              for every top level command from config as entries. A commands
+#              parsing info is stored within its hash as cmd_info. Subcommands
+#              are stored within toplevel command hashes.
+# Returns    : $result hash containing commands found in $config sorted by type.
 sub parse_config1 {
     my($self, $config) = @_;
     my $result = {};
@@ -354,69 +482,76 @@ sub parse_config1 {
         if (!$cmd_info->{leave_cmd_as_arg}) {
             $cmd = get_token($arg);
         }
-        my $named = $cmd_info->{named};
-        my $name;
-        if($named and $named ne 'from_parser') {
-            $name = get_token($arg);
-        }
-        my $parser = $cmd_info->{parse};
+	my $named = $cmd_info->{named};
+	my $name;
+
+        # Name is part of command (indicated by _skip in parse info hash).
+	if($named and $named ne 'from_parser') {
+	    $name = get_token($arg);
+	}
+
+	my $parser = $cmd_info->{parse};
         my @params = map({ $_ eq '_cmd' ? $cmd : $_ }
                          $cmd_info->{params} ? @{ $cmd_info->{params} } : ());
-        my $value;
-        $value = parse_line($self, $arg, $parser, @params) if $parser;
-        get_eol($arg);
-        if(my $subcmds = $arg->{subcmd}) {
-            my $parse_info = $cmd_info->{subcmd} or
-                err_at_line($arg, 'Unexpected subcommand');
-            my $value2 = parse_config1($self, $subcmds, $parse_info);
-            if(keys %$value2) {
-                if(defined $value) {
-                    $value = { %$value, %$value2 };
-                }
-                else {
-                    $value = $value2;
-                }
-            }
-        }
-        if(not defined $value) {
-            $value = $cmd_info->{default};
-        }
-        if(not defined $value) {
-            next;
-        }
-        if($named and $named eq 'from_parser') {
-            $name = $value->{name} or err_at_line($arg, 'Missing name');
-        }
-        if(ref($value) eq 'HASH') {
-            $named and $value->{name} = $name;
-            $value->{orig} = $arg->{orig};
-            $value->{line} = $arg->{line};
-        }
-        my $store = $cmd_info->{store};
-        my @extra_keys = ref $store ? @$store : $store;
-        my $key;
-        if($named) {
-            $key = $name;
-        }
-        else {
-            $key = pop @extra_keys;
-            $key = $cmd if $key eq '_cmd';
-        }
-        my $dest = $result;
-        for my $x (@extra_keys) {
-            $x = $cmd if $x eq '_cmd';
-            $dest->{$x} ||= {};
-            $dest = $dest->{$x};
-        }
-        if($cmd_info->{multi}) {
-            push(@{ $dest->{$key} }, $value);
-        }
-        else {
-            if(my $old = $dest->{$key}) {
-                if($cmd_info->{merge}) {
-                    for my $key (keys %$value) {
-                        next if $key =~ /(?:name|line|orig)/;
-                        if(defined $old->{$key}) {
+
+        # Read Command into $value according to parsing information.
+	my $value;
+	$value = parse_line($self, $arg, $parser, @params) if $parser;
+	get_eol($arg);
+	if(my $subcmds = $arg->{subcmd}) {
+	    my $parse_info = $cmd_info->{subcmd} or
+		err_at_line($arg, 'Unexpected subcommand');
+	    my $value2 = parse_config1($self, $subcmds, $parse_info);
+	    if(keys %$value2) {
+		if(defined $value) {
+		    $value = { %$value, %$value2 };
+		}
+		else {
+		    $value = $value2;
+		}
+	    }
+	}
+	if(not defined $value) {
+	    $value = $cmd_info->{default};
+	}
+	if(not defined $value) {
+	    next;
+	}
+	if($named and $named eq 'from_parser') {
+	    $name = $value->{name} or err_at_line($arg, 'Missing name');
+	}
+	if(ref($value) eq 'HASH') {
+	    $named and $value->{name} = $name;
+	    $value->{orig} = $arg->{orig};
+	    $value->{line} = $arg->{line};
+	}
+
+        # Store $value within $result hash at key given by parse info ('store').
+	my $store = $cmd_info->{store};
+	my @extra_keys = ref $store ? @$store : $store;
+	my $key;
+	if($named) {
+	    $key = $name;
+	}
+	else {
+	    $key = pop @extra_keys;
+	    $key = $cmd if $key eq '_cmd';
+	}
+	my $dest = $result;
+	for my $x (@extra_keys) {
+	    $x = $cmd if $x eq '_cmd';
+	    $dest->{$x} ||= {};
+	    $dest = $dest->{$x};
+	}
+	if($cmd_info->{multi}) {
+	    push(@{ $dest->{$key} }, $value);
+	}
+	else {
+	    if(my $old = $dest->{$key}) {
+		if($cmd_info->{merge}) {
+		    for my $key (keys %$value) {
+			next if $key =~ /(?:name|line|orig)/;
+			if(defined $old->{$key}) {
                             $old->{$key} eq $value->{$key} or
                                 err_at_line($arg,
                                             "Duplicate '$key' while merging");
@@ -439,9 +574,19 @@ sub parse_config1 {
     return($result);
 }
 
+#########################################################################
+# Purpose    : Parses config lines and stores them within $result hash.
+#              It contains config command info sorted by command type/category
+#              as indicated by 'store' attribute of devices parse_info.
+#              Every single command is represented as hash, with key/value
+#              pairs as given by 'parse' directions of parse_info.
+#              Caution: Hash structure is modified by postprocess_config.
+# Parameters : $self - current job
+#            : $lines - Array containing config file lines as entries.
+#            : $strict - flag, is set if lines contains a raw file.
+# Returns    : $result hash storing all config commands ordered by type.
 sub parse_config {
     my ($self, $lines, $strict) = @_;
-
     my $parse_info = $self->get_parse_info();
     my $config = $self->analyze_conf_lines($lines, $parse_info, $strict);
     my $result = $self->parse_config1($config);
@@ -449,30 +594,50 @@ sub parse_config {
     return $result;
 }
 
-sub merge_rawdata {
-    my ($self, $spoc_conf, $raw_prepend, $raw_append) = @_;
-    $self->merge_acls($spoc_conf, $raw_prepend);
-    $self->merge_acls($spoc_conf, $raw_append, 'append');
-    if (my @keys = grep { my $v = $raw_append->{$_};
+#########################################################################
+# Purpose    : Merge commands from raw file into appropriate config hash.
+# Parameters : $self - current job
+#            : $spoc_conf - netspoc config hash.
+#            : $prepend - prepend part of rawfile or ipv6 config in hash format.
+#            : $append - append part of rawfile in hash format.
+#            : $dual_stack - flag indicating merge of ipv4 and ipv6 configs.
+# Result     : Single config hash containing both config and raw rsp. ipv4
+#              and ipv6 commands.
+sub merge {
+    my ($self, $spoc_conf, $prepend, $append, $dual_stack) = @_;
+
+    if ($dual_stack) {
+        $self->merge_acls($spoc_conf, $prepend, 'dual_stack');
+    }
+    else {
+        $self->merge_acls($spoc_conf, $prepend, 'prepend');
+        $self->merge_acls($spoc_conf, $append, 'append');
+    }
+
+    if (my @keys = grep { my $v = $append->{$_};
                           ref $v eq 'HASH' && keys %$v || ref $v eq 'ARRAY' }
-        keys %$raw_append)
+        keys %$append)
     {
         my $keys = join(',', @keys);
         abort("Must only use ACLs in [APPEND] part, but found $keys");
     }
 
-    for my $key (keys %$raw_prepend) {
-        my $raw_v = $raw_prepend->{$key};
+    for my $key (%$prepend) {
+	my $raw_v = $prepend->{$key};
 
-        if ($key eq 'ROUTING_VRF') {
-            my $spoc_v = $spoc_conf->{$key} ||= {};
-            for my $vrf (sort keys %$raw_v) {
-                my $raw_routes = $raw_v->{$vrf};
+        if ($key eq 'ROUTING_VRF' or $key eq 'ROUTING6_VRF' ) {
+	    my $spoc_v = $spoc_conf->{$key} ||= {};
+	    for my $vrf (sort keys %$raw_v) {
+		my $raw_routes = $raw_v->{$vrf};
                 my $spoc_routes = $spoc_v->{$vrf} ||= [];
                 unshift(@$spoc_routes, @$raw_routes);
                 my $count = @$raw_routes;
                 my $for = $vrf ? " for VRF $vrf" : $vrf;
-                info("Prepended $count routes${for} from raw") if $count;
+                if ($count) {
+                    $dual_stack
+                        ? info("Merged $count routes${for} from IPv6 config")
+                        : info("Prepended $count routes${for} from raw");
+                }
             }
         }
 
@@ -495,7 +660,7 @@ sub merge_rawdata {
 
 sub route_line_a_eq_b {
     my ($self, $a, $b) = @_;
-    ($a->{BASE} == $b->{BASE} && $a->{MASK} == $b->{MASK})
+    ($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK})
       or return 0;
     for my $key (qw(VRF IF NIF NEXTHOP METRIC TRACK TAG PERMANENT)) {
         if (defined($a->{$key}) || defined($b->{$key})) {
@@ -510,7 +675,7 @@ sub route_line_a_eq_b {
 
 sub route_line_destination_a_eq_b {
     my ($self, $a, $b) = @_;
-    return($a->{BASE} == $b->{BASE} && $a->{MASK} == $b->{MASK});
+    return($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK});
 }
 
 # Unique union of all elements.
@@ -525,62 +690,91 @@ sub vrf_route_mode {
     my ($self, $vrf) = @_;
 }
 
-# Process routing separately for each VRF.
-# VRF is empty string for default VRF.
+#########################################################################
+# Purpose    : Collects commands required to alter device routing entries
+#              into netspoc generated routing configuration.
+#              Executes collected commands or prints them to STDOUT when
+#              in compare mode.
+# Parameters : $self - current job
+#              $conf - device config
+#              $spoc - netspoc generated config
+# Comments   : Collection and execution are performed seperately for each VRF.
+#              VRF is empty string for default VRF.
+#              ASAs have default VRF only.
 sub process_routing {
     my ($self, $conf, $spoc_conf) = @_;
 
-    my $spoc_vrf = $spoc_conf->{ROUTING_VRF};
-    my $conf_vrf = $conf->{ROUTING_VRF};
+    # Collect all possible VRFs.
+    my @vrfs = unique(keys %{$spoc_conf->{ROUTING_VRF}},
+                      keys %{$spoc_conf->{ROUTING6_VRF}},
+                      keys %{$conf->{ROUTING_VRF}},
+                      keys %{$conf->{ROUTING6_VRF}});
 
-    my @vrfs = unique(keys %$spoc_vrf, keys %$conf_vrf);
+    # Track whether routing changed for device for later info output.
+    $self->{CHANGE}->{ROUTING} = 0;
+
+    # Collect commands for every vrf
     for my $vrf (sort @vrfs) {
-        my $spoc_routing = $spoc_vrf->{$vrf};
-        my $conf_routing = $conf_vrf->{$vrf} ||= [];
-        if (not $spoc_routing) {
+
+        # Check, whether routing entries exist for vrf.
+        if (not $spoc_conf->{ROUTING_VRF}->{$vrf} and
+            not $spoc_conf->{ROUTING6_VRF}->{$vrf}) {
             my $for = $vrf ? " for VRF $vrf" : '';
             info("No routing specified$for - leaving routes untouched");
             next;
         }
 
-        $self->{CHANGE}->{ROUTING} = 0;
-        for my $c (@$conf_routing) {
-            for my $s (@$spoc_routing) {
-                if ($self->route_line_a_eq_b($c, $s)) {
-                    $c->{DELETE} = $s->{DELETE} = 1;
-                    last;
-                }
-            }
-        }
-
+        # Collect commands for current VRF.
         my @cmds;
+        for my $what (qw(ROUTING6_VRF ROUTING_VRF)) {
 
-        # Add routes with long mask first.
-        # If we switch the default route, this ensures, that we have the
-        # new routes available before deleting the old default route.
-        for my $r (sort {$b->{MASK} <=> $a->{MASK}} @{ $spoc_routing })
-        {
-            next if $r->{DELETE};
-            $self->{CHANGE}->{ROUTING} = 1;
-            my $cmd = $self->route_add($r, $vrf);
+            my $spoc_routing = $spoc_conf->{$what}->{$vrf};
+            my $conf_routing = $conf->{$what}->{$vrf} ||= [];
 
-            # ASA doesn't allow two routes to identical
-            # destination. Remove and add routes in one transaction.
+            # Same entriy in device and spoc config, no further action required.
             for my $c (@$conf_routing) {
-                next if $c->{DELETE};
-                if($self->route_line_destination_a_eq_b($r, $c)){
-                    $cmd = [ $self->route_del($c, $vrf), $cmd ];
-                    $c->{DELETE} = 1; # Must not delete again.
-                    last;
+                for my $s (@$spoc_routing) {
+                    if ($self->route_line_a_eq_b($c, $s)) {
+                        $c->{DELETE} = $s->{DELETE} = 1;
+                        last;
+                    }
                 }
             }
-            push(@cmds, $cmd);
+
+            # Add routes with long mask first.  If we switch the default
+            # route, this ensures, that we have the new routes available
+            # before deleting the old default route.
+            for my $r (sort {$b->{MASK} cmp $a->{MASK}} @{ $spoc_routing })
+            {
+                next if $r->{DELETE};
+                $self->{CHANGE}->{ROUTING} = 1;
+                my $cmd = $self->route_add($r, $vrf);
+
+                # ASA doesn't allow two routes to identical
+                # destination. Remove and add routes in one transaction.
+                for my $c (@$conf_routing) {
+                    next if $c->{DELETE};
+
+                    # delete other routes with same dst on device.
+                    if($self->route_line_destination_a_eq_b($r, $c)){
+                        $cmd = [ $self->route_del($c, $vrf), $cmd ];
+                        $c->{DELETE} = 1; # Must not delete again.
+                        last;
+                    }
+                }
+                push(@cmds, $cmd);
+            }
+
+
+            # Delete rules on device without equivalent in netspoc config.
+            for my $r (@$conf_routing) {
+                next if $r->{DELETE};
+                $self->{CHANGE}->{ROUTING} = 1;
+                push(@cmds, $self->route_del($r, $vrf));
+            }
         }
-        for my $r (@$conf_routing) {
-            next if $r->{DELETE};
-            $self->{CHANGE}->{ROUTING} = 1;
-            push(@cmds, $self->route_del($r, $vrf));
-        }
+
+        # Alter routing device configuration.
         if(@cmds) {
             info("Changing routing entries on device");
             $self->schedule_reload();
@@ -606,8 +800,10 @@ sub issue_cmd {
     return $con->con_issue_cmd($cmd, $self->{ENAPROMPT});
 }
 
-# Send command to device or
-# print to STDOUT if in compare mode.
+#########################################################################
+# Purpose    : Send command to device or print to STDOUT if in compare mode.
+# Parameters : $self - current job
+#            : $cmd - command to be executed
 sub cmd {
     my ($self, $cmd) = @_;
 
@@ -754,7 +950,7 @@ sub get_version {
     info("DINFO: $self->{HARDWARE} $self->{VERSION}");
 }
 
-# Move existing logfile
+# Renames an existing logfile.
 sub move_logfile {
     my ($logfile) = @_;
     if (-f $logfile) {
@@ -782,6 +978,12 @@ sub con_shutdown {
     delete $self->{CONSOLE};
 }
 
+##############################################################################
+# Purpose    : Enables logging if any interaction with generated console
+#              within given logfile.
+# Parameters : $self - current job
+#              $type - filename extension, specifies logged interaction
+#              ('login', 'change', 'config').
 sub con_set_logtype {
     my ($self, $type) = @_;
     my $logdir = $self->{OPTS}->{L} or return;

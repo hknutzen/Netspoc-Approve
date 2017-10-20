@@ -38,7 +38,7 @@ ip route 10.20.0.0 255.248.0.0 10.1.2.3
 ip route 10.0.0.0 255.0.0.0 10.1.2.2
 END
 
-eq_or_diff( approve('IOS', '', $spoc, $raw ), $out, $title );
+eq_or_diff( approve('IOS', '', $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Merge routing ASA";
@@ -60,7 +60,7 @@ route inside 10.20.0.0 255.248.0.0 10.1.2.3
 route inside 10.0.0.0 255.0.0.0 10.1.2.2
 END
 
-eq_or_diff( approve('ASA', '', $spoc, $raw ), $out, $title );
+eq_or_diff( approve('ASA', '', $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Merge routing NX-OS";
@@ -86,7 +86,7 @@ vrf context two
 ip route 10.0.0.0/8 10.1.2.2
 END
 
-eq_or_diff( approve('NX-OS', '', $spoc, $raw ), $out, $title );
+eq_or_diff( approve('NX-OS', '', $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Merge routing Linux";
@@ -108,7 +108,7 @@ ip route add 10.22.0.0/16 via 10.1.2.4
 ip route add 10.0.0.0/8 via 10.1.2.2
 END
 
-eq_or_diff( approve('Linux', '', $spoc, $raw ), $out, $title );
+eq_or_diff( approve('Linux', '', $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Different next hop";
@@ -126,7 +126,7 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.4
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 
-eq_or_diff( approve('IOS', '', $spoc, $raw ), $out, $title );
+eq_or_diff( approve('IOS', '', $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "No routing in [APPEND] part";
@@ -141,7 +141,7 @@ $out = <<END;
 ERROR>>> Must only use ACLs in [APPEND] part, but found ROUTING_VRF
 END
 
-eq_or_diff( approve_err('NX-OS', '', '', $raw ), $out, $title );
+eq_or_diff( approve_err('NX-OS', '', '', undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Merge IOS ACL";
@@ -181,7 +181,7 @@ interface Ethernet1
 ip access-group Ethernet1_in-DRC-0 in
 END
 
-eq_or_diff( approve('IOS', $device, $spoc, $raw ), $out, $title );
+eq_or_diff( approve('IOS', $device, $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Add IOS ACL";
@@ -218,7 +218,7 @@ interface Ethernet1
 ip access-group Ethernet1_out-DRC-0 out
 END
 
-eq_or_diff( approve('IOS', $device, $spoc, $raw ), $out, $title );
+eq_or_diff( approve('IOS', $device, $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Reference unknown interface";
@@ -246,7 +246,7 @@ $out = <<'END';
 WARNING>>> Interface Ethernet0 referenced in raw doesn't exist in Netspoc
 END
 
-eq_or_diff( approve_err('IOS', $device, $spoc, $raw ), $out, $title );
+eq_or_diff( approve_err('IOS', $device, $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Name clash with IOS ACL";
@@ -275,7 +275,7 @@ $out = <<END;
 ERROR>>> Name clash for 'Ethernet1_in' of ACCESS_LIST from raw
 END
 
-eq_or_diff( approve_err('IOS', $device, $spoc, $raw ), $out, $title );
+eq_or_diff( approve_err('IOS', $device, $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Unbound ACLs in raw";
@@ -333,7 +333,7 @@ $out = <<'END';
 ERROR>>> Name clash for 'g1' of OBJECT_GROUP from raw
 END
 
-eq_or_diff(approve_err('ASA', $device, $spoc, $raw), $out, $title);
+eq_or_diff(approve_err('ASA', $device, $spoc, undef, $raw), $out, $title);
 
 ############################################################
 $title = "Merge Linux chains";
@@ -380,7 +380,7 @@ COMMIT
 COMMIT
 END
 
-eq_or_diff( approve('Linux', '', $spoc, $raw ), $out, $title );
+eq_or_diff( approve('Linux', '', $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Must not reference Netspoc generated chain";
@@ -404,7 +404,7 @@ $out = <<'END';
 ERROR>>> Must not redefine chain 'c1' from rawdata
 END
 
-eq_or_diff( approve_err('Linux', '', $spoc, $raw ), $out, $title );
+eq_or_diff( approve_err('Linux', '', $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 $title = "Add crypto";
@@ -454,7 +454,7 @@ pfs enable
 vpn-tunnel-protocol ikev1
 END
 
-eq_or_diff( approve('ASA', $device, $spoc, $raw ), $out, $title );
+eq_or_diff( approve('ASA', $device, $spoc, undef, $raw ), $out, $title );
 
 ############################################################
 done_testing;

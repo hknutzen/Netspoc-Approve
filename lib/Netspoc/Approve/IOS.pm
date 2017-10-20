@@ -309,7 +309,7 @@ sub parse_address {
 
 sub adjust_mask {
     my ($self, $mask) = @_;
-    return ~$mask & 0xffffffff;
+    return ~$mask & pack('N', 0xffffffff);
 }
 
 sub postprocess_config {
@@ -693,22 +693,22 @@ sub get_my_connection {
 
     # In file compare mode use IP from netspoc file or 1.2.3.4 if not available.
     if (not $self->{CONSOLE}) {
-        my $any  = 0;
-        my $dst  = quad2int($self->{IP} || '1.2.3.4');
-        my $port = 22;
-        my $cached = $self->{CONNECTION} = [ $any, $dst, $port ];
-        return @$cached;
+        my $any  = pack('N', 0);
+	my $dst  = quad2bitstr($self->{IP} || '1.2.3.4');
+	my $port = 22;
+	my $cached = $self->{CONNECTION} = [ $any, $dst, $port ];
+	return @$cached;
     }
 
     # With real device, read IP from device, because IP from netspoc may have
     # been changed by NAT.
     my ($vty, $s_ip) = $self->read_vty_and_remote_ip() or
-        abort("Can't determine my vty");
-    my $src_ip = quad2int($s_ip) or abort("Can't parse src ip: $s_ip");
+	abort("Can't determine my vty");
+    my $src_ip = quad2bitstr($s_ip) or abort("Can't parse src ip: $s_ip");
 
     my ($d_ip, $port) = $self->read_vty_details($vty) or
-        abort("Can't determine remote ip and port of my TCP session");
-    my $dst_ip = quad2int($d_ip) or abort("Can't parse remote ip: $d_ip");
+	abort("Can't determine remote ip and port of my TCP session");
+    my $dst_ip = quad2bitstr($d_ip) or abort("Can't parse remote ip: $d_ip");
     info("My connection: $s_ip -> $d_ip:$port");
     my $cached = $self->{CONNECTION} = [ $src_ip, $dst_ip, $port ];
     return @$cached;
@@ -717,7 +717,7 @@ sub get_my_connection {
 sub ip_in_net {
     my ($ip, $net) = @_;
     my $m = $net->{MASK};
-    return ($m & $ip) == ($m & $net->{BASE});
+    return ($m & $ip) eq ($m & $net->{BASE});
 }
 
 sub port_in_proto {
@@ -733,6 +733,12 @@ sub port_in_proto {
     return 0;
 }
 
+#########################################################################
+# Purpose    : Check whether given ACL entry permits access from Netspoc to
+#              device.
+# Parameters : $self - current job
+#              $conf_entry - ACL entry from device config
+# Returns    : 1 if ACL entry allows access from Netspoc 0 otherwise.
 sub is_device_access {
     my ($self, $conf_entry) = @_;
     return 0 if $conf_entry->{MODE} eq 'deny';
