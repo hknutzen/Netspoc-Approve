@@ -81,6 +81,38 @@ END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 ############################################################
+$title = "Move ACL entries";
+############################################################
+
+$device = <<'END';
+ip access-list outside_in
+ 10 permit ip host 1.1.1.1 any
+ 20 permit ip host 2.2.2.2 any
+ 30 permit ip host 3.3.3.3 any
+ 40 permit ip host 4.4.4.4 any
+interface Ethernet0/1
+ ip access-group outside_in in
+END
+
+$in = <<'END';
+ip access-list outside_in
+ 10 permit ip host 1.1.1.1 any
+ 20 permit ip host 4.4.4.4 any
+ 30 permit ip host 2.2.2.2 any
+ 40 permit ip host 3.3.3.3 any
+interface Ethernet0/1
+ ip access-group outside_in in
+END
+
+$out = <<'END';
+resequence ip access-list outside_in 10000 10000
+ip access-list outside_in
+no 40000\N 10001 permit ip host 4.4.4.4 any
+resequence ip access-list outside_in 10 10
+END
+eq_or_diff(approve($device_type, $device, $in), $out, $title);
+
+############################################################
 $title = "Object group used in two ACLs; 1. occurence new, 2. unchanged";
 ############################################################
 $device = <<'END';

@@ -406,10 +406,11 @@ sub check_session {
     return;
 }
 
-# No op; we can't lock out from Netspoc,
+# We can't lock out from Netspoc,
 # because we use "configure session xx".
 sub is_device_access {
     my ($self, $conf_entry) = @_;
+    return 0;
 }
 
 sub resequence_cmd {
