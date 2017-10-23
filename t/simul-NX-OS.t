@@ -7,7 +7,7 @@ use Test::Differences;
 use lib 't';
 use Test_Approve;
 
-my($login_scenario, $scenario, $in, $out, $title);
+my($login_scenario, $scenario, $scenario2, $in, $out, $title);
 
 ############################################################
 $title = "Login, set terminal, empty config";
@@ -130,7 +130,7 @@ simul_run($title, 'NX-OS', $scenario, $in, $out);
 $title = "Unexpected open config session";
 ############################################################
 
-$scenario .= <<'END';
+$scenario2 = $scenario . <<'END';
 # show configuration session
 Name                    Session Owner           Creation Time
 --------------------------------------------------------------------
@@ -144,6 +144,81 @@ ERROR>>> Name                    Session Owner           Creation Time
 ERROR>>> --------------------------------------------------------------------
 ERROR>>> myACLS                  admin                   21:34:39 UTC Apr 27 2008
 ERROR>>> Number of active configuration sessions = 1
+END
+
+simul_err($title, 'NX-OS', $scenario2, $in, $out);
+
+############################################################
+$title = "Ignore other config session output";
+############################################################
+
+$scenario2 = $scenario . <<'END';
+# show configuration session
+Name                    Session Owner           Creation Time
+END
+
+$out = <<'END';
+--router.change
+show configuration session
+Name                    Session Owner           Creation Time
+router#configure session Netspoc
+Config Session started, Session ID is 1
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#resequence ip access-list inside_in 10000 10000
+router#ip access-list inside_in
+router#1 permit tcp 10.1.1.0/24 host 10.0.1.11 eq 22
+router#no 10000
+router#resequence ip access-list inside_in 10 10
+router#verify
+Verification Successful
+router#commit
+Commit Successful
+router#configure terminal
+router#vrf context sh
+router#no ip route 10.1.1.0/24 10.1.2.3
+router#ip route 10.1.1.0/24 10.1.2.4
+router#end
+router#copy running-config startup-config
+[#############] 100%
+Copy complete.
+router#
+END
+
+simul_run($title, 'NX-OS', $scenario2, $in, $out);
+
+############################################################
+$title = "Can't verify config session";
+############################################################
+
+($scenario2 = $scenario) =~ s/Verification Successful/Verification Failed/;
+
+$out = <<'END';
+ERROR>>> Can't 'verify' configuration session
+ERROR>>> Verification Failed
+END
+
+simul_err($title, 'NX-OS', $scenario2, $in, $out);
+
+############################################################
+$title = "Unexpected command output";
+############################################################
+$scenario = $login_scenario . <<'END';
+
+# show running-config
+vrf context sh
+ ip route 10.1.1.0/24 10.1.2.3
+# configure session Netspoc
+foo
+END
+
+$in = <<'END';
+vrf context sh
+ ip route 10.1.1.0/24 10.1.2.4
+END
+
+$out = <<'END';
+ERROR>>> Unexpected output of 'configure session Netspoc'
+ERROR>>> foo
 END
 
 simul_err($title, 'NX-OS', $scenario, $in, $out);

@@ -217,4 +217,21 @@ $out = '';
 eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Interface mgmt0 is located in management VRF by default";
+############################################################
+$device = <<END;
+interface mgmt0
+ ip address 10.0.0.1/24
+END
+
+$in = <<END;
+interface mgmt0
+ vrf member management
+END
+
+$out = '';
+
+eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+
+############################################################
 done_testing;
