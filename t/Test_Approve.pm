@@ -164,7 +164,9 @@ sub simul_run {
     # First optional block contains expected warnings.
     my  ($warnings, @expected) = split(/^-+[ ]*(\S+)[ ]*\n/m, $expected);
 
-    eq_or_diff($stderr, $warnings, $title);
+    if ($warnings or $stderr) {
+        eq_or_diff($stderr, $warnings, $title);
+    }
 
     while (@expected) {
         my $fname = shift @expected;
