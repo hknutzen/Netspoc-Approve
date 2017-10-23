@@ -117,9 +117,9 @@ my %ignore =
     );
 
 sub filter_compare_output {
-    my ($stdout) = @_;
-    my @output = split /\n/, $stdout;
-    my @cmds = map { s/^> //; $_ } @output;
+    my ($output) = @_;
+    my @lines = split /\n/, $output;
+    my @cmds = map { s/^> //; $_ } @lines;
     @cmds = grep { !$ignore{$_}} @cmds;
     return(join("\n", @cmds, ''));
 }
@@ -152,6 +152,7 @@ sub approve_status {
 sub simul_run {
     my($title, $type, $scenario, $spoc, $expected) = @_;
     my ($status, $stdout, $stderr) = simulate($type, $scenario, $spoc);
+    $stderr ||= '';
     if ($status != 0) {
         diag("Unexpected failure:\n$stderr");
         fail($title);
@@ -160,13 +161,10 @@ sub simul_run {
 
     # Blocks of expected output are split by single lines,
     # each line starting with dashes and followed by a file name.
-    my @expected = split(/^-+[ ]*(\S+)[ ]*\n/m, $expected);
-    my $first = shift @expected;
-    if ($first) {
-        diag("Missing file name in first line of output specification");
-        fail($title);
-        return;
-    }
+    # First optional block contains expected warnings.
+    my  ($warnings, @expected) = split(/^-+[ ]*(\S+)[ ]*\n/m, $expected);
+
+    eq_or_diff($stderr, $warnings, $title);
 
     while (@expected) {
         my $fname = shift @expected;
@@ -201,12 +199,13 @@ sub simul_err {
 sub simul_compare {
     my($title, $type, $scenario, $spoc, $expected) = @_;
     my ($status, $stdout, $stderr) = simulate($type, $scenario, $spoc, '-C');
+    $stderr ||= '';
     if ($status != 0) {
         diag("Unexpected failure:\n$stderr");
         fail($title);
         return;
     }
-    my $output = filter_compare_output($stdout);
+    my $output = filter_compare_output($stderr.$stdout);
     eq_or_diff($output, $expected, $title);
 }
 

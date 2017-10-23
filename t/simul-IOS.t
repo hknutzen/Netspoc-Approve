@@ -209,6 +209,25 @@ END
 simul_compare($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "Compare with missing banner";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+(router)#
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
+END
+
+$in = <<'END';
+END
+
+$out = <<'END';
+WARNING>>> Missing banner at NetSPoC managed device
+END
+
+simul_compare($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 $title = "Unknown device version";
 ############################################################
 $scenario = <<'END';
