@@ -810,6 +810,67 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "Device access with proto IP from single host";
+############################################################
+$scenario =~
+s(permit tcp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 22)
+ (permit ip host 10.0.6.11 host 10.0.1.11);
+$in =~
+s(permit tcp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 22)
+ (permit ip host 10.0.6.11 host 10.0.1.11);
+$out =~
+s(permit tcp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 22)
+ (permit ip host 10.0.6.11 host 10.0.1.11);
+
+simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "No config access wih UDP";
+############################################################
+$scenario =~
+s(permit ip host 10.0.6.11 host 10.0.1.11)
+ (permit udp host 10.0.6.11 host 10.0.1.11);
+$in =~
+s(permit ip host 10.0.6.11 host 10.0.1.11)
+ (permit udp host 10.0.6.11 host 10.0.1.11);
+
+$out = <<'END';
+------ router.change
+configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+router#do sh users | incl ^\*
+*  7 vty 1     router   idle                 00:00:00 10.0.6.11
+router#do sh tcp 7 | incl Local host:
+Local host: 10.0.1.11, Local port: 22
+router#ip access-list resequence Ethernet0_in 10000 10000
+router#do reload in 5
+
+System configuration has been modified. Save? [yes/no]: n
+
+Reload reason: Reload Command
+Proceed with reload? [confirm]
+
+router#ip access-list extended Ethernet0_in
+router#no 20000
+router#30001 permit udp host 10.0.6.11 host 10.0.1.11
+router#do reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+router#
+router#ip access-list resequence Ethernet0_in 10 10
+router#end
+router#write memory
+Building configuration...
+  Compressed configuration from 106098 bytes to 30504 bytes[OK]
+router#
+END
+
+simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 $title = "Unknown vty";
 ############################################################
 ($scenario2 = $scenario) =~ s/[*]  7 vty.*//;
