@@ -262,13 +262,24 @@ eq_or_diff(approve('IOS', $device, $in), $out, $title);
 ############################################################
 $title = "Leave routing unchanged";
 ############################################################
+
+# Routes and ACL in global VRF
 $device = <<END;
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 ip route 10.30.0.0 255.255.0.0 10.1.2.3
 ip route 10.40.0.0 255.255.0.0 10.1.2.3
+ip access-list extended acl2
+ permit ip any host 10.0.1.1
+interface Ethernet2
+ ip access-group acl2 in
 END
 
+# Only ACL is configured from Netspoc, routes are left unchanged
 $in = <<END;
+ip access-list extended acl2
+ permit ip any host 10.0.1.1
+interface Ethernet2
+ ip access-group acl2 in
 END
 
 $out = <<END;
@@ -1057,6 +1068,42 @@ WARNING>>> Interface 'Serial2' on device is not known by Netspoc
 END
 
 eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Only change VRFs mentioned in Netspoc";
+############################################################
+$device = <<END;
+ip route 10.20.0.0 255.255.0.0 10.2.2.2
+ip access-list extended acl2-DRC-0
+ permit ip any host 10.0.1.1
+interface Ethernet1
+ ip address 10.0.0.1 255.255.255.0
+ ip vrf forwarding 001
+ ip access-group acl2-DRC-0 in
+interface Ethernet2
+ ip address 10.0.0.1 255.255.255.0
+ ip vrf forwarding 002
+END
+
+$in = <<END;
+ip route vrf 013 10.30.0.0 255.255.0.0 10.3.3.3
+ip access-list extended acl2
+ permit ip any host 10.0.1.1
+interface Ethernet2
+ ip address 10.0.0.1 255.255.255.0
+ ip vrf forwarding 002
+ ip access-group acl2 in
+END
+
+$out = <<END;
+ip access-list extended acl2-DRC-1
+permit ip any host 10.0.1.1
+interface Ethernet2
+ip access-group acl2-DRC-1 in
+ip route vrf 013 10.30.0.0 255.255.0.0 10.3.3.3
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Check VRF of interfaces";
