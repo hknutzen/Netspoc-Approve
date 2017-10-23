@@ -278,7 +278,7 @@ sub postprocess_config {
     for my $acl (values %$access_lists) {
         for my $entry (@{ $acl->{LIST} }) {
             $entry->{orig} =~ s/^\d+ //;
-            for my $where (qw(SRC DST)) {
+            for my $where (qw(SRC DST SRC_PORT DST_PORT)) {
                 my $what = $entry->{$where};
                 my $group_name = ref($what) && $what->{GROUP_NAME} or next;
                 my $group = $object_groups->{$group_name} or

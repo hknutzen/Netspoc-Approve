@@ -35,6 +35,11 @@ ip access-list inside_in
 interface Ethernet0/0
  ip access-group inside_in in
 
+object-group ip port p0
+ 10 eq 80
+ 20 eq 88
+ 30 range 7937 8999
+
 object-group ip address g0
  10 10.0.6.0/24
  20 10.0.5.0/24
@@ -42,7 +47,7 @@ object-group ip address g0
 
 ip access-list outside_in
  10 permit udp addrgroup g0 host 10.0.1.11 eq sip
- 20 permit tcp any host 10.0.1.11 range 7937 8999
+ 20 permit tcp any host 10.0.1.11 portgroup p0
  30 deny ip any any
 
 interface Ethernet0/1
@@ -54,13 +59,17 @@ object-group ip address g0-DRC-0
 10.0.6.0/24
 10.0.5.0/24
 host 10.0.12.3
+object-group ip port p0-DRC-0
+eq 80
+eq 88
+range 7937 8999
 ip access-list inside_in-DRC-0
 deny ip any any
 interface Ethernet0/0
 ip access-group inside_in-DRC-0 in
 ip access-list outside_in-DRC-0
 permit udp addrgroup g0-DRC-0 host 10.0.1.11 eq sip
-permit tcp any host 10.0.1.11 range 7937 8999
+permit tcp any host 10.0.1.11 portgroup p0-DRC-0
 deny ip any any
 interface Ethernet0/1
 ip access-group outside_in-DRC-0 in
