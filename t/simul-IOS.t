@@ -448,6 +448,43 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "Unexpected command output while reload is scheduled";
+############################################################
+$scenario = <<'END';
+Enter Password:<!>
+banner motd  managed by NetSPoC
+>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# reload in 5
+
+System configuration has been modified. Save? [yes/no]: <!>
+Reload reason: Reload Command
+Proceed with reload? [confirm]<!>
+# reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+# ip route 10.0.0.0 255.0.0.0 10.1.2.4
+failed
+END
+
+$in = <<'END';
+ip route 10.0.0.0 255.0.0.0 10.1.2.4
+END
+
+$out = <<'END';
+ERROR>>> Unexpected output of 'ip route 10.0.0.0 255.0.0.0 10.1.2.4'
+ERROR>>> failed
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 $title = "write mem: overwrite previous NVRAM";
 ############################################################
 $scenario = <<'END';
@@ -651,30 +688,6 @@ END
 
 $out = <<'END';
 ERROR>>> write mem: unexpected result:
-ERROR>>> foo
-END
-
-simul_err($title, 'IOS', $scenario, $in, $out);
-
-############################################################
-$title = "Unexpected command output";
-############################################################
-$scenario = <<'END';
-Enter Password:<!>
-banner motd  managed by NetSPoC
->
-# sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
-# configure terminal
-Enter configuration commands, one per line.  End with CNTL/Z.
-foo
-END
-
-$in = '';
-
-$out = <<'END';
-ERROR>>> Unexpected output of 'configure terminal'
-ERROR>>> Enter configuration commands, one per line.  End with CNTL/Z.
 ERROR>>> foo
 END
 
