@@ -36,6 +36,8 @@ router
 :INPUT DROP
 -A INPUT -j ACCEPT -s 10.1.11.111 -d 10.10.1.2 -p tcp --dport 23
 COMMIT
+# /usr/sbin/backup
+tar: Removing leading `/' from member names
 END
 
 $in = <<'END';
@@ -88,6 +90,7 @@ router#ls /etc/router-version
 router#echo $?
 0
 router#/usr/sbin/backup
+tar: Removing leading `/' from member names
 router#echo $?
 0
 router#

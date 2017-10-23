@@ -573,7 +573,7 @@ sub cmd_check_error {
 	    abort("Unexpected output of '$cmd'", @$lines);
 	}
     }
-    elsif(not $self->status_ok) {
+    if(not $self->status_ok) {
 	abort("$cmd failed (exit status)");
     }
 }
