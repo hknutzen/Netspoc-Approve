@@ -570,6 +570,7 @@ sub cmd_check_error {
     if(@$lines) {
 	my $valid = $valid_cmd_output{$cmd};
 	if(not(@$lines == 1 and $valid and $lines->[0] eq $valid)) {
+            chomp $cmd;
 	    abort("Unexpected output of '$cmd'", @$lines);
 	}
     }

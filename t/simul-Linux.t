@@ -99,7 +99,22 @@ END
 simul_run($title, 'Linux', $scenario, $in, $out);
 
 ############################################################
-$title = "Unexpected echo in response to command input";
+$title = "Unexpected output of command";
+############################################################
+$scenario .= <<'END';
+# ip route del 0.0.0.0/0 via 10.1.1.1
+RTNETLINK answers: Invalid argument
+END
+
+$out = <<'END';
+ERROR>>> Unexpected output of 'ip route del 0.0.0.0/0 via 10.1.1.1\N ip route add 0.0.0.0/0 via 10.1.1.99'
+ERROR>>> RTNETLINK answers: Invalid argument
+END
+
+simul_err($title, 'Linux', $scenario, $in, $out);
+
+############################################################
+$title = "Unexpected echo in response to show command ";
 ############################################################
 $scenario = <<'END';
 
