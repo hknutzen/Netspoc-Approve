@@ -200,7 +200,7 @@ END
 eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
 
 ############################################################
-$title = "Unknown port specifer";
+$title = "Unknown port specifier";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
@@ -952,7 +952,7 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "To many encryption types";
+$title = "Too many encryption types";
 ############################################################
 $device = <<'END';
 crypto ipsec ikev2 ipsec-proposal Proposal1
