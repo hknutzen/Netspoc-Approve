@@ -760,20 +760,8 @@ sub resequence_cmd {
 ###############################
 
 # Compare and equalize ACLs of crypto map entries.
-sub compare_crypto_maps {
-    my ($self, $conf, $spoc, $conf_map, $spoc_map) = @_;
-    if (@$conf_map != @$spoc_map) {
-        warn_info("Crypto maps $conf_map->{name} and $spoc_map->{name} differ");
-        return;
-    }
-
-    # Find pairs of corresponding crypto map entries.
-    my @crypto_entry_pairs;
-    for (my $i = 0 ; $i < @$conf_map ; $i++) {
-        my $conf_entry = $conf_map->[$i];
-        my $spoc_entry = $spoc_map->[$i];
-        push @crypto_entry_pairs, [ $conf_entry, $spoc_entry ];
-    }
+sub compare_crypto_acls {
+    my ($self, $conf, $spoc, $crypto_entry_pairs) = @_;
 
     $self->enter_conf_mode();
 
@@ -781,7 +769,7 @@ sub compare_crypto_maps {
     # Try to change ACLs incrementally.
     # Get list of ACL pairs, that need to be redefined, added or removed.
     my @acl_update_info =
-        $self->equalize_acls_of_objects($conf, $spoc, \@crypto_entry_pairs);
+        $self->equalize_acls_of_objects($conf, $spoc, $crypto_entry_pairs);
 
     for my $info (@acl_update_info) {
         my ($entry, $in_out, $conf_acl, $spoc_acl) = @$info;
@@ -814,33 +802,47 @@ sub compare_crypto_maps {
     $self->leave_conf_mode();
 }
 
+# Compare crypto maps of interfaces.
 sub crypto_processing {
     my ($self, $conf, $spoc) = @_;
     $spoc->{CRYPTO_MAP} or return;
 
+    my @errors;
     my $spoc_interfaces = $spoc->{IF};
     my $conf_interfaces = $conf->{IF};
-
-    # Compare crypto config which is bound to interfaces.
-    for my $name (keys %$spoc_interfaces) {
+    for my $name (sort keys %$spoc_interfaces) {
         my $spoc_intf = $spoc_interfaces->{$name};
         my $conf_intf = $conf_interfaces->{$name};
         my $spoc_map_name = $spoc_intf->{CRYPTO_MAP};
         my $conf_map_name = $conf_intf->{CRYPTO_MAP};
         if (not $spoc_map_name) {
             if ($conf_map_name) {
-                warn_info("Missing crypto map at $name from Netspoc");
+                push(@errors,
+                     "Missing crypto map at interface $name from Netspoc");
             }
             next;
         }
         if (not $conf_map_name) {
-            warn_info("Missing crypto map at $name from device");
+            push(@errors, "Missing crypto map at interface $name from device");
             next;
         }
         my $conf_map = $conf->{CRYPTO_MAP}->{$conf_map_name};
         my $spoc_map = $spoc->{CRYPTO_MAP}->{$spoc_map_name};
-        $self->compare_crypto_maps($conf, $spoc, $conf_map, $spoc_map);
+        if (@$conf_map != @$spoc_map) {
+            push(@errors, "Crypto maps differ for interface $name");
+            next;
+        }
+
+        # Find pairs of corresponding crypto map entries.
+        my @crypto_entry_pairs;
+        for (my $i = 0 ; $i < @$conf_map ; $i++) {
+            my $conf_entry = $conf_map->[$i];
+            my $spoc_entry = $spoc_map->[$i];
+            push @crypto_entry_pairs, [ $conf_entry, $spoc_entry ];
+        }
+        $self->compare_crypto_acls($conf, $spoc, \@crypto_entry_pairs);
     }
+    abort(@errors) if @errors;
 }
 
 ###############################

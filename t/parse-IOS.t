@@ -853,6 +853,48 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Crypto maps differ in size";
+############################################################
+$device .= <<'END';
+crypto map VPN 2 ipsec-isakmp
+ set peer 10.156.4.2
+END
+
+$out = <<END;
+ERROR>>> Crypto maps differ for interface Ethernet1
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Crypto map only from device";
+############################################################
+$device .= <<'END';
+interface Ethernet2
+ ip unnumbered x
+END
+
+$in = <<END;
+interface Ethernet1
+ ip unnumbered x
+ip access-list extended crypto-filter-Ethernet2
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+crypto map crypto-Ethernet2 1 ipsec-isakmp
+ match address crypto-Ethernet1-1
+ set ip access-group crypto-filter-Ethernet2 in
+ set peer 10.156.4.206
+interface Ethernet2
+ crypto map crypto-Ethernet2
+END
+
+$out = <<END;
+ERROR>>> Missing crypto map at interface Ethernet1 from Netspoc
+ERROR>>> Missing crypto map at interface Ethernet2 from device
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Don't change crypto filter ACL which permit administrative access";
 ############################################################
 # Device IP is 10.1.13.33
