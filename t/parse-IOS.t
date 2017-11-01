@@ -440,6 +440,47 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Remove and add object-group";
+############################################################
+$device = <<END;
+object-group network g1-DRC-0
+ host 10.0.1.11
+ip access-list extended test-DRC-0
+ permit udp any object-group g1-DRC-0 eq ntp
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$in = <<END;
+object-group network g2
+ 10.0.5.0 0.0.0.128
+ 10.0.6.0 0.0.0.255
+
+ip access-list extended test
+ permit udp object-group g2 any eq ntp
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+object-group network g2-DRC-0
+10.0.5.0 0.0.0.128
+10.0.6.0 0.0.0.255
+ip access-list resequence test-DRC-0 10000 10000
+ip access-list extended test-DRC-0
+1 permit udp object-group g2-DRC-0 any eq ntp
+no 10000
+ip access-list resequence test-DRC-0 10 10
+no object-group network g1-DRC-0
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Unknown object-group";
 ############################################################
 $device = <<END;
@@ -553,6 +594,35 @@ ip access-list extended test
 10002 permit icmp any any 0
 10003 permit ip any host 10.0.1.3
 ip access-list resequence test 10 10
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Remove incoming, add outgoing ACL";
+############################################################
+$device = <<END;
+ip access-list extended test
+ permit ip any host 10.0.1.1
+interface Ethernet1
+ ip access-group test in
+END
+
+$in = <<END;
+ip access-list extended test
+ permit ip host 10.0.1.1 any
+interface Ethernet1
+ ip access-group test out
+END
+
+$out = <<END;
+interface Ethernet1
+no ip access-group test in
+no ip access-list extended test
+ip access-list extended test-DRC-0
+permit ip host 10.0.1.1 any
+interface Ethernet1
+ip access-group test-DRC-0 out
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);

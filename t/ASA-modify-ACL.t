@@ -220,6 +220,17 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Remove object-group";
+############################################################
+
+$out = <<'END';
+no access-list inside line 1 extended permit ip object-group g1 any
+no object-group network g1
+END
+
+eq_or_diff(approve('ASA', $in, $device), $out, $title);
+
+############################################################
 $title = "Modify type of object-group";
 ############################################################
 $device = $minimal_device;
