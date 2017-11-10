@@ -355,7 +355,7 @@ sub parse_line {
 # $config are prepared config lines.
 # $parse_info describes grammar.
 sub parse_config1 {
-    my($self, $config, $parse_info) = @_;
+    my($self, $config) = @_;
     my $result = {};
     for my $arg (@$config) {
         my $cmd_info = $arg->{cmd_info};
@@ -456,7 +456,7 @@ sub parse_config {
 
     my $parse_info = $self->get_parse_info();
     my $config = $self->analyze_conf_lines($lines, $parse_info, $strict);
-    my $result = $self->parse_config1($config, $parse_info);
+    my $result = $self->parse_config1($config);
     $self->postprocess_config($result);
     return $result;
 }
