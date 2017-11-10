@@ -140,7 +140,7 @@ sub transfer_object_groups {
 }
 
 sub remove_object_groups {
-    my ($self, $conf, $spoc) = @_;
+    my ($self, $conf) = @_;
     my $conf_groups = $conf->{OBJECT_GROUP};
     for my $name (sort keys %$conf_groups) {
         my $group = $conf_groups->{$name};
@@ -338,7 +338,7 @@ sub equalize_acls_of_objects {
                                     $conf_acl, $spoc_acl];
 	}
     }
-    $self->remove_object_groups($conf, $spoc);
+    $self->remove_object_groups($conf);
     return @acl_update_info;
 }
 
