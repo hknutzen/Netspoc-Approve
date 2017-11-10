@@ -1117,10 +1117,10 @@ my @known_status =
      qr/^\s*$/, # empty line
      qr/^\[OK\]/,
      # Multi line, expected warning.
-     qr /WARNING: L2L tunnel-groups that have names which are not an IP/,
-     qr /address may only be used if the tunnel authentication/,
-     qr /method is Digital Certificates and\/or The peer is/,
-     qr /configured to use Aggressive Mode/,
+     qr /^WARNING: (For IKEv1, )?L2L tunnel-groups that have names which are not an IP/,
+     qr /^address may only be used if the tunnel authentication/,
+     qr /^method is Digital Certificates and\/or The peer is/,
+     qr /^configured to use Aggressive Mode/,
      # Expected warning from "managed=local"
      qr/^WARNING: Same object-group is used more than once in one config line[.] This config is redundant[.] Please use seperate object-groups/,
      # ASA: general info
