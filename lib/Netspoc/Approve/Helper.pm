@@ -6,7 +6,7 @@ Helper functions
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2013 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2010 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -62,8 +62,8 @@ sub warn_info {
 
 sub internal_err {
     # uncoverable subroutine
-    my ($package, $file, $line, $sub) = caller 1; # uncoverable statement
-    abort("Internal error in $sub: ", @_);	  # uncoverable statement
+    my $sub = (caller 1)[3];			# uncoverable statement
+    abort("Internal error in $sub: ", @_);	# uncoverable statement
 }
 
 sub debug {

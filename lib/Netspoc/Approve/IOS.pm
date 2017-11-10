@@ -6,7 +6,7 @@ Remote configure Cisco IOS router
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2007 by Arne Spetzler
 
 This program is free software; you can redistribute it and/or modify
@@ -359,9 +359,8 @@ sub postprocess_config {
 	    $p->{CRYPTO_MAP}->{$cm_name} = $cm;
             for my $entry (@$cm) {
 		next if $entry->{GDOI};
-                my $sequ = $entry->{SEQU};
 
-                # Check access list for crypto map.
+                # Check filter access lists referenced in crypto map.
                 for my $what (qw(IN OUT)) {
                     my $acl_name = $entry->{"ACCESS_GROUP_$what"} or next;
                     $p->{ACCESS_LIST}->{$acl_name} or
@@ -669,7 +668,6 @@ sub read_vty_and_remote_ip {
     my $lines = $self->get_cmd_output($cmd);
     my $line = $lines->[0] or return;
     chomp $line;
-    my ($vty, $s_ip);
     $line =~ /^\*\D*(\d+).*?([\d.]+)$/ or return;
     return ($1, $2);
 }
@@ -682,7 +680,6 @@ sub read_vty_details {
     $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
     my $lines = $self->get_cmd_output($cmd);
     my $line = $lines->[0] or return;
-    my ($port, $d_ip);
     $line =~ /Local host:\s([\d.]+),\sLocal port:\s(\d+)/i or return;
     return ($1, $2);
 }

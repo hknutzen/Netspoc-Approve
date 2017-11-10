@@ -556,8 +556,8 @@ sub status_ok {
 sub cmd_ok {
     my ($self, $cmd) = @_;
 
-    # Ignore Output; only check exit status.
-    my $lines = $self->get_cmd_output($cmd);
+    # Ignore Output; only check echo and exit status.
+    $self->get_cmd_output($cmd);
     return($self->status_ok);
 }
 

@@ -246,7 +246,6 @@ sub equalize_acls_of_objects {
     for my $pair (@$object_pairs){
         my ($conf_obj, $spoc_obj) = @$pair;
 	for my $in_out (qw(IN OUT)) {
-	    my $direction = lc($in_out);
 	    my $confacl_name = $conf_obj->{"ACCESS_GROUP_$in_out"} || '';
 	    my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
 	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};

@@ -1709,13 +1709,12 @@ sub unify_anchors {
         my $value = $structure->{$key};
         $value->{anchor} or next;
 #	info("Processing spoc anchor $key ... ");
-        my $conf_anchor = $conf->{$key};
         my $spoc_anchor = $spoc->{$key};
         for my $spoc_key (sort keys %$spoc_anchor) {
 	    next if $seen{$key}->{$spoc_key};
-	    my $new_spoc = $self->make_equal( $conf, $spoc, $key,
-                                              $spoc_key, $spoc_key,
-                                              $structure );
+	    $self->make_equal( $conf, $spoc, $key,
+                               $spoc_key, $spoc_key,
+                               $structure );
 	}
     }
 }

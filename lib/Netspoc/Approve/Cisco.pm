@@ -1247,7 +1247,6 @@ sub equalize_acl_entries {
 
                 # Find lines already present on device
                 my $key = acl_entry_no_log2key($spoc_entry);
-                my $aref;
                 if (!$spoc_entry->{REMARK} && (my $conf_entry = $dupl{$key})) {
 #                   debug "D: $conf_entry->{orig}";
 

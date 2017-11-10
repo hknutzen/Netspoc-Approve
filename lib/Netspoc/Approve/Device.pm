@@ -74,7 +74,6 @@ sub match {
 # - First matching line is taken.
 sub get_aaa_password {
     my ($self) = @_;
-    my $pass;
     my $name = $self->{NAME};
     my $system_user = $self->{CONFIG}->{systemuser};
     $system_user and $self->{USER} eq $system_user or return $self->{USER};
@@ -479,7 +478,6 @@ sub merge_rawdata {
 
         if ($key eq 'ROUTING_VRF') {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
-	    my $count = 0;
 	    for my $vrf (sort keys %$raw_v) {
 		my $raw_routes = $raw_v->{$vrf};
                 my $spoc_routes = $spoc_v->{$vrf} ||= [];
@@ -801,8 +799,6 @@ sub con_setup {
 
 sub con_shutdown {
     my ($self) = @_;
-    my $time = localtime();
-    my $shutdown_message = "STOP: at > $time <";
     my $con = $self->{CONSOLE};
     if (!$con->{RESULT}->{ERROR}) {
         $con->{TIMEOUT} = $con->{LOGIN_TIMEOUT};
