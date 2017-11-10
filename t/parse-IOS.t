@@ -123,7 +123,7 @@ ip access-list extended Ethernet1_in
  permit 50 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
  permit tcp any host 10.0.1.11 range 7937 8999
- permit icmp any host 10.0.1.11 3 3
+ permit icmp any host 10.0.1.11 3 4
  deny ip any any log
 interface Ethernet1
  ip access-group Ethernet1_in in
@@ -356,7 +356,7 @@ ip access-list extended test-DRC-0
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
 ! permit udp host 10.0.12.3 host 10.0.1.11 eq 80
  permit tcp any host 10.0.1.11 range 7937 8999
- permit icmp any host 10.0.1.11 3 3
+ permit icmp any host 10.0.1.11 3 4
  deny ip any any
 
 interface Serial1
@@ -366,7 +366,7 @@ END
 
 $in = <<END;
 ip access-list extended test
- permit icmp any host 10.0.1.11 3 3
+ permit icmp any host 10.0.1.11 3 1
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
  permit 47 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
@@ -383,9 +383,10 @@ END
 $out = <<END;
 ip access-list resequence test-DRC-0 10000 10000
 ip access-list extended test-DRC-0
-no 60000\\N 1 permit icmp any host 10.0.1.11 3 3
+1 permit icmp any host 10.0.1.11 3 1
 40001 permit udp host 10.0.12.3 host 10.0.1.11 eq 80
 no 70000\\N 40003 deny ip any any log-input
+no 60000
 no 50000
 no 30000\\N 40002 permit igmp 10.0.5.0 0.0.0.255 host 10.0.1.11
 ip access-list resequence test-DRC-0 10 10

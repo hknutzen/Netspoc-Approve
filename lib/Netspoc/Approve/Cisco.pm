@@ -766,8 +766,8 @@ my %object2key_sub = (
         if ($e->{TYPE} eq 'icmp') {
             my $s = $e->{SPEC};
             for my $where (qw(TYPE CODE)) {
-                my $v = $s->{TYPE};
-                $r .= defined $v ? $v : '-';
+                my $v = $s->{$where} // '-';
+                $r .= $v;
             }
         }
         elsif ($e->{TYPE} =~ /^(?:tcp|udp)/) {
@@ -966,8 +966,8 @@ sub acl_entry2key0 {
     if ($e->{TYPE} eq 'icmp') {
         my $s = $e->{SPEC};
 	for my $where (qw(TYPE CODE)) {
-	    my $v = $s->{TYPE};
-	    push(@r, defined $v ? $v : '-');
+	    my $v = $s->{$where} // '-';
+	    push(@r, $v);
 	}
     }
     elsif ($e->{TYPE} eq 'tcp' or $e->{TYPE} eq 'udp') {
