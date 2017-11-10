@@ -90,7 +90,7 @@ sub define_acl {
 }
 
 sub modify_object_groups {
-    my ($self, $conf, $spoc) = @_;
+    my ($self, $spoc) = @_;
     my $hash = $spoc->{OBJECT_GROUP};
     for my $name (sort keys %$hash) {
         my $group = $hash->{$name};
@@ -268,7 +268,7 @@ sub equalize_acls_of_objects {
 	}
     }
 
-    $self->modify_object_groups($conf, $spoc);
+    $self->modify_object_groups($spoc);
     $self->transfer_object_groups($conf, $spoc);
 
     # Pass 2: Try to equalize ACLs by incremental changes to ACL on device.
