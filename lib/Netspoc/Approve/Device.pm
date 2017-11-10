@@ -951,7 +951,8 @@ sub logging {
 
     # Set lock for exclusive approval
     sub lock {
-        my ($self, $name) = @_;
+        my ($self) = @_;
+        my $name = $self->{NAME};
         my $lockfile = "$self->{CONFIG}->{lockfiledir}/$name";
         my $file_exists = -f $lockfile;
         open($lock_fh, '>', $lockfile)
@@ -966,7 +967,7 @@ sub logging {
     }
 
     sub unlock {
-        my ($self, $name) = @_;
+        my ($self) = @_;
         close($lock_fh) or abort("Can't unlock lockfile: $!");
     }
 }

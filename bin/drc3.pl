@@ -135,7 +135,7 @@ $job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 # Enable logging if configured.
 $job->logging();
 
-$job->lock($name);
+$job->lock();
 
 # Start compare / approve.
 banner_msg('START');
@@ -147,4 +147,4 @@ else {
 }
 banner_msg('STOP');
 
-$job->unlock($name);
+$job->unlock();
