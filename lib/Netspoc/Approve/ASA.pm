@@ -1877,7 +1877,7 @@ sub remove_unneeded_on_device {
 
             info("Remove unneeded $parse_name $obj_name");
             my $method = $parse->{remove};
-            $self->$method( $conf, $structure, $parse_name, $obj_name );
+            $self->$method( $conf, $parse_name, $obj_name );
 	}
     }
 }
@@ -1911,7 +1911,7 @@ sub remove_spare_objects_on_device {
             $object->{needed} = 1;
             info("Remove spare $parse_name $obj_name");
             my $method = $parse->{remove};
-            $self->$method( $conf, $structure, $parse_name, $obj_name );
+            $self->$method( $conf, $parse_name, $obj_name );
 	}
     }
 }
@@ -2128,7 +2128,7 @@ sub transfer_crypto_map_seq {
 }
 
 sub remove_crypto_map_seq {
-    my ( $self, $conf, $structure, $parse_name, $name_seq ) = @_;
+    my ( $self, $conf, $parse_name, $name_seq ) = @_;
     $self->cmd("clear configure crypto map $name_seq");
 }
 
@@ -2141,7 +2141,7 @@ sub transfer_dynamic_map {
 }
 
 sub remove_dynamic_map {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
     my $object = $conf->{$parse_name}->{$obj_name};
     my $name = $object->{name};
     my $seq  = $object->{SEQ};
@@ -2160,7 +2160,7 @@ sub transfer_ca_cert_map {
 }
 
 sub remove_ca_cert_map {
-    my ( $self, $conf, $structure, $parse_name, $cert_map ) = @_;
+    my ( $self, $conf, $parse_name, $cert_map ) = @_;
     $self->cmd("clear configure crypto ca certificate map $cert_map");
 }
 
@@ -2186,7 +2186,7 @@ sub transfer_user {
 }
 
 sub remove_user {
-    my ( $self, $conf, $structure, $parse_name, $username ) = @_;
+    my ( $self, $conf, $parse_name, $username ) = @_;
     $self->cmd("clear configure username $username");
 }
 
@@ -2214,7 +2214,7 @@ sub transfer_tunnel_group {
 }
 
 sub remove_tunnel_group {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
 
     # Default tunnel groups must not be removed, even if not referenced.
     return if $default_tunnel_groups{$obj_name};
@@ -2237,7 +2237,7 @@ sub transfer_group_policy {
 }
 
 sub remove_group_policy {
-    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
     $self->cmd("clear configure group-policy $obj_name");
 }
 
@@ -2254,7 +2254,7 @@ sub transfer_ipsec_proposal {
 }
 
 sub remove_obj {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
     my $obj = $conf->{$parse_name}->{$obj_name};
     my $cmd = "no $obj->{orig}";
     $self->cmd( $cmd );
@@ -2287,7 +2287,7 @@ sub transfer_no_sysopt_connection_permit_vpn {
 }
 
 sub remove_no_sysopt_connection_permit_vpn {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
     $self->cmd('sysopt connection permit-vpn');
 }
 
@@ -2361,7 +2361,7 @@ sub modify_acl {
 }
 
 sub remove_acl {
-    my ( $self, $conf, $structure, $parse_name, $acl_name ) = @_;
+    my ( $self, $conf, $parse_name, $acl_name ) = @_;
     $self->cmd("clear configure access-list $acl_name");
 }
 
