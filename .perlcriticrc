@@ -1,9 +1,12 @@
 
 severity = 5
 #verbose  = 8
-include = ProhibitUnusedVariables ProhibitMismatchedOperators 
+include = ProhibitUnusedVarsStricter ProhibitMismatchedOperators
 # include = ProhibitCaptureWithoutTest
 exclude = RequireLocalizedPunctuationVars
 
 [Subroutines::RequireFinalReturn]
 terminal_funcs = abort internal_err
+
+[Variables::ProhibitUnusedVarsStricter]
+allow_unused_subroutine_arguments = 1
