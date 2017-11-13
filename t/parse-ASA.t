@@ -325,6 +325,32 @@ END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 ############################################################
+$title = "Must not change type of tunnel-group";
+############################################################
+$device = <<END;
+tunnel-group VPN-single type remote-access
+tunnel-group VPN-single webvpn-attributes
+ authentication certificate
+tunnel-group-map default-group VPN-single
+END
+
+$in = <<END;
+tunnel-group some-name type ipsec-l2l
+tunnel-group some-name ipsec-attributes
+ peer-id-validate nocheck
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+tunnel-group-map default-group some-name
+END
+
+$out = <<"END";
+ERROR>>> Can't change type of TUNNEL_GROUP_DEFINE VPN-single
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
+
+############################################################
 $title = "Parse username, group-policy";
 ############################################################
 $in = <<'END';

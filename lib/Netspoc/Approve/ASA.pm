@@ -1514,6 +1514,13 @@ sub make_equal {
                 return $spoc_value->{new_name} || $spoc_name;
             }
         }
+        elsif ($structure->{$parse_name}->{need_eq_attr}
+               and $conf_value and $spoc_value)
+        {
+            my $attributes = $structure->{$parse_name}->{attributes};
+            simple_object_equal($spoc_value, $conf_value, $attributes) or
+                abort("Can't change type of $parse_name $conf_name");
+        }
     }
 
     # Transfer object from netspoc
@@ -1605,6 +1612,7 @@ sub make_equal {
 	    for my $next_key ( @$next ) {
 		my $next_attr_name  = $next_key->{attr_name};
 		my $next_parse_name = $next_key->{parse_name};
+                my $is_not_attr     = $next_key->{is_not_attr};
 		my $conf_next;
 		$conf_next = $conf_value->{$next_attr_name} if $conf_value;
 		my $spoc_next;
@@ -1623,7 +1631,7 @@ sub make_equal {
                     # the corresponding attribute in that superior object
                     # has to be altered, so that it carries the name of the
                     # transferred or changed object.
-                    if ( $spoc_next ) {
+                    if ( $spoc_next and not $is_not_attr) {
                         if ( ! $conf_next || $conf_next ne $new_conf_next ) {
                             $spoc_value->{change_attr}->{$next_attr_name} =
 				$new_conf_next;
@@ -1653,7 +1661,7 @@ sub make_equal {
                             }
                         }
                     }
-                    if ($modified_list) {
+                    if ($modified_list and not $is_not_attr) {
                         $spoc_value->{change_attr}->{$next_attr_name} =
                             \@new_list;
                         $modified = 1;
@@ -2043,9 +2051,6 @@ sub change_attributes {
                     $value = join(' ', @$value);
                 }
 
-		if ( $parse_name eq 'DEFAULT_GROUP' ) {
-		    $attr_cmd .= " default-group ";
-		}
 		$attr_cmd = "$prefix $attr_cmd" if($prefix);
 		if($attr_need_remove{$attr}) {
 		    push @cmds, "no $attr_cmd";
@@ -2572,11 +2577,14 @@ sub define_structure {
 	DEFAULT_GROUP => {
 	    anchor => 1,
 	    next => [ { attr_name  => 'TUNNEL_GROUP_DEFINE',
-			parse_name => 'TUNNEL_GROUP_DEFINE', },
+			parse_name => 'TUNNEL_GROUP_DEFINE',
+                        is_not_attr => 1, },
 		      { attr_name  => 'TUNNEL_GROUP_IPSEC',
-			parse_name => 'TUNNEL_GROUP_IPSEC', },
+			parse_name => 'TUNNEL_GROUP_IPSEC',
+                        is_not_attr => 1, },
 		      { attr_name  => 'TUNNEL_GROUP_WEBVPN',
-			parse_name => 'TUNNEL_GROUP_WEBVPN', },
+			parse_name => 'TUNNEL_GROUP_WEBVPN',
+                        is_not_attr => 1, },
 		      ],
 	    transfer => 'transfer_default_group',
 	    remove   => 'remove_obj',
@@ -2621,8 +2629,9 @@ sub define_structure {
                       { attr_name  => 'TUNNEL_GROUP_WEBVPN',
 			parse_name => 'TUNNEL_GROUP_WEBVPN',
                       },
-                    ],
-	    attributes => [ qw( ATTRIBUTES ) ],
+                ],
+            need_eq_attr => 1,
+	    attributes => [ qw(TYPE) ],
 	    transfer => 'transfer_tunnel_group',
 	    remove   => 'remove_tunnel_group',
 	},
