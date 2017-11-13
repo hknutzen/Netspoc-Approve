@@ -44,7 +44,7 @@ use Netspoc::Approve::Parse_Cisco;
 # - store: name of attribute where result is stored or
 #   array of names which are used to access sub-hash: {name1}->{name2}->..
 # - named: first argument is name which is used as key when storing result
-# - multi: multiple occurences of this command may occur
+# - multi: multiple occurrences of this command may occur
 #          and are stored as an array.
 # - leave_cmd_as_arg: This attribute will be used together with "_any".
 #          If set, the command will be left as an argument to be parsed.

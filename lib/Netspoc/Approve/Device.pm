@@ -440,7 +440,7 @@ sub parse_config1 {
 		}
 		else {
 		    err_at_line($arg,
-				'Multiple occurences of command not allowed');
+				'Multiple occurrences of command not allowed');
 		}
 	    }
 	    else {

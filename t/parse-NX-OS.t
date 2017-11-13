@@ -113,7 +113,7 @@ END
 eq_or_diff(approve($device_type, $device, $in), $out, $title);
 
 ############################################################
-$title = "Object group used in two ACLs; 1. occurence new, 2. unchanged";
+$title = "Object group used in two ACLs; 1. occurrence new, 2. unchanged";
 ############################################################
 $device = <<'END';
 object-group ip address g1-0

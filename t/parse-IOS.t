@@ -93,6 +93,24 @@ $out = '';
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Multiple occurrences of command";
+############################################################
+$device = <<END;
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+END
+
+$out = <<"END";
+ERROR>>> Multiple occurrences of command not allowed
+ERROR>>>  at line 3, pos 2:
+ERROR>>> >>interface e0<<
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
 $title = "Bad indentation after subcommands";
 ############################################################
 $device = <<END;

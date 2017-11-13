@@ -302,7 +302,7 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Object group used in two ACLs; 1. occurence new, 2. unchanged";
+$title = "Object group used in two ACLs; 1. occurrence new, 2. unchanged";
 ############################################################
 $device = $minimal_device2;
 $device .= <<'END';
