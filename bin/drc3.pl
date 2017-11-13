@@ -35,7 +35,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -135,7 +135,7 @@ $job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 # Enable logging if configured.
 $job->logging();
 
-$job->lock($name);
+$job->lock();
 
 # Start compare / approve.
 banner_msg('START');
@@ -147,4 +147,4 @@ else {
 }
 banner_msg('STOP');
 
-$job->unlock($name);
+$job->unlock();

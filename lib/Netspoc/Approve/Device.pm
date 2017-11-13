@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -74,7 +74,6 @@ sub match {
 # - First matching line is taken.
 sub get_aaa_password {
     my ($self) = @_;
-    my $pass;
     my $name = $self->{NAME};
     my $system_user = $self->{CONFIG}->{systemuser};
     $system_user and $self->{USER} eq $system_user or return $self->{USER};
@@ -320,6 +319,7 @@ sub parse_seq {
 	    last if not $success;
 	}
 	else {
+            # uncoverable statement
 	    internal_err "Expected 'seq|cond1|or' but got $type";
 	}
     }
@@ -347,6 +347,7 @@ sub parse_line {
 	return($result);
     }
     else {
+        # uncoverable statement
 	internal_err "Unexpected parse attribute: $info";
     }
 }
@@ -354,7 +355,7 @@ sub parse_line {
 # $config are prepared config lines.
 # $parse_info describes grammar.
 sub parse_config1 {
-    my($self, $config, $parse_info) = @_;
+    my($self, $config) = @_;
     my $result = {};
     for my $arg (@$config) {
         my $cmd_info = $arg->{cmd_info};
@@ -439,7 +440,7 @@ sub parse_config1 {
 		}
 		else {
 		    err_at_line($arg,
-				'Multiple occurences of command not allowed');
+				'Multiple occurrences of command not allowed');
 		}
 	    }
 	    else {
@@ -455,7 +456,7 @@ sub parse_config {
 
     my $parse_info = $self->get_parse_info();
     my $config = $self->analyze_conf_lines($lines, $parse_info, $strict);
-    my $result = $self->parse_config1($config, $parse_info);
+    my $result = $self->parse_config1($config);
     $self->postprocess_config($result);
     return $result;
 }
@@ -477,7 +478,6 @@ sub merge_rawdata {
 
         if ($key eq 'ROUTING_VRF') {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
-	    my $count = 0;
 	    for my $vrf (sort keys %$raw_v) {
 		my $raw_routes = $raw_v->{$vrf};
                 my $spoc_routes = $spoc_v->{$vrf} ||= [];
@@ -488,13 +488,6 @@ sub merge_rawdata {
             }
 	}
 
-	# Array of unnamed entries: STATIC, GLOBAL, NAT
-	elsif(ref $raw_v eq 'ARRAY') {
-	    my $spoc_v = $spoc_conf->{$key} ||= [];
-	    unshift(@$spoc_v, @$raw_v);
-	    my $count = @$raw_v;
-	    info("Prepended $count entries of $key from raw") if $count;
-	}
 	# Hash of named entries: USERNAME, ...
 	else {
 	    my $spoc_v = $spoc_conf->{$key} ||= {};
@@ -619,81 +612,11 @@ sub process_routing {
     }
 }
 
-#################################################
-# comparing
-#################################################
-
-# return value: 0: no
-#               1: yes
-#               2: intersection
-sub ports_a_in_b {
-    my ($a, $b) = @_;
-    return 0 if $a->{HIGH} < $b->{LOW} || $b->{HIGH} < $a->{LOW};
-    return 1 if $b->{LOW} <= $a->{LOW} && $a->{HIGH} <= $b->{HIGH};
-    return 2;
-}
-
-# a in b iff (a_mask | b_mask) == a_mask
-#            AND
-#            (a_mask & b_mask & a_base) == (a_mask & b_mask & b_base)
-#
-# return value: 0: no
-#               1: yes
-#               2: intersection
-sub ip_netz_a_in_b {
-    my ($self, $a, $b) = @_;
-    my $am = $a->{MASK};
-    my $bm = $b->{MASK};
-    my $m  = $am & $bm;
-    return 0 if ($m & $a->{BASE}) != ($m & $b->{BASE});
-    return 1 if ($am | $bm) == $am;
-    return 2;
-}
-
-# return value: 0: no
-#               1: yes
-#               2: intersection
-sub services_a_in_b {
-    my ($self, $a, $b) = @_;
-    my $aproto = $a->{TYPE};
-    my $bproto = $b->{TYPE};
-    if ($bproto eq 'ip') {
-        return 1;
-    }
-    if ($bproto eq $aproto) {
-        if ($bproto eq 'icmp') {
-	    my $a_spec = $a->{SPEC};
-	    my $b_spec = $b->{SPEC};
-	    for my $what (qw(TYPE CODE)) {
-                return 1 if not defined $b_spec->{$what};
-                return 2 if not defined $a_spec->{$what};
-                return 0 if not $a_spec->{$what} eq $b_spec->{$what};
-	    }
-	    return 1;
-        }
-        if ($bproto eq 'tcp' or $bproto eq 'udp') {
-            my $src = ports_a_in_b($a->{SRC_PORT}, $b->{SRC_PORT}) or return 0;
-            my $dst = ports_a_in_b($a->{DST_PORT}, $b->{DST_PORT}) or return 0;
-            if ($src == 1 and $dst == 1) {
-                $b->{ESTA} or return 1;
-                $a->{ESTA} and return 1;
-            }
-            return 2;
-        }
-        return 1;
-    }
-    elsif ($aproto eq 'ip') {
-        return 2;
-    }
-    return 0;
-}
-
 sub issue_cmd {
     my ($self, $cmd) = @_;
-
     my $con = $self->{CONSOLE};
-    $con->con_issue_cmd($cmd, $self->{ENAPROMPT}, $self->{RELOAD_SCHEDULED});
-    return($con->{RESULT});
+    $con->con_issue_cmd($cmd, $self->{ENAPROMPT});
+    return $con->{RESULT};
 }
 
 # Send command to device or
@@ -766,7 +689,7 @@ sub two_cmd {
 	my $need_reload;
 
 	# Read first prompt and check output of first command.
-	$con->con_wait_prompt1($prompt);
+	$con->con_wait($prompt);
 	my $out = $con->{RESULT}->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
@@ -775,7 +698,7 @@ sub two_cmd {
 	$self->cmd_check_echo($cmd1, $echo, \@lines1);
 
 	# Read second prompt and check output of second command.
-	$con->con_wait_prompt1($prompt);
+	$con->con_wait($prompt);
 	$out = $con->{RESULT}->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
@@ -876,14 +799,11 @@ sub con_setup {
 
 sub con_shutdown {
     my ($self) = @_;
-    my $time = localtime();
-    my $shutdown_message = "STOP: at > $time <";
     my $con = $self->{CONSOLE};
     if (!$con->{RESULT}->{ERROR}) {
         $con->{TIMEOUT} = $con->{LOGIN_TIMEOUT};
         $con->con_issue_cmd('exit', eof);
     }
-#    $con->print_logfile(banner_msg('STOP'));
     delete $self->{CONSOLE};
 }
 
@@ -894,6 +814,22 @@ sub con_set_logtype {
     move_logfile($logfile);
     my $con = $self->{CONSOLE};
     $con->set_logfile($logfile);
+}
+
+sub connect_ssh {
+    my ($self, $user) = @_;
+    my($con, $ip) = @{$self}{qw(CONSOLE IP)};
+    my $expect = $con->{EXPECT};
+    info("Trying SSH for login");
+    if (my $cmd = $ENV{SIMULATE_ROUTER}) {
+        $expect->spawn("$^X $cmd")
+            or abort("Cannot spawn simulation': $!");
+    }
+    else {
+        $expect->spawn('ssh', '-l', $user, $ip)
+            or abort("Cannot spawn ssh: $!");
+    }
+    return $con, $ip;
 }
 
 sub prepare_device {
@@ -1015,7 +951,8 @@ sub logging {
 
     # Set lock for exclusive approval
     sub lock {
-        my ($self, $name) = @_;
+        my ($self) = @_;
+        my $name = $self->{NAME};
         my $lockfile = "$self->{CONFIG}->{lockfiledir}/$name";
         my $file_exists = -f $lockfile;
         open($lock_fh, '>', $lockfile)
@@ -1030,7 +967,7 @@ sub logging {
     }
 
     sub unlock {
-        my ($self, $name) = @_;
+        my ($self) = @_;
         close($lock_fh) or abort("Can't unlock lockfile: $!");
     }
 }

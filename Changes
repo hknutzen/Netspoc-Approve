@@ -1,3 +1,11 @@
+1.119     2017-11-13 17:27:45+01:00 Europe/Berlin
+
+ - Ignore harmless warnings from device:
+   - For IKEv1, L2L tunnel-groups that have names which are not an IP ...
+   - Same object-group is used more than once.
+ - Fixed shown diff for iptables.
+ - Increased test coverage from 84,5 to 98%.
+
 1.118     2017-07-18 16:03:16+02:00 Europe/Berlin
 
  - Fixed approve and compare for Linux.

@@ -32,7 +32,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -278,7 +278,7 @@ sub postprocess_config {
     for my $acl (values %$access_lists) {
         for my $entry (@{ $acl->{LIST} }) {
             $entry->{orig} =~ s/^\d+ //;
-            for my $where (qw(SRC DST)) {
+            for my $where (qw(SRC DST SRC_PORT DST_PORT)) {
                 my $what = $entry->{$where};
                 my $group_name = ref($what) && $what->{GROUP_NAME} or next;
                 my $group = $object_groups->{$group_name} or
@@ -320,13 +320,8 @@ my %known_status =
          qr/^\[.*\] +\d+%$/, qr/^Copy complete/ ],
      );
 
-my %known_warning =
-(
- );
-
 # Check unexpected lines:
 # - known status messages
-# - known warning messages
 # - unknown messages, handled as error messages.
 sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
@@ -339,12 +334,6 @@ sub cmd_check_error {
 
 	for my $pattern (@{ $known_status{$cmd} }) {
 	    if(ref($pattern) ? $line =~ $pattern : $line eq $pattern) {
-		next LINE;
-	    }
-	}
-	for my $regex (@{ $known_warning{$cmd} }) {
-	    if($line =~ $regex) {
-                warn_info($line);
 		next LINE;
 	    }
 	}
@@ -417,10 +406,11 @@ sub check_session {
     return;
 }
 
-# No op; we can't lock out from Netspoc,
+# We can't lock out from Netspoc,
 # because we use "configure session xx".
 sub is_device_access {
     my ($self, $conf_entry) = @_;
+    return 0;
 }
 
 sub resequence_cmd {
@@ -435,19 +425,12 @@ sub vrf_route_mode {
 
 sub route_add {
     my($self, $entry, $vrf) = @_;
-    my $indent = $vrf ? ' ' : '';
-    return("$indent$entry->{orig}");
+    return($entry->{orig});
 }
 
 sub route_del {
     my($self, $entry, $vrf) = @_;
-    my $indent = $vrf ? ' ' : '';
-    return("${indent}no $entry->{orig}");
-}
-
-sub write_mem {
-    my ($self) = @_;
-    $self->cmd('copy running-config startup-config');
+    return("no $entry->{orig}");
 }
 
 sub transfer {
@@ -458,4 +441,3 @@ sub transfer {
 
 # Packages must return a true value;
 1;
-

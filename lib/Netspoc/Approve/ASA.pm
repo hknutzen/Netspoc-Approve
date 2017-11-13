@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 
@@ -470,7 +470,7 @@ sub get_parse_info {
 	'crypto map _skip interface'      => { parse => \&skip, },
 
 	'crypto map' => {
-	    store => 'CRYPTO_MAP',
+	    store => 'CRYPTO_MAP_SEQ',
 	    named => 'from_parser',
 	    merge => 1,
 	    parse => ['seq',
@@ -957,12 +957,13 @@ sub postprocess_config {
     # as attribute CA_CERT_MAP.
     # Convert IDENTIFIER to lower-case, because it gets
     # stored on device in lower-case anyway.
-    for my $cert ( values %{$p->{CA_CERT_MAP}} ) {
+    for my $ca_map_name (sort keys %{$p->{CA_CERT_MAP}}) {
+        my $cert = $p->{CA_CERT_MAP}->{$ca_map_name};
 	my $id = $cert->{IDENTIFIER} or next;
         $id = lc( $id );
         $cert->{IDENTIFIER} = $id;
         if(my $old_cert = $p->{CERT_ANCHOR}->{$id}) {
-            my $old_name = $old_cert->{name};
+            my $old_name = $old_cert->{CA_CERT_MAP};
             my $new_name = $cert->{name};
             abort("Two ca cert map items use" .
                   " identical subject-name: '$old_name', '$new_name'");
@@ -1044,17 +1045,9 @@ sub postprocess_config {
     # We don't need "ACCESS_GROUP" anymore ...
     delete $p->{ACCESS_GROUP};
 
-    # Separate "crypto map name seq" vs. "crypto map name interface"
-    # "name seq" is stored with key "name seq".
-    my @no_crypto_seq = grep { $_ !~ / / } keys %{$p->{CRYPTO_MAP}};
-    my $seq = $p->{CRYPTO_MAP_SEQ} = delete $p->{CRYPTO_MAP};
-    my $map = $p->{CRYPTO_MAP} = {};
-    for my $key (@no_crypto_seq) {
-	$map->{$key} = delete $seq->{$key};
-    }
-
     # Add entries of CRYPTO_MAP_SEQ to attribute PEER of artificial
     # anchor CRYPTO_MAP_LIST.
+    my $seq = $p->{CRYPTO_MAP_SEQ};
     my $lists = $p->{CRYPTO_MAP_LIST} = {};
     my %peers;
     for my $name (sort keys %$seq) {
@@ -1124,20 +1117,18 @@ my @known_status =
      qr/^\s*$/, # empty line
      qr/^\[OK\]/,
      # Multi line, expected warning.
-     qr /WARNING: L2L tunnel-groups that have names which are not an IP/,
-     qr /address may only be used if the tunnel authentication/,
-     qr /method is Digital Certificates and\/or The peer is/,
-     qr /configured to use Aggressive Mode/,
+     qr /^WARNING: (For IKEv1, )?L2L tunnel-groups that have names which are not an IP/,
+     qr /^address may only be used if the tunnel authentication/,
+     qr /^method is Digital Certificates and\/or The peer is/,
+     qr /^configured to use Aggressive Mode/,
+     # Expected warning from "managed=local"
+     qr/^WARNING: Same object-group is used more than once in one config line[.] This config is redundant[.] Please use seperate object-groups/,
      # ASA: general info
      qr/^INFO:/,
       );
 
 my @known_warning =
     (
-     # overlapping statics from netspoc
-     qr/overlapped\/redundant/,
-     # overlapping statics with global from netspoc
-     qr/static overlaps/,
      # route warnings
      qr/Route already exists/,
      # object-group warnings
@@ -1179,7 +1170,8 @@ sub parse_version {
     if($output =~ /Version +(\d+\.\d+)/i) {
 	$self->{VERSION} = $1;
     }
-    if($output =~ /Hardware:\s+(\S+),/i) {
+    if(my ($hardware) = $output =~ /Hardware:\s+(\S+)/i) {
+        $hardware =~ s/,$//;
 	$self->{HARDWARE} = $1;
     }
 }
@@ -1248,6 +1240,7 @@ sub equalize_attributes {
     my $modified;
     my $parse = $structure->{$parse_name};
     if ( not ( $structure && $parse_name ) ) {
+        # uncoverable statement
 	internal_err "Structure or parse_name not defined";
     }
 
@@ -1521,6 +1514,13 @@ sub make_equal {
                 return $spoc_value->{new_name} || $spoc_name;
             }
         }
+        elsif ($structure->{$parse_name}->{need_eq_attr}
+               and $conf_value and $spoc_value)
+        {
+            my $attributes = $structure->{$parse_name}->{attributes};
+            simple_object_equal($spoc_value, $conf_value, $attributes) or
+                abort("Can't change type of $parse_name $conf_name");
+        }
     }
 
     # Transfer object from netspoc
@@ -1551,7 +1551,10 @@ sub make_equal {
 
             if ($modified) {
                 if (!$modify_cmds) {
-                    $spoc_value->{transfer} = 1;
+
+                    # This should never happen, because ACLs are
+                    # always changed incrementally for ASA.
+                    $spoc_value->{transfer} = 1; # uncoverable statement
                 }
 
                 # Standard access-list can't be changed incrementally
@@ -1609,6 +1612,7 @@ sub make_equal {
 	    for my $next_key ( @$next ) {
 		my $next_attr_name  = $next_key->{attr_name};
 		my $next_parse_name = $next_key->{parse_name};
+                my $is_not_attr     = $next_key->{is_not_attr};
 		my $conf_next;
 		$conf_next = $conf_value->{$next_attr_name} if $conf_value;
 		my $spoc_next;
@@ -1627,7 +1631,7 @@ sub make_equal {
                     # the corresponding attribute in that superior object
                     # has to be altered, so that it carries the name of the
                     # transferred or changed object.
-                    if ( $spoc_next ) {
+                    if ( $spoc_next and not $is_not_attr) {
                         if ( ! $conf_next || $conf_next ne $new_conf_next ) {
                             $spoc_value->{change_attr}->{$next_attr_name} =
 				$new_conf_next;
@@ -1657,7 +1661,7 @@ sub make_equal {
                             }
                         }
                     }
-                    if ($modified_list) {
+                    if ($modified_list and not $is_not_attr) {
                         $spoc_value->{change_attr}->{$next_attr_name} =
                             \@new_list;
                         $modified = 1;
@@ -1699,6 +1703,7 @@ sub unify_anchors {
                                               $conf_key, $conf_key,
                                               $structure );
 	    if ( $new_conf && $conf_key ne $new_conf ) {
+                # uncoverable statement
 		internal_err "Anchors known so far are made equal by " .
 		    "changing their attributes, not by transfer. " .
 		    "(Anchor in conf: $key:$conf_key)";
@@ -1712,13 +1717,12 @@ sub unify_anchors {
         my $value = $structure->{$key};
         $value->{anchor} or next;
 #	info("Processing spoc anchor $key ... ");
-        my $conf_anchor = $conf->{$key};
         my $spoc_anchor = $spoc->{$key};
         for my $spoc_key (sort keys %$spoc_anchor) {
 	    next if $seen{$key}->{$spoc_key};
-	    my $new_spoc = $self->make_equal( $conf, $spoc, $key,
-                                              $spoc_key, $spoc_key,
-                                              $structure );
+	    $self->make_equal( $conf, $spoc, $key,
+                               $spoc_key, $spoc_key,
+                               $structure );
 	}
     }
 }
@@ -1881,7 +1885,7 @@ sub remove_unneeded_on_device {
 
             info("Remove unneeded $parse_name $obj_name");
             my $method = $parse->{remove};
-            $self->$method( $conf, $structure, $parse_name, $obj_name );
+            $self->$method( $conf, $parse_name, $obj_name );
 	}
     }
 }
@@ -1915,7 +1919,7 @@ sub remove_spare_objects_on_device {
             $object->{needed} = 1;
             info("Remove spare $parse_name $obj_name");
             my $method = $parse->{remove};
-            $self->$method( $conf, $structure, $parse_name, $obj_name );
+            $self->$method( $conf, $parse_name, $obj_name );
 	}
     }
 }
@@ -2047,9 +2051,6 @@ sub change_attributes {
                     $value = join(' ', @$value);
                 }
 
-		if ( $parse_name eq 'DEFAULT_GROUP' ) {
-		    $attr_cmd .= " default-group ";
-		}
 		$attr_cmd = "$prefix $attr_cmd" if($prefix);
 		if($attr_need_remove{$attr}) {
 		    push @cmds, "no $attr_cmd";
@@ -2123,18 +2124,6 @@ sub remove_attributes {
     $self->cmd( $_ ) for @cmds;
 }
 
-sub transfer_interface {
-    my ( $self, $spoc, $structure, $parse_name, $intf ) = @_;
-    abort("Transfer $intf: Interfaces MUST be same" .
-          " on device and in netspoc");
-}
-
-sub remove_interface {
-    my ( $self, $conf, $structure, $parse_name, $intf ) = @_;
-    abort("Remove $intf: Interfaces MUST be same" .
-          " on device and in netspoc");
-}
-
 sub transfer_crypto_map_seq {
     my ( $self, $spoc, $structure, $parse_name, $name_seq ) = @_;
 
@@ -2144,7 +2133,7 @@ sub transfer_crypto_map_seq {
 }
 
 sub remove_crypto_map_seq {
-    my ( $self, $conf, $structure, $parse_name, $name_seq ) = @_;
+    my ( $self, $conf, $parse_name, $name_seq ) = @_;
     $self->cmd("clear configure crypto map $name_seq");
 }
 
@@ -2157,7 +2146,7 @@ sub transfer_dynamic_map {
 }
 
 sub remove_dynamic_map {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
     my $object = $conf->{$parse_name}->{$obj_name};
     my $name = $object->{name};
     my $seq  = $object->{SEQ};
@@ -2176,7 +2165,7 @@ sub transfer_ca_cert_map {
 }
 
 sub remove_ca_cert_map {
-    my ( $self, $conf, $structure, $parse_name, $cert_map ) = @_;
+    my ( $self, $conf, $parse_name, $cert_map ) = @_;
     $self->cmd("clear configure crypto ca certificate map $cert_map");
 }
 
@@ -2202,7 +2191,7 @@ sub transfer_user {
 }
 
 sub remove_user {
-    my ( $self, $conf, $structure, $parse_name, $username ) = @_;
+    my ( $self, $conf, $parse_name, $username ) = @_;
     $self->cmd("clear configure username $username");
 }
 
@@ -2230,7 +2219,7 @@ sub transfer_tunnel_group {
 }
 
 sub remove_tunnel_group {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
 
     # Default tunnel groups must not be removed, even if not referenced.
     return if $default_tunnel_groups{$obj_name};
@@ -2253,7 +2242,7 @@ sub transfer_group_policy {
 }
 
 sub remove_group_policy {
-    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
     $self->cmd("clear configure group-policy $obj_name");
 }
 
@@ -2270,7 +2259,7 @@ sub transfer_ipsec_proposal {
 }
 
 sub remove_obj {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
     my $obj = $conf->{$parse_name}->{$obj_name};
     my $cmd = "no $obj->{orig}";
     $self->cmd( $cmd );
@@ -2303,7 +2292,7 @@ sub transfer_no_sysopt_connection_permit_vpn {
 }
 
 sub remove_no_sysopt_connection_permit_vpn {
-    my ( $self, $conf, $structure, $parse_name, $obj_name ) = @_;
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
     $self->cmd('sysopt connection permit-vpn');
 }
 
@@ -2377,7 +2366,7 @@ sub modify_acl {
 }
 
 sub remove_acl {
-    my ( $self, $conf, $structure, $parse_name, $acl_name ) = @_;
+    my ( $self, $conf, $parse_name, $acl_name ) = @_;
     $self->cmd("clear configure access-list $acl_name");
 }
 
@@ -2508,8 +2497,11 @@ sub define_structure {
 			parse_name => 'ACCESS_LIST', },
 		      ],
 	    attributes => [],
-	    transfer => 'transfer_interface',
-	    remove   => 'remove_interface',
+
+            # No attributes 'transfer' and 'remove' needed.
+            # New interface from Netspoc will abort with
+            # "Interface from Netspoc not known on device".
+            # Additional interface from device will be silently ignored.
 	},
 	CRYPTO_MAP_LIST => {
 	    anchor => 1,
@@ -2585,11 +2577,14 @@ sub define_structure {
 	DEFAULT_GROUP => {
 	    anchor => 1,
 	    next => [ { attr_name  => 'TUNNEL_GROUP_DEFINE',
-			parse_name => 'TUNNEL_GROUP_DEFINE', },
+			parse_name => 'TUNNEL_GROUP_DEFINE',
+                        is_not_attr => 1, },
 		      { attr_name  => 'TUNNEL_GROUP_IPSEC',
-			parse_name => 'TUNNEL_GROUP_IPSEC', },
+			parse_name => 'TUNNEL_GROUP_IPSEC',
+                        is_not_attr => 1, },
 		      { attr_name  => 'TUNNEL_GROUP_WEBVPN',
-			parse_name => 'TUNNEL_GROUP_WEBVPN', },
+			parse_name => 'TUNNEL_GROUP_WEBVPN',
+                        is_not_attr => 1, },
 		      ],
 	    transfer => 'transfer_default_group',
 	    remove   => 'remove_obj',
@@ -2634,8 +2629,9 @@ sub define_structure {
                       { attr_name  => 'TUNNEL_GROUP_WEBVPN',
 			parse_name => 'TUNNEL_GROUP_WEBVPN',
                       },
-                    ],
-	    attributes => [ qw( ATTRIBUTES ) ],
+                ],
+            need_eq_attr => 1,
+	    attributes => [ qw(TYPE) ],
 	    transfer => 'transfer_tunnel_group',
 	    remove   => 'remove_tunnel_group',
 	},

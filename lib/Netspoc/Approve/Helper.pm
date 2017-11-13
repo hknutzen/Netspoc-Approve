@@ -6,7 +6,7 @@ Helper functions
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2013 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2010 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -32,10 +32,10 @@ require Exporter;
 use strict;
 use warnings;
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
-our @EXPORT = qw(info abort err_info warn_info internal_err debug
+our @EXPORT = qw(info abort warn_info internal_err debug
                  quiet quad2int int2quad is_ip max
 );
 
@@ -56,36 +56,25 @@ sub abort {
     exit -1;
 }
 
-sub err_info {
-    say_stderr("ERROR>>> ", @_);
-}
-
 sub warn_info {
     say_stderr("WARNING>>> ", @_);
 }
 
 sub internal_err {
-    my ($package, $file, $line, $sub) = caller 1;
-    abort("Internal error in $sub: ", @_);
+    # uncoverable subroutine
+    my $sub = (caller 1)[3];			# uncoverable statement
+    abort("Internal error in $sub: ", @_);	# uncoverable statement
 }
 
 sub debug {
-    info(@_);
+    # uncoverable subroutine
+    info(@_);	  # uncoverable statement
 }
 
 sub quad2int {
     ($_[0] =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/) or return;
     ($1 < 256 && $2 < 256 && $3 < 256 && $4 < 256) or return;
     return $1 << 24 | $2 << 16 | $3 << 8 | $4;
-}
-
-sub int2quad {
-    return sprintf "%vd", pack 'N', $_[0];
-}
-
-sub is_ip {
-    my ( $obj ) = @_;
-    return $obj =~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 }
 
 sub max {

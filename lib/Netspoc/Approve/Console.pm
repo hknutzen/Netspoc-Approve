@@ -6,7 +6,7 @@ Manage connection to device.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2014 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2008 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -34,7 +34,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw( open_con close_con  );
@@ -70,27 +70,10 @@ sub set_logfile {
         or abort("Couldn't chmod $logfile: $!");
 }
 
-# Print to logfile
-sub print_logfile {
-    my ($con, @strings) = @_;
-    my $console = $con->{EXPECT};
-    $console->print_log_file(@strings);
-}
-
-#    If called in an array context expect() will return
-#    ($matched_pattern_position, $error, $success-
-#    fully_matching_string, $before_match, and
-#    $after_match).
-
-#    Possible values of $error are undef, indi-
-#    cating no error, '1:TIMEOUT' indicating that $timeout
-#    seconds had elapsed without a match, '2:EOF' indicat-
-#    ing an eof was read from $object, '3: spawn
-#    id($fileno) died' indicating that the process exited
-#    before matching and '4:$!' indicating whatever error
-#    was set in $ERRNO during the last read on $object's
-#    handle.
-
+# If called in an array context, expect() will return 5 values:
+# matched_pattern_position, error,
+# success-fully_matching_string,
+# before_match, after_match.
 sub con_wait0 {
     my ($con, $prompt, $timeout) = @_;
     my $exp = $con->{EXPECT};
@@ -111,33 +94,8 @@ sub con_wait {
     my ($con, $prompt) = @_;
     my $timeout = $con->{TIMEOUT};
     my $result = $con->con_wait0($prompt, $timeout);
-    $con->con_error() if $result->{ERROR};
+    $con->con_abort() if $result->{ERROR};
     return $result;
-}
-
-# We might accidently have read multiple prompt strings.
-# This occurs, if reload banner is sent or multiple commands are sent in
-# one packet.
-# Check for this case and put extra data after first prompt back into
-# accumulator of expect.
-sub con_wait_prompt1 {
-    my ($con, $prompt) = @_;
-
-    $con->con_wait($prompt);
-
-    # Prompt was found.
-    # Check for multiple prompts, find first one.
-    my $result = $con->{RESULT};
-    my $exp = $con->{EXPECT};
-    if ($result->{BEFORE} =~ /^(.*?)($prompt)(.*)$/) {
-	debug("Found multiple prompts");
-#	debug("Before: $1");
-	$result->{BEFORE} = $1;
-	my $accum = $3 . $result->{MATCH} . $exp->clear_accum();
-	$exp->set_accum($accum);
-	debug("Put back: $accum");
-	$result->{MATCH} = $2;
-    }
 }
 
 sub con_short_wait {
@@ -152,13 +110,19 @@ sub con_send_cmd {
 }
 
 sub con_issue_cmd {
-    my ($con, $cmd, $prompt, $check_prompt1) = @_;
+    my ($con, $cmd, $prompt) = @_;
     $con->con_send_cmd("$cmd\n");
-    $check_prompt1
-	? $con->con_wait_prompt1($prompt)
-	: $con->con_wait( $prompt );
+    $con->con_wait($prompt);
 }
 
+# Possible values of $error are undef, indi-
+# cating no error, '1:TIMEOUT' indicating that $timeout
+# seconds had elapsed without a match, '2:EOF' indicat-
+# ing an eof was read from $object, '3: spawn
+# id($fileno) died' indicating that the process exited
+# before matching and '4:$!' indicating whatever error
+# was set in $ERRNO during the last read on $object's
+# handle.
 sub con_abort {
     my ($con) = @_;
     my $result = $con->{RESULT};

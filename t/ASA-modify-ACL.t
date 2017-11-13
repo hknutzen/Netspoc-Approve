@@ -171,6 +171,29 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Change standard ACL non incrementally";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list inside standard permit host 1.1.1.1
+access-group inside in interface inside
+END
+
+$in = <<'END';
+access-list inside standard permit host 1.1.1.1
+access-list inside standard permit 2.2.2.2 255.255.255.254
+access-group inside in interface inside
+END
+
+$out = <<'END';
+access-list inside-DRC-0 standard permit host 1.1.1.1
+access-list inside-DRC-0 standard permit 2.2.2.2 255.255.255.254
+access-group inside-DRC-0 in interface inside
+clear configure access-list inside
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Add object-group";
 ############################################################
 $device = $minimal_device;
@@ -197,7 +220,49 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Modify object-group";
+$title = "Remove object-group";
+############################################################
+
+$out = <<'END';
+no access-list inside line 1 extended permit ip object-group g1 any
+no object-group network g1
+END
+
+eq_or_diff(approve('ASA', $in, $device), $out, $title);
+
+############################################################
+$title = "Modify type of object-group";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+object-group service g1 tcp
+ port-object range 135 139
+
+access-list outside_in extended permit object-group g1 any host 10.0.1.11
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$in = <<'END';
+object-group service g1 udp
+ port-object range 135 139
+
+access-list outside_in extended permit object-group g1 any host 10.0.1.11
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+object-group service g1-DRC-0 udp
+port-object range 135 139
+access-list outside_in line 1 extended permit object-group g1-DRC-0 any host 10.0.1.11
+no access-list outside_in line 2 extended permit object-group g1 any host 10.0.1.11
+no object-group service g1 tcp
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Modify object-group; referenced multiple times";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
@@ -209,7 +274,8 @@ object-group network g1
  network-object host 5.5.5.5
  network-object host 6.6.6.6
  network-object host 7.7.7.7
-access-list inside extended permit ip object-group g1 any
+access-list inside extended permit ip object-group g1 host 10.0.1.1
+access-list inside extended permit ip object-group g1 host 10.0.1.2
 access-group inside in interface inside
 END
 
@@ -223,7 +289,8 @@ object-group network g1
 !! Order of lines doesn\'t matter
  network-object host 7.7.7.7
  network-object host 6.6.6.6
-access-list inside extended permit ip object-group g1 any
+access-list inside extended permit ip object-group g1 host 10.0.1.1
+access-list inside extended permit ip object-group g1 host 10.0.1.2
 access-group inside in interface inside
 END
 
@@ -235,7 +302,7 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Object group used in two ACLs; 1. occurence new, 2. unchanged";
+$title = "Object group used in two ACLs; 1. occurrence new, 2. unchanged";
 ############################################################
 $device = $minimal_device2;
 $device .= <<'END';
@@ -420,21 +487,22 @@ $title = "Move ACL entry with log";
 $device = $minimal_device;
 $device .= <<'END';
 access-list inside extended permit ip host 1.1.1.1 any log
-access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended permit ip host 2.2.2.2 any log 5 interval 30
 access-list inside extended deny ip any any log warnings
 access-group inside in interface inside
 END
 
 $in = <<'END';
-access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended permit ip host 2.2.2.2 any log interval 30
 access-list inside extended permit ip host 1.1.1.1 any log errors
 access-list inside extended deny ip any any
 access-group inside in interface inside
 END
 
 $out = <<'END';
-no access-list inside line 3 extended deny ip any any log warnings\N access-list inside line 3 extended deny ip any any
-no access-list inside line 1 extended permit ip host 1.1.1.1 any log\N access-list inside line 2 extended permit ip host 1.1.1.1 any log errors
+no access-list inside line 2 extended permit ip host 2.2.2.2 any log 5 interval 30\N access-list inside line 1 extended permit ip host 2.2.2.2 any log interval 30
+no access-list inside line 3 extended deny ip any any log warnings\N access-list inside line 2 extended deny ip any any
+no access-list inside line 3 extended permit ip host 1.1.1.1 any log\N access-list inside line 2 extended permit ip host 1.1.1.1 any log errors
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 

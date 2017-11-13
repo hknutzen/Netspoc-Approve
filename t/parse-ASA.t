@@ -22,6 +22,88 @@ my $device_type = 'ASA';
 my $title;
 
 ############################################################
+$title = "Interface with and without IP address";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/0
+ nameif inside
+ ip address 10.1.1.0 255.255.255.0
+END
+
+$in = <<'END';
+interface Ethernet0/0
+ nameif inside
+END
+
+$out = <<END;
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Add sysopt";
+############################################################
+
+$device = <<'END';
+END
+
+$in = <<'END';
+no sysopt connection permit-vpn
+END
+
+$out = <<END;
+no sysopt connection permit-vpn
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Remove sysopt";
+############################################################
+
+$device = <<'END';
+no sysopt connection permit-vpn
+END
+
+$in = <<'END';
+END
+
+$out = <<END;
+sysopt connection permit-vpn
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Increment index of names";
+############################################################
+$device = <<END;
+object-group network g0-DRC-0
+ network-object 10.0.6.0 255.255.255.0
+access-list outside_in extended permit udp object-group g0-DRC-0 any eq 80
+access-group outside_in in interface outside
+END
+
+$in = <<END;
+object-group network g0
+ network-object 10.0.5.0 255.255.255.0
+object-group network g1
+ network-object 10.0.6.0 255.255.255.0
+access-list outside_in extended permit udp object-group g0 any eq 79
+access-list outside_in extended permit udp object-group g1 any eq 80
+access-group outside_in in interface outside
+END
+
+$out = <<END;
+object-group network g0-DRC-1
+network-object 10.0.5.0 255.255.255.0
+access-list outside_in line 1 extended permit udp object-group g0-DRC-1 any eq 79
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Parse routing and ACL with object-groups";
 ############################################################
 $in = <<END;
@@ -81,6 +163,76 @@ ERROR>>> Unexpected command in line 7:
 END
 
 eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "object-group of type tcp-udp";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+object-group service g1 tcp-udp
+ port-object eq domain
+ port-object eq http
+access-list outside_in extended permit object-group g1 any any
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+ERROR>>> Expected port number or port name
+ERROR>>>  at line 7, pos 3:
+ERROR>>> >>port-object eq http<<
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
+$title = "Port specifer 'neq'";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended permit tcp any any neq 22
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+ERROR>>> port specifier 'neq' not implemented
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
+$title = "Unknown port specifier";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended permit tcp any any foo 22
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+ERROR>>> Unexpected token 'foo'
+ERROR>>>  at line 5, pos 8:
+ERROR>>> >>access-list outside_in extended permit tcp any any foo 22<<
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
+$title = "Different port specifers";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended permit tcp any any eq 22
+access-list outside_in extended permit tcp any any gt 1023
+access-list outside_in extended permit tcp any any lt 9
+access-list outside_in extended permit tcp any any range www 90
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+END
+
+eq_or_diff(approve('ASA', $device, $device), $out, $title);
 
 ############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";
@@ -171,6 +323,32 @@ authentication certificate
 tunnel-group-map default-group VPN-single-DRC-0
 END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+
+############################################################
+$title = "Must not change type of tunnel-group";
+############################################################
+$device = <<END;
+tunnel-group VPN-single type remote-access
+tunnel-group VPN-single webvpn-attributes
+ authentication certificate
+tunnel-group-map default-group VPN-single
+END
+
+$in = <<END;
+tunnel-group some-name type ipsec-l2l
+tunnel-group some-name ipsec-attributes
+ peer-id-validate nocheck
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+tunnel-group-map default-group some-name
+END
+
+$out = <<"END";
+ERROR>>> Can't change type of TUNNEL_GROUP_DEFINE VPN-single
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
 
 ############################################################
 $title = "Parse username, group-policy";
@@ -399,6 +577,22 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Duplicate ca certificate map";
+############################################################
+$device = $minimal_device . <<'END';
+crypto ca certificate map map1 10
+ subject-name attr ea co @sub.example.com
+crypto ca certificate map map2 10
+ subject-name attr ea co @sub.example.com
+END
+
+$out = <<'END';
+ERROR>>> Two ca cert map items use identical subject-name: 'map1', 'map2'
+END
+
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
 $title = "Parse tunnel-group, group-policy, ca cert map, pool";
 ############################################################
 $in = <<'END';
@@ -466,6 +660,31 @@ END
 check_parse_and_unchanged('ASA', $minimal_device, $in, $out, $title);
 
 ############################################################
+$title = "Remove tunnel-group, crypto-ca-cert-map, tunnel-group-map";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+tunnel-group VPN-tunnel ipsec-attributes
+ trust-point ASDM_TrustPoint4
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+$in = <<'END';
+END
+
+$out = <<'END';
+clear configure crypto ca certificate map ca-map
+no tunnel-group VPN-tunnel ipsec-attributes
+clear configure tunnel-group VPN-tunnel
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Modify tunnel-group ipsec-attributes";
 ############################################################
 $device = $minimal_device;
@@ -530,6 +749,37 @@ no tunnel-group 193.155.130.20 ipsec-attributes
 clear configure tunnel-group 193.155.130.20
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Missing type definition for tunnel-group";
+############################################################
+
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group tunnel1 ipsec-attributes
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+END
+
+$out = <<'END';
+ERROR>>> Missing type definition for tunnel-group tunnel1
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
+$title = "tunnelgroup-map references unknown tunnel-group";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+crypto ca certificate map ca-map 10
+ subject-name attr ea eq some@example.com
+tunnel-group-map ca-map 20 193.155.130.20
+END
+
+$out = <<'END';
+ERROR>>> 'tunnel-group-map ca-map 20 193.155.130.20' references unknown tunnel-group 193.155.130.20
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
 
 ############################################################
 $title = "Must not delete default tunnel-group";
@@ -676,13 +926,12 @@ crypto ipsec ikev1 transform-set Trans1a esp-3des esp-md5-hmac
 crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 crypto ipsec ikev1 transform-set Trans2 esp-aes-192 esp-sha-hmac
 crypto ipsec ikev2 ipsec-proposal Proposal1
- protocol esp encryption aes192
+ protocol esp encryption aes192 aes 3des
  protocol esp integrity  sha
 access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.1
 crypto map crypto-outside 1 set ikev1 transform-set Trans1b
-crypto map crypto-outside 1 set pfs group2
 access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
 crypto map crypto-outside 3 match address crypto-outside-3
 crypto map crypto-outside 3 set peer 10.0.0.3
@@ -693,15 +942,13 @@ END
 $in = <<'END';
 crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
 crypto ipsec ikev2 ipsec-proposal Proposal1
- protocol esp encryption aes256
+ protocol esp encryption aes192 aes256
  protocol esp integrity  sha
 access-list crypto-outside-1 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.2
 crypto map crypto-outside 1 set ikev1 transform-set Trans1
-crypto map crypto-outside 1 set pfs group2
-access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
-crypto map crypto-outside 3 match address crypto-outside-3
+crypto map crypto-outside 1 set pfs group1
 crypto map crypto-outside 3 set peer 10.0.0.3
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1
 crypto map crypto-outside 3 set pfs group1
@@ -710,23 +957,41 @@ END
 $out = <<'END';
 access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 2 set peer 10.0.0.2
-crypto map crypto-outside 2 set pfs group2
+crypto map crypto-outside 2 set pfs group1
 crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
 no crypto map crypto-outside 2 set ikev1 transform-set
 crypto map crypto-outside 2 set ikev1 transform-set Trans1a
 crypto ipsec ikev2 ipsec-proposal Proposal1-DRC-0
-protocol esp encryption aes256
+protocol esp encryption aes192 aes256
 protocol esp integrity sha
 no crypto map crypto-outside 3 set ikev2 ipsec-proposal
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1-DRC-0
 crypto map crypto-outside 3 set pfs group1
 clear configure crypto map crypto-outside 1
+no crypto map crypto-outside 3 match address crypto-outside-3
 no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 no crypto ipsec ikev2 ipsec-proposal Proposal1
 clear configure access-list crypto-outside-1
+clear configure access-list crypto-outside-3
 END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Too many encryption types";
+############################################################
+$device = <<'END';
+crypto ipsec ikev2 ipsec-proposal Proposal1
+ protocol esp encryption aes192 aes 3des des
+END
+
+$out = <<'END';
+ERROR>>> Unexpected token 'des'
+ERROR>>>  at line 2, pos 7:
+ERROR>>> >>protocol esp encryption aes192 aes 3des des<<
+END
+
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
 
 ############################################################
 $title = "Insert, change and delete dynamic crypto map";

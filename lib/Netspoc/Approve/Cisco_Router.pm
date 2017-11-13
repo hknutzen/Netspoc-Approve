@@ -33,7 +33,7 @@ package Netspoc::Approve::Cisco_Router;
 # Base class for Cisco routers (IOS, NX-OS)
 #
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -90,7 +90,7 @@ sub define_acl {
 }
 
 sub modify_object_groups {
-    my ($self, $conf, $spoc) = @_;
+    my ($self, $spoc) = @_;
     my $hash = $spoc->{OBJECT_GROUP};
     for my $name (sort keys %$hash) {
         my $group = $hash->{$name};
@@ -140,7 +140,7 @@ sub transfer_object_groups {
 }
 
 sub remove_object_groups {
-    my ($self, $conf, $spoc) = @_;
+    my ($self, $conf) = @_;
     my $conf_groups = $conf->{OBJECT_GROUP};
     for my $name (sort keys %$conf_groups) {
         my $group = $conf_groups->{$name};
@@ -246,7 +246,6 @@ sub equalize_acls_of_objects {
     for my $pair (@$object_pairs){
         my ($conf_obj, $spoc_obj) = @$pair;
 	for my $in_out (qw(IN OUT)) {
-	    my $direction = lc($in_out);
 	    my $confacl_name = $conf_obj->{"ACCESS_GROUP_$in_out"} || '';
 	    my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
 	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
@@ -269,7 +268,7 @@ sub equalize_acls_of_objects {
 	}
     }
 
-    $self->modify_object_groups($conf, $spoc);
+    $self->modify_object_groups($spoc);
     $self->transfer_object_groups($conf, $spoc);
 
     # Pass 2: Try to equalize ACLs by incremental changes to ACL on device.
@@ -339,7 +338,7 @@ sub equalize_acls_of_objects {
                                     $conf_acl, $spoc_acl];
 	}
     }
-    $self->remove_object_groups($conf, $spoc);
+    $self->remove_object_groups($conf);
     return @acl_update_info;
 }
 

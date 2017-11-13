@@ -6,7 +6,7 @@ Remote configure Cisco IOS router
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2007 by Arne Spetzler
 
 This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -44,7 +44,7 @@ our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
 # - store: name of attribute where result is stored or
 #   array of names which are used to access sub-hash: {name1}->{name2}->..
 # - named: first argument is name which is used as key when storing result
-# - multi: multiple occurences of this command may occur
+# - multi: multiple occurrences of this command may occur
 #          and are stored as an array.
 # - leave_cmd_as_arg: This attribute will be used together with "_any".
 #          If set, the command will be left as an argument to be parsed.
@@ -81,8 +81,8 @@ sub get_parse_info {
 			{ store => 'DYNAMIC', parse => qr/negotiated/, },
 			{ store => 'DYNAMIC', parse => qr/dhcp/, },
 			['seq',
-			 { store => 'BASE', parse => \&check_ip, },
-			 { store => 'MASK', parse => \&check_ip, } ]] },
+			 { store => 'BASE', parse => \&get_ip, },
+			 { store => 'MASK', parse => \&get_ip, } ]] },
 	    'ip address _skip _skip secondary' =>  {
 		parse => \&skip }, # ignore
 	    'ip unnumbered' => {
@@ -359,9 +359,8 @@ sub postprocess_config {
 	    $p->{CRYPTO_MAP}->{$cm_name} = $cm;
             for my $entry (@$cm) {
 		next if $entry->{GDOI};
-                my $sequ = $entry->{SEQU};
 
-                # Check access list for crypto map.
+                # Check filter access lists referenced in crypto map.
                 for my $what (qw(IN OUT)) {
                     my $acl_name = $entry->{"ACCESS_GROUP_$what"} or next;
                     $p->{ACCESS_LIST}->{$acl_name} or
@@ -406,13 +405,8 @@ my %known_status =
      'configure terminal' => [ qr/^Enter configuration commands/, ],
      );
 
-my %known_warning =
-(
- );
-
 # Check unexpected lines:
 # - known status messages
-# - known warning messages
 # - unknown messages, handled as error messages.
 sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
@@ -421,12 +415,6 @@ sub cmd_check_error {
     for my $line (@$lines) {
 	for my $regex (@{ $known_status{$cmd} }) {
 	    if($line =~ $regex) {
-		next LINE;
-	    }
-	}
-	for my $regex (@{ $known_warning{$cmd} }) {
-	    if($line =~ $regex) {
-                warn_info($line);
 		next LINE;
 	    }
 	}
@@ -503,8 +491,8 @@ sub write_mem {
     my ($self) = @_;
     my $cmd = 'write memory';
 
-    # 5 retries, 3 seconds interval
-    my ($retries, $seconds) = (5, 3);
+    # 2 retries, 3 seconds interval
+    my ($retries, $seconds) = (2, 3);
     info("Writing config to nvram");
     $retries++;
     local $self->{ENAPROMPT} = qr/$self->{ENAPROMPT}|\[confirm\]/;
@@ -645,15 +633,10 @@ sub handle_reload_banner {
 #	info("Prefix: $prefix");
 #	info("Postfix: $postfix");
 
-	# Ignore $postfix if it's only a newline added by 'logging synchronous'
-	if ($prefix =~ / \n $/msx and $postfix eq '\r\n') {
-	    $$output_ref = $prefix;
-	}
-
 	# Because of 'logging synchronous' we are sure to get another prompt
 	# if the banner is the only output before current prompt.
 	# Read next prompt and set $$output_ref to next output.
-	elsif(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
+	if(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
 	    info("Expecting prompt after banner");
 	    my $con = $self->{CONSOLE};
 	    $con->con_wait($self->{ENAPROMPT});
@@ -671,6 +654,36 @@ sub handle_reload_banner {
     }
 }
 
+# Read my vty and my IP by command "sh users"
+# Output of command:
+# *  7 vty 1     netspoc   idle                 00:00:00 10.11.12.13
+# Output seen from IOS 12.4(3f):
+# * vty 322      netspoc   idle                 00:00:00 10.11.12.13
+# ==> take first number as vty and IP at end of line
+# and return found vty number and ip address.
+sub read_vty_and_remote_ip {
+    my ($self) = @_;
+    my $cmd = 'sh users | incl ^\*';
+    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
+    my $lines = $self->get_cmd_output($cmd);
+    my $line = $lines->[0] or return;
+    chomp $line;
+    $line =~ /^\*\D*(\d+).*?([\d.]+)$/ or return;
+    return ($1, $2);
+}
+
+# Read tcp details of current vty.
+# Return local IP and local port.
+sub read_vty_details {
+    my ($self, $vty) = @_;
+    my $cmd = "sh tcp $vty | incl Local host:";
+    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
+    my $lines = $self->get_cmd_output($cmd);
+    my $line = $lines->[0] or return;
+    $line =~ /Local host:\s([\d.]+),\sLocal port:\s(\d+)/i or return;
+    return ($1, $2);
+}
+
 sub get_my_connection {
     my ($self) = @_;
     if (my $cached = $self->{CONNECTION}) {
@@ -679,60 +692,44 @@ sub get_my_connection {
 
     # In file compare mode use IP from netspoc file or 1.2.3.4 if not available.
     if (not $self->{CONSOLE}) {
-	my $any = { BASE => 0, MASK => 0 };
-	my $ip = quad2int($self->{IP} || '1.2.3.4');
-	my $dst = $ip ? { BASE => $ip, MASK => 0xffffffff } : $any;
-	my $range = { TYPE => 'tcp',
-		      SRC_PORT => { LOW => 0, HIGH => 0xffff },
-		      DST_PORT => { LOW => 22, HIGH => 23 } };
-	my $cached = $self->{CONNECTION} = [ $any, $dst, $range ];
+	my $any  = 0;
+	my $dst  = quad2int($self->{IP} || '1.2.3.4');
+	my $port = 22;
+	my $cached = $self->{CONNECTION} = [ $any, $dst, $port ];
 	return @$cached;
     }
 
     # With real device, read IP from device, because IP from netspoc may have
     # been changed by NAT.
-
-    # Read my vty and my IP by command "sh users"
-    # Output:
-    # *  7 vty 1     netspoc   idle                 00:00:00 10.11.12.13
-    # Output seen from IOS 12.4(3f):
-    # * vty 322      netspoc   idle                 00:00:00 10.11.12.13
-    # ==> take first number as vty and IP at end of line.
-    my $cmd = 'sh users | incl ^\*';
-    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
-    my $lines = $self->get_cmd_output($cmd);
-    my $line = $lines->[0];
-    chomp $line;
-    my ($vty, $s_ip);
-    if ($line =~ /^\*\D*(\d+).*?([\d.]+)$/) {
-	($vty, $s_ip) = ($1, $2);
-    }
-    else {
+    my ($vty, $s_ip) = $self->read_vty_and_remote_ip() or
 	abort("Can't determine my vty");
-    }
     my $src_ip = quad2int($s_ip) or abort("Can't parse src ip: $s_ip");
 
-    # Read tcp details for my connection.
-    $cmd = "sh tcp $vty | incl Local host:";
-    $cmd = "do $cmd" if $self->check_conf_mode() && !$self->{COMPARE};
-    $lines = $self->get_cmd_output($cmd);
-    $line = $lines->[0];
-    my ($port, $d_ip);
-    if ($line =~ /Local host:\s([\d.]+),\sLocal port:\s(\d+)/i) {
-	($d_ip, $port) = ($1, $2);
-    }
-    else {
+    my ($d_ip, $port) = $self->read_vty_details($vty) or
 	abort("Can't determine remote ip and port of my TCP session");
-    }
     my $dst_ip = quad2int($d_ip) or abort("Can't parse remote ip: $d_ip");
     info("My connection: $s_ip -> $d_ip:$port");
-    my $src = { BASE => $src_ip, MASK => 0xffffffff };
-    my $dst = { BASE => $dst_ip, MASK => 0xffffffff };
-    my $range = { TYPE => 'tcp',
-		  SRC_PORT => { LOW => 0, HIGH => 0xffff },
-		  DST_PORT => { LOW => $port, HIGH => $port } };
-    my $cached = $self->{CONNECTION} = [ $src, $dst, $range ];
+    my $cached = $self->{CONNECTION} = [ $src_ip, $dst_ip, $port ];
     return @$cached;
+}
+
+sub ip_in_net {
+    my ($ip, $net) = @_;
+    my $m = $net->{MASK};
+    return ($m & $ip) == ($m & $net->{BASE});
+}
+
+sub port_in_proto {
+    my ($port, $proto) = @_;
+    my $type = $proto->{TYPE};
+    if ($type eq 'ip') {
+        return 1;
+    }
+    if ($type eq 'tcp') {
+        my $range = $proto->{DST_PORT};
+        return ($range->{LOW} <= $port && $port <= $range->{HIGH});
+    }
+    return 0;
 }
 
 sub is_device_access {
@@ -743,11 +740,11 @@ sub is_device_access {
     my $proto = $conf_entry->{TYPE};
     return 1 if $proto eq "50" || $proto eq "51";
 
-    my ($device_src, $device_dst, $device_proto) = $self->get_my_connection();
+    my ($device_src, $device_dst, $device_port) = $self->get_my_connection();
     return
-	$self->ip_netz_a_in_b($device_src, $conf_entry->{SRC}) &&
-	$self->ip_netz_a_in_b($device_dst, $conf_entry->{DST}) &&
-	$self->services_a_in_b($device_proto, $conf_entry);
+	ip_in_net($device_src, $conf_entry->{SRC}) &&
+	ip_in_net($device_dst, $conf_entry->{DST}) &&
+	port_in_proto($device_port, $conf_entry);
 }
 
 sub resequence_cmd {
@@ -760,20 +757,8 @@ sub resequence_cmd {
 ###############################
 
 # Compare and equalize ACLs of crypto map entries.
-sub compare_crypto_maps {
-    my ($self, $conf, $spoc, $conf_map, $spoc_map) = @_;
-    if (@$conf_map != @$spoc_map) {
-        warn_info("Crypto maps $conf_map->{name} and $spoc_map->{name} differ");
-        return;
-    }
-
-    # Find pairs of corresponding crypto map entries.
-    my @crypto_entry_pairs;
-    for (my $i = 0 ; $i < @$conf_map ; $i++) {
-        my $conf_entry = $conf_map->[$i];
-        my $spoc_entry = $spoc_map->[$i];
-        push @crypto_entry_pairs, [ $conf_entry, $spoc_entry ];
-    }
+sub compare_crypto_acls {
+    my ($self, $conf, $spoc, $crypto_entry_pairs) = @_;
 
     $self->enter_conf_mode();
 
@@ -781,7 +766,7 @@ sub compare_crypto_maps {
     # Try to change ACLs incrementally.
     # Get list of ACL pairs, that need to be redefined, added or removed.
     my @acl_update_info =
-        $self->equalize_acls_of_objects($conf, $spoc, \@crypto_entry_pairs);
+        $self->equalize_acls_of_objects($conf, $spoc, $crypto_entry_pairs);
 
     for my $info (@acl_update_info) {
         my ($entry, $in_out, $conf_acl, $spoc_acl) = @$info;
@@ -814,33 +799,47 @@ sub compare_crypto_maps {
     $self->leave_conf_mode();
 }
 
+# Compare crypto maps of interfaces.
 sub crypto_processing {
     my ($self, $conf, $spoc) = @_;
     $spoc->{CRYPTO_MAP} or return;
 
+    my @errors;
     my $spoc_interfaces = $spoc->{IF};
     my $conf_interfaces = $conf->{IF};
-
-    # Compare crypto config which is bound to interfaces.
-    for my $name (keys %$spoc_interfaces) {
+    for my $name (sort keys %$spoc_interfaces) {
         my $spoc_intf = $spoc_interfaces->{$name};
         my $conf_intf = $conf_interfaces->{$name};
         my $spoc_map_name = $spoc_intf->{CRYPTO_MAP};
         my $conf_map_name = $conf_intf->{CRYPTO_MAP};
         if (not $spoc_map_name) {
             if ($conf_map_name) {
-                warn_info("Missing crypto map at $name from Netspoc");
+                push(@errors,
+                     "Missing crypto map at interface $name from Netspoc");
             }
             next;
         }
         if (not $conf_map_name) {
-            warn_info("Missing crypto map at $name from device");
+            push(@errors, "Missing crypto map at interface $name from device");
             next;
         }
         my $conf_map = $conf->{CRYPTO_MAP}->{$conf_map_name};
         my $spoc_map = $spoc->{CRYPTO_MAP}->{$spoc_map_name};
-        $self->compare_crypto_maps($conf, $spoc, $conf_map, $spoc_map);
+        if (@$conf_map != @$spoc_map) {
+            push(@errors, "Crypto maps differ for interface $name");
+            next;
+        }
+
+        # Find pairs of corresponding crypto map entries.
+        my @crypto_entry_pairs;
+        for (my $i = 0 ; $i < @$conf_map ; $i++) {
+            my $conf_entry = $conf_map->[$i];
+            my $spoc_entry = $spoc_map->[$i];
+            push @crypto_entry_pairs, [ $conf_entry, $spoc_entry ];
+        }
+        $self->compare_crypto_acls($conf, $spoc, \@crypto_entry_pairs);
     }
+    abort(@errors) if @errors;
 }
 
 ###############################

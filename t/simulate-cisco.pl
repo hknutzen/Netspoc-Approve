@@ -71,6 +71,11 @@ my $delim = qr/^[#][ ]*(.*)[ ]*\n/m;
 # Split into preamble, cmd-a, output-a, cmd-b, output-b, ...
 my ($preamble, @output) = split($delim, $data);
 
+# Remove trailing linefeed.
+# In case of last line of preamble being a prompt.
+# If linefeed is really needed, then add two linefeeds to scenario file.
+chomp $preamble if $preamble;
+
 # Build mapping from command line to output lines.
 my %cmd2out;
 while (@output) {
@@ -83,10 +88,15 @@ while (@output) {
 my %cmd2b_cmd;
 if (my @banners = grep { m/^ \\ \w+ \/ $/x } keys %cmd2out) {
 
-    # Finde banner definitions.
+    # Find banner definitions.
     my %banner2out;
     for my $banner (@banners) {
-        $banner2out{$banner} = delete $cmd2out{$banner};
+        my $out = delete $cmd2out{$banner};
+
+        # Special case: Remove linefeed if prompt is part of output.
+        $out =~ s/#\n$/#/m;
+
+        $banner2out{$banner} = $out;
     }
 
     # Substite banner markers by banner text in command lines.

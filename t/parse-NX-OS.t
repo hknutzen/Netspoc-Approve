@@ -35,6 +35,11 @@ ip access-list inside_in
 interface Ethernet0/0
  ip access-group inside_in in
 
+object-group ip port p0
+ 10 eq 80
+ 20 eq 88
+ 30 range 7937 8999
+
 object-group ip address g0
  10 10.0.6.0/24
  20 10.0.5.0/24
@@ -42,7 +47,7 @@ object-group ip address g0
 
 ip access-list outside_in
  10 permit udp addrgroup g0 host 10.0.1.11 eq sip
- 20 permit tcp any host 10.0.1.11 range 7937 8999
+ 20 permit tcp any host 10.0.1.11 portgroup p0
  30 deny ip any any
 
 interface Ethernet0/1
@@ -54,13 +59,17 @@ object-group ip address g0-DRC-0
 10.0.6.0/24
 10.0.5.0/24
 host 10.0.12.3
+object-group ip port p0-DRC-0
+eq 80
+eq 88
+range 7937 8999
 ip access-list inside_in-DRC-0
 deny ip any any
 interface Ethernet0/0
 ip access-group inside_in-DRC-0 in
 ip access-list outside_in-DRC-0
 permit udp addrgroup g0-DRC-0 host 10.0.1.11 eq sip
-permit tcp any host 10.0.1.11 range 7937 8999
+permit tcp any host 10.0.1.11 portgroup p0-DRC-0
 deny ip any any
 interface Ethernet0/1
 ip access-group outside_in-DRC-0 in
@@ -72,7 +81,39 @@ END
 check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
 
 ############################################################
-$title = "Object group used in two ACLs; 1. occurence new, 2. unchanged";
+$title = "Move ACL entries";
+############################################################
+
+$device = <<'END';
+ip access-list outside_in
+ 10 permit ip host 1.1.1.1 any
+ 20 permit ip host 2.2.2.2 any
+ 30 permit ip host 3.3.3.3 any
+ 40 permit ip host 4.4.4.4 any
+interface Ethernet0/1
+ ip access-group outside_in in
+END
+
+$in = <<'END';
+ip access-list outside_in
+ 10 permit ip host 1.1.1.1 any
+ 20 permit ip host 4.4.4.4 any
+ 30 permit ip host 2.2.2.2 any
+ 40 permit ip host 3.3.3.3 any
+interface Ethernet0/1
+ ip access-group outside_in in
+END
+
+$out = <<'END';
+resequence ip access-list outside_in 10000 10000
+ip access-list outside_in
+no 40000\N 10001 permit ip host 4.4.4.4 any
+resequence ip access-list outside_in 10 10
+END
+eq_or_diff(approve($device_type, $device, $in), $out, $title);
+
+############################################################
+$title = "Object group used in two ACLs; 1. occurrence new, 2. unchanged";
 ############################################################
 $device = <<'END';
 object-group ip address g1-0
@@ -178,7 +219,7 @@ END
 
 $out = <<END;
 vrf context 013
- ip route 10.40.0.0/16 10.1.2.4
+ip route 10.40.0.0/16 10.1.2.4
 END
 
 eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
@@ -201,6 +242,23 @@ interface Ethernet2
 interface mpls1
  ip unnumbered X
  vrf member 013
+END
+
+$out = '';
+
+eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+
+############################################################
+$title = "Interface mgmt0 is located in management VRF by default";
+############################################################
+$device = <<END;
+interface mgmt0
+ ip address 10.0.0.1/24
+END
+
+$in = <<END;
+interface mgmt0
+ vrf member management
 END
 
 $out = '';

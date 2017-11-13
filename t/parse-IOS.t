@@ -35,7 +35,121 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
-$title = "Parse routing and ACL";
+$title = "Bad indentation after first subcommand";
+############################################################
+$device = <<END;
+object-group network g1
+ host 10.0.1.11
+  10.0.2.0 0.0.0.255
+END
+
+$out = <<'END';
+ERROR>>> Expected indentation '1' but got '2' at line 3:
+ERROR>>> >>  10.0.2.0 0.0.0.255<<
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Higher indentation of subcommands";
+############################################################
+$device = <<END;
+object-group network g1
+  host 10.0.1.11
+  10.0.2.0 0.0.0.255
+END
+
+$out = '';
+
+eq_or_diff(approve('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Higher indentation of unknown subcommands";
+############################################################
+$device = <<END;
+policy-map type inspect dns preset_dns_map
+  parameters
+   message-length maximum client auto
+   message-length maximum 512
+policy-map global_policy
+ class inspection_default
+   inspect dns preset_dns_map
+      inspect ftp
+   ! ignore interface command as sub command
+   interface e0
+    ip address 10.1.1.1 255.255.255.0
+   inspect h323 h225
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+END
+
+$in = <<"END";
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+END
+
+$out = '';
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Multiple occurrences of command";
+############################################################
+$device = <<END;
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+END
+
+$out = <<"END";
+ERROR>>> Multiple occurrences of command not allowed
+ERROR>>>  at line 3, pos 2:
+ERROR>>> >>interface e0<<
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Bad indentation after subcommands";
+############################################################
+$device = <<END;
+object-group network g1
+  host 10.0.1.11
+  10.0.2.0 0.0.0.255
+ object-group network g2
+END
+
+$out = <<'END';
+ERROR>>> Expected indentation '0' but got '1' at line 4:
+ERROR>>> >> object-group network g2<<
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Certificate chain";
+############################################################
+$device = <<'END';
+crypto pki certificate chain VPND012345
+ certificate 6D0002F1B7E1307AF07D82AEEF00000002F1B7
+  00000000 11111111 22222222 33333333 44444444 55555555 66666666 77777777
+  88888888 99999999 AAAAAAAA BBBBBBBB CCCCCCCC DDDDDDDD EEEEEEEE FFFFFFFF
+  ABCDEFAB EEEEFFFF EE
+  	quit
+ip route 0.0.0.0 0.0.0.0 10.2.2.2
+END
+
+$in = << 'END';
+ip route 0.0.0.0 0.0.0.0 10.2.2.2
+END
+
+$out = '';
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Parse routing, object-group and ACL";
 ############################################################
 $device = <<END;
 
@@ -47,12 +161,16 @@ ip access-list extended Ethernet0_in
 interface Ethernet0
  ip access-group Ethernet0_in in
 
+object-group network g1
+ host 10.0.1.11
+ 10.0.2.0 0.0.0.255
+
 ip access-list extended Ethernet1_in
- permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+ permit udp 10.0.6.0 0.0.0.255 object-group g1 eq 123
  permit 50 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
  permit tcp any host 10.0.1.11 range 7937 8999
- permit icmp any host 10.0.1.11 3 3
+ permit icmp any host 10.0.1.11 3 4
  deny ip any any log
 interface Ethernet1
  ip access-group Ethernet1_in in
@@ -189,6 +307,54 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Leave routing unchanged";
+############################################################
+
+# Routes and ACL in global VRF
+$device = <<END;
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+ip route 10.30.0.0 255.255.0.0 10.1.2.3
+ip route 10.40.0.0 255.255.0.0 10.1.2.3
+ip access-list extended acl2
+ permit ip any host 10.0.1.1
+interface Ethernet2
+ ip access-group acl2 in
+END
+
+# Only ACL is configured from Netspoc, routes are left unchanged
+$in = <<END;
+ip access-list extended acl2
+ permit ip any host 10.0.1.1
+interface Ethernet2
+ ip access-group acl2 in
+END
+
+$out = <<END;
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Route with interface name";
+############################################################
+$device = <<END;
+ip route 10.10.0.0 255.255.0.0 serial0 10.1.2.3
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+
+$in = <<END;
+ip route 10.10.0.0 255.255.0.0 10.1.2.3
+ip route 10.20.0.0 255.255.0.0 serial1 10.1.2.3
+END
+
+$out = <<'END';
+no ip route 10.10.0.0 255.255.0.0 serial0 10.1.2.3\N ip route 10.10.0.0 255.255.0.0 10.1.2.3
+no ip route 10.20.0.0 255.255.0.0 10.1.2.3\N ip route 10.20.0.0 255.255.0.0 serial1 10.1.2.3
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Named static route";
 ############################################################
 $device = <<END;
@@ -237,7 +403,7 @@ ip access-list extended test-DRC-0
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
 ! permit udp host 10.0.12.3 host 10.0.1.11 eq 80
  permit tcp any host 10.0.1.11 range 7937 8999
- permit icmp any host 10.0.1.11 3 3
+ permit icmp any host 10.0.1.11 packet-too-big
  deny ip any any
 
 interface Serial1
@@ -247,7 +413,7 @@ END
 
 $in = <<END;
 ip access-list extended test
- permit icmp any host 10.0.1.11 3 3
+ permit icmp any host 10.0.1.11 3 1
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
  permit 47 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
@@ -264,15 +430,141 @@ END
 $out = <<END;
 ip access-list resequence test-DRC-0 10000 10000
 ip access-list extended test-DRC-0
-no 60000\\N 1 permit icmp any host 10.0.1.11 3 3
+1 permit icmp any host 10.0.1.11 3 1
 40001 permit udp host 10.0.12.3 host 10.0.1.11 eq 80
 no 70000\\N 40003 deny ip any any log-input
+no 60000
 no 50000
 no 30000\\N 40002 permit igmp 10.0.5.0 0.0.0.255 host 10.0.1.11
 ip access-list resequence test-DRC-0 10 10
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Change object-group";
+############################################################
+$device = <<END;
+object-group network g1-DRC-0
+ host 10.0.1.11
+ host 10.0.1.12
+ host 10.0.1.13
+object-group network g2-DRC-0
+ 10.0.6.0 0.0.0.255
+
+ip access-list extended test-DRC-0
+ permit udp object-group g2-DRC-0 object-group g1-DRC-0 eq ntp
+ deny ip any any
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$in = <<END;
+object-group network g1
+ host 10.0.1.11
+ host 10.0.1.13
+object-group network g2
+ 10.0.5.0 0.0.0.128
+ 10.0.6.0 0.0.0.255
+
+ip access-list extended test
+ permit udp object-group g2 object-group g1 eq ntp
+ deny ip any any
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+object-group network g1-DRC-0
+no host 10.0.1.12
+object-group network g2-DRC-0
+10.0.5.0 0.0.0.128
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Remove and add object-group";
+############################################################
+$device = <<END;
+object-group network g1-DRC-0
+ host 10.0.1.11
+ip access-list extended test-DRC-0
+ permit udp any object-group g1-DRC-0 eq ntp
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$in = <<END;
+object-group network g2
+ 10.0.5.0 0.0.0.128
+ 10.0.6.0 0.0.0.255
+
+ip access-list extended test
+ permit udp object-group g2 any eq ntp
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test in
+END
+
+$out = <<END;
+object-group network g2-DRC-0
+10.0.5.0 0.0.0.128
+10.0.6.0 0.0.0.255
+ip access-list resequence test-DRC-0 10000 10000
+ip access-list extended test-DRC-0
+1 permit udp object-group g2-DRC-0 any eq ntp
+no 10000
+ip access-list resequence test-DRC-0 10 10
+no object-group network g1-DRC-0
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Unknown object-group";
+############################################################
+$device = <<END;
+ip access-list extended test-DRC-0
+ permit udp object-group g1-DRC-0 host 10.0.1.11 eq ntp
+ deny ip any any
+
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$out = <<'END';
+ERROR>>> Can't find OBJECT_GROUP g1-DRC-0 referenced by test-DRC-0
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Nested object-group";
+############################################################
+$device = <<END;
+object-group network g1
+ 10.0.5.0 0.0.0.128
+object-group network g2
+ 10.0.1.0 0.0.0.255
+ group-object g1
+END
+
+$out = <<'END';
+ERROR>>> Nested object group not supported
+ERROR>>>  at line 5, pos 0:
+ERROR>>> >>group-object g1<<
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
 
 ############################################################
 $title = "Compare unchanged ACL and non-existant outgoing ACL";
@@ -372,6 +664,83 @@ ip access-list resequence test 10 10
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Remove incoming, add outgoing ACL";
+############################################################
+$device = <<END;
+ip access-list extended test
+ permit ip any host 10.0.1.1
+interface Ethernet1
+ ip access-group test in
+END
+
+$in = <<END;
+ip access-list extended test
+ permit ip host 10.0.1.1 any
+interface Ethernet1
+ ip access-group test out
+END
+
+$out = <<END;
+interface Ethernet1
+no ip access-group test in
+no ip access-list extended test
+ip access-list extended test-DRC-0
+permit ip host 10.0.1.1 any
+interface Ethernet1
+ip access-group test-DRC-0 out
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "ACL with unknown keyword";
+############################################################
+$device = <<END;
+ip access-list extended test
+ permit ip any host 10.0.1.1 fragments
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$in = <<END;
+ip access-list extended test
+ permit ip any host 10.0.1.1
+
+interface Ethernet1
+ ip access-group test in
+END
+
+$out = <<'END';
+ERROR>>> Can't compare ACL with unknown attribute:
+ permit ip any host 10.0.1.1 fragments
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Can't change ACL with more than 9999 lines";
+############################################################
+$device = <<END;
+interface Ethernet1
+ ip access-group test in
+
+ip access-list extended test
+END
+
+for my $port (1 .. 10000) {
+   $device .= " permit tcp any host 10.0.1.1 eq $port\n";
+}
+
+$in = $device . " permit tcp any host 10.0.1.1 eq 60000\n";
+
+$out = <<END;
+ERROR>>> Can\'t handle ACL test with 10000 or more entries
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Change ACL, prevent lockout";
@@ -621,6 +990,48 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Crypto maps differ in size";
+############################################################
+$device .= <<'END';
+crypto map VPN 2 ipsec-isakmp
+ set peer 10.156.4.2
+END
+
+$out = <<END;
+ERROR>>> Crypto maps differ for interface Ethernet1
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Crypto map only from device";
+############################################################
+$device .= <<'END';
+interface Ethernet2
+ ip unnumbered x
+END
+
+$in = <<END;
+interface Ethernet1
+ ip unnumbered x
+ip access-list extended crypto-filter-Ethernet2
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
+crypto map crypto-Ethernet2 1 ipsec-isakmp
+ match address crypto-Ethernet1-1
+ set ip access-group crypto-filter-Ethernet2 in
+ set peer 10.156.4.206
+interface Ethernet2
+ crypto map crypto-Ethernet2
+END
+
+$out = <<END;
+ERROR>>> Missing crypto map at interface Ethernet1 from Netspoc
+ERROR>>> Missing crypto map at interface Ethernet2 from device
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Don't change crypto filter ACL which permit administrative access";
 ############################################################
 # Device IP is 10.1.13.33
@@ -836,6 +1247,42 @@ WARNING>>> Interface 'Serial2' on device is not known by Netspoc
 END
 
 eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
+$title = "Only change VRFs mentioned in Netspoc";
+############################################################
+$device = <<END;
+ip route 10.20.0.0 255.255.0.0 10.2.2.2
+ip access-list extended acl2-DRC-0
+ permit ip any host 10.0.1.1
+interface Ethernet1
+ ip address 10.0.0.1 255.255.255.0
+ ip vrf forwarding 001
+ ip access-group acl2-DRC-0 in
+interface Ethernet2
+ ip address 10.0.0.1 255.255.255.0
+ ip vrf forwarding 002
+END
+
+$in = <<END;
+ip route vrf 013 10.30.0.0 255.255.0.0 10.3.3.3
+ip access-list extended acl2
+ permit ip any host 10.0.1.1
+interface Ethernet2
+ ip address 10.0.0.1 255.255.255.0
+ ip vrf forwarding 002
+ ip access-group acl2 in
+END
+
+$out = <<END;
+ip access-list extended acl2-DRC-1
+permit ip any host 10.0.1.1
+interface Ethernet2
+ip access-group acl2-DRC-1 in
+ip route vrf 013 10.30.0.0 255.255.0.0 10.3.3.3
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
 $title = "Check VRF of interfaces";

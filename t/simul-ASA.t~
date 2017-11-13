@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+
+use strict;
+use Test::More;
+use Test::Differences;
+use lib 't';
+use Test_Approve;
+
+my($scenario, $scenario2, $in, $out, $title);
+
+############################################################
+$title = "Login, set pager";
+############################################################
+$scenario = <<'END';
+***********************************************************
+**                 managed by NetSPoC                    **
+***********************************************************
+netspoc@10.1.2.3's password: <!>
+Type help or '?' for a list of available commands.
+# sh pager
+pager lines 24
+# terminal pager 0
+# sh term
+
+Width = 511, no monitor
+terminal interactive
+# sh ver
+Cisco Adaptive Security Appliance Software Version 9.4(4)5 <context>
+Hardware:   ASA5585-SSP-40
+Configuration last modified by netspoc at 10:40:44.291 CEDT Thu Oct 19 2017
+END
+
+$in = '';
+
+$out = <<'END';
+--router.login
+END
+
+simul_run($title, 'ASA', $scenario, $in, $out);

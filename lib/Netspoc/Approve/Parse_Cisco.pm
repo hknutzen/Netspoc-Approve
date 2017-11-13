@@ -33,7 +33,7 @@ use Netspoc::Approve::Helper;
 
 require Exporter;
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT =
@@ -42,7 +42,7 @@ our @EXPORT =
        get_ip_pair get_ip_prefix
        check_token check_regex check_int check_loglevel check_ip
        get_sorted_encr_list get_token_list
-       get_name_in_out get_paren_token test_ne skip get_to_eol
+       skip get_to_eol
  );
 
 sub err_at_line {
@@ -191,29 +191,6 @@ sub get_ip_prefix {
     return($base, $mask);
 }
 
-# parse arguments like 'ip access-group <name> in'
-sub get_name_in_out {
-    my($arg) = @_;
-    my $name = get_token($arg);
-    my $direction = get_regex('in|out', $arg);
-    return { $direction => $name };
-}
-
-sub get_paren_token {
-    my($arg) = @_;
-    my $token = get_token($arg);
-    my($inside) = ($token =~ /^\((.*)\)$/) or
-	err_at_line($arg, 'Expected parenthesized value(s)');
-    if(wantarray) {
-	split(/,/, $inside);
-    }
-    else {
-	my($result, @rest) = split(/,/, $inside);
-	@rest and err_at_line($arg, 'Expected exactly one parenthesized value');
-	$result;
-    }
-}
-
 # Read list of auth. and encr. methods.
 # Read up to 3 values, sort and return as space separated string.
 # Sorting is needed to make different definitions comparable.
@@ -241,14 +218,6 @@ sub get_token_list {
         push @result, $v;
     }
     return \@result;
-}
-
-# Like bulitin function 'ne', but has additional argument $arg and
-# returns undef as false.
-sub test_ne {
-    my($arg, $a, $b) = @_;
-    my $bool = $a ne $b;
-    return($bool ? $bool : undef);
 }
 
 # Ignore remaining arguments.

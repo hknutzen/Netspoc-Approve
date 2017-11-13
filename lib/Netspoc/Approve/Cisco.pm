@@ -6,7 +6,7 @@ Base class for the different varieties of Cisco devices.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.118'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -284,8 +284,9 @@ sub analyze_conf_lines {
 		$level = $sub_level;
 	    }
 	    else {
+                chomp $line;
 		abort("Expected indentation '$level' but got '$sub_level'" .
-                      " at line $counter:\n",
+                      " at line $counter:",
                       ">>$line<<");
 	    }
 	}
@@ -300,8 +301,9 @@ sub analyze_conf_lines {
 		    # Skip certificate data.
 		}
 		else {
+                    chomp $line;
 		    abort("Expected indentation '$level' but got '$sub_level'" .
-                          " at line $counter:\n",
+                          " at line $counter:",
                           ">>$line<<");
 		}
 	    }
@@ -491,9 +493,6 @@ sub parse_port_spec {
         $low = $port;
         $high = $self->parse_port($arg, $proto);
     }
-    else {
-        internal_err();
-    }
     return ({ LOW => $low, HIGH => $high });
 }
 
@@ -633,23 +632,13 @@ sub get_identity {
 sub login_enable {
     my ($self) = @_;
     my $std_prompt = qr/[\>\#]/;
-    my($con, $ip) = @{$self}{qw(CONSOLE IP)};
 
     # If running as privileged user, try to get user and password
     # for login. Otherwise get current user or user from option
     # '-u' and no password.
     my ($user, $pass) = $self->get_aaa_password();
 
-    my $expect = $con->{EXPECT};
-    info("Trying SSH for login");
-    if (my $cmd = $ENV{SIMULATE_ROUTER}) {
-        $expect->spawn("$^X $cmd")
-            or abort("Cannot spawn simulation': $!");
-    }
-    else {
-        $expect->spawn('ssh', '-l', $user, $ip)
-            or abort("Cannot spawn ssh: $!");
-    }
+    my ($con, $ip) = $self->connect_ssh($user);
     my $prompt = qr/password:|\(yes\/no\)\?/i;
     my $result = $con->con_short_wait($prompt);
     if ($result->{ERROR}) {
@@ -677,7 +666,7 @@ sub login_enable {
 	if ($con->{RESULT}->{MATCH} ne '#') {
 
 	    # Enable password required.
-	    $pass = $self->{ENABLE_PASS} || $pass;
+            # Use login password as enable password.
 	    $con->con_issue_cmd($pass, $prompt);
 	}
 	if ($con->{RESULT}->{MATCH} ne '#') {
@@ -777,8 +766,8 @@ my %object2key_sub = (
         if ($e->{TYPE} eq 'icmp') {
             my $s = $e->{SPEC};
             for my $where (qw(TYPE CODE)) {
-                my $v = $s->{TYPE};
-                $r .= defined $v ? $v : '-';
+                my $v = $s->{$where} // '-';
+                $r .= $v;
             }
         }
         elsif ($e->{TYPE} =~ /^(?:tcp|udp)/) {
@@ -977,8 +966,8 @@ sub acl_entry2key0 {
     if ($e->{TYPE} eq 'icmp') {
         my $s = $e->{SPEC};
 	for my $where (qw(TYPE CODE)) {
-	    my $v = $s->{TYPE};
-	    push(@r, defined $v ? $v : '-');
+	    my $v = $s->{$where} // '-';
+	    push(@r, $v);
 	}
     }
     elsif ($e->{TYPE} eq 'tcp' or $e->{TYPE} eq 'udp') {
@@ -1258,7 +1247,6 @@ sub equalize_acl_entries {
 
                 # Find lines already present on device
                 my $key = acl_entry_no_log2key($spoc_entry);
-                my $aref;
                 if (!$spoc_entry->{REMARK} && (my $conf_entry = $dupl{$key})) {
 #                   debug "D: $conf_entry->{orig}";
 
@@ -1379,15 +1367,9 @@ sub equalize_acl_entries {
         push(@vcmds, $vcmd2 ? [ $vcmd1, $vcmd2] : $vcmd1);
     }
 
-    if (@vcmds) {
-
-        # ACL will be modified incrementally.
-        $spoc_acl->{modify_cmds} = \@vcmds;
-        return 0;
-    }
-    else {
-        return 1;
-    }
+    # ACL will be modified incrementally.
+    $spoc_acl->{modify_cmds} = \@vcmds;
+    return 0;
 }
 
 # Return value:
