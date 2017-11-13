@@ -433,11 +433,6 @@ sub route_del {
     return("no $entry->{orig}");
 }
 
-sub write_mem {
-    my ($self) = @_;
-    $self->cmd('copy running-config startup-config');
-}
-
 sub transfer {
     my ($self, $conf, $spoc) = @_;
     $self->check_session();
