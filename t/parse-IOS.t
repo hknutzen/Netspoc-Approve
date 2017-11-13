@@ -548,6 +548,25 @@ END
 eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
 
 ############################################################
+$title = "Nested object-group";
+############################################################
+$device = <<END;
+object-group network g1
+ 10.0.5.0 0.0.0.128
+object-group network g2
+ 10.0.1.0 0.0.0.255
+ group-object g1
+END
+
+$out = <<'END';
+ERROR>>> Nested object group not supported
+ERROR>>>  at line 5, pos 0:
+ERROR>>> >>group-object g1<<
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
 $title = "Compare unchanged ACL and non-existant outgoing ACL";
 ############################################################
 $device = <<END;
