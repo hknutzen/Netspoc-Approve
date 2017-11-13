@@ -356,7 +356,7 @@ ip access-list extended test-DRC-0
  permit udp host 10.0.12.3 host 10.0.1.11 eq 7938
 ! permit udp host 10.0.12.3 host 10.0.1.11 eq 80
  permit tcp any host 10.0.1.11 range 7937 8999
- permit icmp any host 10.0.1.11 3 4
+ permit icmp any host 10.0.1.11 packet-too-big
  deny ip any any
 
 interface Serial1
