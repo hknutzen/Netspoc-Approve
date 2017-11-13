@@ -64,6 +64,35 @@ $out = '';
 eq_or_diff(approve('IOS', $device, $device), $out, $title);
 
 ############################################################
+$title = "Higher indentation of unknown subcommands";
+############################################################
+$device = <<END;
+policy-map type inspect dns preset_dns_map
+  parameters
+   message-length maximum client auto
+   message-length maximum 512
+policy-map global_policy
+ class inspection_default
+   inspect dns preset_dns_map
+      inspect ftp
+   ! ignore interface command as sub command
+   interface e0
+    ip address 10.1.1.1 255.255.255.0
+   inspect h323 h225
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+END
+
+$in = <<"END";
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+END
+
+$out = '';
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Bad indentation after subcommands";
 ############################################################
 $device = <<END;
