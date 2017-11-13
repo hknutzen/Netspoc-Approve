@@ -7,12 +7,9 @@ use Test::Differences;
 use lib 't';
 use Test_Approve;
 
-my($scenario, $scenario2, $in, $out, $title);
+my($login_scenario, $scenario, $in, $out, $title);
 
-############################################################
-$title = "Login, set terminal, empty config";
-############################################################
-$scenario = <<'END';
+$login_scenario = <<'END';
 ***********************************************************
 **                 managed by NetSPoC                    **
 ***********************************************************
@@ -33,6 +30,11 @@ Configuration last modified by netspoc at 10:40:44.291 CEDT Thu Oct 19 2017
 # show hostname
 router
 END
+
+############################################################
+$title = "Login, set terminal, empty config";
+############################################################
+$scenario = $login_scenario;
 
 $in = '';
 
@@ -74,21 +76,7 @@ simul_run($title, 'ASA', $scenario, $in, $out);
 ############################################################
 $title = "Change routing, move ACL with two commands in one line";
 ############################################################
-$scenario = <<'END';
-managed by NetSPoC
-netspoc@10.1.2.3's password: <!>
-router>
-# sh pager
-pager lines 24
-# sh term
-
-Width = 511, no monitor
-terminal interactive
-# sh ver
-Cisco Adaptive Security Appliance Software Version 9.4(4)5 <context>
-Hardware:   ASA5585-SSP-40
-# show hostname
-router
+$scenario = $login_scenario . <<'END';
 # write term
 route inside 0.0.0.0 0.0.0.0 10.1.2.3
 access-list inside extended permit ip host 1.1.1.1 any
@@ -147,6 +135,76 @@ router#
 END
 
 simul_run($title, 'ASA', $scenario, $in, $out);
+
+############################################################
+$title = "Expected command output";
+############################################################
+$scenario = $login_scenario . <<'END';
+# write term
+access-list inside extended deny ip any any
+access-group inside in interface inside
+# access-list inside line 1 extended permit ip object-group g1-DRC-0 object-group g1-DRC-0
+WARNING: Same object-group is used more than once in one config line. This config is redundant. Please use seperate object-groups
+END
+
+$in = <<'END';
+object-group network g1
+ network-object host 1.1.1.1
+access-list inside extended permit ip object-group g1 object-group g1
+access-group inside in interface inside
+END
+
+$out = <<'END';
+--router.change
+configure terminal
+router#object-group network g1-DRC-0
+router#network-object host 1.1.1.1
+router#access-list inside line 1 extended permit ip object-group g1-DRC-0 object-group g1-DRC-0
+WARNING: Same object-group is used more than once in one config line. This config is redundant. Please use seperate object-groups
+router#no access-list inside line 2 extended deny ip any any
+router#end
+router#write memory
+router#
+END
+
+simul_run($title, 'ASA', $scenario, $in, $out);
+
+############################################################
+$title = "Unexpected warning";
+############################################################
+$scenario = $login_scenario . <<'END';
+# route inside 0.0.0.0 0.0.0.0 10.1.2.4
+WARNING: foo
+END
+
+$in = <<'END';
+route inside 0.0.0.0 0.0.0.0 10.1.2.4
+END
+
+$out = <<'END';
+WARNING>>> WARNING: foo
+END
+
+simul_run($title, 'ASA', $scenario, $in, $out);
+
+############################################################
+$title = "Unexpected command output";
+############################################################
+$scenario = $login_scenario . <<'END';
+# configure terminal
+foo
+END
+
+$in = <<'END';
+route inside 0.0.0.0 0.0.0.0 10.1.2.4
+END
+
+$out = <<'END';
+ERROR>>> Unexpected output of 'configure terminal'
+ERROR>>> foo
+END
+
+simul_err($title, 'ASA', $scenario, $in, $out);
 
 ############################################################
 done_testing;
