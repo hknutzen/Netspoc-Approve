@@ -152,7 +152,7 @@ my $failed = system($cmd);
 
 my ($warnings, $errors, $changes);
 $errors++ if $failed;
-if (open(my $log, '<', $logfile)) { ## no critic (ProhibitUnusedVariables)
+if (open(my $log, '<', $logfile)) {
     while (<$log>) {
         my $silent;
 	if (/WARNING>>>/) {
