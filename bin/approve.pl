@@ -153,15 +153,13 @@ my $failed = system($cmd);
 my ($warnings, $errors, $changes);
 $errors++ if $failed;
 if (open(my $log, '<', $logfile)) {
-    while (<$log>) {
-        my $silent;
-	if (/WARNING>>>/) {
+    my @lines = <$log>;
+    my $silent = $brief && grep { $_ =~ /^ERROR>>> TIMEOUT$/ } @lines;
+    for (@lines) {
+	if (/^WARNING>>>/) {
             $warnings++;
         }
-        elsif (/ERROR>>>/) {
-            if ($brief && /TIMEOUT/) {
-                $silent = 1;
-            }
+        elsif (/^ERROR>>>/) {
             $errors++;
         }
         elsif (/^comp:.*\*\*\*/) {
