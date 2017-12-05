@@ -112,30 +112,23 @@ sub con_issue_cmd {
     return $con->con_wait($prompt);
 }
 
-# Possible values of $error are undef, indi
-# cating no error, '1:TIMEOUT' indicating that $timeout
-# seconds had elapsed without a match, '2:EOF' indicat-
-# ing an eof was read from $object, '3: spawn
-# id($fileno) died' indicating that the process exited
-# before matching and '4:$!' indicating whatever error
-# was set in $ERRNO during the last read on $object's
-# handle.
+# Possible values of $error are
+# - undef, indicating no error,
+# - '1:TIMEOUT' indicating that $timeout seconds had elapsed without a
+#   match,
+# - '2:EOF' indicating an eof was read from $object,
+# - '3: spawn id($fileno) died' indicating that the process exited before
+#   matching and
+# - '4:$!' indicating whatever error was set in $ERRNO during the last
+#   read on $object's handle or during select().
 sub con_abort {
     my ($con, $result) = @_;
-    my $err = $result->{ERROR};
-    if ($err =~ /^1:/) {
-        $err = 'TIMEOUT';
-    }
-    elsif ($err =~ /^2:/) {
-        $err = 'Got EOF';
-    }
-    elsif ($err =~ /^3:/) {
-        $err = 'Process died';
-    }
-    elsif ($err =~ /^4:(.*)/) {
-        $err = $1;
-    }
-    my @lines = ($err);
+    my $error = $result->{ERROR};
+
+    # Remove leading error code from error message.
+    $error =~ s/^[1234]://;
+
+    my @lines = ($error);
     for my $key (qw(BEFORE AFTER)) {
         my $value = $result->{$key} or next;
         push @lines, split /\n/, $value;
