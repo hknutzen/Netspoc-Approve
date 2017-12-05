@@ -84,15 +84,15 @@ sub con_wait0 {
         BEFORE => $before,
         AFTER => $after,
     };
+    $con->con_abort($result) if $err;
+
     return $result;
 }
 
 sub con_wait {
     my ($con, $prompt) = @_;
     my $timeout = $con->{TIMEOUT};
-    my $result = $con->con_wait0($prompt, $timeout);
-    $con->con_abort() if $result->{ERROR};
-    return $result;
+    return $con->con_wait0($prompt, $timeout);
 }
 
 sub con_short_wait {
@@ -109,10 +109,10 @@ sub con_send_cmd {
 sub con_issue_cmd {
     my ($con, $cmd, $prompt) = @_;
     $con->con_send_cmd("$cmd\n");
-    $con->con_wait($prompt);
+    return $con->con_wait($prompt);
 }
 
-# Possible values of $error are undef, indi-
+# Possible values of $error are undef, indi
 # cating no error, '1:TIMEOUT' indicating that $timeout
 # seconds had elapsed without a match, '2:EOF' indicat-
 # ing an eof was read from $object, '3: spawn
@@ -121,8 +121,7 @@ sub con_issue_cmd {
 # was set in $ERRNO during the last read on $object's
 # handle.
 sub con_abort {
-    my ($con) = @_;
-    my $result = $con->{RESULT};
+    my ($con, $result) = @_;
     my $err = $result->{ERROR};
     if ($err =~ /^1:/) {
         $err = 'TIMEOUT';

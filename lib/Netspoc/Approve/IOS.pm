@@ -639,9 +639,9 @@ sub handle_reload_banner {
 	if(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
 	    info("Expecting prompt after banner");
 	    my $con = $self->{CONSOLE};
-	    $con->con_wait($self->{ENAPROMPT});
+	    my $result = $con->con_wait($self->{ENAPROMPT});
 	    info("- Found prompt");
-	    $$output_ref = $con->{RESULT}->{BEFORE};
+	    $$output_ref = $result->{BEFORE};
 	}
 
 	# Remove banner from output.

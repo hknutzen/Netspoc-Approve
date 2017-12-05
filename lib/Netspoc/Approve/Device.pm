@@ -615,8 +615,7 @@ sub process_routing {
 sub issue_cmd {
     my ($self, $cmd) = @_;
     my $con = $self->{CONSOLE};
-    $con->con_issue_cmd($cmd, $self->{ENAPROMPT});
-    return $con->{RESULT};
+    return $con->con_issue_cmd($cmd, $self->{ENAPROMPT});
 }
 
 # Send command to device or
@@ -689,8 +688,8 @@ sub two_cmd {
 	my $need_reload;
 
 	# Read first prompt and check output of first command.
-	$con->con_wait($prompt);
-	my $out = $con->{RESULT}->{BEFORE};
+	my $result = $con->con_wait($prompt);
+	my $out = $result->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
 	my @lines1 = split(/\r{0,2}\n|\r/, $out);
@@ -698,8 +697,8 @@ sub two_cmd {
 	$self->cmd_check_echo($cmd1, $echo, \@lines1);
 
 	# Read second prompt and check output of second command.
-	$con->con_wait($prompt);
-	$out = $con->{RESULT}->{BEFORE};
+	$result = $con->con_wait($prompt);
+	$out = $result->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
 	my @lines2 = split(/\r{0,2}\n|\r/, $out);
