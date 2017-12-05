@@ -925,7 +925,7 @@ $in = '';
 
 $out = <<'END';
 ERROR>>> TIMEOUT
-ERROR>>> Warning: Permanently added \'10.1.2.3\' (RSA) to the list of known hosts.
+ERROR>>> Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
 END
 
 simul_err($title, 'IOS', $scenario, $in, $out);
