@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.120'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 

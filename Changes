@@ -1,3 +1,8 @@
+1.120     2017-12-05 15:55:25+01:00 Europe/Berlin
+
+ - Commands "approve-all" and "compare-all" now suppress all output
+   for devices with timeout.
+
 1.119     2017-11-13 17:27:45+01:00 Europe/Berlin
 
  - Ignore harmless warnings from device:

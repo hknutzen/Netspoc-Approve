@@ -915,13 +915,17 @@ END
 simul_err($title, 'IOS', $scenario2, $in, $out);
 
 ############################################################
-$title = "SSH timeout";
+$title = "SSH timeout with extra message";
 ############################################################
-$scenario = '';
+$scenario = <<'END';
+Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
+END
+
 $in = '';
 
 $out = <<'END';
 ERROR>>> TIMEOUT
+ERROR>>> Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
 END
 
 simul_err($title, 'IOS', $scenario, $in, $out);

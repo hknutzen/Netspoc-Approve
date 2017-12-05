@@ -31,7 +31,7 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.119'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.120'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
@@ -152,16 +152,14 @@ my $failed = system($cmd);
 
 my ($warnings, $errors, $changes);
 $errors++ if $failed;
-if (open(my $log, '<', $logfile)) { ## no critic (ProhibitUnusedVariables)
-    while (<$log>) {
-        my $silent;
-	if (/WARNING>>>/) {
+if (open(my $log, '<', $logfile)) {
+    my @lines = <$log>;
+    my $silent = $brief && grep { $_ =~ /^ERROR>>> TIMEOUT$/ } @lines;
+    for (@lines) {
+	if (/^WARNING>>>/) {
             $warnings++;
         }
-        elsif (/ERROR>>>/) {
-            if ($brief && /TIMEOUT/) {
-                $silent = 1;
-            }
+        elsif (/^ERROR>>>/) {
             $errors++;
         }
         elsif (/^comp:.*\*\*\*/) {
