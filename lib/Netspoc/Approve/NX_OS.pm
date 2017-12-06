@@ -105,7 +105,7 @@ sub get_parse_info {
             store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'network', },],
-            strict => 'err',
+            strict => 1,
             subcmd => {
                 '_any' => {
                     leave_cmd_as_arg => 1,
@@ -119,7 +119,7 @@ sub get_parse_info {
             store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'tcp-udp', },],
-            strict => 'err',
+            strict => 1,
             subcmd => {
                 '_any' => {
                     leave_cmd_as_arg => 1,
@@ -145,7 +145,7 @@ sub get_parse_info {
 	'ip access-list' => {
 	    store =>  'ACCESS_LIST',
 	    named => 1,
-            strict => 'err',
+            strict => 1,
 	    subcmd => {
                 '_skip remark' => {
 		    store => 'LIST',

@@ -395,9 +395,7 @@ sub analyze_conf_lines {
 	    $level++;
 	    $first_subcmd = 1;
             if ($strict) {
-                my $msg = "Unexpected command in line $counter:\n>>$orig<<";
-                abort($msg) if $strict eq 'err';
-                warn_info($msg);
+                abort("Unexpected command in line $counter:\n>>$orig<<");
             }
 	}
     }

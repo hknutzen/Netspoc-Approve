@@ -157,7 +157,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'network', },],
-            strict => 'err',
+            strict => 1,
 	    subcmd => {
 		'group-object' => {
 		    error => 'Nested object group not supported'
