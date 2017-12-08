@@ -595,7 +595,7 @@ sub process_routing {
         }
         if(@cmds) {
             info("Changing routing entries on device");
-            $self->schedule_reload(5);
+            $self->schedule_reload();
             $self->enter_conf_mode;
             $self->vrf_route_mode($vrf);
             for my $cmd (@cmds) {
@@ -663,7 +663,7 @@ sub get_cmd_output {
     my @lines = split(/\r{0,2}\n|\r/, $out);
     my $echo = shift(@lines);
     $self->cmd_check_echo($cmd, $echo, \@lines);
-    $need_reload and $self->schedule_reload(2);
+    $need_reload and $self->schedule_reload();
     return(\@lines);
 }
 
@@ -706,7 +706,7 @@ sub two_cmd {
 	$self->cmd_check_echo($cmd2, $echo, \@lines2);
 
 	$self->cmd_abort_on_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
-	$need_reload and $self->schedule_reload(2);
+	$need_reload and $self->schedule_reload();
     }
 }
 

@@ -535,9 +535,10 @@ sub write_mem {
 }
 
 sub schedule_reload {
-    my ($self, $minutes) = @_;
+    my ($self) = @_;
     return if $self->{COMPARE};
 
+    my $minutes = 5;
     my $psave = $self->{ENAPROMPT};
     $self->{ENAPROMPT} = qr/\[yes\/no\]:\ |\[confirm\]/;
     my $cmd = "reload in $minutes";
@@ -778,7 +779,7 @@ sub compare_crypto_acls {
         if ($spoc_acl) {
 
             # Add new ACL
-            $self->schedule_reload(5);
+            $self->schedule_reload();
             my $aclname = $self->define_acl($conf, $spoc, $spoc_acl->{name});
 
             # Assign new acl to crypto map

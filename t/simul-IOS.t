@@ -351,8 +351,6 @@ router#
 System configuration has been modified. Save? [yes/no]: <!>
 Reload reason: Reload Command
 Proceed with reload? [confirm]<!>
-# reload in 2
-Proceed with reload? [confirm]<!>
 # reload cancel
 
 
@@ -428,7 +426,11 @@ router#ip
 *** --- SHUTDOWN in 0:01:00 ---
 ***
  route 10.0.0.0 255.0.0.0 10.11.22.33
-router#do reload in 2
+router#do reload in 5
+
+System configuration has been modified. Save? [yes/no]: n
+
+Reload reason: Reload Command
 Proceed with reload? [confirm]
 
 router#end
