@@ -32,7 +32,7 @@ require Exporter;
 use strict;
 use warnings;
 
-our $VERSION = '1.120'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.121'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(info abort warn_info internal_err debug

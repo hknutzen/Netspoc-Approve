@@ -24,7 +24,6 @@ my %WriteMakefileArgs = (
     "bin/missing-approve",
     "bin/newpolicy",
     "bin/newpolicy.pl",
-    "bin/newpolicy.sh~",
     "bin/start-jobs"
   ],
   "LICENSE" => "gpl",
@@ -50,7 +49,7 @@ my %WriteMakefileArgs = (
     "Test::More" => 0,
     "lib" => 0
   },
-  "VERSION" => "1.120",
+  "VERSION" => "1.121",
   "test" => {
     "TESTS" => "t/*.t"
   }

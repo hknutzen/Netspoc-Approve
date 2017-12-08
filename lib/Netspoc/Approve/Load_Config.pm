@@ -59,14 +59,18 @@ sub load {
             next if /^[#;]/;
             if (my ($key, $val) = /^ \s* (\w+) \s* = \s* (\S+) \s* $/x) {
                 if (exists $config->{$key}) {
+                    if (exists $result->{$key}) {
+                        carp("Ignoring duplicate key '$key' in $file");
+                        next;
+                    }
                     $result->{$key} = $val;
                 }
                 else {
-                    carp("Unknown '$key' in $file");
+                    carp("Ignoring key '$key' in $file");
                 }
             }
             else {
-                carp("Ignoring '$_' in $file");
+                carp("Ignoring line '$_' in $file");
             }
 	}
     }

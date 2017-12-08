@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.120'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.121'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -395,9 +395,7 @@ sub analyze_conf_lines {
 	    $level++;
 	    $first_subcmd = 1;
             if ($strict) {
-                my $msg = "Unexpected command in line $counter:\n>>$orig<<";
-                abort($msg) if $strict eq 'err';
-                warn_info($msg);
+                abort("Unexpected command in line $counter:\n>>$orig<<");
             }
 	}
     }
@@ -641,39 +639,33 @@ sub login_enable {
     my ($con, $ip) = $self->connect_ssh($user);
     my $prompt = qr/password:|\(yes\/no\)\?/i;
     my $result = $con->con_short_wait($prompt);
-    if ($result->{ERROR}) {
-        $con->con_abort();
-    }
-
-    my $match = $result->{MATCH};
-    if ($match =~ m/\(yes\/no\)\?/i) {
+    if ($result->{MATCH} =~ m/\(yes\/no\)\?/i) {
         $prompt = qr/password:/i;
-        $con->con_issue_cmd('yes', $prompt);
+        $result = $con->con_issue_cmd('yes', $prompt);
         info("SSH key for $ip permanently added to known hosts");
     }
-    $self->{PRE_LOGIN_LINES} = $con->{RESULT}->{BEFORE};
+    $self->{PRE_LOGIN_LINES} = $result->{BEFORE};
     $prompt = qr/$prompt|$std_prompt/i;
     $pass ||= $self->get_user_password($user);
-    $con->con_issue_cmd($pass, $prompt);
-    $self->{PRE_LOGIN_LINES} .= $con->{RESULT}->{BEFORE};
+    $result = $con->con_issue_cmd($pass, $prompt);
+    $self->{PRE_LOGIN_LINES} .= $result->{BEFORE};
 
-    $match = $con->{RESULT}->{MATCH};
-    if ($match eq '>') {
+    if ($result->{MATCH} eq '>') {
 
 	# Enter enable mode.
 	my $prompt = qr/password:|\#/i;
-	$con->con_issue_cmd('enable', $prompt);
-	if ($con->{RESULT}->{MATCH} ne '#') {
+	$result = $con->con_issue_cmd('enable', $prompt);
+	if ($result->{MATCH} ne '#') {
 
 	    # Enable password required.
             # Use login password as enable password.
-	    $con->con_issue_cmd($pass, $prompt);
+	    $result = $con->con_issue_cmd($pass, $prompt);
 	}
-	if ($con->{RESULT}->{MATCH} ne '#') {
+	if ($result->{MATCH} ne '#') {
 	    abort("Authentication for enable mode failed");
 	}
     }
-    elsif ($match ne '#') {
+    elsif ($result->{MATCH} ne '#') {
 	abort("Authentication failed");
     }
 

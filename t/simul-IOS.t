@@ -328,14 +328,14 @@ Enter configuration commands, one per line.  End with CNTL/Z.
 
 
 ***
-*** --- SHUTDOWN in 00:05:00 ---
+*** --- SHUTDOWN in 0:05:00 ---
 ***
 # \BANNER5_start/
 
 
 
 ***
-*** --- SHUTDOWN in 00:05:00 ---
+*** --- SHUTDOWN in 0:05:00 ---
 ***
 
 router#
@@ -344,14 +344,12 @@ router#
 
 
 ***
-*** --- SHUTDOWN in 00:01:00 ---
+*** --- SHUTDOWN in 0:01:00 ---
 ***
 # reload in 5
 
 System configuration has been modified. Save? [yes/no]: <!>
 Reload reason: Reload Command
-Proceed with reload? [confirm]<!>
-# reload in 2
 Proceed with reload? [confirm]<!>
 # reload cancel
 
@@ -410,7 +408,7 @@ router#
 
 
 ***
-*** --- SHUTDOWN in 00:05:00 ---
+*** --- SHUTDOWN in 0:05:00 ---
 ***
 
 router#ip route 10.1.2.0 255.255.255.0 10.1.2.3
@@ -418,17 +416,21 @@ router#no ip route 10.0.0.0 25
 
 
 ***
-*** --- SHUTDOWN in 00:05:00 ---
+*** --- SHUTDOWN in 0:05:00 ---
 ***
 5.0.0.0 10.1.2.3
 router#ip
 
 
 ***
-*** --- SHUTDOWN in 00:01:00 ---
+*** --- SHUTDOWN in 0:01:00 ---
 ***
  route 10.0.0.0 255.0.0.0 10.11.22.33
-router#do reload in 2
+router#do reload in 5
+
+System configuration has been modified. Save? [yes/no]: n
+
+Reload reason: Reload Command
 Proceed with reload? [confirm]
 
 router#end

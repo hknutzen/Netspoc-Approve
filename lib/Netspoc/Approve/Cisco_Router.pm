@@ -33,7 +33,7 @@ package Netspoc::Approve::Cisco_Router;
 # Base class for Cisco routers (IOS, NX-OS)
 #
 
-our $VERSION = '1.120'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.121'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -212,7 +212,7 @@ sub process_interface_acls {
 
         # Add ACL to device.
         if ($spoc_acl) {
-            $self->schedule_reload(5);
+            $self->schedule_reload();
             my $aclname = $self->define_acl($conf, $spoc, $spoc_acl->{name});
 
             # Assign new acl to interface.
@@ -304,7 +304,7 @@ sub equalize_acls_of_objects {
                     # Do resequence before schedule reload, because it may
                     # abort if this command isn't available on old IOS version.
                     $self->resequence_cmd($acl_name, $line_start, $line_incr);
-                    $self->schedule_reload(5);
+                    $self->schedule_reload();
                     $self->cmd($conf_acl->{orig}) if $conf_acl->{orig};
                     for my $vcmd (@$vcmds) {
                         if (ref $vcmd eq 'ARRAY') {

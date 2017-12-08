@@ -34,7 +34,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.120'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.121'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
@@ -778,21 +778,18 @@ sub login_enable {
     my ($con, $ip) = $self->connect_ssh($config->{user});
     my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
     my $result = $con->con_short_wait($prompt);
-    if ($result->{ERROR}) {
-        $con->con_abort();
-    }
-    if ($con->{RESULT}->{MATCH} =~ qr/\(yes\/no\)\?/i) {
+    if ($result->{MATCH} =~ qr/\(yes\/no\)\?/i) {
 	$prompt = qr/$std_prompt|password:/i;
-	$con->con_issue_cmd('yes', $prompt);
+	$result = $con->con_issue_cmd('yes', $prompt);
 	info("SSH key for $ip permanently added to known hosts");
     }
 
     # Password prompt comes only if no ssh keys are in use.
-    if($con->{RESULT}->{MATCH} =~ qr/password:/i) {
+    if($result->{MATCH} =~ qr/password:/i) {
 	my $pass = $self->get_user_password('device');
 	$prompt = qr/$std_prompt|password:/i;
-	$con->con_issue_cmd($pass, $prompt);
-	if ($con->{RESULT}->{MATCH} !~ $std_prompt) {
+	$result = $con->con_issue_cmd($pass, $prompt);
+	if ($result->{MATCH} !~ $std_prompt) {
 	    abort("Authentication failed");
 	}
     }

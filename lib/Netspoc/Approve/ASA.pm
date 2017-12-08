@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.120'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.121'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 
@@ -222,7 +222,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'network', },],
-            strict => 'err',
+            strict => 1,
 	    subcmd => {
 		'network-object' => {
 		    store => 'OBJECT',
@@ -240,7 +240,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'tcp', },],
-            strict => 'err',
+            strict => 1,
 	    subcmd => {
                 'port-object' => {
 		    store => 'OBJECT',
@@ -258,7 +258,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'udp', },],
-            strict => 'err',
+            strict => 1,
 	    subcmd => {
                 'port-object' => {
 		    store => 'OBJECT',
@@ -293,7 +293,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'service', },],
-            strict => 'err',
+            strict => 1,
 	    subcmd => {
                 'service-object' => {
                     store => 'OBJECT',
@@ -321,7 +321,7 @@ sub get_parse_info {
             store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'protocol', },],
-            strict => 'err',
+            strict => 1,
 	    subcmd => {
                 'protocol-object' => {
                     store => 'OBJECT',

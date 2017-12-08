@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.120'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.121'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -261,16 +261,7 @@ sub parse_seq {
     for my $part (@{$info}[1..(@$info-1)]) {
 	my $ref = ref $part;
 	my $part_success;
-	if(not $ref) {
-
-	    # A method call which fills $result.
-	    # Return value: true if success.
-	    $part_success = $self->$part($arg, $result);
-	}
-	elsif($ref eq 'HASH') {
-	    if(my $msg = $part->{error}) {
-		err_at_line($arg, $msg);
-	    }
+	if($ref eq 'HASH') {
 	    my $parser = $part->{parse};
 	    my $params = $part->{params};
 	    my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ }
@@ -298,9 +289,6 @@ sub parse_seq {
 		    $part_success = 1;
 		}
 	    }
-	}
-	elsif($ref eq 'CODE') {
-	    $part_success = $part->($arg, $result);
 	}
 	elsif($ref eq 'ARRAY') {
 	    $part_success = parse_seq($self, $arg, $part, $result);
@@ -595,7 +583,7 @@ sub process_routing {
         }
         if(@cmds) {
             info("Changing routing entries on device");
-            $self->schedule_reload(5);
+            $self->schedule_reload();
             $self->enter_conf_mode;
             $self->vrf_route_mode($vrf);
             for my $cmd (@cmds) {
@@ -615,8 +603,7 @@ sub process_routing {
 sub issue_cmd {
     my ($self, $cmd) = @_;
     my $con = $self->{CONSOLE};
-    $con->con_issue_cmd($cmd, $self->{ENAPROMPT});
-    return $con->{RESULT};
+    return $con->con_issue_cmd($cmd, $self->{ENAPROMPT});
 }
 
 # Send command to device or
@@ -664,7 +651,7 @@ sub get_cmd_output {
     my @lines = split(/\r{0,2}\n|\r/, $out);
     my $echo = shift(@lines);
     $self->cmd_check_echo($cmd, $echo, \@lines);
-    $need_reload and $self->schedule_reload(2);
+    $need_reload and $self->schedule_reload();
     return(\@lines);
 }
 
@@ -689,8 +676,8 @@ sub two_cmd {
 	my $need_reload;
 
 	# Read first prompt and check output of first command.
-	$con->con_wait($prompt);
-	my $out = $con->{RESULT}->{BEFORE};
+	my $result = $con->con_wait($prompt);
+	my $out = $result->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
 	my @lines1 = split(/\r{0,2}\n|\r/, $out);
@@ -698,8 +685,8 @@ sub two_cmd {
 	$self->cmd_check_echo($cmd1, $echo, \@lines1);
 
 	# Read second prompt and check output of second command.
-	$con->con_wait($prompt);
-	$out = $con->{RESULT}->{BEFORE};
+	$result = $con->con_wait($prompt);
+	$out = $result->{BEFORE};
 	$self->{RELOAD_SCHEDULED} and
 	    $self->handle_reload_banner(\$out) and $need_reload = 1;
 	my @lines2 = split(/\r{0,2}\n|\r/, $out);
@@ -707,7 +694,7 @@ sub two_cmd {
 	$self->cmd_check_echo($cmd2, $echo, \@lines2);
 
 	$self->cmd_abort_on_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
-	$need_reload and $self->schedule_reload(2);
+	$need_reload and $self->schedule_reload();
     }
 }
 

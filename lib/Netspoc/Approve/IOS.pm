@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.120'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.121'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -157,7 +157,7 @@ sub get_parse_info {
 	    store => 'OBJECT_GROUP',
 	    named => 1,
             parse => ['seq', { store => 'TYPE', default => 'network', },],
-            strict => 'err',
+            strict => 1,
 	    subcmd => {
 		'group-object' => {
 		    error => 'Nested object group not supported'
@@ -535,9 +535,10 @@ sub write_mem {
 }
 
 sub schedule_reload {
-    my ($self, $minutes) = @_;
+    my ($self) = @_;
     return if $self->{COMPARE};
 
+    my $minutes = 5;
     my $psave = $self->{ENAPROMPT};
     $self->{ENAPROMPT} = qr/\[yes\/no\]:\ |\[confirm\]/;
     my $cmd = "reload in $minutes";
@@ -606,8 +607,8 @@ sub cancel_reload {
 # ***
 # Known messages are:
 # Some time before the actual reload takes place:
-# - SHUTDOWN in 00:05:00
-# - SHUTDOWN in 00:01:00
+# - SHUTDOWN in 0:05:00
+# - SHUTDOWN in 0:01:00
 sub handle_reload_banner {
     my ($self, $output_ref) = @_;
 
@@ -639,9 +640,9 @@ sub handle_reload_banner {
 	if(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
 	    info("Expecting prompt after banner");
 	    my $con = $self->{CONSOLE};
-	    $con->con_wait($self->{ENAPROMPT});
+	    my $result = $con->con_wait($self->{ENAPROMPT});
 	    info("- Found prompt");
-	    $$output_ref = $con->{RESULT}->{BEFORE};
+	    $$output_ref = $result->{BEFORE};
 	}
 
 	# Remove banner from output.
@@ -650,7 +651,7 @@ sub handle_reload_banner {
 	}
 
 	# Check, if renew of running reload process is needed.
-	return ($msg =~ /SHUTDOWN in 00:01:00/);
+	return ($msg =~ /SHUTDOWN in 0?0:01:00/);
     }
 }
 
@@ -778,7 +779,7 @@ sub compare_crypto_acls {
         if ($spoc_acl) {
 
             # Add new ACL
-            $self->schedule_reload(5);
+            $self->schedule_reload();
             my $aclname = $self->define_acl($conf, $spoc, $spoc_acl->{name});
 
             # Assign new acl to crypto map
