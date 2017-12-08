@@ -606,8 +606,8 @@ sub cancel_reload {
 # ***
 # Known messages are:
 # Some time before the actual reload takes place:
-# - SHUTDOWN in 00:05:00
-# - SHUTDOWN in 00:01:00
+# - SHUTDOWN in 0:05:00
+# - SHUTDOWN in 0:01:00
 sub handle_reload_banner {
     my ($self, $output_ref) = @_;
 
@@ -650,7 +650,7 @@ sub handle_reload_banner {
 	}
 
 	# Check, if renew of running reload process is needed.
-	return ($msg =~ /SHUTDOWN in 00:01:00/);
+	return ($msg =~ /SHUTDOWN in 0?0:01:00/);
     }
 }
 
