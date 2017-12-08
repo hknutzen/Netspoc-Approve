@@ -1,5 +1,10 @@
 {{$NEXT}}
 
+1.121     2017-12-08 15:27:30+01:00 Europe/Berlin
+
+ - Fixed pattern to recognize pending reload in 1 minute.
+ - Use "reload in 5" to extend pending reload.
+
 1.120     2017-12-05 15:55:25+01:00 Europe/Berlin
 
  - Commands "approve-all" and "compare-all" now suppress all output
