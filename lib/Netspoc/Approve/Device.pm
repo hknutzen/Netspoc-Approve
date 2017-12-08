@@ -261,16 +261,7 @@ sub parse_seq {
     for my $part (@{$info}[1..(@$info-1)]) {
 	my $ref = ref $part;
 	my $part_success;
-	if(not $ref) {
-
-	    # A method call which fills $result.
-	    # Return value: true if success.
-	    $part_success = $self->$part($arg, $result);
-	}
-	elsif($ref eq 'HASH') {
-	    if(my $msg = $part->{error}) {
-		err_at_line($arg, $msg);
-	    }
+	if($ref eq 'HASH') {
 	    my $parser = $part->{parse};
 	    my $params = $part->{params};
 	    my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ }
@@ -298,9 +289,6 @@ sub parse_seq {
 		    $part_success = 1;
 		}
 	    }
-	}
-	elsif($ref eq 'CODE') {
-	    $part_success = $part->($arg, $result);
 	}
 	elsif($ref eq 'ARRAY') {
 	    $part_success = parse_seq($self, $arg, $part, $result);
