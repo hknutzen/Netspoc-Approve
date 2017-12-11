@@ -41,38 +41,36 @@ my $config = {
     keep_history    => 365,   # del history older than this (in days),
 };
 
-my @prefix = ('/etc/', '/usr/local/etc/', glob('~/.'));
+my @prefix = (glob('~/.'), '/usr/local/etc/', '/etc/');
 my @paths = map("${_}netspoc-approve", @prefix);
 
+# Use most specific config file; ignore others.
 # Files are trusted; values are untainted by pattern match.
 sub load {
+    my ($file) = grep { -f } @paths or die("No config file found in\n @paths\n");
     my $result;
-    for my $file (@paths) {
-        -f $file or next;
-        open(my $fh, '<', $file) or
-          carp("Can't open $file: $!");
-        while (<$fh>){
-            chomp;
-            s/^\s*//;
-            s/\s*$//;
-            next if /^$/;
-            next if /^[#;]/;
-            if (my ($key, $val) = /^ \s* (\w+) \s* = \s* (\S+) \s* $/x) {
-                if (exists $config->{$key}) {
-                    if (exists $result->{$key}) {
-                        carp("Ignoring duplicate key '$key' in $file");
-                        next;
-                    }
-                    $result->{$key} = $val;
+    open(my $fh, '<', $file) or carp("Can't open $file: $!");
+    while (<$fh>){
+        chomp;
+        s/^\s*//;
+        s/\s*$//;
+        next if /^$/;
+        next if /^[#;]/;
+        if (my ($key, $val) = /^ \s* (\w+) \s* = \s* (\S+) \s* $/x) {
+            if (exists $config->{$key}) {
+                if (exists $result->{$key}) {
+                    carp("Ignoring duplicate key '$key' in $file");
+                    next;
                 }
-                else {
-                    carp("Ignoring key '$key' in $file");
-                }
+                $result->{$key} = $val;
             }
             else {
-                carp("Ignoring line '$_' in $file");
+                carp("Ignoring key '$key' in $file");
             }
-	}
+        }
+        else {
+            carp("Ignoring line '$_' in $file");
+        }
     }
     for my $key (keys %$config) {
         my $default = $config->{$key};

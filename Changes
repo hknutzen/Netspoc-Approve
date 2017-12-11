@@ -1,3 +1,13 @@
+1.122     2017-12-11 11:33:00+01:00 Europe/Berlin
+
+ - Fixed loading of config files. Previous version aborted
+   accidentally if the same option was found in multiple config files.
+   Config files are no longer merged now.
+   Only first found file is loaded from this list:
+   $HOME/.netspoc-approve
+   /usr/local/etc/netspoc-approve
+   /etc/netspoc-approve
+
 1.121     2017-12-08 15:27:30+01:00 Europe/Berlin
 
  - Fixed pattern to recognize pending reload in 1 minute.
