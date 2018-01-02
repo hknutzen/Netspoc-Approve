@@ -6,7 +6,7 @@ Base class for all supported devices
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -752,18 +752,6 @@ sub get_version {
     }
     $self->{HARDWARE} ||= 'unknown';
     info("DINFO: $self->{HARDWARE} $self->{VERSION}");
-}
-
-sub banner_msg {
-    my ($msg) = @_;
-    my $time = localtime;
-    my $result = <<"END";
-
-********************************************************
-  $msg: at > $time <
-********************************************************
-END
-    return $result;
 }
 
 # Move existing logfile
