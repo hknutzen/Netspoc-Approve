@@ -10,7 +10,7 @@ our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged
 use Test::More;
 use Test::Differences;
 use IPC::Run3;
-use File::Temp qw/ tempfile tempdir /;
+use File::Temp qw/ tempdir /;
 
 my $dir = tempdir(CLEANUP => 1) or die "Can't create tmpdir: $!\n";
 my $code_dir = "$dir/code";
