@@ -51,6 +51,10 @@ sub run {
     $cmd = "$^X $perl_opt -I lib $cmd";
     my ($stdout, $stderr);
     run3($cmd, \undef, \$stdout, \$stderr);
+
+    # Child was stopped by signal.
+    die if $? & 127;
+
     my $status = $? >> 8;
     return($status, $stdout, $stderr);
 }
