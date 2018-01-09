@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
+use warnings;
 use Test::More;
 use Test::Differences;
 use lib 't';
@@ -100,6 +101,92 @@ router#
 END
 
 simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "No credentials found ";
+############################################################
+# Reuse previous test data.
+
+my $dir = $ENV{HOME};
+my $credentials_file = "$dir/credentials";
+write_file($credentials_file, <<"END");
+pattern user pass
+END
+
+my $err = <<'END';
+ERROR>>> No matching AAA credential found
+END
+
+my ($status, $stdout, $stderr) =
+    run("bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router");
+$stderr ||= '';
+$stderr =~ s/\Q$dir\E\///;
+eq_or_diff($stderr, $err, $title);
+
+############################################################
+$title = "Bad credentials file";
+############################################################
+# Reuse previous test data.
+
+write_file($credentials_file, <<"END");
+abc 123
+END
+
+$err = <<'END';
+ERROR>>> Expected 3 fields in lines of credentials
+END
+
+($status, $stdout, $stderr) =
+    run("bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router");
+$stderr ||= '';
+$stderr =~ s/\Q$dir\E\///;
+eq_or_diff($stderr, $err, $title);
+
+############################################################
+$title = "Missing credentials file";
+############################################################
+# Reuse previous test data.
+
+unlink $credentials_file;
+
+$err = <<'END';
+ERROR>>> Can't open credentials: No such file or directory
+END
+
+($status, $stdout, $stderr) =
+    run("bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router");
+$stderr ||= '';
+$stderr =~ s/\Q$dir\E\///;
+eq_or_diff($stderr, $err, $title);
+
+############################################################
+$title = "SSH login with prompt to TTY, password from user";
+############################################################
+# Reuse previous test data.
+
+# Create config file without system user.
+my $config_file = "$dir/.netspoc-approve";
+write_file($config_file, <<"END");
+netspocdir = $dir
+lockfiledir = $dir
+checkbanner = NetSPoC
+timeout = 1
+END
+
+my $perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
+use Expect;
+my $expect = Expect->new();
+$expect->log_stdout(0);
+$expect->spawn(
+    "$^X $perl_opt -I lib bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router")
+    or die "Cannot spawn";
+
+ok($expect->expect(1, "Password for"), "$title: prompt");
+$expect->send("secret\n");
+ok($expect->expect(1, "thank you"), "$title: accepted");
+$expect->expect(1, 'eof');
+
+check_output($title, $dir, $out, '');
 
 ############################################################
 $title = "SSH login failed";

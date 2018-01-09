@@ -5,7 +5,8 @@ use warnings;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged
-                 simul_run simul_err simul_compare);
+                 simul_run simul_err simul_compare write_file
+                 run check_output);
 
 use Test::More;
 use Test::Differences;
@@ -153,19 +154,11 @@ sub approve_status {
     return($status);
 }
 
-sub simul_run {
-    my($title, $type, $scenario, $spoc, $expected) = @_;
-    my ($status, $stdout, $stderr) = simulate($type, $scenario, $spoc);
-    $stderr ||= '';
-    if ($status != 0) {
-        diag("Unexpected failure:\n$stderr");
-        fail($title);
-        return;
-    }
-
-    # Blocks of expected output are split by single lines,
-    # each line starting with dashes and followed by a file name.
-    # First optional block contains expected warnings.
+# Blocks of expected output are split by single lines,
+# each line starting with dashes and followed by a file name.
+# First optional block contains expected warnings.
+sub check_output {
+    my ($title, $dir, $expected, $stderr) = @_;
     my  ($warnings, @expected) = split(/^-+[ ]*(\S+)[ ]*\n/m, $expected);
 
     if ($warnings or $stderr) {
@@ -187,6 +180,18 @@ sub simul_run {
         close($out_fh);
         eq_or_diff($output, $block, "$title: $fname");
     }
+}
+
+sub simul_run {
+    my($title, $type, $scenario, $spoc, $expected) = @_;
+    my ($status, $stdout, $stderr) = simulate($type, $scenario, $spoc);
+    $stderr ||= '';
+    if ($status != 0) {
+        diag("Unexpected failure:\n$stderr");
+        fail($title);
+        return;
+    }
+    check_output($title, $dir, $expected, $stderr);
 }
 
 sub simul_err {
