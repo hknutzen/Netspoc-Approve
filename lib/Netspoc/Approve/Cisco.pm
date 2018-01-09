@@ -584,6 +584,14 @@ sub merge_acls {
 	    }
 	}
     }
+
+    # Check for unbound ACL in raw.
+    # Must not trigger autovivification.
+    if (my $acls = $raw->{ACCESS_LIST}) {
+        if (my @names = sort keys %$acls) {
+            abort("Found unbound ACCESS_LIST in raw: " . join(', ', @names));
+        }
+    }
 }
 
 sub enter_conf_mode {
