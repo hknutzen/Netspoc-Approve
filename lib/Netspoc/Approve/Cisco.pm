@@ -709,6 +709,7 @@ sub check_device_interfaces {
             warn_info("Interface '$name' on device is not known by Netspoc");
         }
     }
+    @errors and abort(@errors);
 }
 
 sub check_spoc_interfaces {

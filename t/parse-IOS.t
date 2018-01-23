@@ -1249,6 +1249,37 @@ END
 eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Check 'ip inspect'";
+############################################################
+# Device interfaces are checked, if ACL or Crypto config is present.
+
+$device = <<END;
+interface Serial1
+ ip address 10.1.1.1 255.255.255.0
+ ip inspect NAME in
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+END
+
+$in = <<'END';
+interface Serial1
+ ip address 10.1.2.1 255.255.255.0
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0
+ ip inspect NAME in
+ ip access-group test in
+ip access-list extended test
+ deny ip any any log-input
+END
+
+$out = <<'END';
+ERROR>>> Different 'ip inspect' defined for interface Serial1: Conf: enabled, Netspoc: disabled
+ERROR>>> Different 'ip inspect' defined for interface Serial2: Conf: disabled, Netspoc: enabled
+END
+
+eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Only change VRFs mentioned in Netspoc";
 ############################################################
 $device = <<END;
