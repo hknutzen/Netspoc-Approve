@@ -461,7 +461,7 @@ sub merge_rawdata {
         abort("Must only use ACLs in [APPEND] part, but found $keys");
     }
 
-    for my $key (%$raw_prepend) {
+    for my $key (keys %$raw_prepend) {
 	my $raw_v = $raw_prepend->{$key};
 
         if ($key eq 'ROUTING_VRF') {
