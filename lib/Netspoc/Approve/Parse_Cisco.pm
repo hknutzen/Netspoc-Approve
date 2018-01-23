@@ -161,8 +161,8 @@ sub get_ip_pair {
     defined $ip1 or err_at_line($arg, "Expected IP: $from");
     my $ip2 = $ip1;
     if($to) {
-	$ip2 = quad2int($to);
-	defined $ip2 or err_at_line($arg, "Expected IP: $to");
+        $ip2 = quad2int($to);
+        defined $ip2 or err_at_line($arg, "Expected IP: $to");
     }
     return($ip1, $ip2);
 }
@@ -173,20 +173,20 @@ sub get_ip_prefix {
     my $pair = get_token($arg);
     my($base, $mask);
     if($pair eq 'default') {
-	$base = $mask = 0;
+        $base = $mask = 0;
     }
     else {
-	my($addr, $prefix) = split(m'/', $pair, 2);
-	$base = quad2int($addr);
-	defined $base or err_at_line($arg, "Expected IP: $addr");
-	if(defined $prefix) {
-	    ($prefix =~ /^\d+$/ && $prefix <= 32) or
+        my($addr, $prefix) = split(m'/', $pair, 2);
+        $base = quad2int($addr);
+        defined $base or err_at_line($arg, "Expected IP: $addr");
+        if(defined $prefix) {
+            ($prefix =~ /^\d+$/ && $prefix <= 32) or
                 err_at_line($arg, "Expected IP prefix: $prefix");
             $mask = 2**32 - 2**(32 - $prefix);
-	}
-	else {
-	    $mask = 0xffffffff;
-	}
+        }
+        else {
+            $mask = 0xffffffff;
+        }
     }
     return($base, $mask);
 }
@@ -232,7 +232,7 @@ sub get_to_eol {
     my($arg) = @_;
     my $string = '';
     while ( defined( my $token = check_token($arg) ) ) {
-	$string .= $token . ' ';
+        $string .= $token . ' ';
     }
     $string =~ s/\s*$//;
     return $string;

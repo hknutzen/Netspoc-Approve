@@ -65,220 +65,220 @@ sub get_parse_info {
     my ($self) = @_;
     my $result =
     {
-	interface =>
-	{ store => 'IF',
-	  named => 1,
-	  parse => ['or',
+        interface =>
+        { store => 'IF',
+          named => 1,
+          parse => ['or',
                     ['cond1',
                      { parse => qr/type/ },
                      { parse => qr/tunnel/ } ],
                     ['cond1',
                      { parse => qr/point-to-point|multipoint/ } ]],
-	  subcmd =>
-	  { 'ip address' => {
-	      store => 'ADDRESS',
-	      parse => ['or',
-			{ store => 'DYNAMIC', parse => qr/negotiated/, },
-			{ store => 'DYNAMIC', parse => qr/dhcp/, },
-			['seq',
-			 { store => 'BASE', parse => \&get_ip, },
-			 { store => 'MASK', parse => \&get_ip, } ]] },
-	    'ip address _skip _skip secondary' =>  {
-		parse => \&skip }, # ignore
-	    'ip unnumbered' => {
-	      parse => \&get_token,
-	      store => 'UNNUMBERED',
+          subcmd =>
+          { 'ip address' => {
+              store => 'ADDRESS',
+              parse => ['or',
+                        { store => 'DYNAMIC', parse => qr/negotiated/, },
+                        { store => 'DYNAMIC', parse => qr/dhcp/, },
+                        ['seq',
+                         { store => 'BASE', parse => \&get_ip, },
+                         { store => 'MASK', parse => \&get_ip, } ]] },
+            'ip address _skip _skip secondary' =>  {
+                parse => \&skip }, # ignore
+            'ip unnumbered' => {
+              parse => \&get_token,
+              store => 'UNNUMBERED',
             },
-	    'shutdown' => {
-		store => 'SHUTDOWN', default => 1, },
-	    'ip access-group _skip in' => {
-		store => 'ACCESS_GROUP_IN', parse => \&get_token, },
-	    'ip access-group _skip out' => {
-		store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
-	    'ip inspect _skip in' => {
-		store => 'INSPECT', parse => \&get_token, },
+            'shutdown' => {
+                store => 'SHUTDOWN', default => 1, },
+            'ip access-group _skip in' => {
+                store => 'ACCESS_GROUP_IN', parse => \&get_token, },
+            'ip access-group _skip out' => {
+                store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
+            'ip inspect _skip in' => {
+                store => 'INSPECT', parse => \&get_token, },
 
             # Both commands are assumed to be equivalent.
-	    'ip vrf forwarding' => {
-		store => 'VRF', parse => \&get_token, },
-	    'vrf forwarding' => {
-		store => 'VRF', parse => \&get_token, },
+            'ip vrf forwarding' => {
+                store => 'VRF', parse => \&get_token, },
+            'vrf forwarding' => {
+                store => 'VRF', parse => \&get_token, },
             'mpls ip' => {
                 store => 'MPLS', default => 1, },
             #
-	    'crypto map' => {
-		store => 'CRYPTO_MAP', parse => \&get_token, },
-	    'crypto ipsec client ezvpn' => {
-		store => 'EZVPN',
-		parse =>
-		    ['seq',
-		     { store => 'NAME',
-		       parse => \&get_token, },
-		     { store => 'LOCATION',
-		       parse => \&check_token,
-		       default => 'outside', }, ], },
-	  },
-	},
+            'crypto map' => {
+                store => 'CRYPTO_MAP', parse => \&get_token, },
+            'crypto ipsec client ezvpn' => {
+                store => 'EZVPN',
+                parse =>
+                    ['seq',
+                     { store => 'NAME',
+                       parse => \&get_token, },
+                     { store => 'LOCATION',
+                       parse => \&check_token,
+                       default => 'outside', }, ], },
+          },
+        },
 
 # ip route [vrf name] destination-prefix destination-prefix-mask
 #          [interface-type card/subcard/port] forward-addr
 #          [metric | permanent | track track-number | tag tag-value]
 #
-	'ip route' => {
-	    store => 'ROUTING',
-	    multi => 1,
-	    parse => ['seq',
-		      ['cond1',
-		       { parse => qr/vrf/, },
-		       { store => 'VRF', parse => \&get_token, },],
-		      { store => 'BASE', parse => \&get_ip, },
-		      { store => 'MASK', parse => \&get_ip, },
-		      ['or',
-		       { store => 'NEXTHOP', parse => \&check_ip, },
-		       ['seq',
-			{ store => 'NIF',  parse => \&get_token, },
-			{ store => 'NEXTHOP', parse => \&check_ip, },],],
-		      ['seq',
-		       { store => 'METRIC',
-			 parse => \&check_int,
-			 default => 1 },
+        'ip route' => {
+            store => 'ROUTING',
+            multi => 1,
+            parse => ['seq',
+                      ['cond1',
+                       { parse => qr/vrf/, },
+                       { store => 'VRF', parse => \&get_token, },],
+                      { store => 'BASE', parse => \&get_ip, },
+                      { store => 'MASK', parse => \&get_ip, },
+                      ['or',
+                       { store => 'NEXTHOP', parse => \&check_ip, },
+                       ['seq',
+                        { store => 'NIF',  parse => \&get_token, },
+                        { store => 'NEXTHOP', parse => \&check_ip, },],],
+                      ['seq',
+                       { store => 'METRIC',
+                         parse => \&check_int,
+                         default => 1 },
                        ['cond1',
                          # Ignore name.
                         { parse => qr/name/, }, { parse => \&get_token },],
-		       ['cond1',
-			{ parse => qr/track/, },
-			{ store => 'TRACK', parse => \&get_token, },],
-		       ['cond1',
-			{ parse => qr/tag/, },
-			{ store => 'TAG', parse => \&get_token, },],
-		       { store => 'PERMANENT', parse => qr/permanent/, },],],
-	},
-	'object-group network' => {
-	    store => 'OBJECT_GROUP',
-	    named => 1,
+                       ['cond1',
+                        { parse => qr/track/, },
+                        { store => 'TRACK', parse => \&get_token, },],
+                       ['cond1',
+                        { parse => qr/tag/, },
+                        { store => 'TAG', parse => \&get_token, },],
+                       { store => 'PERMANENT', parse => qr/permanent/, },],],
+        },
+        'object-group network' => {
+            store => 'OBJECT_GROUP',
+            named => 1,
             parse => ['seq', { store => 'TYPE', default => 'network', },],
             strict => 1,
-	    subcmd => {
-		'group-object' => {
-		    error => 'Nested object group not supported'
+            subcmd => {
+                'group-object' => {
+                    error => 'Nested object group not supported'
                 },
-		'_any' => {
+                '_any' => {
                     leave_cmd_as_arg => 1,
-		    store => 'OBJECT',
-		    multi => 1,
-		    parse => 'parse_address',
-		},
+                    store => 'OBJECT',
+                    multi => 1,
+                    parse => 'parse_address',
+                },
             }
         },
-	'ip access-list extended' => {
-	    store =>  'ACCESS_LIST',
-	    named => 1,
-	    subcmd => {
+        'ip access-list extended' => {
+            store =>  'ACCESS_LIST',
+            named => 1,
+            subcmd => {
                 remark => {
-		    store => 'LIST',
-		    multi => 1,
-		    parse => [
+                    store => 'LIST',
+                    multi => 1,
+                    parse => [
                         'seq',
                         { store => 'REMARK', parse => \&get_to_eol } ] },
 
-		# 'deny' is mostly identical to 'permit',
-		# it will be automatically copied from 'permit'.
-		permit => {
-		    store => 'LIST',
-		    multi => 1,
-		    parse => ['seq',
-			      { store => 'MODE', default => 'permit' },
-			      ['or',
-			       ['cond1',
-				{ store => 'TYPE', parse => qr/ip/ },
-				{ store => 'SRC', parse => 'parse_address' },
-				{ store => 'DST', parse => 'parse_address' } ],
-			       ['cond1',
-				{ store => 'TYPE', parse => qr/udp|tcp/ },
-				{ store => 'SRC', parse => 'parse_address' },
-				{ store => 'SRC_PORT',
-				  parse => 'parse_port_spec',
-				  params => ['$TYPE'] },
-				{ store => 'DST', parse => 'parse_address' },
-				{ store => 'DST_PORT',
-				  parse => 'parse_port_spec',
-				  params => ['$TYPE'] },
-				{ store => 'ESTA',
-				  parse => qr/established/ }, ],
-			       ['cond1',
-				{ store => 'TYPE', parse => qr/icmp/ },
-				{ store => 'SRC', parse => 'parse_address' },
-				{ store => 'DST', parse => 'parse_address' },
-				{ store => 'SPEC',
-				  parse => 'parse_icmp_spec' }, ],
-			       ['seq',
-				{ store => 'TYPE', parse => \&get_token },
-				{ store => 'TYPE' ,
-				  parse => 'normalize_proto',
-				  params => [ '$TYPE' ] },
-				{ store => 'SRC', parse => 'parse_address' },
-				{ store => 'DST', parse => 'parse_address' } ]],
-			      { store => 'LOG', parse => qr/log-input|log/ },
+                # 'deny' is mostly identical to 'permit',
+                # it will be automatically copied from 'permit'.
+                permit => {
+                    store => 'LIST',
+                    multi => 1,
+                    parse => ['seq',
+                              { store => 'MODE', default => 'permit' },
+                              ['or',
+                               ['cond1',
+                                { store => 'TYPE', parse => qr/ip/ },
+                                { store => 'SRC', parse => 'parse_address' },
+                                { store => 'DST', parse => 'parse_address' } ],
+                               ['cond1',
+                                { store => 'TYPE', parse => qr/udp|tcp/ },
+                                { store => 'SRC', parse => 'parse_address' },
+                                { store => 'SRC_PORT',
+                                  parse => 'parse_port_spec',
+                                  params => ['$TYPE'] },
+                                { store => 'DST', parse => 'parse_address' },
+                                { store => 'DST_PORT',
+                                  parse => 'parse_port_spec',
+                                  params => ['$TYPE'] },
+                                { store => 'ESTA',
+                                  parse => qr/established/ }, ],
+                               ['cond1',
+                                { store => 'TYPE', parse => qr/icmp/ },
+                                { store => 'SRC', parse => 'parse_address' },
+                                { store => 'DST', parse => 'parse_address' },
+                                { store => 'SPEC',
+                                  parse => 'parse_icmp_spec' }, ],
+                               ['seq',
+                                { store => 'TYPE', parse => \&get_token },
+                                { store => 'TYPE' ,
+                                  parse => 'normalize_proto',
+                                  params => [ '$TYPE' ] },
+                                { store => 'SRC', parse => 'parse_address' },
+                                { store => 'DST', parse => 'parse_address' } ]],
+                              { store => 'LOG', parse => qr/log-input|log/ },
 
                               # Skip unknown keywords and mark line as unknown.
                               ['cond1',
                                { store => 'UNKNOWN', parse => \&check_token },
                                { parse => \&skip } ],
                         ]
-		},
+                },
 
-	    },
-	},
+            },
+        },
 
-	'crypto ipsec client ezvpn' => {
-	    store => 'CRYPTO_IPSEC_CLIENT_EZVPN',
-	    named => 1,
-	    subcmd => {
-		'virtual-interface' => {
-		    store => 'V_INTERFACE', parse => \&get_int, },},
-	},
+        'crypto ipsec client ezvpn' => {
+            store => 'CRYPTO_IPSEC_CLIENT_EZVPN',
+            named => 1,
+            subcmd => {
+                'virtual-interface' => {
+                    store => 'V_INTERFACE', parse => \&get_int, },},
+        },
 
 # Ignore, don't try to parse as crypto map with sequence number.
-	'crypto map _skip client'         => { parse => \&skip, },
-	'crypto map _skip gdoi'           => { parse => \&skip, subcmd => {} },
-	'crypto map _skip isakmp'         => { parse => \&skip, },
-	'crypto map _skip isakmp-profile' => { parse => \&skip, },
-	'crypto map _skip local-address'  => { parse => \&skip, },
-	'crypto map _skip redundancy'     => { parse => \&skip, },
-	'crypto map ipv6'                 => { parse => \&skip, subcmd => {} },
+        'crypto map _skip client'         => { parse => \&skip, },
+        'crypto map _skip gdoi'           => { parse => \&skip, subcmd => {} },
+        'crypto map _skip isakmp'         => { parse => \&skip, },
+        'crypto map _skip isakmp-profile' => { parse => \&skip, },
+        'crypto map _skip local-address'  => { parse => \&skip, },
+        'crypto map _skip redundancy'     => { parse => \&skip, },
+        'crypto map ipv6'                 => { parse => \&skip, subcmd => {} },
 
 # crypto map <name> <seq> ipsec-isakmp
 #  <sub commands>
 #
 # Result: Add multiple values to named crypto map.
-	'crypto map' => {
-	    store => 'CRYPTO_MAP',
-	    named => 1,
-	    multi => 1,
-	    parse => ['seq',
-		      { store => 'SEQU', parse => \&get_int, },
-		      ['or',
-		       { parse => qr/ipsec-isakmp/, },
-		       { parse => qr/gdoi/, store => 'GDOI', } ]],
-	    subcmd => {
-		'set ip access-group _skip in' => {
-		    store => 'ACCESS_GROUP_IN', parse => \&get_token, },
-		'set ip access-group _skip out' => {
-		    store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
-	    },
-	},
+        'crypto map' => {
+            store => 'CRYPTO_MAP',
+            named => 1,
+            multi => 1,
+            parse => ['seq',
+                      { store => 'SEQU', parse => \&get_int, },
+                      ['or',
+                       { parse => qr/ipsec-isakmp/, },
+                       { parse => qr/gdoi/, store => 'GDOI', } ]],
+            subcmd => {
+                'set ip access-group _skip in' => {
+                    store => 'ACCESS_GROUP_IN', parse => \&get_token, },
+                'set ip access-group _skip out' => {
+                    store => 'ACCESS_GROUP_OUT', parse => \&get_token, },
+            },
+        },
 
-	# We don't use these commands, but lexical analyser needs to know
-	# that these are multi line commands.
-	banner => { banner => qr/^\^/, parse => \&skip },
+        # We don't use these commands, but lexical analyser needs to know
+        # that these are multi line commands.
+        banner => { banner => qr/^\^/, parse => \&skip },
 
-	'crypto pki certificate chain' => {
-	    named => 1,
-	    subcmd => {
-		'certificate' => { parse => \&skip,
+        'crypto pki certificate chain' => {
+            named => 1,
+            subcmd => {
+                'certificate' => { parse => \&skip,
                                    banner => qr/^\s*quit\s*$/ },
-	    }
-	},
+            }
+        },
     };
 
     # Copy 'permit' entry and substitute 'permit' by 'deny';
@@ -294,7 +294,7 @@ sub get_parse_info {
 sub parse_object_group  {
     my ($self, $arg) = @_;
     if(check_regex('object-group', $arg)) {
-	return { GROUP_NAME => get_token($arg) };
+        return { GROUP_NAME => get_token($arg) };
     }
     else {
         return;
@@ -355,10 +355,10 @@ sub postprocess_config {
     if (my $crypto_maps = $p->{CRYPTO_MAP}) {
         for my $cm_name (keys %$crypto_maps) {
             my $cm = $p->{CRYPTO_MAP}->{$cm_name};
-	    $cm = [ sort { $a->{SEQU} <=> $b->{SEQU} } @$cm ];
-	    $p->{CRYPTO_MAP}->{$cm_name} = $cm;
+            $cm = [ sort { $a->{SEQU} <=> $b->{SEQU} } @$cm ];
+            $p->{CRYPTO_MAP}->{$cm_name} = $cm;
             for my $entry (@$cm) {
-		next if $entry->{GDOI};
+                next if $entry->{GDOI};
 
                 # Check filter access lists referenced in crypto map.
                 for my $what (qw(IN OUT)) {
@@ -413,12 +413,12 @@ sub cmd_check_error {
     my $error;
   LINE:
     for my $line (@$lines) {
-	for my $regex (@{ $known_status{$cmd} }) {
-	    if($line =~ $regex) {
-		next LINE;
-	    }
-	}
-	$error = 1;
+        for my $regex (@{ $known_status{$cmd} }) {
+            if($line =~ $regex) {
+                next LINE;
+            }
+        }
+        $error = 1;
     }
     return $error;
 }
@@ -427,10 +427,10 @@ sub parse_version {
     my ($self) = @_;
     my $output = $self->shcmd('sh ver');
     if($output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/) {
-	$self->{VERSION} = $1;
+        $self->{VERSION} = $1;
     }
     if($output =~ /(cisco\s+\S+) .*memory/i) {
-	$self->{HARDWARE} = $1;
+        $self->{HARDWARE} = $1;
     }
 }
 
@@ -451,23 +451,23 @@ sub prepare_device {
     unless ($self->{COMPARE}) {
         $self->enter_conf_mode();
 
-	# Don't slow down the system by looging to console.
+        # Don't slow down the system by looging to console.
         $self->cmd('no logging console');
         info("Disabled 'logging console'");
 
         # Enable logging synchronous to get a fresh prompt after
         # a reload banner is shown.
-	# Older IOS has only vty 0 4.
-	my $lines = $self->get_cmd_output('line vty 0 15');
-	@$lines && $self->cmd('line vty 0 4');
-	$self->cmd('logging synchronous level all');
+        # Older IOS has only vty 0 4.
+        my $lines = $self->get_cmd_output('line vty 0 15');
+        @$lines && $self->cmd('line vty 0 4');
+        $self->cmd('logging synchronous level all');
         info("Enabled 'logging synchronous'");
 
-	# Needed for default route to work as expected.
+        # Needed for default route to work as expected.
         $self->cmd('ip subnet-zero');
         info("Enabled 'ip subnet-zero'");
 
-	# Needed for default route to work as expected.
+        # Needed for default route to work as expected.
         $self->cmd('ip classless');
         info("Enabled 'ip classless'");
         $self->leave_conf_mode();
@@ -509,14 +509,14 @@ sub write_mem {
             # Ignore leading empty line.
             shift @$lines if not $lines->[0];
         }
-	if ($lines->[0] =~ /^Building configuration/) {
-	    if ($lines->[-1] =~ /\[OK\]/) {
-		info("write mem: found [OK]");
-		last;
-	    }
-	    else {
-		abort("write mem: failed, config may be truncated");
-	    }
+        if ($lines->[0] =~ /^Building configuration/) {
+            if ($lines->[-1] =~ /\[OK\]/) {
+                info("write mem: found [OK]");
+                last;
+            }
+            else {
+                abort("write mem: failed, config may be truncated");
+            }
         }
         elsif (grep { $_ =~ /startup-config file open failed/i } @$lines) {
             if (not $retries) {
@@ -547,10 +547,10 @@ sub schedule_reload {
 
     # System configuration has been modified. Save? [yes/no]:
     if ($out =~ /save/i) {
-	$self->{ENAPROMPT} = qr/\[confirm\]/;
+        $self->{ENAPROMPT} = qr/\[confirm\]/;
 
         # Leave our changes unsaved, to be sure that a reload
-	# gets last good configuration.
+        # gets last good configuration.
         $self->shcmd('n');
     }
 
@@ -573,8 +573,8 @@ sub cancel_reload {
     # Once there was an issue, where a reload banner garbled the output
     # of "conf t" and this script didn't know any longer which mode was active.
     if ($force) {
-	$self->issue_cmd('end');	# Don't check command output.
-	$self->{CONF_MODE} = 0;
+        $self->issue_cmd('end');        # Don't check command output.
+        $self->{CONF_MODE} = 0;
     }
 
     info("Try to cancel reload");
@@ -618,40 +618,40 @@ sub handle_reload_banner {
     # We expect end of line as \r\n.
     # But for IOS 12.2(18)SXF6 and 12.2(52)SE we saw: \r\n\n\r\n\r\n
     if ($$output_ref =~
-	m/
-	^ (.*?)		       # Prefix from original command
-  	(?:\r\n{1,2}){3}       # 3 empty lines
-  	\x07 [*]{3}\r\n        # BELL + ***
-  	[*]{3} ([^\r\n]+) \r\n # *** Message
-  	[*]{3}\r\n             # ***
-	(.*) $                 # Postfix from original command
- 	/xs)
+        m/
+        ^ (.*?)                # Prefix from original command
+        (?:\r\n{1,2}){3}       # 3 empty lines
+        \x07 [*]{3}\r\n        # BELL + ***
+        [*]{3} ([^\r\n]+) \r\n # *** Message
+        [*]{3}\r\n             # ***
+        (.*) $                 # Postfix from original command
+        /xs)
     {
-	my $prefix = $1;
-	my $msg = $2;
-	my $postfix = $3;
-	info("Found reload banner: $msg");
-#	info("Prefix: $prefix");
-#	info("Postfix: $postfix");
+        my $prefix = $1;
+        my $msg = $2;
+        my $postfix = $3;
+        info("Found reload banner: $msg");
+#       info("Prefix: $prefix");
+#       info("Postfix: $postfix");
 
-	# Because of 'logging synchronous' we are sure to get another prompt
-	# if the banner is the only output before current prompt.
-	# Read next prompt and set $$output_ref to next output.
-	if(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
-	    info("Expecting prompt after banner");
-	    my $con = $self->{CONSOLE};
-	    my $result = $con->con_wait($self->{ENAPROMPT});
-	    info("- Found prompt");
-	    $$output_ref = $result->{BEFORE};
-	}
+        # Because of 'logging synchronous' we are sure to get another prompt
+        # if the banner is the only output before current prompt.
+        # Read next prompt and set $$output_ref to next output.
+        if(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
+            info("Expecting prompt after banner");
+            my $con = $self->{CONSOLE};
+            my $result = $con->con_wait($self->{ENAPROMPT});
+            info("- Found prompt");
+            $$output_ref = $result->{BEFORE};
+        }
 
-	# Remove banner from output.
-	else {
-	    $$output_ref = $prefix.$postfix;
-	}
+        # Remove banner from output.
+        else {
+            $$output_ref = $prefix.$postfix;
+        }
 
-	# Check, if renew of running reload process is needed.
-	return ($msg =~ /SHUTDOWN in 0?0:01:00/);
+        # Check, if renew of running reload process is needed.
+        return ($msg =~ /SHUTDOWN in 0?0:01:00/);
     }
 }
 
@@ -688,26 +688,26 @@ sub read_vty_details {
 sub get_my_connection {
     my ($self) = @_;
     if (my $cached = $self->{CONNECTION}) {
-	return @$cached;
+        return @$cached;
     }
 
     # In file compare mode use IP from netspoc file or 1.2.3.4 if not available.
     if (not $self->{CONSOLE}) {
-	my $any  = 0;
-	my $dst  = quad2int($self->{IP} || '1.2.3.4');
-	my $port = 22;
-	my $cached = $self->{CONNECTION} = [ $any, $dst, $port ];
-	return @$cached;
+        my $any  = 0;
+        my $dst  = quad2int($self->{IP} || '1.2.3.4');
+        my $port = 22;
+        my $cached = $self->{CONNECTION} = [ $any, $dst, $port ];
+        return @$cached;
     }
 
     # With real device, read IP from device, because IP from netspoc may have
     # been changed by NAT.
     my ($vty, $s_ip) = $self->read_vty_and_remote_ip() or
-	abort("Can't determine my vty");
+        abort("Can't determine my vty");
     my $src_ip = quad2int($s_ip) or abort("Can't parse src ip: $s_ip");
 
     my ($d_ip, $port) = $self->read_vty_details($vty) or
-	abort("Can't determine remote ip and port of my TCP session");
+        abort("Can't determine remote ip and port of my TCP session");
     my $dst_ip = quad2int($d_ip) or abort("Can't parse remote ip: $d_ip");
     info("My connection: $s_ip -> $d_ip:$port");
     my $cached = $self->{CONNECTION} = [ $src_ip, $dst_ip, $port ];
@@ -743,9 +743,9 @@ sub is_device_access {
 
     my ($device_src, $device_dst, $device_port) = $self->get_my_connection();
     return
-	ip_in_net($device_src, $conf_entry->{SRC}) &&
-	ip_in_net($device_dst, $conf_entry->{DST}) &&
-	port_in_proto($device_port, $conf_entry);
+        ip_in_net($device_src, $conf_entry->{SRC}) &&
+        ip_in_net($device_dst, $conf_entry->{DST}) &&
+        port_in_proto($device_port, $conf_entry);
 }
 
 sub resequence_cmd {

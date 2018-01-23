@@ -62,13 +62,13 @@ sub warn_info {
 
 sub internal_err {
     # uncoverable subroutine
-    my $sub = (caller 1)[3];			# uncoverable statement
-    abort("Internal error in $sub: ", @_);	# uncoverable statement
+    my $sub = (caller 1)[3];                    # uncoverable statement
+    abort("Internal error in $sub: ", @_);      # uncoverable statement
 }
 
 sub debug {
     # uncoverable subroutine
-    info(@_);	  # uncoverable statement
+    info(@_);     # uncoverable statement
 }
 
 sub quad2int {

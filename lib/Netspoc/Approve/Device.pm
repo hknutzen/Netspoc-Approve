@@ -116,7 +116,7 @@ sub get_user_password {
     # Write directly to tty, because STDOUT may be redirected.
     open(my $tty, '>:unix', '/dev/tty') or abort("Can't open /dev/tty: $!");
     print $tty "Running in non privileged mode and no "
-	. "password found in database.\n";
+        . "password found in database.\n";
     print $tty "Password for $user?";
     system('stty', '-echo');
     $pass = <STDIN>;
@@ -141,7 +141,7 @@ sub get_spoc_data {
         }
         if ($line =~ /\[ IP = (\S+) ]/) {
             @ip = split(/,/, $1);
-	    last;
+            last;
         }
     }
     close $file;
@@ -240,16 +240,16 @@ sub add_prefix_info {
     my ($self, $parse_info) = @_;
     my $result = {};
     for my $key (keys %$parse_info) {
-	my @split = split(' ', $key);
+        my @split = split(' ', $key);
         my $hash = $result;
         while(@split) {
             my $word = shift(@split);
             $hash->{$word} ||= {};
             $hash = $hash->{$word};
         }
-	if(my $subcmd = $parse_info->{$key}->{subcmd}) {
-	    $self->add_prefix_info($subcmd);
-	}
+        if(my $subcmd = $parse_info->{$key}->{subcmd}) {
+            $self->add_prefix_info($subcmd);
+        }
     }
     $parse_info->{_prefix} = $result if keys %$result;
 }
@@ -259,57 +259,57 @@ sub parse_seq {
     my $type = $info->[0];
     my $success;
     for my $part (@{$info}[1..(@$info-1)]) {
-	my $ref = ref $part;
-	my $part_success;
-	if($ref eq 'HASH') {
-	    my $parser = $part->{parse};
-	    my $params = $part->{params};
-	    my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ }
-			      $params ? @$params : ());
-	    if(my $keys = $part->{store_multi}) {
-		my @values;
+        my $ref = ref $part;
+        my $part_success;
+        if($ref eq 'HASH') {
+            my $parser = $part->{parse};
+            my $params = $part->{params};
+            my @evaled = map( { /^\$(.*)/ ? $result->{$1} : $_ }
+                              $params ? @$params : ());
+            if(my $keys = $part->{store_multi}) {
+                my @values;
                 @values = parse_line($self, $arg, $parser, @evaled)
-		    if $parser;
-		for(my $i = 0; $i < @values; $i++) {
-		    $result->{$keys->[$i]} = $values[$i];
-		}
-		$part_success = @values;
-	    }
-	    else {
-		my $value;
-		$value = parse_line($self, $arg, $parser, @evaled)
-		    if $parser;
-		if(not defined $value) {
-		    $value = $part->{default};
-		}
-		if(defined $value) {
-		    if(my $key = $part->{store}) {
-			$result->{$key} = $value;
-		    }
-		    $part_success = 1;
-		}
-	    }
-	}
-	elsif($ref eq 'ARRAY') {
-	    $part_success = parse_seq($self, $arg, $part, $result);
-	}
-	$success ||= $part_success;
-	if($type eq 'seq') {
+                    if $parser;
+                for(my $i = 0; $i < @values; $i++) {
+                    $result->{$keys->[$i]} = $values[$i];
+                }
+                $part_success = @values;
+            }
+            else {
+                my $value;
+                $value = parse_line($self, $arg, $parser, @evaled)
+                    if $parser;
+                if(not defined $value) {
+                    $value = $part->{default};
+                }
+                if(defined $value) {
+                    if(my $key = $part->{store}) {
+                        $result->{$key} = $value;
+                    }
+                    $part_success = 1;
+                }
+            }
+        }
+        elsif($ref eq 'ARRAY') {
+            $part_success = parse_seq($self, $arg, $part, $result);
+        }
+        $success ||= $part_success;
+        if($type eq 'seq') {
 
-	    # All args must match
-	}
-	elsif($type eq 'or') {
-	    last if $success;
-	}
-	elsif($type eq 'cond1') {
+            # All args must match
+        }
+        elsif($type eq 'or') {
+            last if $success;
+        }
+        elsif($type eq 'cond1') {
 
-	    # Stop if first arg doesn't match.
-	    last if not $success;
-	}
-	else {
+            # Stop if first arg doesn't match.
+            last if not $success;
+        }
+        else {
             # uncoverable statement
-	    internal_err "Expected 'seq|cond1|or' but got $type";
-	}
+            internal_err "Expected 'seq|cond1|or' but got $type";
+        }
     }
     return $success;
 }
@@ -319,24 +319,24 @@ sub parse_line {
     my $ref = ref $info;
     if(not $ref) {
 
-	# A method name.
-	return($self->$info($arg, @params));
+        # A method name.
+        return($self->$info($arg, @params));
     }
     elsif($ref eq 'Regexp') {
-	return(check_regex($info, $arg));
+        return(check_regex($info, $arg));
     }
     elsif($ref eq 'CODE') {
-	return($info->($arg, @params));
+        return($info->($arg, @params));
     }
     elsif($ref eq 'ARRAY') {
-	my $result = {};
-	parse_seq($self, $arg, $info, $result);
-	not keys %$result and $result = undef;
-	return($result);
+        my $result = {};
+        parse_seq($self, $arg, $info, $result);
+        not keys %$result and $result = undef;
+        return($result);
     }
     else {
         # uncoverable statement
-	internal_err "Unexpected parse attribute: $info";
+        internal_err "Unexpected parse attribute: $info";
     }
 }
 
@@ -347,94 +347,94 @@ sub parse_config1 {
     my $result = {};
     for my $arg (@$config) {
         my $cmd_info = $arg->{cmd_info};
-	if(my $msg = $cmd_info->{error}) {
-	    err_at_line($arg, $msg);
-	}
-	my $cmd;
+        if(my $msg = $cmd_info->{error}) {
+            err_at_line($arg, $msg);
+        }
+        my $cmd;
         if (!$cmd_info->{leave_cmd_as_arg}) {
             $cmd = get_token($arg);
         }
-	my $named = $cmd_info->{named};
-	my $name;
-	if($named and $named ne 'from_parser') {
-	    $name = get_token($arg);
-	}
-	my $parser = $cmd_info->{parse};
+        my $named = $cmd_info->{named};
+        my $name;
+        if($named and $named ne 'from_parser') {
+            $name = get_token($arg);
+        }
+        my $parser = $cmd_info->{parse};
         my @params = map({ $_ eq '_cmd' ? $cmd : $_ }
                          $cmd_info->{params} ? @{ $cmd_info->{params} } : ());
-	my $value;
-	$value = parse_line($self, $arg, $parser, @params) if $parser;
-	get_eol($arg);
-	if(my $subcmds = $arg->{subcmd}) {
-	    my $parse_info = $cmd_info->{subcmd} or
-		err_at_line($arg, 'Unexpected subcommand');
-	    my $value2 = parse_config1($self, $subcmds, $parse_info);
-	    if(keys %$value2) {
-		if(defined $value) {
-		    $value = { %$value, %$value2 };
-		}
-		else {
-		    $value = $value2;
-		}
-	    }
-	}
-	if(not defined $value) {
-	    $value = $cmd_info->{default};
-	}
-	if(not defined $value) {
-	    next;
-	}
-	if($named and $named eq 'from_parser') {
-	    $name = $value->{name} or err_at_line($arg, 'Missing name');
-	}
-	if(ref($value) eq 'HASH') {
-	    $named and $value->{name} = $name;
-	    $value->{orig} = $arg->{orig};
-	    $value->{line} = $arg->{line};
-	}
-	my $store = $cmd_info->{store};
-	my @extra_keys = ref $store ? @$store : $store;
-	my $key;
-	if($named) {
-	    $key = $name;
-	}
-	else {
-	    $key = pop @extra_keys;
-	    $key = $cmd if $key eq '_cmd';
-	}
-	my $dest = $result;
-	for my $x (@extra_keys) {
-	    $x = $cmd if $x eq '_cmd';
-	    $dest->{$x} ||= {};
-	    $dest = $dest->{$x};
-	}
-	if($cmd_info->{multi}) {
-	    push(@{ $dest->{$key} }, $value);
-	}
-	else {
-	    if(my $old = $dest->{$key}) {
-		if($cmd_info->{merge}) {
-		    for my $key (keys %$value) {
-			next if $key =~ /(?:name|line|orig)/;
-			if(defined $old->{$key}) {
+        my $value;
+        $value = parse_line($self, $arg, $parser, @params) if $parser;
+        get_eol($arg);
+        if(my $subcmds = $arg->{subcmd}) {
+            my $parse_info = $cmd_info->{subcmd} or
+                err_at_line($arg, 'Unexpected subcommand');
+            my $value2 = parse_config1($self, $subcmds, $parse_info);
+            if(keys %$value2) {
+                if(defined $value) {
+                    $value = { %$value, %$value2 };
+                }
+                else {
+                    $value = $value2;
+                }
+            }
+        }
+        if(not defined $value) {
+            $value = $cmd_info->{default};
+        }
+        if(not defined $value) {
+            next;
+        }
+        if($named and $named eq 'from_parser') {
+            $name = $value->{name} or err_at_line($arg, 'Missing name');
+        }
+        if(ref($value) eq 'HASH') {
+            $named and $value->{name} = $name;
+            $value->{orig} = $arg->{orig};
+            $value->{line} = $arg->{line};
+        }
+        my $store = $cmd_info->{store};
+        my @extra_keys = ref $store ? @$store : $store;
+        my $key;
+        if($named) {
+            $key = $name;
+        }
+        else {
+            $key = pop @extra_keys;
+            $key = $cmd if $key eq '_cmd';
+        }
+        my $dest = $result;
+        for my $x (@extra_keys) {
+            $x = $cmd if $x eq '_cmd';
+            $dest->{$x} ||= {};
+            $dest = $dest->{$x};
+        }
+        if($cmd_info->{multi}) {
+            push(@{ $dest->{$key} }, $value);
+        }
+        else {
+            if(my $old = $dest->{$key}) {
+                if($cmd_info->{merge}) {
+                    for my $key (keys %$value) {
+                        next if $key =~ /(?:name|line|orig)/;
+                        if(defined $old->{$key}) {
                             $old->{$key} eq $value->{$key} or
                                 err_at_line($arg,
                                             "Duplicate '$key' while merging");
-			}
+                        }
                         else {
                             $old->{$key} = $value->{$key};
                         }
-		    }
-		}
-		else {
-		    err_at_line($arg,
-				'Multiple occurrences of command not allowed');
-		}
-	    }
-	    else {
-		$dest->{$key} = $value;
-	    }
-	}
+                    }
+                }
+                else {
+                    err_at_line($arg,
+                                'Multiple occurrences of command not allowed');
+                }
+            }
+            else {
+                $dest->{$key} = $value;
+            }
+        }
     }
     return($result);
 }
@@ -462,34 +462,34 @@ sub merge_rawdata {
     }
 
     for my $key (keys %$raw_prepend) {
-	my $raw_v = $raw_prepend->{$key};
+        my $raw_v = $raw_prepend->{$key};
 
         if ($key eq 'ROUTING_VRF') {
-	    my $spoc_v = $spoc_conf->{$key} ||= {};
-	    for my $vrf (sort keys %$raw_v) {
-		my $raw_routes = $raw_v->{$vrf};
+            my $spoc_v = $spoc_conf->{$key} ||= {};
+            for my $vrf (sort keys %$raw_v) {
+                my $raw_routes = $raw_v->{$vrf};
                 my $spoc_routes = $spoc_v->{$vrf} ||= [];
                 unshift(@$spoc_routes, @$raw_routes);
                 my $count = @$raw_routes;
                 my $for = $vrf ? " for VRF $vrf" : $vrf;
                 info("Prepended $count routes${for} from raw") if $count;
             }
-	}
+        }
 
-	# Hash of named entries: USERNAME, ...
-	else {
-	    my $spoc_v = $spoc_conf->{$key} ||= {};
-	    my $count = 0;
-	    for my $name (sort keys %$raw_v) {
-		my $entry = $raw_v->{$name};
-		if($spoc_v->{$name}) {
-		    abort("Name clash for '$name' of $key from raw");
-		}
-		$spoc_v->{$name} = $entry;
-		$count++;
-	    }
-	    info("Added $count entries of $key from raw") if $count;
-	}
+        # Hash of named entries: USERNAME, ...
+        else {
+            my $spoc_v = $spoc_conf->{$key} ||= {};
+            my $count = 0;
+            for my $name (sort keys %$raw_v) {
+                my $entry = $raw_v->{$name};
+                if($spoc_v->{$name}) {
+                    abort("Name clash for '$name' of $key from raw");
+                }
+                $spoc_v->{$name} = $entry;
+                $count++;
+            }
+            info("Added $count entries of $key from raw") if $count;
+        }
     }
 }
 
@@ -612,10 +612,10 @@ sub cmd {
     my ($self, $cmd) = @_;
 
     if ( $self->{COMPARE} ) {
-	print("> $cmd\n");
+        print("> $cmd\n");
     }
     else {
-	$self->device_cmd($cmd);
+        $self->device_cmd($cmd);
     }
 }
 
@@ -635,9 +635,9 @@ sub shcmd {
 sub cmd_check_echo {
     my ($self, $cmd, $echo, $lines) = @_;
     if ($echo ne $cmd) {
-	my $msg = "Got unexpected echo in response to '$cmd':\n'" .
-	    join("\n", $echo, @$lines) ."'";
-	$self->abort_cmd($msg);
+        my $msg = "Got unexpected echo in response to '$cmd':\n'" .
+            join("\n", $echo, @$lines) ."'";
+        $self->abort_cmd($msg);
     }
 }
 
@@ -646,7 +646,7 @@ sub get_cmd_output {
     my $out = $self->shcmd($cmd);
     my $need_reload;
     $self->{RELOAD_SCHEDULED} and
-	$self->handle_reload_banner(\$out) and $need_reload = 1;
+        $self->handle_reload_banner(\$out) and $need_reload = 1;
     # NX-OS uses mixed line breaks: \r, \r\n, \r\r\n
     my @lines = split(/\r{0,2}\n|\r/, $out);
     my $echo = shift(@lines);
@@ -658,7 +658,7 @@ sub get_cmd_output {
 sub cmd_abort_on_error {
     my ($self, $cmd, $lines) = @_;
     if ($self->cmd_check_error($cmd, $lines)) {
-	$self->abort_cmd("Unexpected output of '$cmd'", @$lines);
+        $self->abort_cmd("Unexpected output of '$cmd'", @$lines);
     }
 }
 
@@ -667,34 +667,34 @@ sub two_cmd {
     my ($self, $cmd1, $cmd2) = @_;
 
     if ( $self->{COMPARE} ) {
-	print("> $cmd1\\N $cmd2\n");
+        print("> $cmd1\\N $cmd2\n");
     }
     else {
-	my $con = $self->{CONSOLE};
-	$con->con_send_cmd("$cmd1\n$cmd2\n");
-	my $prompt = $self->{ENAPROMPT};
-	my $need_reload;
+        my $con = $self->{CONSOLE};
+        $con->con_send_cmd("$cmd1\n$cmd2\n");
+        my $prompt = $self->{ENAPROMPT};
+        my $need_reload;
 
-	# Read first prompt and check output of first command.
-	my $result = $con->con_wait($prompt);
-	my $out = $result->{BEFORE};
-	$self->{RELOAD_SCHEDULED} and
-	    $self->handle_reload_banner(\$out) and $need_reload = 1;
-	my @lines1 = split(/\r{0,2}\n|\r/, $out);
-	my $echo = shift(@lines1);
-	$self->cmd_check_echo($cmd1, $echo, \@lines1);
+        # Read first prompt and check output of first command.
+        my $result = $con->con_wait($prompt);
+        my $out = $result->{BEFORE};
+        $self->{RELOAD_SCHEDULED} and
+            $self->handle_reload_banner(\$out) and $need_reload = 1;
+        my @lines1 = split(/\r{0,2}\n|\r/, $out);
+        my $echo = shift(@lines1);
+        $self->cmd_check_echo($cmd1, $echo, \@lines1);
 
-	# Read second prompt and check output of second command.
-	$result = $con->con_wait($prompt);
-	$out = $result->{BEFORE};
-	$self->{RELOAD_SCHEDULED} and
-	    $self->handle_reload_banner(\$out) and $need_reload = 1;
-	my @lines2 = split(/\r{0,2}\n|\r/, $out);
-	$echo = shift(@lines2);
-	$self->cmd_check_echo($cmd2, $echo, \@lines2);
+        # Read second prompt and check output of second command.
+        $result = $con->con_wait($prompt);
+        $out = $result->{BEFORE};
+        $self->{RELOAD_SCHEDULED} and
+            $self->handle_reload_banner(\$out) and $need_reload = 1;
+        my @lines2 = split(/\r{0,2}\n|\r/, $out);
+        $echo = shift(@lines2);
+        $self->cmd_check_echo($cmd2, $echo, \@lines2);
 
-	$self->cmd_abort_on_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
-	$need_reload and $self->schedule_reload();
+        $self->cmd_abort_on_error("$cmd1\\N $cmd2\n", [ @lines1, @lines2 ]);
+        $need_reload and $self->schedule_reload();
     }
 }
 
@@ -723,7 +723,7 @@ sub checkidentity {
     $conf_name =~ s/^host://;
 
     $name eq $conf_name or
-	abort("Wrong device name: $name, expected: $conf_name");
+        abort("Wrong device name: $name, expected: $conf_name");
 }
 
 sub search_banner {
@@ -748,7 +748,7 @@ sub get_version {
     my ($self) = @_;
     $self->parse_version();
     if (! defined($self->{VERSION})) {
-	abort("Can't identify device version");
+        abort("Can't identify device version");
     }
     $self->{HARDWARE} ||= 'unknown';
     info("DINFO: $self->{HARDWARE} $self->{VERSION}");
@@ -833,12 +833,12 @@ sub mark_as_unchanged {
 sub print_change_status {
     my ($self) = @_;
     for my $key (sort keys %{$self->{CHANGE}}) {
-	if($self->{CHANGE}->{$key}) {
-	    info("comp: *** $key changed ***");
-	}
-	else {
-	    info("comp: $key unchanged");
-	}
+        if($self->{CHANGE}->{$key}) {
+            info("comp: *** $key changed ***");
+        }
+        else {
+            info("comp: $key unchanged");
+        }
     }
 }
 
@@ -899,15 +899,15 @@ sub logging {
     # Create logdir
     if ($dirname && ! -d $dirname) {
         if (mkdir($dirname, 0755)) {
-	    defined(chmod(0755, $dirname))
-		or abort("Can't chmod logdir $dirname: $!");
-	}
+            defined(chmod(0755, $dirname))
+                or abort("Can't chmod logdir $dirname: $!");
+        }
 
-	# Check -d again, because some other process may have created
-	# the directory in the meantime.
-	elsif (! -d $dirname) {
-	    abort("Can't create $dirname: $!");
-	}
+        # Check -d again, because some other process may have created
+        # the directory in the meantime.
+        elsif (! -d $dirname) {
+            abort("Can't create $dirname: $!");
+        }
     }
 
     move_logfile($logfile);

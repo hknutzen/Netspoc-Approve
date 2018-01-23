@@ -150,7 +150,7 @@ if (open(my $policy_fh, '<', $policy_file)) {
 
     # $pfile contains one line: "# p22 comment .."
     ($fcount) = ($line =~ m'^#? *p(\d+) ') or
-	log_abort("No valid policy name found in $policy_file");
+        log_abort("No valid policy name found in $policy_file");
 }
 
 # Read current policy name from symbolic link.
@@ -160,7 +160,7 @@ if($prev_policy = readlink $link) {
 
     # Link must have name "p<number>".
     ($lcount) = ($prev_policy =~ /^p(\d+)$/) or
-	log_abort("Invalid policy name '$prev_policy' found in $link");
+        log_abort("Invalid policy name '$prev_policy' found in $link");
 }
 
 # Create symlink from new to old code directory,
@@ -222,7 +222,7 @@ if ($? == 0) {
     # Mark new policy as current.
     unlink $link;
     symlink $policy, $link or
-	log_abort("Failed to create symlink $link to $policy");
+        log_abort("Failed to create symlink $link to $policy");
     log_line("Updated current policy to '$policy'\n");
 
     # Cleanup previous code directory.
