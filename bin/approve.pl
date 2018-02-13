@@ -26,12 +26,12 @@
 
 use strict;
 use warnings;
-use Fcntl qw/:flock/;		# import LOCK_* constants
+use Fcntl qw/:flock/;           # import LOCK_* constants
 use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.122'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
@@ -54,11 +54,11 @@ sub init_history_logging {
     my $historypath = $config->{historydir} or return;
     my $historyfile = "$historypath/$devicename";
     open($history_fh, '>>', $historyfile) or
-	die "Error: Can't open $historyfile: $!\n";
+        die "Error: Can't open $historyfile: $!\n";
     defined(chmod(0644, $historyfile)) or
-	die "Error: Can't chmod $historyfile: $!\n";
+        die "Error: Can't chmod $historyfile: $!\n";
     unless(flock($history_fh, LOCK_EX | LOCK_NB)){
-	die "Another approve is running: file '$historyfile' is locked\n";
+        die "Another approve is running: file '$historyfile' is locked\n";
     }
     my $date = strftime "%Y %m %e %H:%M:%S", localtime();
     print $history_fh "$date USER $user called '$arguments'\n";
@@ -156,7 +156,7 @@ if (open(my $log, '<', $logfile)) {
     my @lines = <$log>;
     my $silent = $brief && grep { $_ =~ /^ERROR>>> TIMEOUT$/ } @lines;
     for (@lines) {
-	if (/^WARNING>>>/) {
+        if (/^WARNING>>>/) {
             $warnings++;
         }
         elsif (/^ERROR>>>/) {

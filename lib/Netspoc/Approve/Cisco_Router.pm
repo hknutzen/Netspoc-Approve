@@ -33,7 +33,7 @@ package Netspoc::Approve::Cisco_Router;
 # Base class for Cisco routers (IOS, NX-OS)
 #
 
-our $VERSION = '1.122'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
 
 use base "Netspoc::Approve::Cisco";
 use strict;
@@ -196,7 +196,7 @@ sub process_interface_acls {
     my $conf_interfaces = $conf->{IF};
     for my $name (sort keys %$spoc_interfaces){
         my $conf_intf = $conf_interfaces->{$name} or internal_err;
-	my $spoc_intf = $spoc_interfaces->{$name};
+        my $spoc_intf = $spoc_interfaces->{$name};
         push @interface_pairs, [ $conf_intf, $spoc_intf ];
     }
 
@@ -245,27 +245,27 @@ sub equalize_acls_of_objects {
     # Pass 1: Equalize object groups of matching ACL lines.
     for my $pair (@$object_pairs){
         my ($conf_obj, $spoc_obj) = @$pair;
-	for my $in_out (qw(IN OUT)) {
-	    my $confacl_name = $conf_obj->{"ACCESS_GROUP_$in_out"} || '';
-	    my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
-	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
-	    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
+        for my $in_out (qw(IN OUT)) {
+            my $confacl_name = $conf_obj->{"ACCESS_GROUP_$in_out"} || '';
+            my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
+            my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
+            my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
 
-	    # Try to change objects groups of existing ACL on device.
-	    if ($conf_acl and $spoc_acl) {
-		my $ready = $self->equalize_acl_groups($conf_acl, $spoc_acl);
+            # Try to change objects groups of existing ACL on device.
+            if ($conf_acl and $spoc_acl) {
+                my $ready = $self->equalize_acl_groups($conf_acl, $spoc_acl);
                 if($ready) {
                     $acl_ready{$spoc_acl} = 1;
                     next;
                 }
-	    }
+            }
 
             # ACL from netspoc will be transferred.
             # Mark referenced object groups.
-	    elsif ($spoc_acl) {
+            elsif ($spoc_acl) {
                 $self->mark_object_group_from_acl($spoc_acl);
-	    }
-	}
+            }
+        }
     }
 
     $self->modify_object_groups($spoc);
@@ -276,16 +276,16 @@ sub equalize_acls_of_objects {
     $self->{CHANGE}->{ACCESS_LIST} = 0;
     for my $pair (@$object_pairs){
         my ($conf_obj, $spoc_obj) = @$pair;
-	for my $in_out (qw(IN OUT)) {
-	    my $confacl_name = $conf_obj->{"ACCESS_GROUP_$in_out"} || '';
-	    my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
-	    my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
-	    my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
+        for my $in_out (qw(IN OUT)) {
+            my $confacl_name = $conf_obj->{"ACCESS_GROUP_$in_out"} || '';
+            my $spocacl_name = $spoc_obj->{"ACCESS_GROUP_$in_out"} || '';
+            my $conf_acl = $conf->{ACCESS_LIST}->{$confacl_name};
+            my $spoc_acl = $spoc->{ACCESS_LIST}->{$spocacl_name};
 
             # Nothing to do, if both IN-ACL or both OUT-ACL don't exist.
             $conf_acl or $spoc_acl or next;
 
-	    if ($conf_acl and $spoc_acl) {
+            if ($conf_acl and $spoc_acl) {
 
                 # We already know from group compare, that ACL doesn't change.
                 next if $acl_ready{$spoc_acl};
@@ -326,7 +326,7 @@ sub equalize_acls_of_objects {
                 # No modify_cmds: Fall through; add ACL.
             }
 
-	    if ($spoc_acl) {
+            if ($spoc_acl) {
                 $self->mark_object_group_from_acl($spoc_acl);
             }
             if ($conf_acl) {
@@ -336,7 +336,7 @@ sub equalize_acls_of_objects {
             # Collect pair for later processing.
             push @acl_update_info, [$conf_obj, lc($in_out),
                                     $conf_acl, $spoc_acl];
-	}
+        }
     }
     $self->remove_object_groups($conf);
     return @acl_update_info;

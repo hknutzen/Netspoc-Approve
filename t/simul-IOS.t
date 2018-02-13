@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
+use warnings;
 use Test::More;
 use Test::Differences;
 use lib 't';
@@ -100,6 +101,92 @@ router#
 END
 
 simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "No credentials found ";
+############################################################
+# Reuse previous test data.
+
+my $dir = $ENV{HOME};
+my $credentials_file = "$dir/credentials";
+write_file($credentials_file, <<"END");
+pattern user pass
+END
+
+my $err = <<'END';
+ERROR>>> No matching AAA credential found
+END
+
+my ($status, $stdout, $stderr) =
+    run("bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router");
+$stderr ||= '';
+$stderr =~ s/\Q$dir\E\///;
+eq_or_diff($stderr, $err, $title);
+
+############################################################
+$title = "Bad credentials file";
+############################################################
+# Reuse previous test data.
+
+write_file($credentials_file, <<"END");
+abc 123
+END
+
+$err = <<'END';
+ERROR>>> Expected 3 fields in lines of credentials
+END
+
+($status, $stdout, $stderr) =
+    run("bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router");
+$stderr ||= '';
+$stderr =~ s/\Q$dir\E\///;
+eq_or_diff($stderr, $err, $title);
+
+############################################################
+$title = "Missing credentials file";
+############################################################
+# Reuse previous test data.
+
+unlink $credentials_file;
+
+$err = <<'END';
+ERROR>>> Can't open credentials: No such file or directory
+END
+
+($status, $stdout, $stderr) =
+    run("bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router");
+$stderr ||= '';
+$stderr =~ s/\Q$dir\E\///;
+eq_or_diff($stderr, $err, $title);
+
+############################################################
+$title = "SSH login with prompt to TTY, password from user";
+############################################################
+# Reuse previous test data.
+
+# Create config file without system user.
+my $config_file = "$dir/.netspoc-approve";
+write_file($config_file, <<"END");
+netspocdir = $dir
+lockfiledir = $dir
+checkbanner = NetSPoC
+timeout = 1
+END
+
+my $perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
+use Expect;
+my $expect = Expect->new();
+$expect->log_stdout(0);
+$expect->spawn(
+    "$^X $perl_opt -I lib bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router")
+    or die "Cannot spawn";
+
+ok($expect->expect(1, "Password for"), "$title: prompt");
+$expect->send("secret\n");
+ok($expect->expect(1, "thank you"), "$title: accepted");
+$expect->expect(1, 'eof');
+
+check_output($title, $dir, $out, '');
 
 ############################################################
 $title = "SSH login failed";
@@ -330,7 +417,7 @@ Enter configuration commands, one per line.  End with CNTL/Z.
 ***
 *** --- SHUTDOWN in 0:05:00 ---
 ***
-# \BANNER5_start/
+# \BANNER5_prompt/
 
 
 
@@ -357,7 +444,8 @@ Proceed with reload? [confirm]<!>
 ***
 *** --- SHUTDOWN ABORTED ---
 ***
-# \BANNER5_start/ip route 10.1.2.0 255.255.255.0 10.1.2.3
+# \BANNER5_prompt/ip route 10.1.1.0 255.255.255.0 10.1.2.3
+# ip route 10.1.2.0 255.255.255.0 10.2.3.4\BANNER5_prompt/
 # no ip route 10.0.0.0 25\BANNER5/5.0.0.0 10.1.2.3
 # ip\BANNER1/ route 10.0.0.0 255.0.0.0 10.11.22.33
 # write memory
@@ -367,7 +455,8 @@ END
 
 $in = <<'END';
 ip route 10.0.0.0 255.0.0.0 10.11.22.33
-ip route 10.1.2.0 255.255.255.0 10.1.2.3
+ip route 10.1.1.0 255.255.255.0 10.1.2.3
+ip route 10.1.2.0 255.255.255.0 10.2.3.4
 END
 
 $out = <<'END';
@@ -411,7 +500,15 @@ router#
 *** --- SHUTDOWN in 0:05:00 ---
 ***
 
-router#ip route 10.1.2.0 255.255.255.0 10.1.2.3
+router#ip route 10.1.1.0 255.255.255.0 10.1.2.3
+router#ip route 10.1.2.0 255.255.255.0 10.2.3.4
+
+
+***
+*** --- SHUTDOWN in 0:05:00 ---
+***
+
+router#
 router#no ip route 10.0.0.0 25
 
 

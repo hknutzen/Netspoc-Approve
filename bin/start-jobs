@@ -16,7 +16,7 @@ usage() {
 
 verbose='-t'
 case $1 in
-    -q)	verbose=''; shift ;;
+    -q) verbose=''; shift ;;
 esac
 max=$1
 

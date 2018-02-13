@@ -278,6 +278,35 @@ END
 eq_or_diff( approve_err('IOS', $device, $spoc, $raw ), $out, $title );
 
 ############################################################
+$title = "Unbound ACLs in raw";
+############################################################
+$device = <<END;
+interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
+END
+
+$spoc = <<END;
+ip access-list extended Ethernet1_in
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+ deny ip any any
+interface Ethernet1
+ ip access-group Ethernet1_in in
+END
+
+$raw = <<END;
+ip access-list extended Ethernet1_in
+ deny ip host 10.0.6.1 any
+ip access-list extended Ethernet0_in
+ deny ip host 10.0.6.0 any
+END
+
+$out = <<END;
+ERROR>>> Found unbound ACCESS_LIST in raw: Ethernet0_in, Ethernet1_in
+END
+
+eq_or_diff( approve_err('IOS', $device, $spoc, $raw ), $out, $title );
+
+############################################################
 $title = "Name clash with object-group";
 ############################################################
 

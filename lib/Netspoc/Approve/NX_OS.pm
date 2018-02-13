@@ -32,14 +32,14 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.122'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
     my $result =
     {
         # interface Ethernet2/1
-	'interface' => {
+        'interface' => {
             store => 'IF',
             named => 1,
             subcmd => {
@@ -82,17 +82,17 @@ sub get_parse_info {
 
 # ip route ip/prefix {[interface] next-hop}
 #          [preference] [tag id] [name nexthop-name]
-	'ip route' => {
-	    store => 'ROUTING',
-	    multi => 1,
-	    parse => ['seq',
-		      { parse => \&get_ip_prefix,
-			store_multi => ['BASE', 'MASK'] },
-		      ['or',
-		       { store => 'NEXTHOP', parse => \&check_ip, },
-		       ['seq',
-			{ store => 'NIF',  parse => \&get_token, },
-			{ store => 'NEXTHOP', parse => \&check_ip, },],],
+        'ip route' => {
+            store => 'ROUTING',
+            multi => 1,
+            parse => ['seq',
+                      { parse => \&get_ip_prefix,
+                        store_multi => ['BASE', 'MASK'] },
+                      ['or',
+                       { store => 'NEXTHOP', parse => \&check_ip, },
+                       ['seq',
+                        { store => 'NIF',  parse => \&get_token, },
+                        { store => 'NEXTHOP', parse => \&check_ip, },],],
                       { parse => \&check_int, store => 'PREFERENCE' },
                       ['cond1',
                        { parse => qr/tag/, },
@@ -103,29 +103,29 @@ sub get_parse_info {
         },
         'object-group ip address' => {
             store => 'OBJECT_GROUP',
-	    named => 1,
+            named => 1,
             parse => ['seq', { store => 'TYPE', default => 'network', },],
             strict => 1,
             subcmd => {
                 '_any' => {
                     leave_cmd_as_arg => 1,
-		    store => 'OBJECT',
-		    multi => 1,
-		    parse =>  'parse_numbered_address',
+                    store => 'OBJECT',
+                    multi => 1,
+                    parse =>  'parse_numbered_address',
                 }
             }
         },
         'object-group ip port' => {
             store => 'OBJECT_GROUP',
-	    named => 1,
+            named => 1,
             parse => ['seq', { store => 'TYPE', default => 'tcp-udp', },],
             strict => 1,
             subcmd => {
                 '_any' => {
                     leave_cmd_as_arg => 1,
-		    store => 'OBJECT',
-		    multi => 1,
-		    parse => 'parse_numbered_port_spec',
+                    store => 'OBJECT',
+                    multi => 1,
+                    parse => 'parse_numbered_port_spec',
                 }
             }
         },
@@ -142,22 +142,22 @@ sub get_parse_info {
 #        [flags] [established]
 # permit udp source [operator port [port] | portgroup portgroup]
 #            destination [operator port [port] | portgroup portgroup]
-	'ip access-list' => {
-	    store =>  'ACCESS_LIST',
-	    named => 1,
+        'ip access-list' => {
+            store =>  'ACCESS_LIST',
+            named => 1,
             strict => 1,
-	    subcmd => {
+            subcmd => {
                 '_skip remark' => {
-		    store => 'LIST',
-		    multi => 1,
-		    parse => [
+                    store => 'LIST',
+                    multi => 1,
+                    parse => [
                         'seq',
                         { parse => \&get_int, },
                         { store => 'REMARK', parse => \&get_to_eol } ] },
                 '_skip permit' => {
-		    store => 'LIST',
-		    multi => 1,
-		    parse => [
+                    store => 'LIST',
+                    multi => 1,
+                    parse => [
                         'seq',
                         { parse => \&get_int, },
                         { store => 'MODE', default => 'permit' },
@@ -193,9 +193,9 @@ sub get_parse_info {
                           { store => 'DST', parse => 'parse_address' } ]],
                         { store => 'LOG', parse => qr/log/ }
                         ],
-		},
-	    },
-	},
+                },
+            },
+        },
     };
 
     # Copy 'permit' entry and substitute 'permit' by 'deny';
@@ -237,7 +237,7 @@ sub parse_address {
 sub parse_og_port_spec {
     my ($self, $arg, $type) = @_;
     if(check_regex('portgroup', $arg)) {
-	return { GROUP_NAME => get_token($arg) };
+        return { GROUP_NAME => get_token($arg) };
     }
     return $self->SUPER::parse_port_spec($arg, $type);
 }
@@ -332,12 +332,12 @@ sub cmd_check_error {
         # Ignore empty line
         next LINE if $line =~ /^\s*$/;
 
-	for my $pattern (@{ $known_status{$cmd} }) {
-	    if(ref($pattern) ? $line =~ $pattern : $line eq $pattern) {
-		next LINE;
-	    }
-	}
-	$error = 1;
+        for my $pattern (@{ $known_status{$cmd} }) {
+            if(ref($pattern) ? $line =~ $pattern : $line eq $pattern) {
+                next LINE;
+            }
+        }
+        $error = 1;
     }
     return $error;
 }
@@ -347,11 +347,11 @@ sub parse_version {
     my $output = $self->shcmd('show version');
     # system:    version 4.0(1a) [gdb]
     if($output =~ /system: \s+ version \s+ (\S+)/ix) {
-	$self->{VERSION} = $1;
+        $self->{VERSION} = $1;
     }
     # cisco Nexus7000 C7010 (10 Slot) Chassis ("Supervisor module-1X")
     if($output =~ /(cisco \s+ Nexus\S* \s+ \S+)/ix) {
-	$self->{HARDWARE} = $1;
+        $self->{HARDWARE} = $1;
     }
 }
 

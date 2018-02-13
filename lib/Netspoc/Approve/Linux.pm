@@ -34,7 +34,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.122'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
@@ -59,79 +59,79 @@ sub get_parse_info {
 # The output looks like this:
 # 10.2.9.0/24 via 10.1.13.39 dev eth0
 # The prefix "ip route add" is added before the string is parsed.
-	'ip route add' => {
-	    store => 'ROUTING',
-	    multi => 1,
-	    parse => ['seq',
-		      { parse => qr/unicast|local|broadcast|multicast|throw|unreachable|prohibit|blackhole|nat/,
-			store => 'TYPE', default => 'unicast' },
-		      { parse => \&get_ip_prefix,
-			store_multi => ['BASE', 'MASK'] },
-		      ['cond1',
-		       { parse => qr/via/ },
-		       { parse => \&get_ip, store => 'NEXTHOP' } ],
-		      ['cond1',
-		       { parse => qr/dev/ },
-		       { parse => \&get_token, store => 'NIF' } ],
-		      ['cond1',
-		       { parse => qr/tos/ },
-		       { parse => \&get_token, store => 'TOS' } ],
-		      ['cond1',
-		       { parse => qr/table/ },
-		       { parse => \&get_token, store => 'TABLE' } ],
-		      ['cond1',
-		       { parse => qr/proto/ },
-		       { parse => \&get_token, store => 'PROTO' } ],
-		      ['cond1',
-		       { parse => qr/scope/ },
-		       { parse => \&get_token, store => 'SCOPE' } ],
-		      ['cond1',
-		       { parse => qr/metric/ },
-		       { parse => \&get_token, store => 'METRIC' } ],
-		      ['cond1',
-		       { parse => qr/mpath/ },
-		       { parse => \&get_token, store => 'MPATH' } ],
-		      ['cond1',
-		       { parse => qr/weight/ },
-		       { parse => \&get_ip, store => 'WEIGHT' } ],
-		      {parse => qr/onlink|pervasive/, store => 'NHFLAGS' },
-		      {parse => qr/equalize/, store => 'FLAGS' },
-		      ['cond1',
-		       { parse => qr/mtu/ },
-		       { parse => \&get_ip, store => 'MTU' } ],
-		      ['cond1',
-		       { parse => qr/src/ },
-		       { parse => \&get_ip, store => 'SRC' } ]]},
+        'ip route add' => {
+            store => 'ROUTING',
+            multi => 1,
+            parse => ['seq',
+                      { parse => qr/unicast|local|broadcast|multicast|throw|unreachable|prohibit|blackhole|nat/,
+                        store => 'TYPE', default => 'unicast' },
+                      { parse => \&get_ip_prefix,
+                        store_multi => ['BASE', 'MASK'] },
+                      ['cond1',
+                       { parse => qr/via/ },
+                       { parse => \&get_ip, store => 'NEXTHOP' } ],
+                      ['cond1',
+                       { parse => qr/dev/ },
+                       { parse => \&get_token, store => 'NIF' } ],
+                      ['cond1',
+                       { parse => qr/tos/ },
+                       { parse => \&get_token, store => 'TOS' } ],
+                      ['cond1',
+                       { parse => qr/table/ },
+                       { parse => \&get_token, store => 'TABLE' } ],
+                      ['cond1',
+                       { parse => qr/proto/ },
+                       { parse => \&get_token, store => 'PROTO' } ],
+                      ['cond1',
+                       { parse => qr/scope/ },
+                       { parse => \&get_token, store => 'SCOPE' } ],
+                      ['cond1',
+                       { parse => qr/metric/ },
+                       { parse => \&get_token, store => 'METRIC' } ],
+                      ['cond1',
+                       { parse => qr/mpath/ },
+                       { parse => \&get_token, store => 'MPATH' } ],
+                      ['cond1',
+                       { parse => qr/weight/ },
+                       { parse => \&get_ip, store => 'WEIGHT' } ],
+                      {parse => qr/onlink|pervasive/, store => 'NHFLAGS' },
+                      {parse => qr/equalize/, store => 'FLAGS' },
+                      ['cond1',
+                       { parse => qr/mtu/ },
+                       { parse => \&get_ip, store => 'MTU' } ],
+                      ['cond1',
+                       { parse => qr/src/ },
+                       { parse => \&get_ip, store => 'SRC' } ]]},
 
-	# # Comment
-	# *filter
-	# :INPUT ACCEPT [68024:74200042]
-	# :FORWARD ACCEPT [0:0]
-	# :OUTPUT ACCEPT [54724:5982979]
-	# -A INPUT -s 10.1.2.3 -j ACCEPT
-	# COMMIT
-	# # Comment
-	'*' => {
-	    store => 'IPTABLES',
-	    named => 1,
-	    subcmd => {
-		':' => {
-		    store => 'POLICY',
-		    named => 1,
-		    parse => 'parse_policy',
-		},
-		'-A' => {
-		    multi => 1,
-		    store => 'RULES',
-		    named => 1,
-		    parse => 'parse_rule',
-		},
-		'COMMIT' => {},
+        # # Comment
+        # *filter
+        # :INPUT ACCEPT [68024:74200042]
+        # :FORWARD ACCEPT [0:0]
+        # :OUTPUT ACCEPT [54724:5982979]
+        # -A INPUT -s 10.1.2.3 -j ACCEPT
+        # COMMIT
+        # # Comment
+        '*' => {
+            store => 'IPTABLES',
+            named => 1,
+            subcmd => {
+                ':' => {
+                    store => 'POLICY',
+                    named => 1,
+                    parse => 'parse_policy',
+                },
+                '-A' => {
+                    multi => 1,
+                    store => 'RULES',
+                    named => 1,
+                    parse => 'parse_rule',
+                },
+                'COMMIT' => {},
 
-		# Only used in code from netspoc.
-		'EOF' => {},
-	    },
-	},
+                # Only used in code from netspoc.
+                'EOF' => {},
+            },
+        },
     };
     $result;
 };
@@ -154,65 +154,65 @@ sub analyze_conf_lines {
     my $counter = 0;
 
     for my $line (@$lines) {
-	$counter++;
+        $counter++;
 
-	# Ignore comment lines.
-	next if $line =~ /^\s*#/;
+        # Ignore comment lines.
+        next if $line =~ /^\s*#/;
 
-	# Ignore empty lines.
-	next if $line =~ /^\s*$/;
+        # Ignore empty lines.
+        next if $line =~ /^\s*$/;
 
-	my @args = split(' ', $line);
+        my @args = split(' ', $line);
 
-	# Remember a version of unparsed line without duplicate whitespace.
-	my $orig = join(' ', @args);
+        # Remember a version of unparsed line without duplicate whitespace.
+        my $orig = join(' ', @args);
 
-	# Substitute "*name" by "*" "name" and ":name" by ":" "name".
-	if($args[0] =~ /^([*:])(.*)$/) {
-	    splice(@args, 0, 1, $1, $2);
-	}
-	my $cmd = shift(@args);
-	if(my $prefix_info = $parse_info->{_prefix}) {
-	    my $prefix = $cmd;
-	    while($prefix_info = $prefix_info->{$prefix} and
-		  keys %$prefix_info)
-	    {
-		$prefix = shift(@args);
-		$cmd .= ' ' . $prefix;
-	    }
-	}
+        # Substitute "*name" by "*" "name" and ":name" by ":" "name".
+        if($args[0] =~ /^([*:])(.*)$/) {
+            splice(@args, 0, 1, $1, $2);
+        }
+        my $cmd = shift(@args);
+        if(my $prefix_info = $parse_info->{_prefix}) {
+            my $prefix = $cmd;
+            while($prefix_info = $prefix_info->{$prefix} and
+                  keys %$prefix_info)
+            {
+                $prefix = shift(@args);
+                $cmd .= ' ' . $prefix;
+            }
+        }
 
-	# Remember current line number, set parse position.
-	# Remember the original line.
-	my $new_cmd = { line => $counter,
-			pos  => 0,
-			orig => $orig,
-			args => [ $cmd, @args ], };
+        # Remember current line number, set parse position.
+        # Remember the original line.
+        my $new_cmd = { line => $counter,
+                        pos  => 0,
+                        orig => $orig,
+                        args => [ $cmd, @args ], };
 
-	# Unknown command terminates current subcommand level.
-	while(not $parse_info->{$cmd} and @stack) {
-	    ($config, $parse_info) = @{ pop @stack };
-	}
+        # Unknown command terminates current subcommand level.
+        while(not $parse_info->{$cmd} and @stack) {
+            ($config, $parse_info) = @{ pop @stack };
+        }
 
-	# Store only known commands.
-	if(my $cmd_info = $parse_info->{$cmd}) {
-	    $new_cmd->{cmd_info} = $cmd_info;
-	    push(@$config, $new_cmd);
-	    if(my $subcmd = $parse_info->{$cmd}->{subcmd}) {
-		push @stack, [ $config, $parse_info ];
-		$config = [];
-		$new_cmd->{subcmd} = $config;
-		$parse_info = $subcmd;
-	    }
-	}
+        # Store only known commands.
+        if(my $cmd_info = $parse_info->{$cmd}) {
+            $new_cmd->{cmd_info} = $cmd_info;
+            push(@$config, $new_cmd);
+            if(my $subcmd = $parse_info->{$cmd}->{subcmd}) {
+                push @stack, [ $config, $parse_info ];
+                $config = [];
+                $new_cmd->{subcmd} = $config;
+                $parse_info = $subcmd;
+            }
+        }
 
-	# Terminate on unknown command.
-	else {
-	    err_at_line($new_cmd, "Unknown command");
-	}
+        # Terminate on unknown command.
+        else {
+            err_at_line($new_cmd, "Unknown command");
+        }
     }
     while(@stack) {
-	($config, $parse_info) = @{ pop @stack };
+        ($config, $parse_info) = @{ pop @stack };
     }
     return($config);
 }
@@ -243,32 +243,32 @@ sub parse_rule {
     my $rule = {};
     my $negate_next_cmd = '';
     while(my $key = check_token($arg)) {
-	my $negate = $negate_next_cmd;
-	$negate_next_cmd = '';
-	if($key eq '!') {
-	    $negate ||= $key;
-	    $key = get_token($arg);
-	}
-	my @args;
-	my $negate_arg = check_regex(qr/!/, $arg) || '';
-	while(defined (my $value = check_regex(qr/[^!-].*/, $arg))) {
-	    push @args, $value;
-	}
-	if(not @args) {
-	    $negate_next_cmd = $negate_arg;
-	}
-	else {
-	    $negate ||= $negate_arg;
-	}
-	my $v = $negate . join(' ', @args);
+        my $negate = $negate_next_cmd;
+        $negate_next_cmd = '';
+        if($key eq '!') {
+            $negate ||= $key;
+            $key = get_token($arg);
+        }
+        my @args;
+        my $negate_arg = check_regex(qr/!/, $arg) || '';
+        while(defined (my $value = check_regex(qr/[^!-].*/, $arg))) {
+            push @args, $value;
+        }
+        if(not @args) {
+            $negate_next_cmd = $negate_arg;
+        }
+        else {
+            $negate ||= $negate_arg;
+        }
+        my $v = $negate . join(' ', @args);
 
-	# Hard code special case:
-	# ! --tcp-flags FIN,SYN,RST,ACK SYN ==> ! --syn
-	if($key eq '--tcp-flags' and $v = '!FIN,SYN,RST,ACK SYN') {
-	    $key = '--syn';
-	    $v = '!';
-	}
-	$rule->{$key} = $v;
+        # Hard code special case:
+        # ! --tcp-flags FIN,SYN,RST,ACK SYN ==> ! --syn
+        if($key eq '--tcp-flags' and $v = '!FIN,SYN,RST,ACK SYN') {
+            $key = '--syn';
+            $v = '!';
+        }
+        $rule->{$key} = $v;
     }
     $negate_next_cmd and err_at_line($arg, "Unexpected trailing '!'");
     return $rule;
@@ -286,21 +286,21 @@ sub postprocess_iptables {
 
     # Convert to simpler format.
     for my $table (values %$tables) {
-	my $new;
-	my $policies = $table->{POLICY};
-	my $chains = $table->{RULES};
-	for my $name (keys %$chains) {
-	    my $entry = { name => $name, RULES => $chains->{$name}};
-	    $entry->{POLICY} = $policies->{$name} if $policies->{$name};
-	    $new->{$name} = $entry;
-	};
-	for my $name (keys %$policies) {
-	    next if $new->{$name};
-	    $new->{$name} = { name => $name,
-			      RULES => [],
-			      POLICY => $policies->{$name} };
-	}
-	$table = $new;
+        my $new;
+        my $policies = $table->{POLICY};
+        my $chains = $table->{RULES};
+        for my $name (keys %$chains) {
+            my $entry = { name => $name, RULES => $chains->{$name}};
+            $entry->{POLICY} = $policies->{$name} if $policies->{$name};
+            $new->{$name} = $entry;
+        };
+        for my $name (keys %$policies) {
+            next if $new->{$name};
+            $new->{$name} = { name => $name,
+                              RULES => [],
+                              POLICY => $policies->{$name} };
+        }
+        $table = $new;
     }
 }
 
@@ -399,24 +399,24 @@ sub merge_acls {
 
         # Delete entry from raw because it must not be processed again
         # in generic merge_rawdata.
-	my $raw_chains = delete($raw_tables->{$table_name});
-	my $spoc_chains = $spoc_tables->{$table_name};
-	if(not $spoc_chains) {
-	    info("Adding all chains of table '$table_name'");
-	    $spoc_tables->{$table_name} = $raw_chains;
-	    next;
-	}
-	for my $raw_chain (values %$raw_chains) {
-	    my $chain_name = $raw_chain->{name};
-	    my $spoc_chain = $spoc_chains->{$chain_name};
-	    if(not $spoc_chain) {
-		info("Adding chain '$chain_name' of table '$table_name'");
-		$spoc_chains->{$chain_name} = $raw_chain;
-		next;
-	    }
-	    if(not $spoc_chain->{POLICY}) {
-		abort("Must not redefine chain '$chain_name' from rawdata");
-	    }
+        my $raw_chains = delete($raw_tables->{$table_name});
+        my $spoc_chains = $spoc_tables->{$table_name};
+        if(not $spoc_chains) {
+            info("Adding all chains of table '$table_name'");
+            $spoc_tables->{$table_name} = $raw_chains;
+            next;
+        }
+        for my $raw_chain (values %$raw_chains) {
+            my $chain_name = $raw_chain->{name};
+            my $spoc_chain = $spoc_chains->{$chain_name};
+            if(not $spoc_chain) {
+                info("Adding chain '$chain_name' of table '$table_name'");
+                $spoc_chains->{$chain_name} = $raw_chain;
+                next;
+            }
+            if(not $spoc_chain->{POLICY}) {
+                abort("Must not redefine chain '$chain_name' from rawdata");
+            }
 
             # Prepend/append raw acl.
             my $msg;
@@ -441,8 +441,8 @@ sub merge_acls {
                 $msg = 'Prepending';
                 unshift(@$spoc_entries, @$raw_entries);
             }
-	    info("$msg to chain '$chain_name' of table '$table_name'");
-	}
+            info("$msg to chain '$chain_name' of table '$table_name'");
+        }
     }
 }
 
@@ -455,12 +455,12 @@ sub postprocess_routes {
     # Ignore attribute 'dev', if 'via' is provided.
     my @routes;
     for my $entry (@{ delete $config->{ROUTING} }) {
-	next if $entry->{SCOPE} && $entry->{SCOPE} eq 'link';
-	next if $entry->{PROTO} && $entry->{PROTO} ne 'static';
-	if($entry->{NEXTHOP}) {
-	    delete $entry->{NIF};
-	}
-	push(@routes, $entry);
+        next if $entry->{SCOPE} && $entry->{SCOPE} eq 'link';
+        next if $entry->{PROTO} && $entry->{PROTO} ne 'static';
+        if($entry->{NEXTHOP}) {
+            delete $entry->{NIF};
+        }
+        push(@routes, $entry);
     }
     $config->{ROUTING_VRF}->{''} = \@routes;
 }
@@ -568,14 +568,14 @@ my %valid_cmd_output = (
 sub cmd_check_error {
     my ($self, $cmd, $lines) = @_;
     if(@$lines) {
-	my $valid = $valid_cmd_output{$cmd};
-	if(not(@$lines == 1 and $valid and $lines->[0] eq $valid)) {
+        my $valid = $valid_cmd_output{$cmd};
+        if(not(@$lines == 1 and $valid and $lines->[0] eq $valid)) {
             chomp $cmd;
-	    abort("Unexpected output of '$cmd'", @$lines);
-	}
+            abort("Unexpected output of '$cmd'", @$lines);
+        }
     }
     if(not $self->status_ok) {
-	abort("$cmd failed (exit status)");
+        abort("$cmd failed (exit status)");
     }
 }
 
@@ -608,15 +608,15 @@ sub do_scp {
     my $ip = $self->{IP};
     my $user = $config->{user};
     my @args =
-	       ($mode eq 'put')
-	     ? ($src, "$user\@$ip:$dst")
-	     : ($mode eq 'get')
-	     ? ("$user\@$ip:$src", $dst)
-	     :  abort("undefined mode $mode for secure copy");
+               ($mode eq 'put')
+             ? ($src, "$user\@$ip:$dst")
+             : ($mode eq 'get')
+             ? ("$user\@$ip:$src", $dst)
+             :  abort("undefined mode $mode for secure copy");
     unshift @args, 'scp', '-q';
     info(join(' ', 'Executing:', @args));
     system(@args) == 0
-	or abort("system(". join(' ', @args) .") failed: $?");
+        or abort("system(". join(' ', @args) .") failed: $?");
 }
 
 sub write_startup_routing {
@@ -629,9 +629,9 @@ sub write_startup_routing {
     print $fh '#!/bin/sh';
     print $fh '# Generated by NetSPoC';
     for my $entry (@{ $spoc->{ROUTING_VRF}->{''} }) {
-	my $cmd = $self->route_add($entry);
-	chomp $cmd;
-	print $fh $cmd;
+        my $cmd = $self->route_add($entry);
+        chomp $cmd;
+        print $fh $cmd;
     }
     close $fh or abort("Can't close $tmpname: $!");
     $self->do_scp('put', $tmpname, $file);
@@ -655,22 +655,22 @@ sub get_iptables_config {
     push @result, '# Generated by NetSPoC';
     my $iptables = $spoc->{IPTABLES};
     for my $tname (sort keys %$iptables) {
-	my $chains = $iptables->{$tname};
-	push @result, "*$tname";
-	for my $cname (sort keys %$chains) {
-	    my $chain = $chains->{$cname};
-	    my $policy = $chain->{POLICY} || '-';
-	    push @result, ":$cname $policy";
-	}
-	for my $cname (sort keys %$chains) {
-	    my $chain = $chains->{$cname};
-	    for my $rule (@{$chain->{RULES}}) {
-		my $line = $rule->{orig};
-		chomp $line;
-		push @result, $line;
-	    }
-	}
-	push @result, 'COMMIT';
+        my $chains = $iptables->{$tname};
+        push @result, "*$tname";
+        for my $cname (sort keys %$chains) {
+            my $chain = $chains->{$cname};
+            my $policy = $chain->{POLICY} || '-';
+            push @result, ":$cname $policy";
+        }
+        for my $cname (sort keys %$chains) {
+            my $chain = $chains->{$cname};
+            for my $rule (@{$chain->{RULES}}) {
+                my $line = $rule->{orig};
+                chomp $line;
+                push @result, $line;
+            }
+        }
+        push @result, 'COMMIT';
     }
     return \@result;
 }
@@ -779,19 +779,19 @@ sub login_enable {
     my $prompt = qr/$std_prompt|password:|\(yes\/no\)\?/i;
     my $result = $con->con_short_wait($prompt);
     if ($result->{MATCH} =~ qr/\(yes\/no\)\?/i) {
-	$prompt = qr/$std_prompt|password:/i;
-	$result = $con->con_issue_cmd('yes', $prompt);
-	info("SSH key for $ip permanently added to known hosts");
+        $prompt = qr/$std_prompt|password:/i;
+        $result = $con->con_issue_cmd('yes', $prompt);
+        info("SSH key for $ip permanently added to known hosts");
     }
 
     # Password prompt comes only if no ssh keys are in use.
     if($result->{MATCH} =~ qr/password:/i) {
-	my $pass = $self->get_user_password('device');
-	$prompt = qr/$std_prompt|password:/i;
-	$result = $con->con_issue_cmd($pass, $prompt);
-	if ($result->{MATCH} !~ $std_prompt) {
-	    abort("Authentication failed");
-	}
+        my $pass = $self->get_user_password('device');
+        $prompt = qr/$std_prompt|password:/i;
+        $result = $con->con_issue_cmd($pass, $prompt);
+        if ($result->{MATCH} !~ $std_prompt) {
+            abort("Authentication failed");
+        }
     }
     $self->{ENAPROMPT} = $std_prompt;
 
