@@ -1,5 +1,12 @@
 {{$NEXT}}
 
+1.123     2018-02-13 16:49:04+01:00 Europe/Berlin
+
+ - Fixed parsing of reload banner.
+   Read extra prompt if banner is shown behind output.
+ - Fixed missing error message for 'ip inspect' check of model "IOS, FW".
+ - Added check for unbound ACL in raw file.
+
 1.122     2017-12-11 11:33:00+01:00 Europe/Berlin
 
  - Fixed loading of config files. Previous version aborted
