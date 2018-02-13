@@ -632,17 +632,27 @@ sub handle_reload_banner {
         my $postfix = $3;
         info("Found reload banner: $msg");
 #       info("Prefix: $prefix");
-#       info("Postfix: $postfix");
+#       info("Postfix: '$postfix'");
 
         # Because of 'logging synchronous' we are sure to get another prompt
         # if the banner is the only output before current prompt.
         # Read next prompt and set $$output_ref to next output.
         if(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
-            info("Expecting prompt after banner");
+            info("Found banner before output, expecting another prompt");
             my $con = $self->{CONSOLE};
             my $result = $con->con_wait($self->{ENAPROMPT});
             info("- Found prompt");
             $$output_ref = $result->{BEFORE};
+        }
+
+        # Also read another prompt if banner is shown directly behind
+        # current output.
+        elsif ($prefix and $postfix eq '') {
+            info("Found banner after output, expecting another prompt");
+            my $con = $self->{CONSOLE};
+            $con->con_wait($self->{ENAPROMPT});
+            info("- Found prompt");
+            $$output_ref = $prefix;
         }
 
         # Remove banner from output.
