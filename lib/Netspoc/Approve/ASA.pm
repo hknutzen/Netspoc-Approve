@@ -1546,10 +1546,10 @@ sub make_equal {
         if ( $parse_name eq 'ACCESS_LIST' ) {
             info("Comparing $conf_name $spoc_name");
             my $unchanged = $self->equalize_acl($conf_value, $spoc_value);
-            my $modify_cmds = $spoc_value->{modify_cmds};
             $modified = !$unchanged;
 
             if ($modified) {
+                my $modify_cmds = $spoc_value->{modify_cmds};
                 if (!$modify_cmds) {
 
                     # This should never happen, because ACLs are
