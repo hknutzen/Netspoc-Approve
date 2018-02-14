@@ -859,8 +859,8 @@ sub crypto_processing {
 
 sub transfer {
     my ($self, $conf, $spoc) = @_;
-    $self->SUPER::transfer($conf, $spoc);
     $self->crypto_processing($conf, $spoc);
+    $self->SUPER::transfer($conf, $spoc);
 }
 
 # Packages must return a true value;

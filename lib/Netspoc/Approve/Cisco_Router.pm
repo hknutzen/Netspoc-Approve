@@ -228,6 +228,10 @@ sub process_interface_acls {
             $self->remove_acl($conf_acl);
         }
     }
+
+    # This also removes unlinked object-groups from compare_crypto_acls.
+    $self->remove_object_groups($conf);
+
     $self->leave_conf_mode();
 }
 
@@ -338,7 +342,6 @@ sub equalize_acls_of_objects {
                                     $conf_acl, $spoc_acl];
         }
     }
-    $self->remove_object_groups($conf);
     return @acl_update_info;
 }
 
