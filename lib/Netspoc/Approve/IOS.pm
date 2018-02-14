@@ -776,37 +776,34 @@ sub compare_crypto_acls {
     # Analyze changes in all ACLs bound to crypto map entries.
     # Try to change ACLs incrementally.
     # Get list of ACL pairs, that need to be redefined, added or removed.
-    my @acl_update_info =
+    my $acl_update_info =
         $self->equalize_acls_of_objects($conf, $spoc, $crypto_entry_pairs);
 
-    for my $info (@acl_update_info) {
-        my ($entry, $in_out, $conf_acl, $spoc_acl) = @$info;
-        my $name = $entry->{name};
-        my $sequ = $entry->{SEQU} or internal_err "Missing SEQU";
-        $self->{CHANGE}->{ACCESS_LIST} = 1;
+    $self->update_acls(
+        $conf, $spoc, $acl_update_info,
 
-        # Add ACL to device.
-        if ($spoc_acl) {
-
-            # Add new ACL
-            $self->schedule_reload();
+        # Assign new acl to crypto map
+        sub {
+            my ($conf, $spoc, $spoc_acl, $entry, $in_out) = @_;
+            my $name = $entry->{name};
+            my $sequ = $entry->{SEQU} or internal_err "Missing SEQU";
             my $aclname = $self->define_acl($conf, $spoc, $spoc_acl->{name});
-
-            # Assign new acl to crypto map
             $self->cmd("crypto map $name $sequ");
             $self->cmd("set ip access-group $aclname $in_out");
-            $self->cancel_reload();
-        }
+        },
 
-        # Remove ACL from device.
-        if ($conf_acl) {
+        # Remove ACL from crypto map.
+        sub {
+            my ($conf_acl, $spoc_acl, $entry, $in_out) = @_;
             if (not $spoc_acl) {
+                my $name = $entry->{name};
+                my $sequ = $entry->{SEQU} or internal_err "Missing SEQU";
                 $self->cmd("crypto map $name $sequ");
                 $self->cmd("no set ip access-group $conf_acl->{name} $in_out");
             }
             $self->remove_acl($conf_acl);
-        }
-    }
+        });
+
     $self->leave_conf_mode();
 }
 

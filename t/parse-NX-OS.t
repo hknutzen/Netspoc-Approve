@@ -178,13 +178,13 @@ interface Ethernet0/1
 END
 
 $out = <<'END';
-interface Ethernet0/0
-no ip access-group inside in
-no ip access-list inside
 ip access-list outside-DRC-0
 permit ip host 1.1.1.1 any
 interface Ethernet0/1
 ip access-group outside-DRC-0 out
+interface Ethernet0/0
+no ip access-group inside in
+no ip access-list inside
 no object-group ip address g1
 END
 eq_or_diff(approve('NX-OS', $device, $in), $out, $title);

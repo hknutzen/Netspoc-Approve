@@ -185,6 +185,31 @@ sub unassign_acl   {
     $self->cmd("no ip access-group $acl_name $direction");
 }
 
+# Add and remove ACLs.
+# Use two passes, so we remove (incoming) ACL after new (outgoing) ACL
+# has been added.
+sub update_acls {
+    my ($self, $conf, $spoc, $update_info, $adder, $deleter) = @_;
+    @$update_info or return;
+    $self->{CHANGE}->{ACCESS_LIST} = 1;
+
+    # 1. Pass: Add new ACLs.
+    for my $info (@$update_info) {
+        my ($intf, $in_out, $conf_acl, $spoc_acl) = @$info;
+        $spoc_acl or next;
+        $self->schedule_reload();
+        $adder->($conf, $spoc, $spoc_acl, $intf, $in_out);
+        $self->cancel_reload();
+    }
+
+    #2. Pass: Delete removed ACLs.
+    for my $info (@$update_info) {
+        my ($intf, $in_out, $conf_acl, $spoc_acl) = @$info;
+        $conf_acl or next;
+        $deleter->($conf_acl, $spoc_acl, $intf, $in_out);
+    }
+}
+
 sub process_interface_acls {
     my ($self, $conf, $spoc) = @_;
 
@@ -203,31 +228,23 @@ sub process_interface_acls {
     # Analyze changes in all ACLs bound to interfaces.
     # Try to change ACLs incrementally.
     # Get list of ACL pairs, that need to be redefined, added or removed.
-    my @acl_update_info =
+    my $acl_update_info =
         $self->equalize_acls_of_objects($conf, $spoc, \@interface_pairs);
 
-    for my $info (@acl_update_info) {
-        my ($intf, $in_out, $conf_acl, $spoc_acl) = @$info;
-        $self->{CHANGE}->{ACCESS_LIST} = 1;
-
-        # Add ACL to device.
-        if ($spoc_acl) {
-            $self->schedule_reload();
+    $self->update_acls(
+        $conf, $spoc, $acl_update_info,
+        sub {
+            my ($conf, $spoc, $spoc_acl, $intf, $in_out) = @_;
             my $aclname = $self->define_acl($conf, $spoc, $spoc_acl->{name});
-
-            # Assign new acl to interface.
             $self->assign_acl($intf, $aclname, $in_out);
-            $self->cancel_reload();
-        }
-
-        # Remove ACL from device.
-        if ($conf_acl) {
+        },
+        sub {
+            my ($conf_acl, $spoc_acl, $intf, $in_out) = @_;
             if (not $spoc_acl) {
                 $self->unassign_acl($intf, $conf_acl->{name}, $in_out);
             }
             $self->remove_acl($conf_acl);
-        }
-    }
+        });
 
     # This also removes unlinked object-groups from compare_crypto_acls.
     $self->remove_object_groups($conf);
@@ -342,7 +359,7 @@ sub equalize_acls_of_objects {
                                     $conf_acl, $spoc_acl];
         }
     }
-    return @acl_update_info;
+    return \@acl_update_info;
 }
 
 # Check if mpls is enabled at one or more interfaces in any VRF.
