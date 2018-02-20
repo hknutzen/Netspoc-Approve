@@ -226,7 +226,11 @@ sub parse_address {
     }
     elsif (check_regex('host', $arg)) {
         $ip   = get_ip($arg);
-        $mask = pack('N', 0xffffffff);
+
+        $mask = $ip =~ /Regexp::IPv6/ ?
+            NetAddr::IP::Util::ipv6_aton(
+                'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
+            : pack('N', 0xffffffff);
     }
     else {
         ($ip, $mask) = get_ip_prefix($arg);

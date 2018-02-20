@@ -149,7 +149,7 @@ sub get_ip {
     my($arg) = @_;
     my $ip_string = get_token($arg);
     my $ip;
-    if ($ip_string =~ m/:/) {
+    if ($ip_string =~ m/(:?$IPv6_re|::)/) {
         $ip = NetAddr::IP::Util::ipv6_aton($ip_string);
     }
     else {
@@ -194,18 +194,29 @@ sub get_ip_prefix {
     else {
         # Is IP/prefix pair.
 	my($addr, $prefix) = split(m'/', $pair, 2);
-        my @big_to_little_endian = (7,5,3,1,-1,-3,-5,-7);
-
         $addr =~ /(:?$IPv6_re|::)/ and my $is_v6 = 1;
-        $base = $is_v6? NetAddr::IP::Util::ipv6_aton($addr)
-            :quad2bitstr($addr);
+
+        # Turn address into ipv4/ipv6 bitstring.
+        $base = $is_v6
+            ? NetAddr::IP::Util::ipv6_aton($addr)
+            : quad2bitstr($addr);
         defined $base or err_at_line($arg, "Expected IP: $addr");
 
+        # Turn prefix into ipv4/ipv6 mask.
         if(defined $prefix) {
             ($prefix =~ /^\d+$/ && $prefix <= ($is_v6? 128 : 32)) or
                 err_at_line($arg, "Expected IP prefix: $prefix");
-            $mask = $is_v6?NetAddr::IP::Util::ipv6_aton('0:0:0:0:0:0:0:0')
+
+            # Generate zero mask of appropriate length.
+            $mask = $is_v6
+                ? NetAddr::IP::Util::ipv6_aton('0:0:0:0:0:0:0:0')
                 : pack('N', 0x00000000);
+
+            # Bitwise turn 0 bits to 1 bits, until prefix length is reached.
+            # As vec() has mixed-endian behaviour, @big_to_little_endian is
+            # used to transform vec()s big-endianness within bytes to
+            # little-endianness.
+            my @big_to_little_endian = (7,5,3,1,-1,-3,-5,-7);
             for (my $pos = 0; $pos < $prefix; $pos++) {
                 my $bitpos = $pos + $big_to_little_endian[$pos % 8];
                 vec($mask, $bitpos, 1) = 1;

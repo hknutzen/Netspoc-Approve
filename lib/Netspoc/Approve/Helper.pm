@@ -81,8 +81,7 @@ sub quad2bitstr {
 sub is_ipv6 {
     my ($bitstr) = @_;
     my $bits = split(//, unpack('b*', $bitstr));
-    $bits == 128 and return 1;
-    return 0;
+    return $bits == 128;
 }
 
 sub max {

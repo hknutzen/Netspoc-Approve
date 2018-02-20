@@ -105,7 +105,7 @@ my $file2 = shift;
 
 # Get type and IP addresses from spoc file.
 my $spoc_file = $file2 || $file1;
-my ($type, @ip) = Netspoc::Approve::Device->get_spoc_data($spoc_file);
+my ($type, $ip, $err) = Netspoc::Approve::Device->get_spoc_data($spoc_file);
 
 $type or abort("Can't get device type from $spoc_file");
 
@@ -116,7 +116,7 @@ my $class = $type2class{$type}
 my $job = $class->new(
     NAME   => $name,
     OPTS   => \%opts,
-    IP     => shift(@ip),
+    IP     => shift(@$ip),
 );
 
 # Handle file compare first, which can be run
@@ -128,6 +128,7 @@ if ($file2) {
 }
 
 $job->{USER} = delete $opts{u} || getpwuid($>);
+$job->{IP} or abort($err);
 $job->{CONFIG} = Netspoc::Approve::Load_Config::load();
 
 # Enable logging if configured.

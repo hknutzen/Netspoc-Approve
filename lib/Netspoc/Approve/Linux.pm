@@ -395,8 +395,7 @@ sub normalize {
 # Purpose    : Adds acls from another config hash to the netspoc ipv4 config
 #              hash. Unless $mode equals 'prepend', new acls are added at
 #              the beginning of acl array.
-# Parameters : $self - current job
-#              $spoc - ipv4 netspoc config in $result - hash format.
+# Parameters : $spoc - ipv4 netspoc config in $result - hash format.
 #              $raw_conf - raw or ipv6 config in $result - hash format.
 #              $mode - 'append', 'prepend', 'ipv6', indicates operational mode.
 sub merge_acls {

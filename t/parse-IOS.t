@@ -1316,32 +1316,6 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
-$title = "Report routing changes if only one vrf was changed.";
-############################################################
-$device = <<END;
-ip route vrf 002 10.30.0.0 255.255.0.0 10.3.3.3
-interface Ethernet1
- ip address 10.0.0.1 255.255.255.0
- ip vrf forwarding 001
-interface Ethernet2
- ip address 10.0.0.1 255.255.255.0
- ip vrf forwarding 002
-END
-
-$in = <<END;
-ip route vrf 001 10.30.0.0 255.255.0.0 10.3.3.3
-ip route vrf 002 10.30.0.0 255.255.0.0 10.3.3.3
-END
-
-$out = <<END;
-comp: *** ROUTING changed ***
-END
-
-TODO: {
-    local $TODO  = "Build a new test function to test this!";
-    eq_or_diff(approve('IOS', $device, $in), $out, $title);
-}
-############################################################
 $title = "Check VRF of interfaces";
 ############################################################
 $device = <<END;

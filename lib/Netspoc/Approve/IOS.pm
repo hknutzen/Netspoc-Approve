@@ -309,7 +309,7 @@ sub parse_address {
 
 sub adjust_mask {
     my ($self, $mask) = @_;
-    return ~$mask & pack('N', 0xffffffff);
+    return ~$mask;
 }
 
 sub postprocess_config {
@@ -747,8 +747,7 @@ sub port_in_proto {
 #########################################################################
 # Purpose    : Check whether given ACL entry permits access from Netspoc to
 #              device.
-# Parameters : $self - current job
-#              $conf_entry - ACL entry from device config
+# Parameters : $conf_entry - ACL entry from device config
 # Returns    : 1 if ACL entry allows access from Netspoc 0 otherwise.
 sub is_device_access {
     my ($self, $conf_entry) = @_;

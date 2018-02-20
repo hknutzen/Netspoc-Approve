@@ -148,7 +148,6 @@ my %attr_need_remove = (
 #########################################################################
 # Purpose    : Specifies parsing directions for any ASA command known
 #              by netspoc within a hash.
-# Parameters : $self - current job
 # Returns    : Hash with parsing directions.
 sub get_parse_info {
     my ($self) = @_;
@@ -182,7 +181,7 @@ sub get_parse_info {
 # [administrative-distance|tunneled]
 # Administrative-distance equals metric in IPv4 routing, handle it as in IPv4.
 # Tunneled is not provided for in IPv4, and likewise in IPv6.
-# IPv6 routing is stored under a different key to achieve seperated
+# IPv6 routing is stored under a different key to achieve separated
 # IPv4 and IPv6 routing entries on device.
         'ipv6 route' => {
 	    store => 'ROUTING6',
@@ -895,8 +894,7 @@ sub get_tunnel_group_define {
 
 ##############################################################################
 # Purpose    : Make necessary adjustments in result hash config representation.
-# Parameters : $self - current job
-#              $p - Result hash containing all commands from config sorted
+# Parameters : $p - Result hash containing all commands from config sorted
 #                   by type ('store' attribute from parsing information).
 # Result     : Adjusted result hash.
 sub postprocess_config {
@@ -1969,8 +1967,7 @@ sub remove_spare_objects_on_device {
 
 ##############################################################################
 # Purpose    : Recursively mark connected objects.
-# Parameters : $self - current job
-#            : $conf - netspoc or device configuration in result hash format.
+# Parameters : $conf - netspoc or device configuration in result hash format.
 #            : $parse_name  - current key/object type from structure hash.
 #            : $object - hash representation of one specific object of
 #                $parse_name taken from $conf hash.
@@ -2007,8 +2004,7 @@ sub mark_connected {
 
 #########################################################################
 # Purpose    : Identify unconnected objects.
-# Parameters : $self - current job
-#            : $conf - netspoc or device config in result hash format.
+# Parameters : $conf - netspoc or device config in result hash format.
 #            : $structure - structure hash as given by define_structure.
 # Result     : Warnings about unconected objects within netspoc config.
 sub mark_connected_objects {
@@ -2482,7 +2478,7 @@ sub write_mem {
 }
 
 ##############################################################################
-# Purpose    : Check which connected objects exists for given object in config.
+# Purpose    : Check which objects are linked with given object in config.
 # Parameters : $parse_info - value of a certain key (= object type) from
 #                structure hash.
 #              $object - a specific object representation of that type from
@@ -2492,7 +2488,7 @@ sub get_next_names {
     my ($parse_info, $object) = @_;
     my @result;
 
-    # Check whether there is another connection for given object type.
+    # Check whether there is another link for given object type.
     for my $key (qw(next next_list)) {
         my $next = $parse_info->{$key} or next;
         for my $next_key ( @$next ) {

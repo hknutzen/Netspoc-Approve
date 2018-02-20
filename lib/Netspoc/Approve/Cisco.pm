@@ -225,8 +225,7 @@ sub udp_name2num {
 #              an array. Every command is represented as hash, with
 #              subcommands being a hash entry of the associated top level
 #              command hash.
-# Parameters : $self - current job
-#              $lines - Array containing one entry for every config file line.
+# Parameters : $lines - Array containing one entry for every config file line.
 #              $parse_info - hash containing device specific parsing directions.
 #              $strict - flag, is set if parsed lines are from raw file.
 #                Induces abort on unknown command instead of ignoring them.
@@ -254,86 +253,86 @@ sub analyze_conf_lines {
 
     for my $line (@$lines) {
 
-	$counter++;
+        $counter++;
 
         # Subsequent line of multiline command. $end_banner_regex and
         # $in_banner were set in a preceding iteration.
-	if(my $cmd = $in_banner) {
-	    if($line =~ $end_banner_regex) {
-		$in_banner = 0;
-	    }
-	    else {
-		push(@{ $cmd->{lines} }, $line);
-	    }
-	    next;
-	}
+        if(my $cmd = $in_banner) {
+            if($line =~ $end_banner_regex) {
+                $in_banner = 0;
+            }
+            else {
+                push(@{ $cmd->{lines} }, $line);
+            }
+            next;
+        }
 
-	# Ignore comment lines.
-	next if $line =~ /^ *!/;
+        # Ignore comment lines.
+        next if $line =~ /^ *!/;
 
-	# Ignore empty lines.
-	next if $line =~ /^\s*$/;
+        # Ignore empty lines.
+        next if $line =~ /^\s*$/;
 
-	# Check proper indentation level: Get number of leading spaces.
-	my ($indent, $rest) = $line =~ /^( *)(.*)$/;
-	my $sub_level = length($indent);
+        # Check proper indentation level: Get number of leading spaces.
+        my ($indent, $rest) = $line =~ /^( *)(.*)$/;
+        my $sub_level = length($indent);
 
         # Level is set accordingly to expected command in previous iteration.
-	if($sub_level == $level) {
+        if($sub_level == $level) {
 
-	    # Got expected command or sub-command.
-	}
+            # Got expected command or sub-command.
+        }
 
         # Indentation higher than expected. NX-OS and some older IOS
         # versions use sub commands, which have a higher indentation
         # level than 1. This is only applicable for the first sub
         # command.
-	elsif($sub_level > $level) {
+        elsif($sub_level > $level) {
 
-	    if($first_subcmd) {
+            if($first_subcmd) {
 
-		# For unknown commands allow first command(s) to be
-		# indented deeper and following commands to be indented
-		# only by one.
-		if (not $parse_info or not keys %$parse_info) {
-		    push @stack, [ $config, $parse_info, $level, $strict ];
-		    $config = undef;
-		    $parse_info = undef;
-		}
-		$level = $sub_level;
-	    }
-	    else {
+                # For unknown commands allow first command(s) to be
+                # indented deeper and following commands to be indented
+                # only by one.
+                if (not $parse_info or not keys %$parse_info) {
+                    push @stack, [ $config, $parse_info, $level, $strict ];
+                    $config = undef;
+                    $parse_info = undef;
+                }
+                $level = $sub_level;
+            }
+            else {
                 chomp $line;
                 abort("Expected indentation '$level' but got '$sub_level'" .
                       " at line $counter:",
                       ">>$line<<");
-	    }
-	}
+            }
+        }
 
         # Line is from a new command with higher level: get appropriate
         # command-level info from stack.
-	else {
-	    while($sub_level < $level && @stack) {
-		($config, $parse_info, $level, $strict) = @{ pop @stack };
-	    }
+        else {
+            while($sub_level < $level && @stack) {
+                ($config, $parse_info, $level, $strict) = @{ pop @stack };
+            }
 
-	    # All sub commands need to use the same indentation level.
-	    if ($sub_level != $level) {
-		if ( ( ($level+1) == $sub_level ) && $rest eq 'quit' ) {
-		    # Skip certificate data.
-		}
-		else {
+            # All sub commands need to use the same indentation level.
+            if ($sub_level != $level) {
+                if ( ( ($level+1) == $sub_level ) && $rest eq 'quit' ) {
+                    # Skip certificate data.
+                }
+                else {
                     chomp $line;
                     abort("Expected indentation '$level' but got '$sub_level'" .
                           " at line $counter:",
                           ">>$line<<");
-		}
-	    }
-	}
+                }
+            }
+        }
 
         # Process $rest (non indent part of line).
-	$first_subcmd = 0;
-	my @args = split(' ', $rest);
+        $first_subcmd = 0;
+        my @args = split(' ', $rest);
         my $orig = join(' ', @args);
         my ($cmd, $lookup);
 
@@ -342,7 +341,7 @@ sub analyze_conf_lines {
         # Found command prefixes are stored twice: Unaltered as $cmd, and
         # as $lookup with arguments replaced by '_skip' and 'any'.
         #  Trailing '_skip's are omitted.
-	if(my $prefix_info = $parse_info->{_prefix}) {
+        if(my $prefix_info = $parse_info->{_prefix}) {
             my $skip = 0;
             my @a = @args;
             my @c = ();
@@ -383,43 +382,43 @@ sub analyze_conf_lines {
             $cmd = $lookup = shift @args;
         }
 
-	if (my $cmd_info = ($parse_info->{$lookup} || $parse_info->{_any})) {
+        if (my $cmd_info = ($parse_info->{$lookup} || $parse_info->{_any})) {
 
-	    # Remember current line number, set parse position.
-	    # Remember a version of the unparsed line without duplicate
-	    # whitespace.
-	    my $new_cmd = { line => $counter,
-			    pos => 0,
-			    orig => $orig,
-			    args => [ $cmd, @args ],
-			    cmd_info => $cmd_info,
-			};
-	    push(@$config, $new_cmd);
-	    if (my $subcmd = $cmd_info->{subcmd}) {
+            # Remember current line number, set parse position.
+            # Remember a version of the unparsed line without duplicate
+            # whitespace.
+            my $new_cmd = { line => $counter,
+                            pos => 0,
+                            orig => $orig,
+                            args => [ $cmd, @args ],
+                            cmd_info => $cmd_info,
+                        };
+            push(@$config, $new_cmd);
+            if (my $subcmd = $cmd_info->{subcmd}) {
 
                 # Prepare to parse subcommand within next iteration.
-		push @stack, [ $config, $parse_info, $level, $strict ];
-		$level++;
-		$parse_info = $subcmd;
-		$config = [];
+                push @stack, [ $config, $parse_info, $level, $strict ];
+                $level++;
+                $parse_info = $subcmd;
+                $config = [];
                 $strict ||= $cmd_info->{strict};
-		$new_cmd->{subcmd} = $config;
-		$first_subcmd = 1;
-	    }
-	    elsif ($end_banner_regex = $cmd_info->{banner}) {
-		$new_cmd->{lines} = [];
-		$in_banner = $new_cmd;
-	    }
+                $new_cmd->{subcmd} = $config;
+                $first_subcmd = 1;
+            }
+            elsif ($end_banner_regex = $cmd_info->{banner}) {
+                $new_cmd->{lines} = [];
+                $in_banner = $new_cmd;
+            }
 
-	}
+        }
 
-	# Ignore unknown command. Prepare to ignore subcommands as well.
-	else {
-	    push @stack, [ $config, $parse_info, $level, $strict ];
-	    $config = undef;
-	    $parse_info = undef;
-	    $level++;
-	    $first_subcmd = 1;
+        # Ignore unknown command. Prepare to ignore subcommands as well.
+        else {
+            push @stack, [ $config, $parse_info, $level, $strict ];
+            $config = undef;
+            $parse_info = undef;
+            $level++;
+            $first_subcmd = 1;
             if ($strict) {
                 abort("Unexpected command in line $counter:\n>>$orig<<");
             }
@@ -436,8 +435,7 @@ sub analyze_conf_lines {
 
 #########################################################################
 # Purpose    : Parse network address string and store information as hash
-# Parameters : $self - current job
-#              $arg - Hash representation of a command as generated by
+# Parameters : $arg - Hash representation of a command as generated by
 #                analyze_conf_lines, with $arg->{pos} pointing to $arg->{args}
 #                in such a way that next token to be read is a network address.
 # Returns    : A hash with IP and MASK keys and values. Additionally a key
@@ -593,41 +591,40 @@ sub normalize_proto {
 #              config hash or acls from (combined) ipv6 config hash to
 #              (combined) ipv4 config hash. Unless $mode equals 'prepend',
 #              new acls are added at the beginning of acl array.
-# Parameters : $self - current job
-#              $spoc - ipv4 netspoc config in $result - hash format.
+# Parameters : $spoc - ipv4 netspoc config in $result - hash format.
 #              $add_conf - raw or ipv6 config in $result - hash format.
 #              $mode - 'append', 'prepend', 'ipv6', indicates operational mode.
 sub merge_acls {
     my ($self, $spoc, $add_conf, $mode) = @_;
-    !%$spoc and my $raw_only = 1;
+    my $raw_only = keys %$spoc? 0 : 1;
 
     # Iterate over interfaces in config to add.
     for my $intf_name ( keys %{ $add_conf->{IF} } ) {
-	my $add_intf = delete($add_conf->{IF}->{$intf_name});
-	my $spoc_intf = $spoc->{IF}->{$intf_name};
+        my $add_intf = delete($add_conf->{IF}->{$intf_name});
+        my $spoc_intf = $spoc->{IF}->{$intf_name};
 
         # Create interface entry in main config hash, if it doesnt exist.
-	if ( ! $spoc_intf ) {
+        if ( ! $spoc_intf ) {
             $mode ne 'dual_stack' and not $raw_only and
-	    warn_info("Interface $intf_name referenced in raw doesn't",
+            warn_info("Interface $intf_name referenced in raw doesn't",
                       " exist in Netspoc");
             $spoc_intf = $spoc->{IF}->{$intf_name} = { name => $intf_name };
         }
 
-	# Merge acls for possibly existing access-group of this interface.
-	for my $direction ( qw( IN OUT ) ) {
-	    my $access_group = "ACCESS_GROUP_$direction";
-	    if ( my $add_name = $add_intf->{$access_group} ) {
-		my $add_acl = delete($add_conf->{ACCESS_LIST}->{$add_name});
+        # Merge acls for possibly existing access-group of this interface.
+        for my $direction ( qw( IN OUT ) ) {
+            my $access_group = "ACCESS_GROUP_$direction";
+            if ( my $add_name = $add_intf->{$access_group} ) {
+                my $add_acl = delete($add_conf->{ACCESS_LIST}->{$add_name});
 
                 # Access group exists already for this interface in
                 # netspoc config, add additional acl entries.
-		if(my $spoc_name = $spoc_intf->{$access_group}) {
+                if(my $spoc_name = $spoc_intf->{$access_group}) {
 
                     my $msg;
                     my $spoc_entries =
                         $spoc->{ACCESS_LIST}->{$spoc_name}->{LIST} ||= [];
-		    my $add_entries = $add_acl->{LIST};
+                    my $add_entries = $add_acl->{LIST};
 
                     # Append mode adds entries behind last permit line.
                     if ($mode eq 'append') {
@@ -650,23 +647,23 @@ sub merge_acls {
                         unshift(@$spoc_entries, @$add_entries);
                     }
 
-		    my $count = @$add_entries;
-		    info("$msg $count entries to $direction ACL of $intf_name");
-		}
-		else {
+                    my $count = @$add_entries;
+                    info("$msg $count entries to $direction ACL of $intf_name");
+                }
+                else {
                     # Access group does not exists for current
-		    # interface in netspoc. Abort if it exists for
-		    # another interface. This can only happen with
-		    # access groups defined in raw files. Generate new
-		    # acl and access group entries otherwise.
-		    $spoc->{ACCESS_LIST}->{$add_name} and
-			abort("Name clash for '$add_name' of ACCESS_LIST from "
+                    # interface in netspoc. Abort if it exists for
+                    # another interface. This can only happen with
+                    # access groups defined in raw files. Generate new
+                    # acl and access group entries otherwise.
+                    $spoc->{ACCESS_LIST}->{$add_name} and
+                        abort("Name clash for '$add_name' of ACCESS_LIST from "
                               . "raw");
-		    $spoc->{ACCESS_LIST}->{$add_name} = $add_acl;
-		    $spoc_intf->{$access_group} = $add_name;
-		}
-	    }
-	}
+                    $spoc->{ACCESS_LIST}->{$add_name} = $add_acl;
+                    $spoc_intf->{$access_group} = $add_name;
+                }
+            }
+        }
     }
     # Check for unbound ACL in raw.
     # Must not trigger autovivification.
@@ -831,8 +828,7 @@ sub check_spoc_interfaces {
 ##############################################################################
 # Purpose    : Check interfaces to be known in both device and netspoc config.
 #              Ensure interfaces have same state within both configs.
-# Parameters : $self - current job
-#              $conf - device configuration in structure hash format.
+# Parameters : $conf - device configuration in structure hash format.
 #              $spoc - netspoc configuration in structure hash format.
 #              $has_mpls - ? - never used with ASA
 sub checkinterfaces {
@@ -1051,16 +1047,14 @@ sub acl_entry2key0 {
     my @r;
     push(@r, $e->{MODE});
     for my $where (qw(SRC DST)) {
-	my $what = $e->{$where};
-        if (defined $what->{ANY46}){
-            push(@r, 'any' );
-        }
-        else {
-            push(@r,
-                 check_object_group($what, $abstract)
-                 || "$what->{BASE}/$what->{MASK}");
-        }
+        my $what = $e->{$where};
+
+        push(@r, $what->{ANY46}
+             ? 'any'
+             : check_object_group($what, $abstract)
+             || "$what->{BASE}/$what->{MASK}");
     }
+
     push(@r, check_object_group($e->{TYPE}) || $e->{TYPE});
     if ($e->{TYPE} eq 'icmp') {
         my $s = $e->{SPEC};

@@ -18,7 +18,6 @@ END
 # Input from device.
 # Output from approve.
 my($in, $device, $out);
-my ($spoc4, $spoc6);
 my $device_type = 'ASA';
 my $title;
 
@@ -28,7 +27,8 @@ $title = "Add IPV6-access list";
 ############################################################
 $device = $minimal_device;
 
-$spoc6 = <<'END';
+%$in = (
+spoc6 => <<END
 access-list inside_in extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
 access-list inside_in extended deny ip any any
 access-group inside_in in interface inside
@@ -36,6 +36,7 @@ access-group inside_in in interface inside
 access-list outside_in extended deny ip any any
 access-group outside_in in interface outside
 END
+);
 
 $out = <<END;
 access-list inside_in-DRC-0 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
@@ -45,7 +46,7 @@ access-list outside_in-DRC-0 extended deny ip any any
 access-group outside_in-DRC-0 in interface outside
 END
 
-eq_or_diff(approve('ASA', $device, 0, $spoc6), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Add and delete IPV6-access list";
@@ -59,7 +60,8 @@ access-list outside_in extended deny ip any any
 access-group outside_in in interface outside
 END
 
-$spoc6 = <<'END';
+%$in = (
+spoc6 => <<END
 access-list inside_in extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
 access-list inside_in extended deny ip any any
 access-group inside_in in interface inside
@@ -68,28 +70,31 @@ access-list outside_in extended deny ip any any
 access-group outside_in in interface outside
 
 END
+);
 
 $out = <<END;
 access-list inside_in line 1 extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
 no access-list inside_in line 2 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
 END
 
-eq_or_diff(approve('ASA', $device, 0, $spoc6), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "IPv6 routing - add new route";
 ############################################################
 $device = $minimal_device;
 
-$spoc6 = <<'END';
+%$in = (
+spoc6 => <<END
 ipv6 route outside 10::3:0/112 10::2:2
 END
+);
 
 $out = <<END;
 ipv6 route outside 10::3:0/112 10::2:2
 END
 
-eq_or_diff(approve('ASA', $device, undef, $spoc6), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "IPv6 routing - network of equal size";
@@ -99,14 +104,16 @@ $device .= <<'END';
 ipv6 route outside 10::3:0/112 10::2:2
 END
 
-$spoc6 = <<'END';
+%$in = (
+spoc6 => <<END
 ipv6 route outside 10::3:0/112 10::2:2
 END
+);
 
 $out = <<END;
 END
 
-eq_or_diff(approve('ASA', $device, undef, $spoc6), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "IPv6 routing - replace network with smaller one.";
@@ -116,16 +123,18 @@ $device .= <<'END';
 ipv6 route outside 10::3:0/112 10::2:2
 END
 
-$spoc6 = <<END;
+%$in = (
+spoc6 => <<END
 ipv6 route outside 10::3:0/120 10::2:2
 END
+);
 
 $out = <<END;
 ipv6 route outside 10::3:0/120 10::2:2
 no ipv6 route outside 10::3:0/112 10::2:2
 END
 
-eq_or_diff(approve('ASA', $device, undef, $spoc6), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "IPv6 routing - replace network with bigger one.";
@@ -135,16 +144,18 @@ $device .= <<'END';
 ipv6 route outside 10::3:0/120 10::2:2
 END
 
-$spoc6 = <<END;
+%$in = (
+spoc6 => <<END
 ipv6 route outside 10::3:0/112 10::2:2
 END
+);
 
 $out = <<END;
 ipv6 route outside 10::3:0/112 10::2:2
 no ipv6 route outside 10::3:0/120 10::2:2
 END
 
-eq_or_diff(approve('ASA', $device, undef, $spoc6), $out, $title);
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Interface with and without IP address";
