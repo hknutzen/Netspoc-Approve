@@ -44,6 +44,39 @@ END
 eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
 
 ############################################################
+$title = "ASA - alter IPv6 routing, leaving IPv4 routing untouched";
+############################################################
+my $device = $minimal_ASA;
+$device .= <<END;
+ipv6 route outside 10::3:0/112 10::2:2
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
+END
+
+%$spoc = (
+
+spoc4 => <<END
+access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+END
+,
+spoc6 => <<END
+ipv6 route E2 1000::abcd:3:0/120 1000::abcd:2:2
+END
+);
+
+$out = <<END;
+ipv6 route E2 1000::abcd:3:0/120 1000::abcd:2:2
+no ipv6 route outside 10::3:0/112 10::2:2
+access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
+access-list inside_in-DRC-0 extended deny ip any4 any4
+access-group inside_in-DRC-0 in interface inside
+END
+
+eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+
+############################################################
 $title = "ASA - ipv4 but no ipv6 config";
 ############################################################
 %$spoc = (

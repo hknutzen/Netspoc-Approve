@@ -719,34 +719,34 @@ sub vrf_route_mode {
 sub process_routing {
     my ($self, $conf, $spoc_conf) = @_;
 
-    # Collect all possible VRFs.
-    my @vrfs = unique(keys %{$spoc_conf->{ROUTING_VRF}},
-                      keys %{$spoc_conf->{ROUTING6_VRF}},
-                      keys %{$conf->{ROUTING_VRF}},
-                      keys %{$conf->{ROUTING6_VRF}});
+    for my $routing (qw(ROUTING6_VRF ROUTING_VRF)) {
+        # Collect all possible VRFs.
+        my @vrfs = unique(keys %{$spoc_conf->{$routing}},
+                          keys %{$conf->{$routing}});
+        my $version = $routing eq 'ROUTING_VRF'? "IPv4" : "IPv6";
 
-    # Track whether routing changed for device for later info output.
-    $self->{CHANGE}->{ROUTING} = 0;
+        # Track whether routing changed for device for later info output.
+        $self->{CHANGE}->{ROUTING} = 0;
 
-    # Collect commands for every vrf
-    for my $vrf (sort @vrfs) {
+        # Collect commands for every vrf
+        for my $vrf (sort @vrfs) {
 
-        # Check, whether routing entries exist for vrf.
-        if (not $spoc_conf->{ROUTING_VRF}->{$vrf} and
-            not $spoc_conf->{ROUTING6_VRF}->{$vrf}) {
-            my $for = $vrf ? " for VRF $vrf" : '';
-            info("No routing specified$for - leaving routes untouched");
-            next;
-        }
+            # Check, whether routing entries exist for vrf.
+            if (not $spoc_conf->{$routing}->{$vrf}) {
+                my $for = $vrf ? " for VRF $vrf" : '';
+                info("No $version routing specified$for - " .
+                     "leaving routes untouched");
+                next;
+            }
 
-        # Collect commands for current VRF.
-        my @cmds;
-        for my $what (qw(ROUTING6_VRF ROUTING_VRF)) {
+            # Collect commands for current VRF.
+            my @cmds;
 
-            my $spoc_routing = $spoc_conf->{$what}->{$vrf};
-            my $conf_routing = $conf->{$what}->{$vrf} ||= [];
+            my $spoc_routing = $spoc_conf->{$routing}->{$vrf};
+            my $conf_routing = $conf->{$routing}->{$vrf} ||= [];
 
-            # Same entriy in device and spoc config, no further action required.
+            # Same entry in device and spoc config, no further
+            # action required.
             for my $c (@$conf_routing) {
                 for my $s (@$spoc_routing) {
                     if ($self->route_line_a_eq_b($c, $s)) {
@@ -759,8 +759,7 @@ sub process_routing {
             # Add routes with long mask first.  If we switch the default
             # route, this ensures, that we have the new routes available
             # before deleting the old default route.
-            for my $r (sort {$b->{MASK} cmp $a->{MASK}} @{ $spoc_routing })
-            {
+            for my $r (sort {$b->{MASK} cmp $a->{MASK}} @{$spoc_routing}) {
                 next if $r->{DELETE};
                 $self->{CHANGE}->{ROUTING} = 1;
                 my $cmd = $self->route_add($r, $vrf);
@@ -787,24 +786,24 @@ sub process_routing {
                 $self->{CHANGE}->{ROUTING} = 1;
                 push(@cmds, $self->route_del($r, $vrf));
             }
-        }
 
-        # Alter routing device configuration.
-        if(@cmds) {
-            info("Changing routing entries on device");
-            $self->schedule_reload();
-            $self->enter_conf_mode;
-            $self->vrf_route_mode($vrf);
-            for my $cmd (@cmds) {
-                if (ref $cmd eq 'ARRAY') {
-                    $self->two_cmd(@$cmd);
+            # Alter routing device configuration.
+            if(@cmds) {
+                info("Changing $version routing entries on device");
+                $self->schedule_reload();
+                $self->enter_conf_mode;
+                $self->vrf_route_mode($vrf);
+                for my $cmd (@cmds) {
+                    if (ref $cmd eq 'ARRAY') {
+                        $self->two_cmd(@$cmd);
+                    }
+                    else {
+                        $self->cmd($cmd);
+                    }
                 }
-                else {
-                    $self->cmd($cmd);
-                }
+                $self->leave_conf_mode;
+                $self->cancel_reload();
             }
-            $self->leave_conf_mode;
-            $self->cancel_reload();
         }
     }
 }
