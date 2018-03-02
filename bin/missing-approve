@@ -46,7 +46,26 @@ compare_files () {
 }
 
 cd $CODE
+
+# Collect all devices, ipv4 and ipv6.
+DEVICES=""
 for device in * ; do
+    case $device in *.*|\*) continue;; esac
+if [ -d $device ] ; then
+    cd $CODE/$device;
+    for device in * ; do
+               case $device in *.*|\*) continue;; esac
+               if [ ! -e $CODE/$device ]; then
+                   DEVICES="${DEVICES} $device";
+               fi
+    done
+    cd $CODE;
+else
+    DEVICES="${DEVICES} $device";
+fi
+done
+
+for device in ${DEVICES}; do
     case $device in *.*|\*) continue;; esac
     file=$STATUS/$device
     if [ ! -r $file ] ; then
@@ -68,8 +87,8 @@ for device in * ; do
             # There had been errors during last approve
             atime=0
             ;;
-    esac
 
+    esac
     # Check status of last Compare: DIFF|UPTODATE
     status=$(cut -d';' -f13 $file)
     # Find policy used during compare.
@@ -82,6 +101,7 @@ for device in * ; do
         *)
             ctime=0
             ;;
+
     esac
 
     # Both failed
@@ -103,10 +123,17 @@ for device in * ; do
 
     # Compare Netspoc code of device policy with Netspoc code of current policy.
     lcode=$POLICYDB/$last/code/$device
-    compare_files $lcode $device;
+    [ -f $device ] && compare_files $lcode $device;
 
     # Compare .raw files, if available.
     [ -f $device.raw ] && compare_files $lcode.raw $device.raw
+
+    lcode=$POLICYDB/$last/code/ipv6/$device
+    [ -f ipv6/$device ] && compare_files $lcode ipv6/$device;
+
+    # Compare .raw files, if available.
+    [ -f ipv6/$device.raw ] && compare_files $lcode.raw ipv6/$device.raw
+
 done
 
 # Exit with status 1, if at least one error occured.

@@ -6,12 +6,14 @@ use warnings;
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged
                  simul_run simul_err simul_compare write_file
-                 run check_output drc3_err);
+                 run check_output drc3_err missing_approve);
 
 use Test::More;
 use Test::Differences;
 use IPC::Run3;
 use File::Temp qw/ tempdir /;
+use File::Basename;
+use lib '/lib';
 
 my $dir = tempdir(CLEANUP => 1) or die "Can't create tmpdir: $!\n";
 my $code_dir = "$dir/code";
@@ -289,5 +291,7 @@ END
     my ($status, $stdout, $stderr) = run("bin/drc3.pl -q $spoc_file");
     eq_or_diff($stderr, $expected, $title);
 }
+
+
 
 1;

@@ -232,6 +232,9 @@ if ($? == 0) {
     if ($prev_policy) {
         my $prev_code = "$policydb/$prev_policy/code";
         unlink glob("$prev_code/*.config $prev_code/*.rules");
+        if ( -e "$prev_code/ipv6") {
+            unlink glob("$prev_code/ipv6/*.config $prev_code/ipv6/*.rules");
+        }
     }
 
     # Success.

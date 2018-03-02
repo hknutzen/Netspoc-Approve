@@ -103,12 +103,10 @@ my $policy = untaint(readlink "$netspocdir/current") or
 chdir "$netspocdir/$policy" or
     die "Error: Can't cd to $netspocdir/$policy: $!\n";
 
-my $codefile = "code/$device";
--f $codefile or die "Error: unknown device $device\n";
-
-# $device is now known to be valid.
 $device = untaint($device);
-$codefile = "code/$device";
+-f "code/$device" or -f "code/ipv6/$device" or
+    die "Error: unknown device $device\n";
+my $codefile = "code/$device";
 
 my $logpath = 'log';
 my $logfile = "$logpath/$device";
