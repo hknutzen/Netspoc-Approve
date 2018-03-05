@@ -658,7 +658,7 @@ sub merge_acls {
                     # acl and access group entries otherwise.
                     $spoc->{ACCESS_LIST}->{$add_name} and
                         abort("Name clash for '$add_name' of ACCESS_LIST from "
-                              . "raw");
+                              . ($mode eq 'dual_stack'? "ipv6" : "raw"));
                     $spoc->{ACCESS_LIST}->{$add_name} = $add_acl;
                     $spoc_intf->{$access_group} = $add_name;
                 }
