@@ -89,6 +89,23 @@ my %ICMP_Names = (
     'unreachable'                 => { type => 3,  code => -1 },
 );
 
+my %ICMP6_Names = (
+    'echo'                   => { type => 128,  code => 0 },
+    'echo-reply'             => { type => 129,  code => 0 },
+    'membership-query'       => { type => 130,  code => 0 },
+    'membership-reduction'   => { type => 132,  code => 0 },
+    'membership-report'      => { type => 131,  code => 0 },
+    'neighbor-advertisement' => { type => 136,  code => 0 },
+    'neighbor-redirect'      => { type => 137,  code => 0 },
+    'neighbor-solicitation'  => { type => 135,  code => 0 },
+    'packet-too-big'         => { type => 2,    code => 0 },
+    'parameter-problem'      => { type => 4,    code => -1 },
+    'router-advertisement'   => { type => 134,  code => 0 },
+    'router-renumbering'     => { type => 138,  code => -1 },
+    'router-solicitation'    => { type => 133,  code => 0 },
+    'time-exceeded'          => { type => 3,    code => -1 },
+);
+
 # Leave names unchanged for standard protocols icmp, tcp, udp.
 my %IP_Names = (
     'ah'     => 51,
@@ -97,7 +114,7 @@ my %IP_Names = (
     'esp'    => 50,
     'gre'    => 47,
 #    'icmp'   => 1,
-    'icmp6'  => 58,
+#    'icmp6'  => 58,
     'igmp'   => 2,
     'igrp'   => 9,
     'ipinip' => 4,
@@ -557,15 +574,18 @@ sub parse_port_spec {
 }
 
 my $icmp_regex = join('|', '\d+', keys %ICMP_Names);
+my $icmp6_regex = join('|', '\d+', keys %ICMP6_Names);
 
 # <message-name> | (/d+/ [/d+])
 # ->{TYPE} / ->{CODE} (if defined)
 sub parse_icmp_spec {
-    my ($self, $arg) = @_;
-    my ($type, $code);
-    my $token = check_regex($icmp_regex, $arg);
+    my ($self, $arg, $version) = @_;
+    my ($regex, %names, $type, $code);
+    $regex = $version eq 'icmp'? $icmp_regex : $icmp6_regex;
+    my $token = check_regex($regex, $arg);
     return({}) if not defined $token;
-    if (my $spec = $ICMP_Names{$token}) {
+    %names = $version eq 'icmp'? %ICMP_Names : %ICMP6_Names;
+    if (my $spec = $names{$token}) {
         ($type, $code) = @{$spec}{ 'type', 'code' };
     }
     else {
@@ -578,11 +598,11 @@ sub parse_icmp_spec {
 sub normalize_proto {
     my ($self, $arg, $proto) = @_;
     $proto = $IP_Names{$proto} || $proto;
-    $proto =~ /^(?:\d+|icmp|tcp|udp)$/
-        or $self->err_at_line($arg, "Expected numeric proto '$proto'");
-    $proto =~ /^(1|6|17)$/
-        and $self->err_at_line($arg, "Don't use numeric proto for",
-                               " icmp|tcp|udp: '$proto'");
+    $proto =~ /^(?:\d+|icmp|tcp|udp|icmp6)$/
+        or err_at_line($arg, "Expected numeric proto '$proto'");
+    $proto =~ /^(1|6|17|58)$/
+        and err_at_line($arg, "Don't use numeric proto for",
+                               " icmp|tcp|udp|icmp6: '$proto'");
     return($proto);
 }
 
