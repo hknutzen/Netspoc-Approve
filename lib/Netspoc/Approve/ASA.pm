@@ -217,7 +217,7 @@ sub get_parse_info {
                                 { parse => qr/standby/ },
                                 { store => 'STANDBY', parse => \&get_ip } ]]] },
                 'ipv6 address' => {
-                    store => 'ADDRESS',
+                    store => 'ADDRESS6',
 		    parse =>  ['seq',
                                { parse => \&get_ip_prefix,
                                  store_multi => ['BASE', 'MASK'] },
@@ -919,8 +919,8 @@ sub postprocess_config {
         my $name = $entry->{IF_NAME} or next;
         my $intf = $p->{IF}->{$name} = { name => $name };
         if( my $address = $entry->{ADDRESS} ) {
-            $intf->{BASE} = $address->{BASE};
-            $intf->{MASK} = $address->{MASK};
+#            $intf->{BASE} = $address->{BASE};
+#            $intf->{MASK} = $address->{MASK};
         }
         $intf->{SHUTDOWN} = $entry->{SHUTDOWN};
     }
