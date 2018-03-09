@@ -6,7 +6,7 @@ Remote configure Cisco IOS router
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2007 by Arne Spetzler
 
 This program is free software; you can redistribute it and/or modify
@@ -645,13 +645,14 @@ sub handle_reload_banner {
             $$output_ref = $result->{BEFORE};
         }
 
-        # Also read another prompt if banner is shown directly behind
-        # current output.
+        # Try to read another prompt if banner is shown directly
+        # behind current output.
         elsif ($prefix and $postfix eq '') {
-            info("Found banner after output, expecting another prompt");
+            info("Found banner after output, checking another prompt");
             my $con = $self->{CONSOLE};
-            $con->con_wait($self->{ENAPROMPT});
-            info("- Found prompt");
+            if ($con->con_try($self->{ENAPROMPT})) {
+                info("- Found prompt");
+            }
             $$output_ref = $prefix;
         }
 

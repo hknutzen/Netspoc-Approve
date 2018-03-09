@@ -446,6 +446,7 @@ Proceed with reload? [confirm]<!>
 ***
 # \BANNER5_prompt/ip route 10.1.1.0 255.255.255.0 10.1.2.3
 # ip route 10.1.2.0 255.255.255.0 10.2.3.4\BANNER5_prompt/
+# ip route 10.1.3.0 255.255.255.0 10.2.3.5\BANNER5/
 # no ip route 10.0.0.0 25\BANNER5/5.0.0.0 10.1.2.3
 # ip\BANNER1/ route 10.0.0.0 255.0.0.0 10.11.22.33
 # write memory
@@ -457,6 +458,7 @@ $in = <<'END';
 ip route 10.0.0.0 255.0.0.0 10.11.22.33
 ip route 10.1.1.0 255.255.255.0 10.1.2.3
 ip route 10.1.2.0 255.255.255.0 10.2.3.4
+ip route 10.1.3.0 255.255.255.0 10.2.3.5
 END
 
 $out = <<'END';
@@ -509,6 +511,13 @@ router#ip route 10.1.2.0 255.255.255.0 10.2.3.4
 ***
 
 router#
+router#ip route 10.1.3.0 255.255.255.0 10.2.3.5
+
+
+***
+*** --- SHUTDOWN in 0:05:00 ---
+***
+
 router#no ip route 10.0.0.0 25
 
 
