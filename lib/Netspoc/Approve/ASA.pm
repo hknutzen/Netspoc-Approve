@@ -918,10 +918,10 @@ sub postprocess_config {
     for my $entry ( values %{ $p->{HWIF} } ) {
         my $name = $entry->{IF_NAME} or next;
         my $intf = $p->{IF}->{$name} = { name => $name };
-        if( my $address = $entry->{ADDRESS} ) {
+#        if( my $address = $entry->{ADDRESS} ) {
 #            $intf->{BASE} = $address->{BASE};
 #            $intf->{MASK} = $address->{MASK};
-        }
+#        }
         $intf->{SHUTDOWN} = $entry->{SHUTDOWN};
     }
     delete $p->{HWIF};

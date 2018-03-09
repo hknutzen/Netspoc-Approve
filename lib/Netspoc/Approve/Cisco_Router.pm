@@ -195,7 +195,7 @@ sub update_acls {
 
     # 1. Pass: Add new ACLs.
     for my $info (@$update_info) {
-        my ($intf, $in_out, $conf_acl, $spoc_acl) = @$info;
+        my ($intf, $in_out, undef, $spoc_acl) = @$info;
         $spoc_acl or next;
         $self->schedule_reload();
         $adder->($conf, $spoc, $spoc_acl, $intf, $in_out);
