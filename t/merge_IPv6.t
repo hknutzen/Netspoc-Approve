@@ -423,6 +423,55 @@ END
 eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
 
 ############################################################
+$title = "ASA - do not alter any on device if only ipv4 input exists";
+############################################################
+$device = $minimal_ASA;
+$device .= <<END;
+access-list inside_in extended permit ip any any
+access-group inside_in in interface inside
+END
+
+%$spoc = (
+spoc4 => <<END
+access-list inside_in extended permit ip any4 any4
+access-group inside_in in interface inside
+END
+);
+
+$out = <<END;
+END
+
+eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+
+############################################################
+$title = "ASA - alter any on device if IPv4 and IPv6 input exists";
+############################################################
+$device = $minimal_ASA;
+$device .= <<END;
+access-list inside_in extended permit ip any any
+access-group inside_in in interface inside
+END
+
+%$spoc = (
+spoc4 => <<END
+access-list inside_in extended permit ip any4 any4
+access-group inside_in in interface inside
+END
+,
+spoc6 => <<END
+ipv6 route inside 10::3:0/120 10::2:2
+END
+);
+
+$out = <<END;
+ipv6 route inside 10::3:0/120 10::2:2
+access-list inside_in line 1 extended permit ip any4 any4
+no access-list inside_in line 2 extended permit ip any any
+END
+
+eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+
+############################################################
 $title = "ASA - merge ACL";
 ############################################################
 %$spoc = (

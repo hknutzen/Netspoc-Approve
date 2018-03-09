@@ -284,6 +284,9 @@ sub prepare_config {
     return $conf;
 }
 
+# Flag for Devices with IPv4 Netspoc-input only. Needed for adjustment
+# of any/any4 usage within ASA-Versions < 9.
+our $IPv4_only;
 #########################################################################
 # Purpose    : Loads and parses all netspoc input files for a device (<file>,
 #              <file>.raw, ipv6/<file>, ipv6/<file>.raw, into a common
@@ -302,6 +305,7 @@ sub load_spoc {
     my $dual_stack;
     (-e $path or -e "$path.raw") and (-e $path6 or -e "$path6.raw")
         and $dual_stack = 1;
+    $IPv4_only = (-e $path6 or -e "$path6.raw")? 0 : 1;
 
     my $conf = $self->prepare_config($path, $dual_stack);
     my $conf6 = $self->prepare_config("$path6", $dual_stack);
@@ -322,6 +326,7 @@ sub load_device {
     my $device_lines = $self->get_config_from_device();
     info("Parsing device config");
     my $conf  = $self->parse_config($device_lines);
+
     return($conf);
 }
 
@@ -1075,6 +1080,9 @@ sub compare {
     $self->prepare_device();
     my $spoc_conf = $self->load_spoc($spoc_path);
     my $device_conf = $self->load_device();
+    # Adjust any/any4 usage for IPv4 only devices (needed for ASA Version <9).
+    $IPv4_only and $self->isa('Netspoc::Approve::ASA')
+        and $self->postprocess_anys($spoc_conf, $device_conf);
     my $result = $self->compare_common($device_conf, $spoc_conf);
     $self->con_shutdown();
     return($result);
@@ -1085,6 +1093,9 @@ sub compare_files {
     $self->{COMPARE} = 1;
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
+    # Adjust any/any4 usage for IPv4 only devices (needed for ASA Version <9).
+    $IPv4_only and $self->isa('Netspoc::Approve::ASA')
+        and $self->postprocess_anys($conf1, $conf2);
     return $self->compare_common($conf1, $conf2);
 }
 
@@ -1094,6 +1105,9 @@ sub approve {
     $self->prepare_device();
     my $spoc_conf = $self->load_spoc($spoc_path);
     my $device_conf = $self->load_device();
+    # Adjust any/any4 usage for IPv4 only devices (needed for ASA Version <9).
+    $IPv4_only and $self->isa('Netspoc::Approve::ASA')
+        and $self->postprocess_anys($spoc_conf, $device_conf);
     $self->con_set_logtype('change');
     $self->transfer($device_conf, $spoc_conf);
     if($self->found_changes()) {
