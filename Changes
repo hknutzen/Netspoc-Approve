@@ -1,5 +1,13 @@
 {{$NEXT}}
 
+2.0       2018-03-12 11:28:02+01:00 Europe/Berlin
+
+ - When switching from incoming to outgoing ACL or vice versa,
+   unused ACL is now removed only after new ACL is defined.
+ - Newpolicy now recognizes changes in new directories.
+ - Fixed reload banner handling to deal with both one or two prompts.
+ - Added IPv6 commands for ASA (Version >= 9): Routing, ACL, icmp6.
+
 1.123     2018-02-13 16:49:04+01:00 Europe/Berlin
 
  - Fixed parsing of reload banner.
