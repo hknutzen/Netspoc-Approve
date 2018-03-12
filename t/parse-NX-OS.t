@@ -154,6 +154,42 @@ END
 eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Remove in ACL with object-group, add out ACL";
+############################################################
+
+$device = <<'END';
+object-group ip address g1
+ 10 host 1.1.1.1
+ip access-list inside
+ 10 permit ip addrgroup g1 any
+interface Ethernet0/0
+ ip access-group inside in
+interface Ethernet0/1
+ ip address 10.1.1.1/24
+END
+
+$in = <<'END';
+interface Ethernet0/0
+ ip address 10.1.0.1/24
+ip access-list outside
+ 10 permit ip host 1.1.1.1 any
+interface Ethernet0/1
+ ip access-group outside out
+END
+
+$out = <<'END';
+ip access-list outside-DRC-0
+permit ip host 1.1.1.1 any
+interface Ethernet0/1
+ip access-group outside-DRC-0 out
+interface Ethernet0/0
+no ip access-group inside in
+no ip access-list inside
+no object-group ip address g1
+END
+eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+
+############################################################
 $title = "Ignore ACL line with remark";
 ############################################################
 $device = <<'END';

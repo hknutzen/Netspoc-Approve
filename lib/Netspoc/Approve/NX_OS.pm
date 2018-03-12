@@ -32,7 +32,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.0'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -182,8 +182,8 @@ sub get_parse_info {
                           { store => 'TYPE', parse => qr/icmp/ },
                           { store => 'SRC', parse => 'parse_address' },
                           { store => 'DST', parse => 'parse_address' },
-                          { store => 'SPEC',
-                            parse => 'parse_icmp_spec' }, ],
+                          { store => 'SPEC', parse => 'parse_icmp_spec',
+                            params => [ 'icmp' ] }, ],
                          ['seq',
                           { store => 'TYPE', parse => \&get_token },
                           { store => 'TYPE' ,
@@ -226,7 +226,11 @@ sub parse_address {
     }
     elsif (check_regex('host', $arg)) {
         $ip   = get_ip($arg);
-        $mask = 0xffffffff;
+
+        $mask = $ip =~ /Regexp::IPv6/ ?
+            NetAddr::IP::Util::ipv6_aton(
+                'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
+            : pack('N', 0xffffffff);
     }
     else {
         ($ip, $mask) = get_ip_prefix($arg);

@@ -31,7 +31,7 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.0'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
@@ -103,12 +103,10 @@ my $policy = untaint(readlink "$netspocdir/current") or
 chdir "$netspocdir/$policy" or
     die "Error: Can't cd to $netspocdir/$policy: $!\n";
 
-my $codefile = "code/$device";
--f $codefile or die "Error: unknown device $device\n";
-
-# $device is now known to be valid.
 $device = untaint($device);
-$codefile = "code/$device";
+-f "code/$device" or -f "code/ipv6/$device" or
+    die "Error: unknown device $device\n";
+my $codefile = "code/$device";
 
 my $logpath = 'log';
 my $logfile = "$logpath/$device";

@@ -6,7 +6,7 @@ Manage connection to device.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2008 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -34,7 +34,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.0'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Constructor.
@@ -99,6 +99,15 @@ sub con_short_wait {
     my ($con, $prompt) = @_;
     my $timeout = $con->{LOGIN_TIMEOUT};
     return $con->con_wait0($prompt, $timeout);
+}
+
+sub con_try {
+    my ($con, $prompt) = @_;
+
+    # If $timeout is 0 Expect will check one time to see if $con's
+    # handle contains any of the match_patterns.
+    my $found = $con->{EXPECT}->expect(0, '-re', $prompt);
+    return $found;
 }
 
 sub con_send_cmd {

@@ -11,7 +11,23 @@ PARALLEL=$(expr "$1" \| 40)
 DIR=$(get-netspoc-approve-conf netspocdir)
 cd $DIR/current/code
 
+DEVICES=""
 for device in * ; do
     case $device in *.*|\*) continue;; esac
+if [ -d $device ] ; then
+    cd $device;
+    for device in * ; do
+               case $device in *.*|\*) continue;; esac
+               if [ ! -e $DIR/current/code/$device ]; then
+                   DEVICES="${DEVICES} $device";
+               fi
+    done
+    cd ..;
+else
+    DEVICES="${DEVICES} $device";
+fi
+done
+
+for device in ${DEVICES}; do
     echo diamonds compare --brief $device
 done | start-jobs -q $PARALLEL

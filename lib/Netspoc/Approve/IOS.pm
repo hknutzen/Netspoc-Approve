@@ -6,7 +6,7 @@ Remote configure Cisco IOS router
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2007 by Arne Spetzler
 
 This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.0'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -209,8 +209,8 @@ sub get_parse_info {
                                 { store => 'TYPE', parse => qr/icmp/ },
                                 { store => 'SRC', parse => 'parse_address' },
                                 { store => 'DST', parse => 'parse_address' },
-                                { store => 'SPEC',
-                                  parse => 'parse_icmp_spec' }, ],
+                                { store => 'SPEC', parse => 'parse_icmp_spec',
+                                  params => [ 'icmp' ]}, ],
                                ['seq',
                                 { store => 'TYPE', parse => \&get_token },
                                 { store => 'TYPE' ,
@@ -309,7 +309,7 @@ sub parse_address {
 
 sub adjust_mask {
     my ($self, $mask) = @_;
-    return ~$mask & 0xffffffff;
+    return ~$mask;
 }
 
 sub postprocess_config {
@@ -645,13 +645,14 @@ sub handle_reload_banner {
             $$output_ref = $result->{BEFORE};
         }
 
-        # Also read another prompt if banner is shown directly behind
-        # current output.
+        # Try to read another prompt if banner is shown directly
+        # behind current output.
         elsif ($prefix and $postfix eq '') {
-            info("Found banner after output, expecting another prompt");
+            info("Found banner after output, checking another prompt");
             my $con = $self->{CONSOLE};
-            $con->con_wait($self->{ENAPROMPT});
-            info("- Found prompt");
+            if ($con->con_try($self->{ENAPROMPT})) {
+                info("- Found prompt");
+            }
             $$output_ref = $prefix;
         }
 
@@ -703,22 +704,22 @@ sub get_my_connection {
 
     # In file compare mode use IP from netspoc file or 1.2.3.4 if not available.
     if (not $self->{CONSOLE}) {
-        my $any  = 0;
-        my $dst  = quad2int($self->{IP} || '1.2.3.4');
-        my $port = 22;
-        my $cached = $self->{CONNECTION} = [ $any, $dst, $port ];
-        return @$cached;
+        my $any  = pack('N', 0);
+	my $dst  = quad2bitstr($self->{IP} || '1.2.3.4');
+	my $port = 22;
+	my $cached = $self->{CONNECTION} = [ $any, $dst, $port ];
+	return @$cached;
     }
 
     # With real device, read IP from device, because IP from netspoc may have
     # been changed by NAT.
     my ($vty, $s_ip) = $self->read_vty_and_remote_ip() or
-        abort("Can't determine my vty");
-    my $src_ip = quad2int($s_ip) or abort("Can't parse src ip: $s_ip");
+	abort("Can't determine my vty");
+    my $src_ip = quad2bitstr($s_ip) or abort("Can't parse src ip: $s_ip");
 
     my ($d_ip, $port) = $self->read_vty_details($vty) or
-        abort("Can't determine remote ip and port of my TCP session");
-    my $dst_ip = quad2int($d_ip) or abort("Can't parse remote ip: $d_ip");
+	abort("Can't determine remote ip and port of my TCP session");
+    my $dst_ip = quad2bitstr($d_ip) or abort("Can't parse remote ip: $d_ip");
     info("My connection: $s_ip -> $d_ip:$port");
     my $cached = $self->{CONNECTION} = [ $src_ip, $dst_ip, $port ];
     return @$cached;
@@ -727,7 +728,7 @@ sub get_my_connection {
 sub ip_in_net {
     my ($ip, $net) = @_;
     my $m = $net->{MASK};
-    return ($m & $ip) == ($m & $net->{BASE});
+    return ($m & $ip) eq ($m & $net->{BASE});
 }
 
 sub port_in_proto {
@@ -743,6 +744,11 @@ sub port_in_proto {
     return 0;
 }
 
+#########################################################################
+# Purpose    : Check whether given ACL entry permits access from Netspoc to
+#              device.
+# Parameters : $conf_entry - ACL entry from device config
+# Returns    : 1 if ACL entry allows access from Netspoc 0 otherwise.
 sub is_device_access {
     my ($self, $conf_entry) = @_;
     return 0 if $conf_entry->{MODE} eq 'deny';
@@ -776,37 +782,34 @@ sub compare_crypto_acls {
     # Analyze changes in all ACLs bound to crypto map entries.
     # Try to change ACLs incrementally.
     # Get list of ACL pairs, that need to be redefined, added or removed.
-    my @acl_update_info =
+    my $acl_update_info =
         $self->equalize_acls_of_objects($conf, $spoc, $crypto_entry_pairs);
 
-    for my $info (@acl_update_info) {
-        my ($entry, $in_out, $conf_acl, $spoc_acl) = @$info;
-        my $name = $entry->{name};
-        my $sequ = $entry->{SEQU} or internal_err "Missing SEQU";
-        $self->{CHANGE}->{ACCESS_LIST} = 1;
+    $self->update_acls(
+        $conf, $spoc, $acl_update_info,
 
-        # Add ACL to device.
-        if ($spoc_acl) {
-
-            # Add new ACL
-            $self->schedule_reload();
+        # Assign new acl to crypto map
+        sub {
+            my ($conf, $spoc, $spoc_acl, $entry, $in_out) = @_;
+            my $name = $entry->{name};
+            my $sequ = $entry->{SEQU} or internal_err "Missing SEQU";
             my $aclname = $self->define_acl($conf, $spoc, $spoc_acl->{name});
-
-            # Assign new acl to crypto map
             $self->cmd("crypto map $name $sequ");
             $self->cmd("set ip access-group $aclname $in_out");
-            $self->cancel_reload();
-        }
+        },
 
-        # Remove ACL from device.
-        if ($conf_acl) {
+        # Remove ACL from crypto map.
+        sub {
+            my ($conf_acl, $spoc_acl, $entry, $in_out) = @_;
             if (not $spoc_acl) {
+                my $name = $entry->{name};
+                my $sequ = $entry->{SEQU} or internal_err "Missing SEQU";
                 $self->cmd("crypto map $name $sequ");
                 $self->cmd("no set ip access-group $conf_acl->{name} $in_out");
             }
             $self->remove_acl($conf_acl);
-        }
-    }
+        });
+
     $self->leave_conf_mode();
 }
 
@@ -859,8 +862,8 @@ sub crypto_processing {
 
 sub transfer {
     my ($self, $conf, $spoc) = @_;
-    $self->SUPER::transfer($conf, $spoc);
     $self->crypto_processing($conf, $spoc);
+    $self->SUPER::transfer($conf, $spoc);
 }
 
 # Packages must return a true value;

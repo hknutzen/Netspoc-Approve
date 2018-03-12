@@ -580,4 +580,52 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Remove incoming, add outgoing ACL";
+############################################################
+$device = <<'END';
+object-group network g0
+ network-object host 1.1.1.1
+access-list inside permit ip object-group g0 any
+access-group inside in interface inside
+END
+
+$in = <<'END';
+access-list outside permit ip host 1.1.1.1 any
+access-group outside out interface inside
+END
+
+$out = <<'END';
+access-list outside-DRC-0 permit ip host 1.1.1.1 any
+access-group outside-DRC-0 out interface inside
+clear configure access-list inside
+no object-group network g0
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Remove outgoing, add incoming ACL";
+############################################################
+$device = <<'END';
+object-group network g0
+ network-object host 1.1.1.1
+access-list outside permit ip object-group g0 any
+access-group outside out interface inside
+END
+
+$in = <<'END';
+access-list inside permit ip host 1.1.1.1 any
+access-group inside in interface inside
+END
+
+$out = <<'END';
+access-list inside-DRC-0 permit ip host 1.1.1.1 any
+access-group inside-DRC-0 in interface inside
+clear configure access-list outside
+no object-group network g0
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 done_testing;

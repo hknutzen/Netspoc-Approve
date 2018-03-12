@@ -21,6 +21,218 @@ my($in, $device, $out);
 my $device_type = 'ASA';
 my $title;
 
+
+############################################################
+$title = "Add IPV6-access list";
+############################################################
+$device = $minimal_device;
+
+%$in = (
+spoc6 => <<END
+access-list inside_in extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
+access-list inside_in extended deny ip any any
+access-group inside_in in interface inside
+
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+);
+
+$out = <<END;
+access-list inside_in-DRC-0 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
+access-list inside_in-DRC-0 extended deny ip any any
+access-group inside_in-DRC-0 in interface inside
+access-list outside_in-DRC-0 extended deny ip any any
+access-group outside_in-DRC-0 in interface outside
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Add and delete IPV6-access list";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list inside_in extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
+access-list inside_in extended deny ip any any
+access-group inside_in in interface inside
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+END
+
+%$in = (
+spoc6 => <<END
+access-list inside_in extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
+access-list inside_in extended deny ip any any
+access-group inside_in in interface inside
+
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+
+END
+);
+
+$out = <<END;
+access-list inside_in line 1 extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
+no access-list inside_in line 2 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "IPv6 routing - add new route";
+############################################################
+$device = $minimal_device;
+
+%$in = (
+spoc6 => <<END
+ipv6 route outside 10::3:0/112 10::2:2
+END
+);
+
+$out = <<END;
+ipv6 route outside 10::3:0/112 10::2:2
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "IPv6 routing - network of equal size";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+ipv6 route outside 10::3:0/112 10::2:2
+END
+
+%$in = (
+spoc6 => <<END
+ipv6 route outside 10::3:0/112 10::2:2
+END
+);
+
+$out = <<END;
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "IPv6 routing - replace network with smaller one.";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+ipv6 route outside 10::3:0/112 10::2:2
+END
+
+%$in = (
+spoc6 => <<END
+ipv6 route outside 10::3:0/120 10::2:2
+END
+);
+
+$out = <<END;
+ipv6 route outside 10::3:0/120 10::2:2
+no ipv6 route outside 10::3:0/112 10::2:2
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "IPv6 routing - replace network with bigger one.";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+ipv6 route outside 10::3:0/120 10::2:2
+END
+
+%$in = (
+spoc6 => <<END
+ipv6 route outside 10::3:0/112 10::2:2
+END
+);
+
+$out = <<END;
+ipv6 route outside 10::3:0/112 10::2:2
+no ipv6 route outside 10::3:0/120 10::2:2
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Abort on 1 instead of icmp in raw file";
+############################################################
+$device = $minimal_device;
+
+%$in = (
+spoc4 => <<END
+access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+END
+,
+raw4 => <<END
+access-list inside_in extended permit 1 any4 any4 3 6
+access-group inside_in in interface inside
+END
+);
+
+$out = <<END;
+ERROR>>> Don\'t use numeric proto for
+ERROR>>>  icmp|tcp|udp|icmp6: \'1\'
+ERROR>>>  at line 1, pos 5:
+ERROR>>> >>access-list inside_in extended permit 1 any4 any4 3 6<<
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Abort on 58 instead of icmp6 in raw file";
+############################################################
+$device = $minimal_device;
+
+%$in = (
+spoc6 => <<END
+access-list inside_in extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
+access-list inside_in extended deny ip any6 any6
+access-group inside_in in interface inside
+END
+,
+raw6 => <<END
+access-list inside_in extended permit 58 any6 any6 128
+access-group inside_in in interface inside
+END
+);
+
+$out = <<END;
+ERROR>>> Don\'t use numeric proto for
+ERROR>>>  icmp|tcp|udp|icmp6: \'58\'
+ERROR>>>  at line 1, pos 5:
+ERROR>>> >>access-list inside_in extended permit 58 any6 any6 128<<
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Substitute numeric icmp6 type with appropriate name";
+############################################################
+$device = $minimal_device;
+$device .= <<END;
+access-list inside_in extended permit icmp6 any6 any6 echo
+access-list inside_in extended permit icmp6 any6 any6 echo-reply
+access-group inside_in in interface inside
+END
+
+%$in = (
+spoc6 => <<END
+access-list inside_in extended permit icmp6 any6 any6 128
+access-list inside_in extended permit icmp6 any6 any6 129
+access-group inside_in in interface inside
+END
+);
+
+$out = <<END;
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
 ############################################################
 $title = "Interface with and without IP address";
 ############################################################

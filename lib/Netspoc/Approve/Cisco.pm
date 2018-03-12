@@ -34,8 +34,9 @@ use warnings;
 use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
+use Regexp::IPv6 qw($IPv6_re);
 
-our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.0'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -88,6 +89,23 @@ my %ICMP_Names = (
     'unreachable'                 => { type => 3,  code => -1 },
 );
 
+my %ICMP6_Names = (
+    'echo'                   => { type => 128,  code => 0 },
+    'echo-reply'             => { type => 129,  code => 0 },
+    'membership-query'       => { type => 130,  code => 0 },
+    'membership-reduction'   => { type => 132,  code => 0 },
+    'membership-report'      => { type => 131,  code => 0 },
+    'neighbor-advertisement' => { type => 136,  code => 0 },
+    'neighbor-redirect'      => { type => 137,  code => 0 },
+    'neighbor-solicitation'  => { type => 135,  code => 0 },
+    'packet-too-big'         => { type => 2,    code => 0 },
+    'parameter-problem'      => { type => 4,    code => -1 },
+    'router-advertisement'   => { type => 134,  code => 0 },
+    'router-renumbering'     => { type => 138,  code => -1 },
+    'router-solicitation'    => { type => 133,  code => 0 },
+    'time-exceeded'          => { type => 3,    code => -1 },
+);
+
 # Leave names unchanged for standard protocols icmp, tcp, udp.
 my %IP_Names = (
     'ah'     => 51,
@@ -96,7 +114,7 @@ my %IP_Names = (
     'esp'    => 50,
     'gre'    => 47,
 #    'icmp'   => 1,
-    'icmp6'  => 58,
+#    'icmp6'  => 58,
     'igmp'   => 2,
     'igrp'   => 9,
     'ipinip' => 4,
@@ -217,8 +235,20 @@ sub udp_name2num {
     return $PORT_Names_UDP{$name};
 }
 
-# Read indented lines of commands from Cisco device.
-# Build an array where each command line is described by a hash
+#########################################################################
+# Purpose    : Parse config lines according to the directions given for
+#              device commands by $parse_info. Checks correct intendation
+#              and handles unknown commands. Store known commands within
+#              an array. Every command is represented as hash, with
+#              subcommands being a hash entry of the associated top level
+#              command hash.
+# Parameters : $lines - Array containing one entry for every config file line.
+#              $parse_info - hash containing device specific parsing directions.
+#              $strict - flag, is set if parsed lines are from raw file.
+#                Induces abort on unknown command instead of ignoring them.
+# Returns    : $config array, containing one hash for every toplevel command
+#              from $lines.
+# Comment    :
 # - arg: an array of tokens split by whitespace
 #      first element, the command name, consists of multiple tokens,
 #      if prefix tokens are used.
@@ -227,7 +257,6 @@ sub udp_name2num {
 # $config->[{args => [$cmd, @args], subcmd => [{args => [$cmd @args]}, ...]},
 #           {args => [$cmd, @args], subcmd => [...]}
 #        ..]
-#
 sub analyze_conf_lines {
     my ($self, $lines, $parse_info, $strict) = @_;
     $self->add_prefix_info($parse_info);
@@ -240,8 +269,11 @@ sub analyze_conf_lines {
     my $first_subcmd = 0;
 
     for my $line (@$lines) {
+
         $counter++;
 
+        # Subsequent line of multiline command. $end_banner_regex and
+        # $in_banner were set in a preceding iteration.
         if(my $cmd = $in_banner) {
             if($line =~ $end_banner_regex) {
                 $in_banner = 0;
@@ -258,19 +290,22 @@ sub analyze_conf_lines {
         # Ignore empty lines.
         next if $line =~ /^\s*$/;
 
-        # Get number of leading spaces.
+        # Check proper indentation level: Get number of leading spaces.
         my ($indent, $rest) = $line =~ /^( *)(.*)$/;
         my $sub_level = length($indent);
 
+        # Level is set accordingly to expected command in previous iteration.
         if($sub_level == $level) {
 
             # Got expected command or sub-command.
         }
+
+        # Indentation higher than expected. NX-OS and some older IOS
+        # versions use sub commands, which have a higher indentation
+        # level than 1. This is only applicable for the first sub
+        # command.
         elsif($sub_level > $level) {
 
-            # NX-OS and Some older IOS versions use sub commands,
-            # which have a higher indentation level than 1.
-            # This is only applicable for the first sub command.
             if($first_subcmd) {
 
                 # For unknown commands allow first command(s) to be
@@ -290,6 +325,9 @@ sub analyze_conf_lines {
                       ">>$line<<");
             }
         }
+
+        # Line is from a new command with higher level: get appropriate
+        # command-level info from stack.
         else {
             while($sub_level < $level && @stack) {
                 ($config, $parse_info, $level, $strict) = @{ pop @stack };
@@ -308,16 +346,18 @@ sub analyze_conf_lines {
                 }
             }
         }
+
+        # Process $rest (non indent part of line).
         $first_subcmd = 0;
         my @args = split(' ', $rest);
         my $orig = join(' ', @args);
         my ($cmd, $lookup);
 
-        # Strip words from @args which belong to current command.
-        # - add found words to $cmd
-        # - same for $lookup, but
-        #   - use wildcard pattern "_any" instead of matched word,
-        #   - use "_skip" for skipped word, but no trailing "_skip".
+        # Look for command line (@args) within command dictionary of specific
+        # device in $parse_info->{_prefix}. Lookup is performed wordwise.
+        # Found command prefixes are stored twice: Unaltered as $cmd, and
+        # as $lookup with arguments replaced by '_skip' and 'any'.
+        #  Trailing '_skip's are omitted.
         if(my $prefix_info = $parse_info->{_prefix}) {
             my $skip = 0;
             my @a = @args;
@@ -358,6 +398,7 @@ sub analyze_conf_lines {
         if (!$lookup) {
             $cmd = $lookup = shift @args;
         }
+
         if (my $cmd_info = ($parse_info->{$lookup} || $parse_info->{_any})) {
 
             # Remember current line number, set parse position.
@@ -371,6 +412,8 @@ sub analyze_conf_lines {
                         };
             push(@$config, $new_cmd);
             if (my $subcmd = $cmd_info->{subcmd}) {
+
+                # Prepare to parse subcommand within next iteration.
                 push @stack, [ $config, $parse_info, $level, $strict ];
                 $level++;
                 $parse_info = $subcmd;
@@ -386,8 +429,7 @@ sub analyze_conf_lines {
 
         }
 
-        # Ignore unknown command.
-        # Prepare to ignore subcommands as well.
+        # Ignore unknown command. Prepare to ignore subcommands as well.
         else {
             push @stack, [ $config, $parse_info, $level, $strict ];
             $config = undef;
@@ -399,32 +441,69 @@ sub analyze_conf_lines {
             }
         }
     }
+
+    # Fetch toplevel command $config from stack (final line can be
+    # from subcommand).
     while($level--) {
         ($config, $parse_info, $level, $strict) = @{ pop @stack };
     }
     return $config;
 }
 
-# ip mask
-# host ip
-# any
-# any4 (for ASA 9.x)
+#########################################################################
+# Purpose    : Parse network address string and store information as hash
+# Parameters : $arg - Hash representation of a command as generated by
+#                analyze_conf_lines, with $arg->{pos} pointing to $arg->{args}
+#                in such a way that next token to be read is a network address.
+# Returns    : A hash with IP and MASK keys and values. Additionally a key
+#              ANY46 is returned with value 1 if address token equals 'any'.
+# Comments   : Return value ANY46 is needed for Dual Stack Netspoc. While
+#              'any' is not generated by Netspoc Compiler for ASA ACLs
+#              anymore (generates 'any4' or 'any6' instead), 'any' could still
+#              be used in raw files of non Dual Stack devices or within
+#              device ACLs. Thus, ANY46 helps to distinguish 'any' from 'any4'
+#              or 'any6' without having to use a different bitstring
+#              representation. ANY46 distinction is used within sub
+#              acl_entry2key0. IP and MASK values are not used within further
+#              ASA ACL processing. As Dual Stack mode is only enabled for ASA
+#              yet, IP and MASK values for 'any' are still 32 bit bitstrings,
+#              to ensure proper handling of IOS devices (IP and MASK values
+#              are used within IOS::is_device_access).
 sub parse_address {
     my ($self, $arg) = @_;
-    my ($ip, $mask);
+    my ($ip, $mask, $any46);
     my $token = get_token($arg);
-    if ($token eq 'any' || $token eq 'any4') {
-        $ip = $mask = 0;
+
+    if ($token eq 'any'){
+        $ip = $mask = pack('N', 0);
+        $any46 = 1;
+    }
+    elsif ( $token eq 'any4') {
+        $ip = $mask = pack('N', 0);
+    }
+    elsif ($token eq 'any6') {
+        $ip = $mask = NetAddr::IP::Util::ipv6_aton('0:0:0:0:0:0:0:0');
     }
     elsif ($token eq 'host') {
         $ip   = get_ip($arg);
-        $mask = 0xffffffff;
+        if (is_ipv6($ip)) {
+            $mask = NetAddr::IP::Util::ipv6_aton(
+                'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff');
+        }
+        else {
+            $mask = pack('N', 0xffffffff);
+        }
+    }
+    elsif ($token =~ /(:?$IPv6_re|::)/) {
+#        my ($i, $prefix) = split(/\//, $token);
+        unread($arg);
+        ($ip, $mask) = get_ip_prefix($arg);
     }
     else {
-        $ip   = quad2int($token);
+        $ip   = quad2bitstr($token);
         $mask = $self->adjust_mask(get_ip($arg));
     }
-    return ({ BASE => $ip, MASK => $mask });
+    return ({ BASE => $ip, MASK => $mask, ANY46 => $any46 });
 }
 
 sub adjust_mask {
@@ -495,15 +574,18 @@ sub parse_port_spec {
 }
 
 my $icmp_regex = join('|', '\d+', keys %ICMP_Names);
+my $icmp6_regex = join('|', '\d+', keys %ICMP6_Names);
 
 # <message-name> | (/d+/ [/d+])
 # ->{TYPE} / ->{CODE} (if defined)
 sub parse_icmp_spec {
-    my ($self, $arg) = @_;
-    my ($type, $code);
-    my $token = check_regex($icmp_regex, $arg);
+    my ($self, $arg, $version) = @_;
+    my ($regex, %names, $type, $code);
+    $regex = $version eq 'icmp'? $icmp_regex : $icmp6_regex;
+    my $token = check_regex($regex, $arg);
     return({}) if not defined $token;
-    if (my $spec = $ICMP_Names{$token}) {
+    %names = $version eq 'icmp'? %ICMP_Names : %ICMP6_Names;
+    if (my $spec = $names{$token}) {
         ($type, $code) = @{$spec}{ 'type', 'code' };
     }
     else {
@@ -516,22 +598,34 @@ sub parse_icmp_spec {
 sub normalize_proto {
     my ($self, $arg, $proto) = @_;
     $proto = $IP_Names{$proto} || $proto;
-    $proto =~ /^(?:\d+|icmp|tcp|udp)$/
-        or $self->err_at_line($arg, "Expected numeric proto '$proto'");
-    $proto =~ /^(1|6|17)$/
-        and $self->err_at_line($arg, "Don't use numeric proto for",
-                               " icmp|tcp|udp: '$proto'");
+    $proto =~ /^(?:\d+|icmp|tcp|udp|icmp6)$/
+        or err_at_line($arg, "Expected numeric proto '$proto'");
+    $proto =~ /^(1|6|17|58)$/
+        and err_at_line($arg, "Don't use numeric proto for",
+                               " icmp|tcp|udp|icmp6: '$proto'");
     return($proto);
 }
 
+##############################################################################
+# Purpose    : Adds acls from raw data config hash to corresponding ipv4/ipv6
+#              config hash or acls from (combined) ipv6 config hash to
+#              (combined) ipv4 config hash. Unless $mode equals 'prepend',
+#              new acls are added at the beginning of acl array.
+# Parameters : $spoc - ipv4 netspoc config in $result - hash format.
+#              $add_conf - raw or ipv6 config in $result - hash format.
+#              $mode - 'append', 'prepend', 'ipv6', indicates operational mode.
 sub merge_acls {
-    my ($self, $spoc, $raw, $append) = @_;
+    my ($self, $spoc, $add_conf, $mode) = @_;
+    my $raw_only = keys %$spoc? 0 : 1;
 
-    for my $intf_name ( keys %{ $raw->{IF} } ) {
-        my $raw_intf = delete($raw->{IF}->{$intf_name});
+    # Iterate over interfaces in config to add.
+    for my $intf_name ( keys %{ $add_conf->{IF} } ) {
+        my $add_intf = delete($add_conf->{IF}->{$intf_name});
         my $spoc_intf = $spoc->{IF}->{$intf_name};
 
+        # Create interface entry in main config hash, if it doesnt exist.
         if ( ! $spoc_intf ) {
+            $mode ne 'dual_stack' and not $raw_only and
             warn_info("Interface $intf_name referenced in raw doesn't",
                       " exist in Netspoc");
             $spoc_intf = $spoc->{IF}->{$intf_name} = { name => $intf_name };
@@ -540,20 +634,23 @@ sub merge_acls {
         # Merge acls for possibly existing access-group of this interface.
         for my $direction ( qw( IN OUT ) ) {
             my $access_group = "ACCESS_GROUP_$direction";
-            if ( my $raw_name = $raw_intf->{$access_group} ) {
-                my $raw_acl = delete($raw->{ACCESS_LIST}->{$raw_name});
+            if ( my $add_name = $add_intf->{$access_group} ) {
+                my $add_acl = delete($add_conf->{ACCESS_LIST}->{$add_name});
 
+                # Access group exists already for this interface in
+                # netspoc config, add additional acl entries.
                 if(my $spoc_name = $spoc_intf->{$access_group}) {
 
-                    # Prepend/append raw acl.
                     my $msg;
                     my $spoc_entries =
                         $spoc->{ACCESS_LIST}->{$spoc_name}->{LIST} ||= [];
-                    my $raw_entries = $raw_acl->{LIST};
-                    if ($append) {
+                    my $add_entries = $add_acl->{LIST};
+
+                    # Append mode adds entries behind last permit line.
+                    if ($mode eq 'append') {
                         $msg = 'Appending';
 
-                        # Find last non deny line.
+                        # Find last permit line within netspoc entries.
                         my $index = @$spoc_entries;
                         while ($index > 0) {
                             if ($spoc_entries->[$index-1]->{MODE} eq 'deny') {
@@ -563,31 +660,34 @@ sub merge_acls {
                                 last;
                             }
                         }
-                        splice(@$spoc_entries, $index, 0, @$raw_entries);
+                        splice(@$spoc_entries, $index, 0, @$add_entries);
                     }
                     else {
                         $msg = 'Prepending';
-                        unshift(@$spoc_entries, @$raw_entries);
+                        unshift(@$spoc_entries, @$add_entries);
                     }
-                    my $count = @$raw_entries;
+
+                    my $count = @$add_entries;
                     info("$msg $count entries to $direction ACL of $intf_name");
                 }
                 else {
-
-                    # Copy raw acl.
-                    $spoc->{ACCESS_LIST}->{$raw_name} and
-                        abort("Name clash for '$raw_name' of ACCESS_LIST" .
-                              " from raw");
-                    $spoc->{ACCESS_LIST}->{$raw_name} = $raw_acl;
-                    $spoc_intf->{$access_group} = $raw_name;
+                    # Access group does not exists for current
+                    # interface in netspoc. Abort if it exists for
+                    # another interface. This can only happen with
+                    # access groups defined in raw files. Generate new
+                    # acl and access group entries otherwise.
+                    $spoc->{ACCESS_LIST}->{$add_name} and
+                        abort("Name clash for '$add_name' of ACCESS_LIST from "
+                              . ($mode eq 'dual_stack'? "ipv6" : "raw"));
+                    $spoc->{ACCESS_LIST}->{$add_name} = $add_acl;
+                    $spoc_intf->{$access_group} = $add_name;
                 }
             }
         }
     }
-
     # Check for unbound ACL in raw.
     # Must not trigger autovivification.
-    if (my $acls = $raw->{ACCESS_LIST}) {
+    if (my $acls = $add_conf->{ACCESS_LIST}) {
         if (my @names = sort keys %$acls) {
             abort("Found unbound ACCESS_LIST in raw: " . join(', ', @names));
         }
@@ -712,6 +812,9 @@ sub check_device_interfaces {
     @errors and abort(@errors);
 }
 
+##############################################################################
+# Purpose    : (for ASA devices: check whether interfaces from netspoc config
+#               are known on device (no mpls/vrf for ASA))
 sub check_spoc_interfaces {
     my ($self, $conf, $spoc, $has_mpls) = @_;
 
@@ -742,6 +845,12 @@ sub check_spoc_interfaces {
     @errors and abort(@errors);
 }
 
+##############################################################################
+# Purpose    : Check interfaces to be known in both device and netspoc config.
+#              Ensure interfaces have same state within both configs.
+# Parameters : $conf - device configuration in structure hash format.
+#              $spoc - netspoc configuration in structure hash format.
+#              $has_mpls - ? - never used with ASA
 sub checkinterfaces {
     my ($self, $conf, $spoc, $has_mpls) = @_;
 
@@ -959,10 +1068,13 @@ sub acl_entry2key0 {
     push(@r, $e->{MODE});
     for my $where (qw(SRC DST)) {
         my $what = $e->{$where};
-        push(@r,
-             check_object_group($what, $abstract)
+
+        push(@r, $what->{ANY46}
+             ? 'any'
+             : check_object_group($what, $abstract)
              || "$what->{BASE}/$what->{MASK}");
     }
+
     push(@r, check_object_group($e->{TYPE}) || $e->{TYPE});
     if ($e->{TYPE} eq 'icmp') {
         my $s = $e->{SPEC};

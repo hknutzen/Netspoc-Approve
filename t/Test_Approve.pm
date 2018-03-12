@@ -6,12 +6,14 @@ use warnings;
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged
                  simul_run simul_err simul_compare write_file
-                 run check_output);
+                 run check_output drc3_err missing_approve);
 
 use Test::More;
 use Test::Differences;
 use IPC::Run3;
 use File::Temp qw/ tempdir /;
+use File::Basename;
+use lib '/lib';
 
 my $dir = tempdir(CLEANUP => 1) or die "Can't create tmpdir: $!\n";
 my $code_dir = "$dir/code";
@@ -26,7 +28,7 @@ sub write_file {
 }
 
 sub prepare_spoc {
-    my ($type, $device_name, $spoc, $raw) = @_;
+    my ($type, $device_name, $spoc) = @_;
 
     # Header for Netspoc input
     my $comment = $type eq 'Linux' ? '#' : '!';
@@ -36,11 +38,48 @@ $comment [ Model = $type ]
 $comment [ IP = 10.1.13.33 ]
 
 END
-    $spoc = $header . $spoc;
-    my $spoc_file = "$code_dir/$device_name";
-    write_file($spoc_file, $spoc);
-    write_file("$spoc_file.raw", $raw) if $raw;
-    return $spoc_file;
+
+    if (ref($spoc) ne 'HASH') {
+        $spoc = $header . $spoc;
+        my $spoc_file = "$code_dir/$device_name";
+        write_file($spoc_file, $spoc);
+        -e "$spoc_file.raw" and `rm $spoc_file.raw`;
+        -e "$code_dir/ipv6/"
+            and `rm -r "$code_dir/ipv6/"`;
+        return $spoc_file;
+    }
+
+    my $spec = {
+        ipv4 => {
+            filename => "$code_dir/$device_name",
+            file  => $spoc->{spoc4},
+            raw => $spoc->{raw4},
+            header => $spoc->{hdr4}? $spoc->{hdr4} : $header },
+        ipv6 => {
+            filename => "$code_dir/ipv6/$device_name",
+            file  => $spoc->{spoc6},
+            raw => $spoc->{raw6},
+            header => $spoc->{hdr6}? $spoc->{hdr6} : $header },
+    };
+
+    -e "$code_dir/ipv6/" or `mkdir "$code_dir/ipv6/"`;
+    for my $v (qw(ipv4 ipv6)) {
+        defined $spec->{$v}->{file} and
+            $spec->{$v}->{file} = $spec->{$v}->{header} . $spec->{$v}->{file};
+        $spec->{$v}->{file} and write_file($spec->{$v}->{filename},
+                                           $spec->{$v}->{file});
+        not $spec->{$v}->{file} and -e $spec->{$v}->{filename} and
+            `rm $spec->{$v}->{filename}`;
+        $spec->{$v}->{raw} and write_file("$spec->{$v}->{filename}.raw",
+                                          $spec->{$v}->{raw});
+        not $spec->{$v}->{raw} and -e "$spec->{$v}->{filename}.raw" and
+            `rm $spec->{$v}->{filename}.raw`;
+    }
+
+    (defined $spoc->{spoc6} or defined $spoc->{raw6}) or
+        `rmdir "$code_dir/ipv6/"`;
+
+    return "$code_dir/$device_name";
 }
 
 sub run {
@@ -99,9 +138,9 @@ END
 }
 
 sub compare_files {
-    my($type, $conf, $spoc, $raw) = @_;
+    my($type, $conf, $spoc) = @_;
 
-    my $spoc_file = prepare_spoc($type, 'test', $spoc, $raw);
+    my $spoc_file = prepare_spoc($type, 'test', $spoc);
 
     # Prepare device file.
     my $conf_file = "$dir/conf";
@@ -130,8 +169,9 @@ sub filter_compare_output {
 }
 
 sub approve {
-    my($type, $conf, $spoc, $raw) = @_;
-    my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc, $raw);
+    my($type, $conf, $spoc) = @_;
+    my ($status, $stdout, $stderr) =
+        compare_files($type, $conf, $spoc);
 
     # 0: Success, 1: compare found diffs
     if ($status != 0 && $status != 1) {
@@ -143,8 +183,9 @@ sub approve {
 }
 
 sub approve_err {
-    my($type, $conf, $spoc, $raw) = @_;
-    my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc, $raw);
+    my($type, $conf, $spoc) = @_;
+    my ($status, $stdout, $stderr) =
+        compare_files($type, $conf, $spoc);
     return($stderr);
 }
 
@@ -232,5 +273,25 @@ sub check_parse_and_unchanged {
     $title = "Empty out on identical in ($1)";
     eq_or_diff( approve( $type, $in, $in ), $out, $title );
 }
+
+sub drc3_err {
+    my ($type, $devicename, $spoc, $expected, $title) = @_;
+    my $spoc_file = prepare_spoc($type, $devicename, $spoc);
+
+    # Prepare config file.
+    my $config_file = "$dir/.netspoc-approve";
+    write_file($config_file, <<"END");
+netspocdir = $dir
+lockfiledir = $dir
+checkbanner = NetSPoC
+timeout = 1
+END
+    $ENV{HOME} = $dir;
+
+    my ($status, $stdout, $stderr) = run("bin/drc3.pl -q $spoc_file");
+    eq_or_diff($stderr, $expected, $title);
+}
+
+
 
 1;

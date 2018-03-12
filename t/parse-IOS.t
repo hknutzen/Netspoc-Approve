@@ -683,13 +683,13 @@ interface Ethernet1
 END
 
 $out = <<END;
-interface Ethernet1
-no ip access-group test in
-no ip access-list extended test
 ip access-list extended test-DRC-0
 permit ip host 10.0.1.1 any
 interface Ethernet1
 ip access-group test-DRC-0 out
+interface Ethernet1
+no ip access-group test in
+no ip access-list extended test
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
@@ -1164,15 +1164,15 @@ interface Ethernet1
 END
 
 $out = <<END;
-crypto map crypto-Ethernet1 1
-no set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
-no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 ip access-list extended crypto-filter-Ethernet1-1-DRC-1
 permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
 permit tcp host 10.127.18.1 host 10.1.11.40 eq 49
 deny ip any any
 crypto map crypto-Ethernet1 1
 set ip access-group crypto-filter-Ethernet1-1-DRC-1 out
+crypto map crypto-Ethernet1 1
+no set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
+no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 END
 
 eq_or_diff(approve('IOS', $device, $in), $out, $title);

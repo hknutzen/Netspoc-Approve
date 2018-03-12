@@ -41,7 +41,10 @@ suid-support/suid-newpolicy.c
 t/ASA-modify-ACL.t
 t/Linux.t
 t/Test_Approve.pm
+t/drc3.t
 t/get-conf.t
+t/merge_IPv6.t
+t/missing-approve.t
 t/parse-ASA.t
 t/parse-IOS.t
 t/parse-NX-OS.t

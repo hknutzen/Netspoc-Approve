@@ -31,12 +31,13 @@ package Netspoc::Approve::Helper;
 require Exporter;
 use strict;
 use warnings;
+use NetAddr::IP::Util;
 
-our $VERSION = '1.123'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.0'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(info abort warn_info internal_err debug
-                 quiet quad2int int2quad is_ip max
+                 quiet quad2bitstr is_ip is_ipv6 max
 );
 
 my $verbose = 1;
@@ -71,10 +72,16 @@ sub debug {
     info(@_);     # uncoverable statement
 }
 
-sub quad2int {
+sub quad2bitstr {
     ($_[0] =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/) or return;
     ($1 < 256 && $2 < 256 && $3 < 256 && $4 < 256) or return;
-    return $1 << 24 | $2 << 16 | $3 << 8 | $4;
+    return pack 'C4', $1, $2, $3, $4;
+}
+
+sub is_ipv6 {
+    my ($bitstr) = @_;
+    my $bits = split(//, unpack('b*', $bitstr));
+    return $bits == 128;
 }
 
 sub max {

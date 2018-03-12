@@ -18,7 +18,7 @@ Integrates NetSPoC with version control / build management.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -137,8 +137,10 @@ chdir($next) or log_abort("Can't 'cd $next': $!");
 
 # Check out newest files from repository
 # into subdirectory "src" of new policy directory.
-# Prune empty directories.
-system('cvs', '-Q', 'checkout', '-P', '-d', 'src', $module) == 0 or
+# Must not use option '-P' to prune empty directories, because
+# up-to-date check of outer 'newpolicy' script would otherwise
+# recognize empty directories as new directories.
+system('cvs', '-Q', 'checkout', '-d', 'src', $module) == 0 or
     log_abort("Can't checkout to $psrc: $!");
 
 # Read current policy name from POLICY file.
@@ -230,6 +232,9 @@ if ($? == 0) {
     if ($prev_policy) {
         my $prev_code = "$policydb/$prev_policy/code";
         unlink glob("$prev_code/*.config $prev_code/*.rules");
+        if ( -e "$prev_code/ipv6") {
+            unlink glob("$prev_code/ipv6/*.config $prev_code/ipv6/*.rules");
+        }
     }
 
     # Success.
