@@ -580,12 +580,12 @@ my $icmp6_regex = join('|', '\d+', keys %ICMP6_Names);
 # ->{TYPE} / ->{CODE} (if defined)
 sub parse_icmp_spec {
     my ($self, $arg, $version) = @_;
-    my ($regex, %names, $type, $code);
-    $regex = $version eq 'icmp'? $icmp_regex : $icmp6_regex;
+    my $regex = $version eq 'icmp'? $icmp_regex : $icmp6_regex;
     my $token = check_regex($regex, $arg);
     return({}) if not defined $token;
-    %names = $version eq 'icmp'? %ICMP_Names : %ICMP6_Names;
-    if (my $spec = $names{$token}) {
+    my ($type, $code);
+    my $names = $version eq 'icmp'? \%ICMP_Names : \%ICMP6_Names;
+    if (my $spec = $names->{$token}) {
         ($type, $code) = @{$spec}{ 'type', 'code' };
     }
     else {
