@@ -299,6 +299,36 @@ END
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
 
 ############################################################
+$title = "Must not bind same ACL at different interfaces";
+############################################################
+
+$device = <<END;
+interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
+END
+
+$spoc = {
+spoc4 => <<END
+interface Ethernet1
+ ip address 10.1.1.1 255.255.255.0
+END
+,
+raw4 => <<END
+ip access-list extended in_out
+ permit ip any host 10.0.6.1
+interface Ethernet1
+ ip access-group in_out in
+ ip access-group in_out out
+END
+};
+
+$out = <<END;
+ERROR>>> Name clash for 'in_out' of ACCESS_LIST from raw
+END
+
+eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
+
+############################################################
 $title = "Unbound ACLs in raw";
 ############################################################
 $device = <<END;
