@@ -234,6 +234,10 @@ sub get_parse_info {
             default => 1,
         },
 
+        'access-group _skip global' => {
+            error => 'Global access-list not supported'
+        },
+
 # access-group <access_list_name> {in|out} interface <if_name>
         'access-group' => {
             store =>'ACCESS_GROUP',

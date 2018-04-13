@@ -446,6 +446,24 @@ END
 eq_or_diff(approve('ASA', $device, $device), $out, $title);
 
 ############################################################
+$title = "Unsupported global ACL ";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+access-list global_ACL extended permit tcp any any eq 22
+access-group global_ACL global
+END
+
+$out = <<'END';
+ERROR>>> Global access-list not supported
+ERROR>>>  at line 8, pos 1:
+ERROR>>> >>access-group global_ACL global<<
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";
 ############################################################
 # Differences are ignored.
