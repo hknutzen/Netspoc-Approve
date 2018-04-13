@@ -91,7 +91,7 @@ my %opts;
 );
 
 if ($opts{v}) {
-    info $version;
+    info "drc3.pl, version $version";
     exit;
 }
 delete($opts{q}) and quiet();
