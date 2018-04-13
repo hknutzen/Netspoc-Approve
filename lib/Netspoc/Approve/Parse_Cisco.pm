@@ -231,29 +231,6 @@ sub get_ip_prefix {
     return($base, $mask);
 }
 
-# parse arguments like 'ip access-group <name> in'
-sub get_name_in_out {
-    my($arg) = @_;
-    my $name = get_token($arg);
-    my $direction = get_regex('in|out', $arg);
-    return { $direction => $name };
-}
-
-sub get_paren_token {
-    my($arg) = @_;
-    my $token = get_token($arg);
-    my($inside) = ($token =~ /^\((.*)\)$/) or
-	err_at_line($arg, 'Expected parenthesized value(s)');
-    if(wantarray) {
-	split(/,/, $inside);
-    }
-    else {
-	my($result, @rest) = split(/,/, $inside);
-	@rest and err_at_line($arg, 'Expected exactly one parenthesized value');
-	$result;
-    }
-}
-
 # Read list of auth. and encr. methods.
 # Read up to 3 values, sort and return as space separated string.
 # Sorting is needed to make different definitions comparable.
