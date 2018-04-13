@@ -96,12 +96,12 @@ my $title;
 ############################################################
 $title = "missing approve - no status file for ipv4 device";
 ############################################################
-%$spocfiles = (
+$spocfiles = {
 
 'p501/code/A' => <<END
 lalala
 END
-);
+};
 
 $current = 'p501';
 $out = <<END;
@@ -114,7 +114,7 @@ test_run($spocfiles, $current, $statusfiles, $out, $title);
 $title = "missing approve - no status file for ipv4 and ipv6 devices";
 ############################################################
 
-%$spocfiles = (
+$spocfiles = {
 
 'p501/code/A' => <<END
 Code for device A.
@@ -123,8 +123,7 @@ END
 'p501/code/ipv6/B' => <<END
 Code for device B.
 END
-,
-);
+};
 
 $current = 'p501';
 $out = <<END;
@@ -137,7 +136,7 @@ test_run($spocfiles, $current, $statusfiles, $out, $title);
 ############################################################
 $title = "last approved/compared version differs from current version";
 ############################################################
-%$spocfiles = (
+$spocfiles = {
 
 'p501/code/A' => <<END
 Code for device A.
@@ -154,11 +153,9 @@ END
 'p500/code/ipv6/B' => <<END
 Old code for device B.
 END
-,
-)
-;
+};
 
-%$statusfiles = (
+$statusfiles = {
 
 'A' => <<END
 f1;f2;p500;OK;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p500;f15;1519980299;1519980388;
@@ -168,8 +165,7 @@ END
 f1;f2;p501;***ERRORS***;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p500;f15;1519980492;1519980388;
 END
 ,
-)
-;
+};
 
 $current = 'p501';
 
@@ -184,7 +180,7 @@ test_run($spocfiles, $current, $statusfiles, $out, $title);
 $title = "last approved/compared version equals current version";
 ############################################################
 
-%$spocfiles = (
+$spocfiles = {
 
 'p501/code/A' => <<END
 Code for device A.
@@ -201,11 +197,9 @@ END
 'p500/code/ipv6/B' => <<END
 Code for device B.
 END
-,
-)
-;
+};
 
-%$statusfiles = (
+$statusfiles = {
 
 'A' => <<END
 f1;f2;p500;OK;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p500;f15;1519980299;1519980388;
@@ -214,9 +208,7 @@ END
 'B' => <<END
 f1;f2;p501;***ERRORS***;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p500;f15;1519980492;1519980388;
 END
-,
-)
-;
+};
 
 $current = 'p501';
 $out = '';

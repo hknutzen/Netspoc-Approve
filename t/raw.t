@@ -21,7 +21,7 @@ my $title;
 ############################################################
 $title = "Merge routing IOS";
 ############################################################
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 ip route 10.20.0.0 255.248.0.0 10.1.2.3
 ip route 10.22.0.0 255.255.0.0 10.1.2.4
@@ -31,7 +31,7 @@ raw4 => <<END
 ip route 10.22.0.0 255.255.0.0 10.1.2.4
 ip route 10.0.0.0 255.0.0.0 10.1.2.2
 END
-);
+};
 
 $out = <<END;
 ip route 10.22.0.0 255.255.0.0 10.1.2.4
@@ -45,7 +45,7 @@ eq_or_diff( approve('IOS', '', $spoc), $out, $title );
 ############################################################
 $title = "Merge routing ASA";
 ############################################################
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 route inside 10.20.0.0 255.248.0.0 10.1.2.3
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
@@ -55,7 +55,7 @@ raw4 => <<END
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
 route inside 10.0.0.0 255.0.0.0 10.1.2.2
 END
-);
+};
 
 $out = <<END;
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
@@ -69,7 +69,7 @@ eq_or_diff( approve('ASA', '', $spoc ), $out, $title );
 ############################################################
 $title = "Merge routing NX-OS";
 ############################################################
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 vrf context one
  ip route 10.20.0.0/19 10.1.2.3
@@ -81,7 +81,7 @@ ip route 10.22.0.0/16 10.1.2.4
 vrf context two
  ip route 10.0.0.0/8 10.1.2.2
 END
-);
+};
 
 $out = <<END;
 ip route 10.22.0.0/16 10.1.2.4
@@ -97,7 +97,7 @@ eq_or_diff( approve('NX-OS', '', $spoc), $out, $title );
 ############################################################
 $title = "Merge routing Linux";
 ############################################################
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 ip route add 10.20.0.0/19 via 10.1.2.3
 ip route add 10.22.0.0/16 via 10.1.2.4
@@ -107,7 +107,7 @@ raw4 => <<END
 ip route add 10.22.0.0/16 via 10.1.2.4
 ip route add 10.0.0.0/8 via 10.1.2.2
 END
-);
+};
 
 $out = <<END;
 ip route add 10.20.0.0/19 via 10.1.2.3
@@ -121,7 +121,7 @@ eq_or_diff( approve('Linux', '', $spoc), $out, $title );
 ############################################################
 $title = "Different next hop";
 ############################################################
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
@@ -129,7 +129,7 @@ END
 raw4 => <<END
 ip route 10.20.0.0 255.255.0.0 10.1.2.4
 END
-);
+};
 
 $out = <<END;
 ip route 10.20.0.0 255.255.0.0 10.1.2.4
@@ -141,14 +141,14 @@ eq_or_diff( approve('IOS', '', $spoc), $out, $title );
 ############################################################
 $title = "No routing in [APPEND] part";
 ############################################################
-%$spoc = (
+$spoc = {
 spoc4 => '',
 
 raw4 => <<END
 [APPEND]
 ip route 10.22.0.0/16 10.1.2.4
 END
-);
+};
 
 $out = <<END;
 ERROR>>> Must only use ACLs in [APPEND] part, but found ROUTING_VRF
@@ -164,7 +164,7 @@ interface Ethernet1
  ip address 10.0.6.1 255.255.255.0
 END
 
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
@@ -184,7 +184,7 @@ ip access-list extended Ethernet1_in
 interface Ethernet1
  ip access-group Ethernet1_in in
 END
-);
+};
 
 $out = <<END;
 ip access-list extended Ethernet1_in-DRC-0
@@ -206,7 +206,7 @@ interface Ethernet1
  ip address 10.0.6.1 255.255.255.0
 END
 
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
@@ -221,7 +221,7 @@ ip access-list extended Ethernet1_out
 interface Ethernet1
  ip access-group Ethernet1_out out
 END
-);
+};
 
 $out = <<END;
 ip access-list extended Ethernet1_in-DRC-0
@@ -247,7 +247,7 @@ interface Ethernet1
  ip address 10.0.6.1 255.255.255.0
 END
 
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 interface Ethernet1
  ip access-group Ethernet1_in in
@@ -259,7 +259,7 @@ ip access-list extended Ethernet0_in
 interface Ethernet0
  ip access-group Ethernet0_in out
 END
-);
+};
 
 $out = <<'END';
 WARNING>>> Interface Ethernet0 referenced in raw doesn't exist in Netspoc
@@ -275,7 +275,7 @@ interface Ethernet1
  ip address 10.0.6.1 255.255.255.0
 END
 
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
@@ -290,7 +290,7 @@ ip access-list extended Ethernet1_in
 interface Ethernet1
  ip access-group Ethernet1_in out
 END
-);
+};
 
 $out = <<END;
 ERROR>>> Name clash for 'Ethernet1_in' of ACCESS_LIST from raw
@@ -336,7 +336,7 @@ interface Ethernet1
  ip address 10.0.6.1 255.255.255.0
 END
 
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
@@ -351,7 +351,7 @@ ip access-list extended Ethernet1_in
 ip access-list extended Ethernet0_in
  deny ip host 10.0.6.0 any
 END
-);
+};
 
 $out = <<END;
 ERROR>>> Found unbound ACCESS_LIST in raw: Ethernet0_in, Ethernet1_in
@@ -368,7 +368,7 @@ interface Ethernet0/1
  nameif inside
 END
 
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 object-group network g1
  network-object host 2.2.2.2
@@ -382,7 +382,7 @@ raw4 => <<END
 object-group network g1
  network-object host 1.1.1.1
 END
-);
+};
 
 $out = <<'END';
 ERROR>>> Name clash for 'g1' of OBJECT_GROUP from raw
@@ -394,7 +394,7 @@ eq_or_diff(approve_err('ASA', $device, $spoc), $out, $title);
 $title = "Merge Linux chains";
 ############################################################
 
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 *filter
 :INPUT DROP
@@ -416,7 +416,7 @@ raw4 => <<END
 :INPUT DROP
 -A INPUT -i eth0 -p udp -d 224.0.1.1/32 --dport 123 -j DROP
 END
-);
+};
 
 $out = <<'END';
 iptables differs at [keys: <->filter,mangle]
@@ -443,7 +443,7 @@ eq_or_diff( approve('Linux', '', $spoc), $out, $title );
 $title = "Must not reference Netspoc generated chain";
 ############################################################
 
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 *filter
 :INPUT DROP
@@ -457,7 +457,7 @@ raw4 => <<END
 :c1 -
 -A c1 -s 10.0.7.0/24 -j ACCEPT
 END
-);
+};
 
 $out = <<'END';
 ERROR>>> Must not redefine chain 'c1' from rawdata
@@ -474,7 +474,7 @@ interface Ethernet0/1
  nameif outside
 END
 
-%$spoc = (
+$spoc = {
 spoc4 => <<END
 interface Ethernet0/1
  nameif outside
@@ -498,7 +498,7 @@ group-policy DfltGrpPolicy attributes
  pfs enable
  nem enable
 END
-);
+};
 
 $out = <<'END';
 crypto ipsec ikev1 transform-set ESP-AES-256-SHA-DRC-0 esp-aes-256 esp-sha-hmac
