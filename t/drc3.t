@@ -126,4 +126,39 @@ END
 drc3_err('ASA', 'router', $spoc, $out, $title);
 
 ############################################################
+$title = "Invalid option";
+############################################################
+
+$out = <<'END';
+Unknown option: h
+usage: 'drc3.pl [options] <file>'
+   or: 'drc3.pl <file1> <file2>'
+Compare / approve file with device or compare two files.
+ -C                   compare only
+ -u <username>        use username for login to remote device
+ -q                   suppress info messages to STDERR
+ -L <logdir>          path for saving session logs
+ --LOGFILE <fullpath> path to redirect STDOUT and STDERR
+ -v                   print program version
+
+END
+
+my ($status, $stdout, $stderr) = run("bin/drc3.pl -h");
+
+eq_or_diff($stderr, $out, $title);
+
+############################################################
+$title = "Show version";
+############################################################
+
+$out = <<'END';
+drc3.pl, version TESTING
+END
+
+my ($status, $stdout, $stderr) = run("bin/drc3.pl -v");
+$stderr =~ s/(?<=^drc3.pl, version ).*/TESTING/;
+
+eq_or_diff($stderr, $out, $title);
+
+############################################################
 done_testing;
