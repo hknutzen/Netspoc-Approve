@@ -140,7 +140,8 @@ chdir($next) or log_abort("Can't 'cd $next': $!");
 # Must not use option '-P' to prune empty directories, because
 # up-to-date check of outer 'newpolicy' script would otherwise
 # recognize empty directories as new directories.
-system('cvs', '-Q', 'checkout', '-d', 'src', $module) == 0 or
+# Ignore '.cvsrc' to not accidently activate option '-P'.
+system('cvs', '-Q', '-f', 'checkout', '-d', 'src', $module) == 0 or
     log_abort("Can't checkout to $psrc: $!");
 
 # Read current policy name from POLICY file.
