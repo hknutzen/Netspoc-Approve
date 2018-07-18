@@ -163,6 +163,7 @@ object-group ip address g1
 ip access-list inside
  10 permit ip addrgroup g1 any
 interface Ethernet0/0
+ ip address 10.1.0.1/24
  ip access-group inside in
 interface Ethernet0/1
  ip address 10.1.1.1/24

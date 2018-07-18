@@ -766,6 +766,28 @@ sub login_enable {
     $self->{ENAPROMPT} = qr/$prefix\S*\#[ ]?/;
 }
 
+sub check_device_IP {
+    my ($self, $name, $conf_intf, $spoc_intf) = @_;
+    my $get_addr = sub {
+        my ($intf) = @_;
+        if ($intf->{UNNUMBERED}) {
+            return 'unnumbered';
+        }
+        my $addr = $intf->{ADDRESS} or return 'missing';
+        if (my $dyn = $addr->{DYNAMIC}) {
+            return $dyn;
+        }
+
+        # ip address 10.1.1.0 255.255.255.0 --> 10.1.1.0 255.255.255.0
+        return $addr->{orig} =~ s/^ .*address //r;
+    };
+    my $conf_addr = $get_addr->($conf_intf);
+    my $spoc_addr = $get_addr->($spoc_intf);
+    return if $spoc_addr eq $conf_addr;
+    warn_info("Different address defined for interface $name:" .
+              " Conf: $conf_addr, Netspoc: $spoc_addr");
+}
+
 # All active interfaces on device must be known by Netspoc.
 sub check_device_interfaces {
     my ($self, $conf, $spoc) = @_;
@@ -810,6 +832,7 @@ sub check_spoc_interfaces {
                 push(@errors,
                      "Different VRFs defined for interface $name:" .
                      " Conf: $conf_vrf, Netspoc: $spoc_vrf");
+            $self->check_device_IP($name, $conf_intf, $spoc_intf);
         }
         else {
 

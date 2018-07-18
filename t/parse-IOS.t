@@ -1244,6 +1244,7 @@ END
 
 $out = <<'END';
 WARNING>>> Interface 'Serial2' on device is not known by Netspoc
+WARNING>>> Different address defined for interface Serial1: Conf: ip address 10.1.1.1 255.255.255.0, Netspoc: ip address 10.1.2.1 255.255.255.0
 END
 
 eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
