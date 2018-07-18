@@ -7,7 +7,7 @@
 # but shows output of running processes to multiple users.
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -48,8 +48,9 @@ uptodate () {
     # Must use relative pathname for suid-cvs.
     # Check stdout for changed files.
     # Check stderr for removed files and for new directories.
+    # Ignore '.cvsrc' to not accidently activate option '-P'.
     # Ok, if nothing is found.
-    [ -z "$(cd $SRC && cvs -n -q update 2>&1)" ]
+    [ -z "$(cd $SRC && cvs -n -q -f update 2>&1)" ]
 }
 
 # Show compile.log as long the file is locked.

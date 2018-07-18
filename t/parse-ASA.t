@@ -27,7 +27,7 @@ $title = "Add IPV6-access list";
 ############################################################
 $device = $minimal_device;
 
-%$in = (
+$in = {
 spoc6 => <<END
 access-list inside_in extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
 access-list inside_in extended deny ip any any
@@ -36,7 +36,7 @@ access-group inside_in in interface inside
 access-list outside_in extended deny ip any any
 access-group outside_in in interface outside
 END
-);
+};
 
 $out = <<END;
 access-list inside_in-DRC-0 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
@@ -60,7 +60,7 @@ access-list outside_in extended deny ip any any
 access-group outside_in in interface outside
 END
 
-%$in = (
+$in = {
 spoc6 => <<END
 access-list inside_in extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
 access-list inside_in extended deny ip any any
@@ -68,9 +68,8 @@ access-group inside_in in interface inside
 
 access-list outside_in extended deny ip any any
 access-group outside_in in interface outside
-
 END
-);
+};
 
 $out = <<END;
 access-list inside_in line 1 extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
@@ -84,11 +83,11 @@ $title = "IPv6 routing - add new route";
 ############################################################
 $device = $minimal_device;
 
-%$in = (
+$in = {
 spoc6 => <<END
 ipv6 route outside 10::3:0/112 10::2:2
 END
-);
+};
 
 $out = <<END;
 ipv6 route outside 10::3:0/112 10::2:2
@@ -104,11 +103,11 @@ $device .= <<'END';
 ipv6 route outside 10::3:0/112 10::2:2
 END
 
-%$in = (
+$in = {
 spoc6 => <<END
 ipv6 route outside 10::3:0/112 10::2:2
 END
-);
+};
 
 $out = <<END;
 END
@@ -123,11 +122,11 @@ $device .= <<'END';
 ipv6 route outside 10::3:0/112 10::2:2
 END
 
-%$in = (
+$in = {
 spoc6 => <<END
 ipv6 route outside 10::3:0/120 10::2:2
 END
-);
+};
 
 $out = <<END;
 ipv6 route outside 10::3:0/120 10::2:2
@@ -144,11 +143,11 @@ $device .= <<'END';
 ipv6 route outside 10::3:0/120 10::2:2
 END
 
-%$in = (
+$in = {
 spoc6 => <<END
 ipv6 route outside 10::3:0/112 10::2:2
 END
-);
+};
 
 $out = <<END;
 ipv6 route outside 10::3:0/112 10::2:2
@@ -162,7 +161,7 @@ $title = "Abort on 1 instead of icmp in raw file";
 ############################################################
 $device = $minimal_device;
 
-%$in = (
+$in = {
 spoc4 => <<END
 access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in extended deny ip any4 any4
@@ -173,7 +172,7 @@ raw4 => <<END
 access-list inside_in extended permit 1 any4 any4 3 6
 access-group inside_in in interface inside
 END
-);
+};
 
 $out = <<END;
 ERROR>>> Don\'t use numeric proto for
@@ -189,7 +188,7 @@ $title = "Abort on 58 instead of icmp6 in raw file";
 ############################################################
 $device = $minimal_device;
 
-%$in = (
+$in = {
 spoc6 => <<END
 access-list inside_in extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
 access-list inside_in extended deny ip any6 any6
@@ -200,7 +199,7 @@ raw6 => <<END
 access-list inside_in extended permit 58 any6 any6 128
 access-group inside_in in interface inside
 END
-);
+};
 
 $out = <<END;
 ERROR>>> Don\'t use numeric proto for
@@ -221,13 +220,13 @@ access-list inside_in extended permit icmp6 any6 any6 echo-reply
 access-group inside_in in interface inside
 END
 
-%$in = (
+$in = {
 spoc6 => <<END
 access-list inside_in extended permit icmp6 any6 any6 128
 access-list inside_in extended permit icmp6 any6 any6 129
 access-group inside_in in interface inside
 END
-);
+};
 
 $out = <<END;
 END
@@ -447,6 +446,24 @@ END
 eq_or_diff(approve('ASA', $device, $device), $out, $title);
 
 ############################################################
+$title = "Unsupported global ACL ";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
+access-list global_ACL extended permit tcp any any eq 22
+access-group global_ACL global
+END
+
+$out = <<'END';
+ERROR>>> Global access-list not supported
+ERROR>>>  at line 8, pos 1:
+ERROR>>> >>access-group global_ACL global<<
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";
 ############################################################
 # Differences are ignored.
@@ -486,6 +503,7 @@ crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside interface outside
 crypto ca certificate map some-name 10
  subject-name attr ea eq some-name
+ extended-key-usage co 1.3.6.1.4.1.311.20.2.2
 tunnel-group some-name type ipsec-l2l
 tunnel-group some-name ipsec-attributes
  peer-id-validate nocheck
@@ -502,6 +520,7 @@ ikev2 remote-authentication certificate
 peer-id-validate nocheck
 crypto ca certificate map some-name-DRC-0 10
 subject-name attr ea eq some-name
+extended-key-usage co 1.3.6.1.4.1.311.20.2.2
 tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
 access-list crypto-acl1-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
@@ -1076,6 +1095,98 @@ $out = <<'END';
 tunnel-group NAME webvpn-attributes
 authentication aaa
 no tunnel-group NAME ipsec-attributes
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Add extended-key-usage";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group NAME type remote-access
+tunnel-group NAME ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 NAME
+END
+
+$in = <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ extended-key-usage co clientauth
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+$out = <<'END';
+crypto ca certificate map ca-map 10
+extended-key-usage co clientauth
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Remove extended-key-usage";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group NAME type remote-access
+tunnel-group NAME ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ extended-key-usage co clientauth
+tunnel-group-map ca-map 20 NAME
+END
+
+$in = <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+$out = <<'END';
+crypto ca certificate map ca-map 10
+no extended-key-usage co clientauth
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Change extended-key-usage";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group NAME type remote-access
+tunnel-group NAME ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group-map ca-map 20 NAME
+END
+
+$in = <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ extended-key-usage co clientauth
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+# ToDo:
+# Old value should be removed first:
+# no extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+# This has to be done manually now.
+$out = <<'END';
+crypto ca certificate map ca-map 10
+extended-key-usage co clientauth
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 

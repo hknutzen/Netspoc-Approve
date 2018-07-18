@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.0'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.1'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -189,34 +189,15 @@ sub load_spocfile {
 # Purpose    : Loads a .raw file (IPv4 or IPv6) linewise into
 #              @append and @prepend array.
 # Parameters : $path - $path of netspoc config file.
-#              $dual_stack - flag for dual stack device. Usage of 'any' is
-#              forbidden in raw files.
 # Returns    : Arrays containing append and prepend part of raw file.
 sub load_raw {
-    my ($self, $path, $dual_stack) = @_;
+    my ($self, $path) = @_;
     my $raw = "$path.raw";
     my @prepend;
     if (-f $raw) {
         open(my $file, '<', $raw) or abort("Can't open $raw: $!");
         @prepend = <$file>;
         close $file;
-    }
-
-    # Check for proper any usage.
-    if ($dual_stack){
-        for (my $i = 0; $i < @prepend; $i++) {
-
-            # Ignore comment lines.
-            next if $self->isa('Linux')?
-                $prepend[$i] =~ /^\s*#/ : $prepend[$i] =~ /^ *!/;
-
-            if ($prepend[$i] =~ /\s+any\s+/) {
-                my $file = $path =~ /\/ipv6\//?
-                    "ipv6/" . basename($path) : basename($path);
-                abort("Usage of bare any in " . $file . ".raw line " .
-                      ($i+1) . " is not allowed for dual stack device.");
-            }
-        }
     }
 
     # Find [APPEND] line.
@@ -228,8 +209,6 @@ sub load_raw {
             last;
         }
     }
-
-
 
     # Split at [APPEND] line.
     my @append;
@@ -258,11 +237,10 @@ sub load_raw {
 #              raw file of a device into config hashes. Merges raw hash
 #              into config hash.
 # Parameters : $path - $path of netspoc config file.
-#              $dual_stack - flag for dual stack device. Usage of 'any' is
-#              forbidden in raw files.
+#              $ip_version - expected version: 'ipv4' or 'ipv6'.
 # Returns    : Config hash including .raw input.
 sub prepare_config {
-    my ($self, $path, $dual_stack) = @_;
+    my ($self, $path, $ip_version) = @_;
 
     my ($lines, $conf);
     $lines = $self->load_spocfile($path) if -f $path;
@@ -271,9 +249,9 @@ sub prepare_config {
     # Merge rawdata into config
     my ($prepend, $append, $raw_prepend, $raw_append);
     if (-f "$path.raw") {
-        ($prepend, $append) = $self->load_raw($path, $dual_stack);
-        $raw_prepend  = $self->parse_config($prepend, 'strict');
-        $raw_append   = $self->parse_config($append, 'strict');
+        ($prepend, $append) = $self->load_raw($path);
+        $raw_prepend = $self->parse_config($prepend, $ip_version);
+        $raw_append  = $self->parse_config($append, $ip_version);
     }
 
     if ($raw_prepend or $raw_append) {
@@ -284,9 +262,20 @@ sub prepare_config {
     return $conf;
 }
 
-# Flag for Devices with IPv4 Netspoc-input only. Needed for adjustment
-# of any/any4 usage within ASA-Versions < 9.
-our $IPv4_only;
+sub get_ipv6_path {
+    my ($self, $path) = @_;
+    my $dir = dirname($path);
+    my $filename = basename($path);
+    return "$dir/ipv6/$filename";
+}
+
+# Mark IPv4 only device. Use of 'any' is assumed to be equivalent to 'any4'.
+sub mark_IPv4_only {
+    my ($self, $path) = @_;
+    my $path6 = $self->get_ipv6_path($path);
+    $self->{IPv4_only} = not (-e $path6 or -e "$path6.raw");
+}
+
 #########################################################################
 # Purpose    : Loads and parses all netspoc input files for a device (<file>,
 #              <file>.raw, ipv6/<file>, ipv6/<file>.raw, into a common
@@ -296,19 +285,10 @@ our $IPv4_only;
 # Returns    : Combined ipv4/ipv6 config hash from all input files.
 sub load_spoc {
     my ($self, $path) = @_;
+    my $path6 = $self->get_ipv6_path($path);
 
-    my $dir = dirname($path);
-    my $filename = basename($path);
-    my $path6 = "$dir/ipv6/$filename";
-
-    # Identify Dual Stack Devices. Use of 'any' is forbidden in raw file then.
-    my $dual_stack;
-    (-e $path or -e "$path.raw") and (-e $path6 or -e "$path6.raw")
-        and $dual_stack = 1;
-    $IPv4_only = (-e $path6 or -e "$path6.raw")? 0 : 1;
-
-    my $conf = $self->prepare_config($path, $dual_stack);
-    my $conf6 = $self->prepare_config("$path6", $dual_stack);
+    my $conf = $self->prepare_config($path, 'ipv4');
+    my $conf6 = $self->prepare_config($path6, 'ipv6');
 
     # Check whether both IPv4 and IPv6 config exist. Merge if so.
     if ($conf and $conf6) {
@@ -604,14 +584,16 @@ sub parse_config1 {
 #              pairs as given by 'parse' directions of parse_info.
 #              Caution: Hash structure is modified by postprocess_config.
 # Parameters : $lines - Array containing config file lines as entries.
-#            : $strict - flag, is set if lines contains a raw file.
+#            : $strict - flag / string
+#              - If set, aborts on unknown commands in input from raw files.
+#              - Value 'ipv4' / 'ipv6' restricts allowed addresses in ACLs.
 # Returns    : $result hash storing all config commands ordered by type.
 sub parse_config {
     my ($self, $lines, $strict) = @_;
     my $parse_info = $self->get_parse_info();
     my $config = $self->analyze_conf_lines($lines, $parse_info, $strict);
     my $result = $self->parse_config1($config);
-    $self->postprocess_config($result);
+    $self->postprocess_config($result, $strict);
     return $result;
 }
 
@@ -1078,11 +1060,9 @@ sub compare {
     $self->{COMPARE} = 1;
     $self->con_setup();
     $self->prepare_device();
+    $self->mark_IPv4_only($spoc_path);
     my $spoc_conf = $self->load_spoc($spoc_path);
     my $device_conf = $self->load_device();
-    # Adjust any/any4 usage for IPv4 only devices (needed for ASA Version <9).
-    $IPv4_only and $self->isa('Netspoc::Approve::ASA')
-        and $self->postprocess_anys($spoc_conf, $device_conf);
     my $result = $self->compare_common($device_conf, $spoc_conf);
     $self->con_shutdown();
     return($result);
@@ -1091,11 +1071,9 @@ sub compare {
 sub compare_files {
     my ($self, $path1, $path2) = @_;
     $self->{COMPARE} = 1;
+    $self->mark_IPv4_only($path2);
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
-    # Adjust any/any4 usage for IPv4 only devices (needed for ASA Version <9).
-    $IPv4_only and $self->isa('Netspoc::Approve::ASA')
-        and $self->postprocess_anys($conf1, $conf2);
     return $self->compare_common($conf1, $conf2);
 }
 
@@ -1103,11 +1081,9 @@ sub approve {
     my ($self, $spoc_path) = @_;
     $self->con_setup();
     $self->prepare_device();
+    $self->mark_IPv4_only($spoc_path);
     my $spoc_conf = $self->load_spoc($spoc_path);
     my $device_conf = $self->load_device();
-    # Adjust any/any4 usage for IPv4 only devices (needed for ASA Version <9).
-    $IPv4_only and $self->isa('Netspoc::Approve::ASA')
-        and $self->postprocess_anys($spoc_conf, $device_conf);
     $self->con_set_logtype('change');
     $self->transfer($device_conf, $spoc_conf);
     if($self->found_changes()) {
