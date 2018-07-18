@@ -503,6 +503,7 @@ crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside interface outside
 crypto ca certificate map some-name 10
  subject-name attr ea eq some-name
+ extended-key-usage co 1.3.6.1.4.1.311.20.2.2
 tunnel-group some-name type ipsec-l2l
 tunnel-group some-name ipsec-attributes
  peer-id-validate nocheck
@@ -519,6 +520,7 @@ ikev2 remote-authentication certificate
 peer-id-validate nocheck
 crypto ca certificate map some-name-DRC-0 10
 subject-name attr ea eq some-name
+extended-key-usage co 1.3.6.1.4.1.311.20.2.2
 tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
 access-list crypto-acl1-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
@@ -1093,6 +1095,98 @@ $out = <<'END';
 tunnel-group NAME webvpn-attributes
 authentication aaa
 no tunnel-group NAME ipsec-attributes
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Add extended-key-usage";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group NAME type remote-access
+tunnel-group NAME ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 NAME
+END
+
+$in = <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ extended-key-usage co clientauth
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+$out = <<'END';
+crypto ca certificate map ca-map 10
+extended-key-usage co clientauth
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Remove extended-key-usage";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group NAME type remote-access
+tunnel-group NAME ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ extended-key-usage co clientauth
+tunnel-group-map ca-map 20 NAME
+END
+
+$in = <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+$out = <<'END';
+crypto ca certificate map ca-map 10
+no extended-key-usage co clientauth
+END
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Change extended-key-usage";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+tunnel-group NAME type remote-access
+tunnel-group NAME ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group-map ca-map 20 NAME
+END
+
+$in = <<'END';
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel ipsec-attributes
+ trust-point ASDM_TrustPoint5
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ extended-key-usage co clientauth
+tunnel-group-map ca-map 20 VPN-tunnel
+END
+
+# ToDo:
+# Old value should be removed first:
+# no extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+# This has to be done manually now.
+$out = <<'END';
+crypto ca certificate map ca-map 10
+extended-key-usage co clientauth
 END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 

@@ -93,6 +93,7 @@ my %attr2cmd =
      },
      CA_CERT_MAP => {
          IDENTIFIER                => 'subject-name attr',
+         EXTENDED_KEY_USAGE        => 'extended-key-usage',
      },
      IP_LOCAL_POOL => {
          IP_LOCAL_POOL             => 'ip local pool',
@@ -778,7 +779,11 @@ sub get_parse_info {
             subcmd => {
                 'subject-name attr' => {
                     store => 'IDENTIFIER',
-                    parse => \&get_to_eol
+                    parse => \&get_to_eol,
+                },
+                'extended-key-usage' => {
+                    store => 'EXTENDED_KEY_USAGE',
+                    parse => \&get_to_eol,
                 },
             }
         },
@@ -2162,19 +2167,22 @@ sub change_attributes {
             push(@cmds, "access-group $value $direction interface $spoc_name");
         }
     }
-    elsif ($parse_name eq 'CA_CERT_MAP') {
-        if (my $tg_name = $attributes->{TUNNEL_GROUP_DEFINE}) {
-            push @cmds, "tunnel-group-map $spoc_name 10 $tg_name";
-        }
-        if (my $tg_name = $attributes->{WEB_TUNNEL_GROUP}) {
-            push(@cmds,
-                 "webvpn",
-                 "certificate-group-map $spoc_name 10 $tg_name");
-        }
-    }
     else {
         my $prefix;
-        if( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
+        if ($parse_name eq 'CA_CERT_MAP') {
+            if (my $tg_name = delete $attributes->{TUNNEL_GROUP_DEFINE}) {
+                push @cmds, "tunnel-group-map $spoc_name 10 $tg_name";
+            }
+            if (my $tg_name = delete $attributes->{WEB_TUNNEL_GROUP}) {
+                push(@cmds,
+                     "webvpn",
+                     "certificate-group-map $spoc_name 10 $tg_name");
+            }
+            if (keys %$attributes) {
+                push @cmds, item_conf_mode_cmd( $parse_name, $spoc_name );
+            }
+        }
+        elsif( $parse_name eq 'CRYPTO_MAP_SEQ' ) {
             $prefix = "crypto map $spoc_name";
         }
         elsif( $parse_name eq 'DYNAMIC_MAP' ) {
@@ -2743,7 +2751,7 @@ sub define_structure {
                       { attr_name  => 'WEB_TUNNEL_GROUP',
                         parse_name => 'TUNNEL_GROUP_DEFINE', },
                       ],
-            attributes => [ qw( IDENTIFIER ) ],
+            attributes => [ qw( IDENTIFIER EXTENDED_KEY_USAGE ) ],
             transfer    => 'transfer_ca_cert_map',
             remove      => 'remove_ca_cert_map',
         },
