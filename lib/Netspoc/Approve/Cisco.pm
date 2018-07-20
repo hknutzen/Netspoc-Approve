@@ -770,10 +770,15 @@ sub check_device_IP {
     my ($self, $name, $conf_intf, $spoc_intf) = @_;
     my $get_addr = sub {
         my ($intf) = @_;
-        if ($intf->{UNNUMBERED}) {
-            return 'unnumbered';
+        my $addr = $intf->{ADDRESS};
+        if (not $addr) {
+            if ($intf->{UNNUMBERED}) {
+                return 'unnumbered';
+            }
+            else {
+                return 'missing';
+            }
         }
-        my $addr = $intf->{ADDRESS} or return 'missing';
         if (my $dyn = $addr->{DYNAMIC}) {
             return $dyn;
         }
@@ -784,6 +789,7 @@ sub check_device_IP {
     my $conf_addr = $get_addr->($conf_intf);
     my $spoc_addr = $get_addr->($spoc_intf);
     return if $spoc_addr eq $conf_addr;
+    return if $spoc_addr eq 'negotiated';
     warn_info("Different address defined for interface $name:" .
               " Conf: $conf_addr, Netspoc: $spoc_addr");
 }
