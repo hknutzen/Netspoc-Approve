@@ -1750,7 +1750,18 @@ sub make_equal {
     # On dev but not on spoc. Unused, will be removed later.
     elsif ( $conf_value  &&  !$spoc_value ) {
 #       info("$parse_name => $conf_name on dev but not on spoc. ");
-        $modified = 1;
+
+        # Default tunnel-group and tunnel-group-map referencing
+        # default tunnel-group can't be removed.
+        if ($parse_name =~ /^(?:DEFAULT_TUNNEL_GROUP|TUNNEL_GROUP_DEFINE)$/
+            and
+            $default_tunnel_groups{$conf_name})
+        {
+            $conf_value->{needed} = 1;
+        }
+        else {
+            $modified = 1;
+        }
     }
 
     # Process child nodes recursively.
@@ -2385,10 +2396,6 @@ sub transfer_tunnel_group {
 
 sub remove_tunnel_group {
     my ( $self, $conf, $parse_name, $obj_name ) = @_;
-
-    # Default tunnel groups must not be removed, even if not referenced.
-    return if $default_tunnel_groups{$obj_name};
-
     $self->cmd("clear configure tunnel-group $obj_name");
 }
 
