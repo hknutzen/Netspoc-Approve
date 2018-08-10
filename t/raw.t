@@ -170,6 +170,7 @@ ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
  deny ip any any
 interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
  ip access-group Ethernet1_in in
 END
 ,
@@ -212,6 +213,7 @@ ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
  deny ip any any
 interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
  ip access-group Ethernet1_in in
 END
 ,
@@ -250,6 +252,7 @@ END
 $spoc = {
 spoc4 => <<END
 interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
  ip access-group Ethernet1_in in
 END
 ,
@@ -257,12 +260,14 @@ raw4 => <<END
 ip access-list extended Ethernet0_in
  deny ip host 10.0.6.1 any
 interface Ethernet0
+ ip address 10.0.5.1 255.255.255.0
  ip access-group Ethernet0_in out
 END
 };
 
 $out = <<'END';
 WARNING>>> Interface Ethernet0 referenced in raw doesn't exist in Netspoc
+WARNING>>> Different address defined for interface Ethernet0: Conf: 10.0.5.1 255.255.255.0, Netspoc: missing
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );

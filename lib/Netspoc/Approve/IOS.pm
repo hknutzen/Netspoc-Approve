@@ -84,7 +84,11 @@ sub get_parse_info {
                          { store => 'BASE', parse => \&get_ip, },
                          { store => 'MASK', parse => \&get_ip, } ]] },
             'ip address _skip _skip secondary' =>  {
-                parse => \&skip }, # ignore
+                store => 'SECONDARY',
+                multi => 1,
+                parse => ['seq',
+                          { store => 'BASE', parse => \&get_ip, },
+                          { store => 'MASK', parse => \&get_ip, } ] },
             'ip unnumbered' => {
               parse => \&get_token,
               store => 'UNNUMBERED',

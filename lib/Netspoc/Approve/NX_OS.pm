@@ -50,7 +50,12 @@ sub get_parse_info {
                     store => 'ADDRESS',
                 },
                 'ip address _skip secondary' =>  {
-                    parse => \&skip }, # ignore
+                    parse =>  ['seq',
+                               { parse => \&get_ip_prefix,
+                                 store_multi => ['BASE', 'MASK'] }],
+                    multi => 1,
+                    store => 'SECONDARY',
+                },
                 'ip unnumbered' => {
                     parse => \&get_token,
                     store => 'UNNUMBERED',

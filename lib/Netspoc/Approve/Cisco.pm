@@ -770,8 +770,8 @@ sub check_device_IP {
     my ($self, $name, $conf_intf, $spoc_intf) = @_;
     my $get_addr = sub {
         my ($intf) = @_;
-        my $addr = $intf->{ADDRESS};
-        if (not $addr) {
+        my $primary = $intf->{ADDRESS};
+        if (not $primary) {
             if ($intf->{UNNUMBERED}) {
                 return 'unnumbered';
             }
@@ -779,12 +779,20 @@ sub check_device_IP {
                 return 'missing';
             }
         }
-        if (my $dyn = $addr->{DYNAMIC}) {
+        if (my $dyn = $primary->{DYNAMIC}) {
             return $dyn;
         }
+        my $secondary = $intf->{SECONDARY} || [];
+        my @result;
+        for my $addr ($primary, @$secondary) {
 
-        # ip address 10.1.1.0 255.255.255.0 --> 10.1.1.0 255.255.255.0
-        return $addr->{orig} =~ s/^ .*address //r;
+            # ip address 10.1.1.0 255.255.255.0 --> 10.1.1.0 255.255.255.0
+            my $ip = $addr->{orig};
+            $ip =~ s/^.*address //;
+            $ip =~ s/ secondary$//;
+            push @result, $ip;
+        }
+        return join ',', sort @result;
     };
     my $conf_addr = $get_addr->($conf_intf);
     my $spoc_addr = $get_addr->($spoc_intf);
