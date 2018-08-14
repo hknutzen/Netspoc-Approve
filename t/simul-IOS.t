@@ -108,6 +108,7 @@ $title = "No credentials found ";
 # Reuse previous test data.
 
 my $dir = $ENV{HOME};
+
 my $credentials_file = "$dir/credentials";
 write_file($credentials_file, <<"END");
 pattern user pass
@@ -800,6 +801,24 @@ ERROR>>> foo
 END
 
 simul_err($title, 'IOS', $scenario, $in, $out);
+
+############################################################
+$title = "Log STDERR + STDOUT to file";
+############################################################
+# Reuse previous test data.
+
+$dir = $ENV{HOME};
+$out = <<"END";
+--log
+ERROR>>> write mem: unexpected result:
+ERROR>>> foo
+
+END
+
+($status, $stdout, $stderr) =
+    run("bin/drc3.pl -q -L $dir --LOGFILE $dir/log $dir/code/router");
+$stderr ||= '';
+check_output($title, $dir, $out, $stderr);
 
 ############################################################
 $title = "Must not move ACL line permitting device access";
