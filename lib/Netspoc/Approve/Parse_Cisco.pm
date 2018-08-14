@@ -35,7 +35,7 @@ use Regexp::IPv6 qw($IPv6_re);
 
 require Exporter;
 
-our $VERSION = '2.1'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.2'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT =

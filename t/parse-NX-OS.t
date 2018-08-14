@@ -33,6 +33,7 @@ ip access-list inside_in
  10 deny ip any any
 
 interface Ethernet0/0
+ ip address 10.1.8.0/29
  ip access-group inside_in in
 
 object-group ip port p0
@@ -51,6 +52,7 @@ ip access-list outside_in
  30 deny ip any any
 
 interface Ethernet0/1
+ ip address 10.1.32.0/28
  ip access-group outside_in in
 END
 
@@ -163,6 +165,7 @@ object-group ip address g1
 ip access-list inside
  10 permit ip addrgroup g1 any
 interface Ethernet0/0
+ ip address 10.1.0.1/24
  ip access-group inside in
 interface Ethernet0/1
  ip address 10.1.1.1/24
@@ -174,6 +177,7 @@ interface Ethernet0/0
 ip access-list outside
  10 permit ip host 1.1.1.1 any
 interface Ethernet0/1
+ ip address 10.1.1.1/24
  ip access-group outside out
 END
 
@@ -294,7 +298,27 @@ END
 
 $in = <<END;
 interface mgmt0
+ ip address 10.0.0.1/24
  vrf member management
+END
+
+$out = '';
+
+eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+
+############################################################
+$title = "Ignore swapped primary and secondary IP address";
+############################################################
+$device = <<END;
+interface Ethernet1
+ ip address 10.0.0.1/24
+ ip address 10.0.0.2/24 secondary
+END
+
+$in = <<END;
+interface Ethernet1
+ ip address 10.0.0.1/24 secondary
+ ip address 10.0.0.2/24
 END
 
 $out = '';

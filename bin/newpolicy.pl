@@ -135,11 +135,13 @@ $log_fh->autoflush(1);
 # Hence change into parent directory.
 chdir($next) or log_abort("Can't 'cd $next': $!");
 
-# Check out newest files from repository
-# into subdirectory "src" of new policy directory.
-# Must not use option '-P' to prune empty directories, because
-# up-to-date check of outer 'newpolicy' script would otherwise
-# recognize empty directories as new directories.
+# Check out newest files from repository into subdirectory "src" of
+# new policy directory.  Must not use option '-P' to prune empty
+# directories, so up-to-date check (cvs -n -q update) of outer
+# 'newpolicy' script can differ between empty and new directories: Old
+# but empty directories are checked out and found to be equal, while
+# new directories are not checked out and lead to an --ignored
+# message.
 # Ignore '.cvsrc' to not accidently activate option '-P'.
 system('cvs', '-Q', '-f', 'checkout', '-d', 'src', $module) == 0 or
     log_abort("Can't checkout to $psrc: $!");

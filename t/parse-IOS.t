@@ -1226,24 +1226,37 @@ eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
 $title = "Check device interfaces";
 ############################################################
 # Device interfaces are checked, if ACL or Crypto config is present.
+# 'secondary' attribute is ignored when comparing IP addresses.
 
 $device = <<END;
 interface Serial1
  ip address 10.1.1.1 255.255.255.0
 interface Serial2
  ip address 10.1.2.1 255.255.255.0
+ ip address 10.1.2.250 255.255.255.0 secondary
+ ip address 1.1.1.1 255.255.255.0 secondary
+interface Serial3
+ ip address 10.1.3.1 255.255.255.0
 END
 
 $in = <<'END';
 interface Serial1
- ip address 10.1.2.1 255.255.255.0
+ ip address 1.1.1.1 255.0.0.0
+ ip address 10.1.2.1 255.255.255.0 secondary
+ ip address 10.1.2.250 255.255.255.0 secondary
+ ip access-group test in
+interface Serial2
+ ip address 10.1.2.1 255.255.255.0 secondary
+ ip address 10.1.2.250 255.255.255.0
+ ip address 1.1.1.1 255.255.255.0 secondary
  ip access-group test in
 ip access-list extended test
  deny ip any any log-input
 END
 
 $out = <<'END';
-WARNING>>> Interface 'Serial2' on device is not known by Netspoc
+WARNING>>> Interface 'Serial3' on device is not known by Netspoc
+WARNING>>> Different address defined for interface Serial1: Conf: 10.1.1.1 255.255.255.0, Netspoc: 1.1.1.1 255.0.0.0,10.1.2.1 255.255.255.0,10.1.2.250 255.255.255.0
 END
 
 eq_or_diff(approve_err('IOS', $device, $in), $out, $title);

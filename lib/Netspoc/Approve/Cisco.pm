@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 use Regexp::IPv6 qw($IPv6_re);
 
-our $VERSION = '2.1'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.2'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers
@@ -766,6 +766,42 @@ sub login_enable {
     $self->{ENAPROMPT} = qr/$prefix\S*\#[ ]?/;
 }
 
+sub check_device_IP {
+    my ($self, $name, $conf_intf, $spoc_intf) = @_;
+    my $get_addr = sub {
+        my ($intf) = @_;
+        my $primary = $intf->{ADDRESS};
+        if (not $primary) {
+            if ($intf->{UNNUMBERED}) {
+                return 'unnumbered';
+            }
+            else {
+                return 'missing';
+            }
+        }
+        if (my $dyn = $primary->{DYNAMIC}) {
+            return $dyn;
+        }
+        my $secondary = $intf->{SECONDARY} || [];
+        my @result;
+        for my $addr ($primary, @$secondary) {
+
+            # ip address 10.1.1.0 255.255.255.0 --> 10.1.1.0 255.255.255.0
+            my $ip = $addr->{orig};
+            $ip =~ s/^.*address //;
+            $ip =~ s/ secondary$//;
+            push @result, $ip;
+        }
+        return join ',', sort @result;
+    };
+    my $conf_addr = $get_addr->($conf_intf);
+    my $spoc_addr = $get_addr->($spoc_intf);
+    return if $spoc_addr eq $conf_addr;
+    return if $spoc_addr eq 'negotiated';
+    warn_info("Different address defined for interface $name:" .
+              " Conf: $conf_addr, Netspoc: $spoc_addr");
+}
+
 # All active interfaces on device must be known by Netspoc.
 sub check_device_interfaces {
     my ($self, $conf, $spoc) = @_;
@@ -810,6 +846,7 @@ sub check_spoc_interfaces {
                 push(@errors,
                      "Different VRFs defined for interface $name:" .
                      " Conf: $conf_vrf, Netspoc: $spoc_vrf");
+            $self->check_device_IP($name, $conf_intf, $spoc_intf);
         }
         else {
 

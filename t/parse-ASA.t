@@ -580,6 +580,20 @@ END
 
 eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
 
+############################################################
+$title = "Don't touch tunnel-group-map referencing built in";
+############################################################
+$device = <<END;
+tunnel-group-map default-group DefaultL2LGroup
+END
+
+$in = <<END;
+END
+
+$out = <<"END";
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
 
 ############################################################
 $title = "Parse username, group-policy";

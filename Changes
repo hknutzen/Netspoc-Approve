@@ -1,3 +1,13 @@
+2.2       2018-08-14 11:27:07+02:00 Europe/Berlin
+
+ - IP addresses of interfaces are compared now between device and Netspoc.
+   A warning is printed if differences are found.
+   No distinction is made between secondary and primary IP addresses.
+   If interface has 'negotiated' address in Netspoc then IP at device
+   is ignored.
+ - No longer show warning about unused default tunnel-group-map
+   referencing built-in tunnel-group on device.
+
 2.1       2018-07-18 15:08:47+02:00 Europe/Berlin
 
  - Added support for attribute 'extended-key-usage' for ASA.

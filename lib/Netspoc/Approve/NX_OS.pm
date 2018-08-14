@@ -32,7 +32,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.1'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.2'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
@@ -50,7 +50,12 @@ sub get_parse_info {
                     store => 'ADDRESS',
                 },
                 'ip address _skip secondary' =>  {
-                    parse => \&skip }, # ignore
+                    parse =>  ['seq',
+                               { parse => \&get_ip_prefix,
+                                 store_multi => ['BASE', 'MASK'] }],
+                    multi => 1,
+                    store => 'SECONDARY',
+                },
                 'ip unnumbered' => {
                     parse => \&get_token,
                     store => 'UNNUMBERED',
