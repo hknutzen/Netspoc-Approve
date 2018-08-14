@@ -5,6 +5,7 @@ use warnings;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged
+                 prepare_simulation
                  simul_run simul_err simul_compare write_file
                  run check_output drc3_err missing_approve);
 
@@ -19,6 +20,7 @@ my $dir = tempdir(CLEANUP => 1) or die "Can't create tmpdir: $!\n";
 my $code_dir = "$dir/code";
 mkdir($code_dir) or die "Can't create $code_dir: $!\n";
 
+my $device_name = 'router';
 sub write_file {
     my($name, $data) = @_;
     my $fh;
@@ -28,7 +30,7 @@ sub write_file {
 }
 
 sub prepare_spoc {
-    my ($type, $device_name, $spoc) = @_;
+    my ($type, $spoc) = @_;
 
     # Header for Netspoc input
     my $comment = $type eq 'Linux' ? '#' : '!';
@@ -99,19 +101,22 @@ sub run {
     return($status, $stdout, $stderr);
 }
 
-sub simulate {
-    my ($type, $scenario, $spoc, $options) = @_;
-    $options ||= '';
-
-    my $device_name = 'router';
-    my $spoc_file = prepare_spoc($type, $device_name, $spoc);
-
-    # Prepare simulation command.
-    # Tell drc3.pl to use simulation by setting environment variable.
+# Prepare simulation command.
+# Tell drc3.pl to use simulation by setting environment variable.
+sub prepare_simulation {
+    my ($scenario) = @_;
     my $scenario_file = "$dir/scenario";
     write_file($scenario_file, $scenario);
     my $simulation_cmd = "t/simulate-cisco.pl $device_name $scenario_file";
     $ENV{SIMULATE_ROUTER} = $simulation_cmd;
+}
+
+sub simulate {
+    my ($type, $scenario, $spoc, $options) = @_;
+    $options ||= '';
+
+    my $spoc_file = prepare_spoc($type, $spoc);
+    prepare_simulation($scenario);
 
     # Prepare credentials file. Declare current user as system user.
     my $id = getpwuid($<);
