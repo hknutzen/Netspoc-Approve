@@ -210,7 +210,6 @@ sub check_output {
         my $fname = shift @expected;
         my $block = shift @expected;
         chomp $block;
-        $block =~ s/\n/\r\n/g;
 
         open(my $out_fh, '<', "$dir/$fname") or die "Can't open $fname";
         my $output;
@@ -219,6 +218,8 @@ sub check_output {
             $output = <$out_fh>;
         }
         close($out_fh);
+        $output =~ s/\r\n/\n/g;
+
         eq_or_diff($output, $block, "$title: $fname");
     }
 }
