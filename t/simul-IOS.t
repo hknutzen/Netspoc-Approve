@@ -809,15 +809,51 @@ $title = "Log STDERR + STDOUT to file";
 
 $dir = $ENV{HOME};
 $out = <<"END";
---log
+--file
 ERROR>>> write mem: unexpected result:
 ERROR>>> foo
 
 END
 
 ($status, $stdout, $stderr) =
-    run("bin/drc3.pl -q -L $dir --LOGFILE $dir/log $dir/code/router");
+    run("bin/drc3.pl -q -L $dir --LOGFILE $dir/file $dir/code/router");
 $stderr ||= '';
+check_output($title, $dir, $out, $stderr);
+
+############################################################
+$title = "Log STDERR + STDOUT to file in new dir";
+############################################################
+# Reuse previous test data.
+
+$dir = $ENV{HOME};
+$out = <<"END";
+--d/file
+ERROR>>> write mem: unexpected result:
+ERROR>>> foo
+
+END
+
+($status, $stdout, $stderr) =
+    run("bin/drc3.pl -q -L $dir --LOGFILE $dir/d/file $dir/code/router");
+$stderr ||= '';
+check_output($title, $dir, $out, $stderr);
+
+############################################################
+$title = "Can't create log directory";
+############################################################
+# Reuse previous test data.
+
+$dir = $ENV{HOME};
+$out = <<"END";
+ERROR>>> Can\'t create file: File exists
+END
+
+($status, $stdout, $stderr) =
+    run("bin/drc3.pl -q -L $dir --LOGFILE $dir/file/f $dir/code/router");
+$stderr ||= '';
+
+# Normalize path: remove temp. directory in output.
+$stderr =~ s/\Q$dir\E\///g;
 check_output($title, $dir, $out, $stderr);
 
 ############################################################
