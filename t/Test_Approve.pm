@@ -145,7 +145,7 @@ END
 sub compare_files {
     my($type, $conf, $spoc) = @_;
 
-    my $spoc_file = prepare_spoc($type, 'test', $spoc);
+    my $spoc_file = prepare_spoc($type, $spoc);
 
     # Prepare device file.
     my $conf_file = "$dir/conf";
@@ -281,8 +281,8 @@ sub check_parse_and_unchanged {
 }
 
 sub drc3_err {
-    my ($type, $devicename, $spoc, $expected, $title) = @_;
-    my $spoc_file = prepare_spoc($type, $devicename, $spoc);
+    my ($title, $type, $spoc, $expected) = @_;
+    my $spoc_file = prepare_spoc($type, $spoc);
 
     # Prepare config file.
     my $config_file = "$dir/.netspoc-approve";

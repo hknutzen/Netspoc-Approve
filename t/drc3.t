@@ -38,10 +38,10 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can not get IP from file(s): test, ipv6/test.
+ERROR>>> Can not get IP from file(s): router, ipv6/router.
 END
 
-drc3_err('ASA', 'test', $spoc, $out, $title);
+drc3_err($title, 'ASA', $spoc, $out);
 
 ############################################################
 $title = "No IP address in IPv4";
@@ -61,10 +61,10 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can not get IP from file(s): test.
+ERROR>>> Can not get IP from file(s): router.
 END
 
-drc3_err('ASA', 'test', $spoc, $out, $title);
+drc3_err($title, 'ASA', $spoc, $out);
 
 ############################################################
 $title = "No IP address in IPv6";
@@ -84,10 +84,10 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can not get IP from file(s): ipv6/test.
+ERROR>>> Can not get IP from file(s): ipv6/router.
 END
 
-drc3_err('ASA', 'test', $spoc, $out, $title);
+drc3_err($title, 'ASA', $spoc, $out);
 
 ############################################################
 $title = "Different device types for same device";
@@ -123,7 +123,7 @@ $out = <<END;
 ERROR>>> Ambiguous model specification for device router: ASA, IOS.
 END
 
-drc3_err('ASA', 'router', $spoc, $out, $title);
+drc3_err($title, 'ASA', $spoc, $out);
 
 ############################################################
 $title = "Invalid option";
