@@ -144,6 +144,7 @@ ok($expect->expect(1, "Password for"), "$title: prompt");
 $expect->send("secret\n");
 ok($expect->expect(1, "thank you"), "$title: accepted");
 $expect->expect(1, 'eof');
+$expect->hard_close();
 
 my $dir = $ENV{HOME};
 check_output($title, $dir, $out, '');
@@ -171,7 +172,7 @@ ok($expect->expect(1, "Password for"), "$title: prompt");
 $expect->send("wrong\n");
 ok($expect->expect(1, "thank you"), "$title: accepted");
 ok($expect->expect(1, "Authentication failed"), "$title: failed");
-$expect->expect(1, 'eof');
+$expect->hard_close();
 
 ############################################################
 $title = "Unexpected echo in response to show command ";
