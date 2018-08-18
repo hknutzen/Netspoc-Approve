@@ -2,6 +2,7 @@
 # parse-IOS.t
 
 use strict;
+use warnings;
 use Test::More;
 use Test::Differences;
 use lib 't';

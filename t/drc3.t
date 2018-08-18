@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
+use warnings;
 use Test::More;
 use Test::Differences;
 use lib 't';
@@ -155,7 +156,7 @@ $out = <<'END';
 drc3.pl, version TESTING
 END
 
-my ($status, $stdout, $stderr) = run("bin/drc3.pl -v");
+($status, $stdout, $stderr) = run("bin/drc3.pl -v");
 $stderr =~ s/(?<=^drc3.pl, version ).*/TESTING/;
 
 eq_or_diff($stderr, $out, $title);

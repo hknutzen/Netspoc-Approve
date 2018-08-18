@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
+use warnings;
 use Test::More;
 use Test::Differences;
 use lib 't';
@@ -158,9 +159,9 @@ Enter Password:<!>
 END
 
 prepare_simulation($scenario);
-my $perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
+$perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
 use Expect;
-my $expect = Expect->new();
+$expect = Expect->new();
 $expect->log_stdout(0);
 $expect->spawn(
     "$^X $perl_opt -I lib bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router")
