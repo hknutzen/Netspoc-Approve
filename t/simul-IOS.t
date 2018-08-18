@@ -186,7 +186,7 @@ ok($expect->expect(1, "Password for"), "$title: prompt");
 $expect->send("secret\n");
 ok($expect->expect(1, "thank you"), "$title: accepted");
 $expect->expect(1, 'eof');
-$expect->hard_close();
+$expect->soft_close();
 
 check_output($title, $dir, $out, '');
 
