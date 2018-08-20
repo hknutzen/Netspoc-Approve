@@ -182,10 +182,10 @@ $expect->spawn(
     "$^X $perl_opt -I lib bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router")
     or die "Cannot spawn";
 
-ok($expect->expect(1, "Password for"), "$title: prompt");
+ok($expect->expect(10, "Password for"), "$title: prompt");
 $expect->send("secret\n");
-ok($expect->expect(1, "thank you"), "$title: accepted");
-$expect->expect(1, 'eof');
+ok($expect->expect(10, "thank you"), "$title: accepted");
+$expect->expect(10, 'eof');
 $expect->soft_close();
 
 check_output($title, $dir, $out, '');

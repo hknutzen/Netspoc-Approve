@@ -140,10 +140,10 @@ $expect->spawn(
     "$^X $perl_opt -I lib bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router")
     or die "Cannot spawn";
 
-ok($expect->expect(1, "Password for"), "$title: prompt");
+ok($expect->expect(10, "Password for"), "$title: prompt");
 $expect->send("secret\n");
-ok($expect->expect(1, "thank you"), "$title: accepted");
-$expect->expect(1, 'eof');
+ok($expect->expect(10, "thank you"), "$title: accepted");
+$expect->expect(10, 'eof');
 $expect->soft_close();
 
 my $dir = $ENV{HOME};
@@ -168,10 +168,10 @@ $expect->spawn(
     "$^X $perl_opt -I lib bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router")
     or die "Cannot spawn";
 
-ok($expect->expect(1, "Password for"), "$title: prompt");
+ok($expect->expect(10, "Password for"), "$title: prompt");
 $expect->send("wrong\n");
-ok($expect->expect(1, "thank you"), "$title: accepted");
-ok($expect->expect(1, "Authentication failed"), "$title: failed");
+ok($expect->expect(10, "thank you"), "$title: accepted");
+ok($expect->expect(10, "Authentication failed"), "$title: failed");
 $expect->soft_close();
 
 ############################################################
