@@ -651,7 +651,7 @@ sub merge_acls {
                     info("$msg $count entries to $direction ACL of $intf_name");
                 }
                 else {
-                    # Access group does not exists for current
+                    # Access group does not exist for current
                     # interface in netspoc. Abort if it exists for
                     # another interface. This can only happen with
                     # access groups defined in raw files. Generate new
