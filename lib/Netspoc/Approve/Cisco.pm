@@ -597,6 +597,7 @@ sub normalize_proto {
 sub merge_acls {
     my ($self, $spoc, $add_conf, $mode) = @_;
     my $raw_only = keys %$spoc? 0 : 1;
+    my %raw_acl_seen;
 
     # Iterate over interfaces in config to add.
     for my $intf_name ( keys %{ $add_conf->{IF} } ) {
@@ -614,8 +615,18 @@ sub merge_acls {
         # Merge acls for possibly existing access-group of this interface.
         for my $direction ( qw( IN OUT ) ) {
             my $access_group = "ACCESS_GROUP_$direction";
-            if ( my $add_name = $add_intf->{$access_group} ) {
+            if (my $add_name = $add_intf->{$access_group}) {
                 my $add_acl = delete($add_conf->{ACCESS_LIST}->{$add_name});
+                if (not $add_acl) {
+                    if ($raw_acl_seen{$add_name}) {
+                        abort("ACL '$add_name' must not be referenced" .
+                              " multiple times in raw");
+                    }
+                    else {
+                        abort("Referencing unknown ACL '$add_name' in raw");
+                    }
+                }
+                $raw_acl_seen{$add_name} = 1;
 
                 # Access group exists already for this interface in
                 # netspoc config, add additional acl entries.
