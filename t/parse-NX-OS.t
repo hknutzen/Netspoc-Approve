@@ -2,6 +2,7 @@
 # $id:$
 
 use strict;
+use warnings;
 use Test::More;
 use Test::Differences;
 use lib 't';

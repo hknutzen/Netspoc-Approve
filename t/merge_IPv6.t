@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
+use warnings;
 use Test::More;
 use Test::Differences;
 use lib 't';
@@ -46,7 +47,7 @@ eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
 ############################################################
 $title = "ASA - alter IPv6 routing, leaving IPv4 routing untouched";
 ############################################################
-my $device = $minimal_ASA;
+$device = $minimal_ASA;
 $device .= <<END;
 ipv6 route outside 10::3:0/112 10::2:2
 route inside 10.20.0.0 255.255.255.0 10.1.2.3

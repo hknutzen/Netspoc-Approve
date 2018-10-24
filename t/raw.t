@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
+use warnings;
 use Test::More;
 use Test::Differences;
 use lib 't';
@@ -304,7 +305,7 @@ END
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
 
 ############################################################
-$title = "Must not bind same ACL at different interfaces";
+$title = "Must not bind same ACL multiple times";
 ############################################################
 
 $device = <<END;
@@ -328,7 +329,77 @@ END
 };
 
 $out = <<END;
-ERROR>>> Name clash for 'in_out' of ACCESS_LIST from raw
+ERROR>>> ACL 'in_out' must not be referenced multiple times in raw
+END
+
+eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
+
+############################################################
+$title = "Must not bind same ACL at different interfaces";
+############################################################
+
+$device = <<END;
+interface Ethernet1
+ ip address 10.0.1.1 255.255.255.0
+interface Ethernet2
+ ip address 10.0.2.1 255.255.255.0
+END
+
+$spoc = {
+spoc4 => <<END
+ip access-list extended acl1
+ permit ip any host 10.0.1.1
+interface Ethernet1
+ ip address 10.0.1.1 255.255.255.0
+ ip access-group acl1 in
+ip access-list extended acl2
+ permit ip any host 10.0.1.1
+interface Ethernet2
+ ip address 10.0.2.1 255.255.255.0
+ ip access-group acl2 in
+END
+,
+raw4 => <<END
+ip access-list extended foo
+ permit ip any host 10.0.1.2
+interface Ethernet1
+ ip access-group foo in
+interface Ethernet2
+ ip access-group foo in
+END
+};
+
+$out = <<END;
+ERROR>>> ACL 'foo' must not be referenced multiple times in raw
+END
+
+eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
+
+############################################################
+$title = "Unknown ACL in raw";
+############################################################
+$device = <<END;
+interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
+END
+
+$spoc = {
+spoc4 => <<END
+ip access-list extended Ethernet1_in
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+ deny ip any any
+interface Ethernet1
+ ip access-group Ethernet1_in in
+END
+,
+raw4 => <<END
+interface Ethernet1
+ ip access-group Ethernet1_in in
+END
+};
+
+$out = <<END;
+ERROR>>> Referencing unknown ACL 'Ethernet1_in' in raw
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );

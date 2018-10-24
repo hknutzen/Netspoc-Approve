@@ -5,6 +5,7 @@ use warnings;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged
+                 prepare_simulation
                  simul_run simul_err simul_compare write_file
                  run check_output drc3_err missing_approve);
 
@@ -19,6 +20,7 @@ my $dir = tempdir(CLEANUP => 1) or die "Can't create tmpdir: $!\n";
 my $code_dir = "$dir/code";
 mkdir($code_dir) or die "Can't create $code_dir: $!\n";
 
+my $device_name = 'router';
 sub write_file {
     my($name, $data) = @_;
     my $fh;
@@ -28,7 +30,7 @@ sub write_file {
 }
 
 sub prepare_spoc {
-    my ($type, $device_name, $spoc) = @_;
+    my ($type, $spoc) = @_;
 
     # Header for Netspoc input
     my $comment = $type eq 'Linux' ? '#' : '!';
@@ -99,19 +101,22 @@ sub run {
     return($status, $stdout, $stderr);
 }
 
-sub simulate {
-    my ($type, $scenario, $spoc, $options) = @_;
-    $options ||= '';
-
-    my $device_name = 'router';
-    my $spoc_file = prepare_spoc($type, $device_name, $spoc);
-
-    # Prepare simulation command.
-    # Tell drc3.pl to use simulation by setting environment variable.
+# Prepare simulation command.
+# Tell drc3.pl to use simulation by setting environment variable.
+sub prepare_simulation {
+    my ($scenario) = @_;
     my $scenario_file = "$dir/scenario";
     write_file($scenario_file, $scenario);
     my $simulation_cmd = "t/simulate-cisco.pl $device_name $scenario_file";
     $ENV{SIMULATE_ROUTER} = $simulation_cmd;
+}
+
+sub simulate {
+    my ($type, $scenario, $spoc, $options) = @_;
+    $options ||= '';
+
+    my $spoc_file = prepare_spoc($type, $spoc);
+    prepare_simulation($scenario);
 
     # Prepare credentials file. Declare current user as system user.
     my $id = getpwuid($<);
@@ -140,7 +145,7 @@ END
 sub compare_files {
     my($type, $conf, $spoc) = @_;
 
-    my $spoc_file = prepare_spoc($type, 'test', $spoc);
+    my $spoc_file = prepare_spoc($type, $spoc);
 
     # Prepare device file.
     my $conf_file = "$dir/conf";
@@ -210,7 +215,6 @@ sub check_output {
         my $fname = shift @expected;
         my $block = shift @expected;
         chomp $block;
-        $block =~ s/\n/\r\n/g;
 
         open(my $out_fh, '<', "$dir/$fname") or die "Can't open $fname";
         my $output;
@@ -219,6 +223,8 @@ sub check_output {
             $output = <$out_fh>;
         }
         close($out_fh);
+        $output =~ s/\r\n/\n/g;
+
         eq_or_diff($output, $block, "$title: $fname");
     }
 }
@@ -275,8 +281,8 @@ sub check_parse_and_unchanged {
 }
 
 sub drc3_err {
-    my ($type, $devicename, $spoc, $expected, $title) = @_;
-    my $spoc_file = prepare_spoc($type, $devicename, $spoc);
+    my ($title, $type, $spoc, $expected) = @_;
+    my $spoc_file = prepare_spoc($type, $spoc);
 
     # Prepare config file.
     my $config_file = "$dir/.netspoc-approve";

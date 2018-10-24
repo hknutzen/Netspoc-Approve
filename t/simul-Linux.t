@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use strict;
+use warnings;
 use Test::More;
 use Test::Differences;
 use lib 't';
@@ -112,6 +113,66 @@ ERROR>>> RTNETLINK answers: Invalid argument
 END
 
 simul_err($title, 'Linux', $scenario, $in, $out);
+
+############################################################
+$title = "SSH login with prompt to TTY, password from user";
+############################################################
+# Partially reuse previous test data.
+
+$scenario = <<'END';
+Enter Password:<!>
+END
+
+$out = <<'END';
+--router.login
+Enter Password:secret
+router#PS1=router#
+router#echo $?
+router#
+END
+
+prepare_simulation($scenario);
+my $perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
+use Expect;
+my $expect = Expect->new();
+$expect->log_stdout(0);
+$expect->spawn(
+    "$^X $perl_opt -I lib bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router")
+    or die "Cannot spawn";
+
+ok($expect->expect(10, "Password for"), "$title: prompt");
+$expect->send("secret\n");
+ok($expect->expect(10, "thank you"), "$title: accepted");
+$expect->expect(10, 'eof');
+$expect->soft_close();
+
+my $dir = $ENV{HOME};
+check_output($title, $dir, $out, '');
+
+############################################################
+$title = "SSH login with prompt to TTY, wrong password";
+############################################################
+# Partially reuse previous test data.
+
+$scenario = <<'END';
+Enter Password:<!>
+Enter Password:<!>
+END
+
+prepare_simulation($scenario);
+$perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
+use Expect;
+$expect = Expect->new();
+$expect->log_stdout(0);
+$expect->spawn(
+    "$^X $perl_opt -I lib bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router")
+    or die "Cannot spawn";
+
+ok($expect->expect(10, "Password for"), "$title: prompt");
+$expect->send("wrong\n");
+ok($expect->expect(10, "thank you"), "$title: accepted");
+ok($expect->expect(10, "Authentication failed"), "$title: failed");
+$expect->soft_close();
 
 ############################################################
 $title = "Unexpected echo in response to show command ";
