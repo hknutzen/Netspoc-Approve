@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 use Regexp::IPv6 qw($IPv6_re);
 
-our $VERSION = '2.3'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.4'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Translate names to port numbers, icmp type/code numbers

@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.3'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.4'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -430,7 +430,7 @@ sub cmd_check_error {
 sub parse_version {
     my ($self) = @_;
     my $output = $self->shcmd('sh ver');
-    if($output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/) {
+    if($output =~ /Software .* Version +(\d+\.\d+[\w\d\(\).]+)/) {
         $self->{VERSION} = $1;
     }
     if($output =~ /(cisco\s+\S+) .*memory/i) {

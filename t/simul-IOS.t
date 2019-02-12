@@ -67,9 +67,8 @@ banner motd managed by NetSPoC
 # enable
 Password:<!>
 # sh ver
-Cisco IOS Software, C800 Software (C800-UNIVERSALK9-M), Version 15.4(3)M4, RELEASE SOFTWARE (fc1)
-Technical Support: http://www.cisco.com/techsupport
-Cisco C886VA-K9 (revision 1.0) with 488524K/35763K bytes of memory.
+Cisco IOS XE Software, Version 16.06.05
+ Cisco IOS Software [Everest], ISR Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 16.6.5, RELEASE SOFTWARE (fc3)
 END
 
 $in = '';
@@ -86,9 +85,8 @@ router#
 router#term len 0
 router#term width 512
 router#sh ver
-Cisco IOS Software, C800 Software (C800-UNIVERSALK9-M), Version 15.4(3)M4, RELEASE SOFTWARE (fc1)
-Technical Support: http://www.cisco.com/techsupport
-Cisco C886VA-K9 (revision 1.0) with 488524K/35763K bytes of memory.
+Cisco IOS XE Software, Version 16.06.05
+ Cisco IOS Software [Everest], ISR Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 16.6.5, RELEASE SOFTWARE (fc3)
 router#
 router#configure terminal
 router#no logging console
