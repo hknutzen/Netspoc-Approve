@@ -430,7 +430,7 @@ sub cmd_check_error {
 sub parse_version {
     my ($self) = @_;
     my $output = $self->shcmd('sh ver');
-    if($output =~ /Software .* Version +(\d+\.\d+[\w\d\(\)]+)/) {
+    if($output =~ /Software .* Version +(\d+\.\d+[\w\d\(\).]+)/) {
         $self->{VERSION} = $1;
     }
     if($output =~ /(cisco\s+\S+) .*memory/i) {
