@@ -1389,4 +1389,182 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Unchanged ldap map-values";
+############################################################
+
+$in = <<'END';
+! vpn-filter-G1
+access-list vpn-filter-G1 extended permit ip 10.3.4.8 255.255.255.248 any4
+access-list vpn-filter-G1 extended deny ip any4 any4
+crypto ca certificate map ca-map-G1 10
+ subject-name attr cn co G1
+ip local pool pool-G1 10.3.4.8-10.3.4.15 mask 255.255.255.248
+group-policy VPN-group-G1 internal
+group-policy VPN-group-G1 attributes
+ address-pools value pool-G1
+ vpn-filter value vpn-filter-G1
+
+tunnel-group VPN-tunnel-G1 type remote-access
+tunnel-group VPN-tunnel-G1 general-attributes
+ authentication-server-group LDAP_KV
+tunnel-group VPN-tunnel-G1 ipsec-attributes
+ ikev1 trust-point ASDM_TrustPoint1
+ ikev1 user-authentication none
+tunnel-group VPN-tunnel-G1 webvpn-attributes
+ authentication aaa certificate
+tunnel-group-map ca-map-G1 10 VPN-tunnel-G1
+
+aaa-server LDAP_KV protocol ldap
+aaa-server LDAP_KV host X
+ ldap-attribute-map LDAPMAP
+
+webvpn
+ certificate-group-map ca-map-G1 10 VPN-tunnel-G1
+
+ldap attribute-map LDAPMAP
+ map-name memberOf Group-Policy
+ map-value memberOf CN=g-m1,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G1
+END
+
+$out = <<'END';
+END
+
+eq_or_diff(approve('ASA', $in, $in), $out, $title);
+
+############################################################
+$title = "Transfer aaa-server manually";
+############################################################
+$device = $minimal_device;
+
+$out = <<'END';
+ERROR>>> AUTH_SERVER LDAP_KV-DRC-0 must be transferred manually
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Transfer ldap map manually";
+############################################################
+$device = $minimal_device. <<'END';
+! vpn-filter-G1
+crypto ca certificate map ca-map-G1 10
+ subject-name attr cn co G1
+tunnel-group VPN-tunnel-G1 type remote-access
+tunnel-group VPN-tunnel-G1 general-attributes
+ authentication-server-group LDAP_KV
+tunnel-group VPN-tunnel-G1 ipsec-attributes
+ ikev1 trust-point ASDM_TrustPoint1
+ ikev1 user-authentication none
+tunnel-group VPN-tunnel-G1 webvpn-attributes
+ authentication aaa certificate
+tunnel-group-map ca-map-G1 10 VPN-tunnel-G1
+
+aaa-server LDAP_KV protocol ldap
+aaa-server LDAP_KV (inside) host 10.2.8.16
+ ldap-base-dn DC=example,DC=com
+ ldap-scope subtree
+ ldap-naming-attribute dNSHostName
+ ldap-login-password *****
+ ldap-login-dn CN=VPN,OU=Admin,DC=example,DC=com
+END
+
+$out = <<'END';
+ERROR>>> LDAP_MAP LDAPMAP-DRC-0 must be transferred manually
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "aaa-server with different ldap maps";
+############################################################
+$device = $minimal_device. <<'END';
+! vpn-filter-G1
+crypto ca certificate map ca-map-G1 10
+ subject-name attr cn co G1
+tunnel-group VPN-tunnel-G1 type remote-access
+tunnel-group VPN-tunnel-G1 general-attributes
+ authentication-server-group LDAP_KV
+tunnel-group VPN-tunnel-G1 ipsec-attributes
+ ikev1 trust-point ASDM_TrustPoint1
+ ikev1 user-authentication none
+tunnel-group VPN-tunnel-G1 webvpn-attributes
+ authentication aaa certificate
+tunnel-group-map ca-map-G1 10 VPN-tunnel-G1
+
+aaa-server LDAP_KV protocol ldap
+aaa-server LDAP_KV (inside) host 10.2.8.8
+ ldap-attribute-map MAP1
+aaa-server LDAP_KV (inside) host 10.2.8.16
+ ldap-attribute-map MAP2
+END
+
+$out = <<'END';
+ERROR>>> aaa-server LDAP_KV must not use different values in 'ldap-attribute-map'
+END
+
+eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+
+############################################################
+$title = "Insert and remove ldap map-value";
+############################################################
+$device = $minimal_device. <<'END';
+
+! vpn-filter-G2
+access-list vpn-filter-G2 extended permit ip 10.3.4.16 255.255.255.248 any4
+access-list vpn-filter-G2 extended deny ip any4 any4
+ip local pool pool-G2 10.3.4.16-10.3.4.23 mask 255.255.255.248
+group-policy VPN-group-G2 internal
+group-policy VPN-group-G2 attributes
+ address-pools value pool-G2
+ vpn-filter value vpn-filter-G2
+
+crypto ca certificate map ca-map-G1 10
+ subject-name attr cn co G1
+tunnel-group VPN-tunnel-G1 type remote-access
+tunnel-group VPN-tunnel-G1 general-attributes
+ authentication-server-group LDAP_KV
+tunnel-group VPN-tunnel-G1 ipsec-attributes
+ ikev1 trust-point ASDM_TrustPoint1
+ ikev1 user-authentication none
+tunnel-group VPN-tunnel-G1 webvpn-attributes
+ authentication aaa certificate
+tunnel-group-map ca-map-G1 10 VPN-tunnel-G1
+
+aaa-server LDAP_KV protocol ldap
+aaa-server LDAP_KV (inside) host 10.2.8.16
+ ldap-base-dn DC=example,DC=com
+ ldap-scope subtree
+ ldap-naming-attribute dNSHostName
+ ldap-login-password *****
+ ldap-login-dn CN=VPN,OU=Admin,DC=example,DC=com
+ ldap-attribute-map LDAPMAP
+
+ldap attribute-map LDAPMAP
+ map-name memberOf Group-Policy
+ map-value memberOf CN=g-m2,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G2
+END
+
+$out = <<'END';
+access-list vpn-filter-G1-DRC-0 extended permit ip 10.3.4.8 255.255.255.248 any4
+access-list vpn-filter-G1-DRC-0 extended deny ip any4 any4
+ip local pool pool-G1-DRC-0 10.3.4.8-10.3.4.15 mask 255.255.255.248
+group-policy VPN-group-G1-DRC-0 internal
+group-policy VPN-group-G1-DRC-0 attributes
+group-policy VPN-group-G1-DRC-0 attributes
+address-pools value pool-G1-DRC-0
+vpn-filter value vpn-filter-G1-DRC-0
+ldap attribute-map LDAPMAP
+map-value memberOf CN=g-m1,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G1
+webvpn
+certificate-group-map ca-map-G1 10 VPN-tunnel-G1
+clear configure group-policy VPN-group-G2
+ldap attribute-map LDAPMAP
+no map-value memberOf CN=g-m2,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G2
+clear configure access-list vpn-filter-G2
+no ip local pool pool-G2 10.3.4.16-10.3.4.23 mask 255.255.255.248
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 done_testing;
