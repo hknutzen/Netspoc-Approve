@@ -6,7 +6,7 @@ Remote configure Cisco ASA.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2011 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.4'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.5'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 
@@ -683,6 +683,10 @@ sub get_parse_info {
                     store => 'DEFAULT_GROUP_POLICY',
                     parse => \&get_token,
                 },
+                'authentication-server-group' => {
+                    store => 'AUTH_SERVER',
+                    parse => \&get_token,
+                },
 
                 # '_any' is special word, which matches any token.
                 # '_cmd' is replaced by current command name.
@@ -762,6 +766,67 @@ sub get_parse_info {
                          { store => 'TUNNEL_GROUP', parse => \&get_token },
                        ],
                 ],
+        },
+
+# aaa-server server-tag protocol server-protocol
+        'aaa-server _skip protocol' => {
+            named => 1,
+            store => 'AUTH_SERVER',
+            parse => ['seq',
+                      { store => 'PROTOCOL', parse => \&get_token }, ],
+            subcmd => {},
+        },
+
+## Multiple occurrences with different hosts.
+# aaa-server server-tag [ ( interface-name ) ] host { server-ip | name }
+#           [ key ] [ timeout seconds ]
+        'aaa-server' => {
+            store => 'AUTH_SERVER_HOSTS',
+            named => 1,
+            multi => 1,
+            parse => ['seq',
+                      ['cond1',
+                       { parse => qr/[(].*[)]/ } ],
+                      ['seq',
+                       { parse => qr/host/ },
+                       { store => 'HOST', parse => \&get_token },
+                      ],
+
+                      # Ignore key
+                      ['cond1',
+                       { parse => \&check_token } ],
+
+                      # Ignore timeout
+                      ['cond1',
+                       { parse => qr/timeout/ },
+                       { parse => \&get_token } ],
+                ],
+            subcmd => {
+                'ldap-attribute-map' => {
+                    store => 'LDAP_MAP',
+                    parse => \&get_token,
+                }
+            }
+        },
+
+# ldap attribute-map map-name
+#  map-value user-attribute-name user-value-string Cisco-value-string
+        'ldap attribute-map' => {
+            store => 'LDAP_MAP',
+            named => 1,
+
+            # Store toplevel command, even if no subcommands are given.
+            parse => ['seq', { store => 'defined', default => 1 } ],
+            subcmd => {
+                'map-value memberOf' => {
+                    store => 'LDAP_MAP_VALUE',
+                    multi => 1,
+                    parse => ['seq',
+                              { store => 'DN', parse => \&get_token },
+                              { store => 'GROUP_POLICY', parse => \&get_token },
+                              ]
+                }
+            }
         },
 
 # crypto ca certificate map DefaultCertificateMap 20
@@ -1123,6 +1188,37 @@ sub postprocess_config {
         $peers{$peer} = $map;
         push @{ $lists->{$map_name}->{PEERS} }, $name;
     }
+
+    # Move sub commands of LDAP_MAP to global LDAP_MAP_VALUE.
+    my $maps = $p->{LDAP_MAP};
+    my $values = $p->{LDAP_MAP_VALUE} = {};
+    for my $name (keys %$maps) {
+        my $entry = $maps->{$name};
+        for my $value (@{ $entry->{LDAP_MAP_VALUE} }) {
+            my $dn = $value->{DN};
+            my $new_name = "$name $dn";
+            $value->{name} = $new_name;
+            $values->{$new_name} = $value;
+            $value = $new_name;
+        }
+    }
+
+    # For aaa-server of protocol 'ldap',
+    # combine 'ldap-attribute-map' attributes of aaa-server host entries.
+    my $aaa = $p->{AUTH_SERVER};
+    my $aaa_host_list = $p->{AUTH_SERVER_HOSTS};
+    for my $name (keys %$aaa) {
+        my $entry = $aaa->{$name};
+        $entry->{PROTOCOL} eq 'ldap' or next;
+        my $hosts = $aaa_host_list->{$name} or next;
+        my @ldap_maps = unique map { $_->{LDAP_MAP} || '' } @$hosts;
+        if (@ldap_maps != 1) {
+            abort "aaa-server $name must not use different values in" .
+                " 'ldap-attribute-map'";
+        }
+        $entry->{LDAP_MAP} = $ldap_maps[0];
+    }
+    delete $p->{AUTH_SERVER_HOSTS};
 
     # Some statistics.
     for my $key (sort keys %$p) {
@@ -1575,6 +1671,64 @@ sub equalize_crypto {
     return $modified;
 }
 
+sub by_DN {
+    return $a->{DN} cmp $b->{DN};
+}
+
+sub ldap_map_value2key {
+    my ($e) = @_;
+    return $e->{DN};
+}
+
+sub equalize_ldap_map {
+    my ( $self, $conf, $spoc, $conf_map, $spoc_map, $structure ) = @_;
+
+    my $conf_entries = [ sort by_DN
+                         map($conf->{LDAP_MAP_VALUE}->{$_},
+                             @{$conf_map->{LDAP_MAP_VALUE}}) ];
+    my $spoc_entries = [ sort by_DN
+                         map($spoc->{LDAP_MAP_VALUE}->{$_},
+                             @{$spoc_map->{LDAP_MAP_VALUE}}) ];
+    my $modified;
+    my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries,
+                                     { keyGen => \&ldap_map_value2key } );
+    while ( $diff->Next() ) {
+
+        # Peer is equal, but other attributes may have changed.
+        if ($diff->Same()) {
+            my $conf_min = $diff->Min(1);
+            my $count = $diff->Max(1) - $conf_min;
+            my $spoc_min = $diff->Min(2);
+            for my $i (0 .. $count) {
+                my $conf_entry = $conf_entries->[$conf_min+$i];
+                my $spoc_entry = $spoc_entries->[$spoc_min+$i];
+                $self->make_equal($conf, $spoc, 'LDAP_MAP_VALUE',
+                                  $conf_entry->{name}, $spoc_entry->{name},
+                                  $structure);
+            }
+            next;
+        }
+
+        $modified = 1;
+
+        # On spoc but not on device.
+        for my $spoc_entry ( $diff->Items(2) ) {
+            my $spoc_name = $spoc_entry->{name};
+            $spoc_entry->{new_name} = $spoc_name;
+            $self->make_equal($conf, $spoc, 'LDAP_MAP_VALUE',
+                              undef, $spoc_name, $structure);
+        }
+
+        if ( my $count = $diff->Items(1) ) {
+            info(" LDAP_MAP: $count extra lines on device");
+        }
+        if ( my $count = $diff->Items(2) ) {
+            info(" LDAP_MAP: $count extra lines from Netspoc");
+        }
+    }
+    return $modified;
+}
+
 # Check, if simple objects have identical attribute / value pairs.
 # Returns: undef if different, $conf_value if equal.
 sub simple_object_equal {
@@ -1619,6 +1773,7 @@ sub make_equal {
     my $modified;
     my $conf_value = $conf_name && $conf->{$parse_name}->{$conf_name};
     my $spoc_value = $spoc_name && $spoc->{$parse_name}->{$spoc_name};
+    my $is_simple = $structure->{$parse_name}->{simple_object};
 
     if ( $spoc_value ) {
 
@@ -1635,7 +1790,7 @@ sub make_equal {
         # Instead, search object with identical attributes on device.
         # If found, take that object.
         # Otherwise transfer object from netspoc.
-        if ($structure->{$parse_name}->{simple_object}) {
+        if ($is_simple) {
             my $found_obj;
 
             # Prefer current value on device, if unchanged.
@@ -1655,12 +1810,11 @@ sub make_equal {
                 my $name = $found_obj->{name};
                 info("Using $parse_name $name on device for $spoc_name");
                 $self->mark_as_unchanged( $parse_name );
-                return $spoc_value->{name_on_dev} = $name;
+                $spoc_value->{name_on_dev} = $name;
             }
             else {
                 $spoc_value->{transfer} = 1;
                 $self->mark_as_changed( $parse_name );
-                return $spoc_value->{new_name} || $spoc_name;
             }
         }
         elsif ($structure->{$parse_name}->{need_eq_attr}
@@ -1672,11 +1826,24 @@ sub make_equal {
         }
     }
 
+    my $childs_processed;
+    if ($spoc_value && $spoc_value->{name_on_dev}) {
+
+        # Do nothing
+    }
+
     # Transfer object from netspoc
     # - if no matching object is found on device or
     # - if matching object is already needed in other context and
     #   must not be changed.
-    if ( $spoc_value && (!$conf_value || $conf_value && $conf_value->{needed}) ) {
+    elsif ( $spoc_value &&
+         (!$conf_value ||
+          $conf_value->{needed} && $conf_value->{needed} ne $spoc_value) )
+    {
+        if ($structure->{$parse_name}->{manual_transfer}) {
+            my $name = $spoc_value->{new_name} || $spoc_value->{name};
+            abort("$parse_name $name must be transferred manually");
+        }
 
 #       info("$parse_name => $spoc_name on spoc but not on dev. ");
         $modified = 1;
@@ -1729,8 +1896,16 @@ sub make_equal {
             $modified = $self->equalize_crypto( $conf, $spoc,
                                                 $conf_value, $spoc_value,
                                                 $structure );
+            $childs_processed = 1;
         }
-        else {
+        elsif ( $parse_name eq 'LDAP_MAP' ) {
+            $modified = $self->equalize_ldap_map( $conf, $spoc,
+                                                  $conf_value, $spoc_value,
+                                                  $structure );
+            $spoc_value->{name_on_dev} = $conf_name;
+            $childs_processed = 1;
+        }
+        elsif (not $is_simple) {
             # String-compare and mark changed attributes.
             $modified = $self->equalize_attributes( $conf_value, $spoc_value,
                                                     $parse_name, $structure );
@@ -1765,7 +1940,9 @@ sub make_equal {
     }
 
     # Process child nodes recursively.
-    if ( my $parse = $structure->{$parse_name} ) {
+    if ( not $childs_processed and
+         (my $parse = $structure->{$parse_name}) )
+    {
 
         for my $key (qw(next next_list)) {
             my $next = $parse->{$key} or next;
@@ -1791,7 +1968,7 @@ sub make_equal {
                     # the corresponding attribute in that superior object
                     # has to be altered, so that it carries the name of the
                     # transferred or changed object.
-                    if ( $spoc_next and not $is_not_attr) {
+                    if ( $spoc_next and not ($is_not_attr or $is_simple)) {
                         if ( ! $conf_next || $conf_next ne $new_conf_next ) {
                             $spoc_value->{change_attr}->{$next_attr_name} =
                                 $new_conf_next;
@@ -1807,7 +1984,7 @@ sub make_equal {
                     my $max_list = max(scalar @$conf_next, scalar @$spoc_next);
                     my @new_list;
                     my $modified_list;
-                    for my $index (0 .. $max_list) {
+                    for my $index (0 .. $max_list - 1) {
                         my $conf_name = $conf_next->[$index];
                         my $spoc_name = $spoc_next->[$index];
                         my $new_conf_name =
@@ -1821,7 +1998,7 @@ sub make_equal {
                             }
                         }
                     }
-                    if ($modified_list and not $is_not_attr) {
+                    if ($modified_list and not ($is_not_attr or $is_simple)) {
                         $spoc_value->{change_attr}->{$next_attr_name} =
                             \@new_list;
                         $modified = 1;
@@ -1893,7 +2070,7 @@ sub change_modified_attributes {
     my $spoc_value = $spoc->{$parse_name}->{$spoc_name};
 
     # Change attributes marked accordingly.
-    if ( my $attr = $spoc_value->{change_attr} ) {
+    if (my $attr = $spoc_value->{change_attr}) {
         $self->change_attributes( $parse_name, $spoc_name, $spoc_value, $attr );
     }
 
@@ -1930,7 +2107,7 @@ sub transfer1 {
     my $method = $parse->{transfer};
     if ( $spoc_value->{transfer} and $method ) {
         if ( not $spoc_value->{transferred_as} ) {
-#           info("Transfer1 $parse_name $spoc_name");
+          info("Transfer1 $parse_name $spoc_name");
             $spoc_value->{transferred_as} =
                 $spoc_value->{new_name} || $spoc_value->{name};
             $self->$method( $spoc, $structure, $parse_name, $spoc_name );
@@ -2015,7 +2192,7 @@ sub remove_unneeded_on_device {
                           TUNNEL_GROUP_GENERAL TUNNEL_GROUP_DEFINE
                           IP_TUNNEL_GROUP_DEFINE
                           TRANSFORM_SET IPSEC_PROPOSAL
-                          GROUP_POLICY
+                          GROUP_POLICY LDAP_MAP_VALUE
                           ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
                           NO_SYSOPT_CONNECTION_PERMIT_VPN
                           );
@@ -2057,7 +2234,7 @@ sub remove_spare_objects_on_device {
                           TUNNEL_GROUP_IPSEC TUNNEL_GROUP_WEBVPN
                           TUNNEL_GROUP_GENERAL TUNNEL_GROUP_DEFINE
                           IP_TUNNEL_GROUP_DEFINE
-                          GROUP_POLICY
+                          GROUP_POLICY LDAP_MAP_VALUE
                           ACCESS_LIST IP_LOCAL_POOL OBJECT_GROUP
                           NO_SYSOPT_CONNECTION_PERMIT_VPN
                           );
@@ -2159,7 +2336,9 @@ sub change_attributes {
     my ( $self, $parse_name, $spoc_name, $spoc_value, $attributes ) = @_;
     my @cmds;
 
-    return if $parse_name =~ /^(CERT_ANCHOR|CRYPTO_MAP_LIST|GROUP_POLICY_ANCHOR)$/;
+    return if $parse_name =~
+        /^(CERT_ANCHOR|CRYPTO_MAP_LIST|GROUP_POLICY_ANCHOR|
+           LDAP_MAP|LDAP_MAP_VALUE|AUTH_SERVER)$/x;
     return if $parse_name =~ /^(?:IP_)?TUNNEL_GROUP_DEFINE$/;
     return if ( $spoc_value->{change_done} );
 
@@ -2455,6 +2634,34 @@ sub transfer_ip_local_pool {
     my $new_name = $pool->{new_name};
     my $cmd = $pool->{orig};
     $cmd =~ s/ip local pool $obj_name(?!\S)/ip local pool $new_name/;
+    $self->cmd( $cmd );
+}
+
+sub transfer_ldap_map_value {
+    my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
+    my $obj = $spoc->{$parse_name}->{$obj_name};
+    my ($name, $dn) = split / /, $obj_name;
+    my $def = $spoc->{LDAP_MAP}->{$name};
+    my $new_name = $def->{name_on_dev} || $def->{new_name} || $def->{name};
+    my $conf_cmd = "ldap attribute-map $new_name";
+    my $change_attr = $obj->{change_attr};
+    my $gp =
+        $change_attr && $change_attr->{GROUP_POLICY} || $obj->{GROUP_POLICY};
+    my $cmd = "map-value memberOf $dn $gp";
+    $self->cmd( $conf_cmd );
+    $self->cmd( $cmd );
+}
+
+sub remove_ldap_map_value {
+    my ( $self, $conf, $parse_name, $obj_name ) = @_;
+    my $obj = $conf->{$parse_name}->{$obj_name};
+    my ($name, $dn) = split / /, $obj_name;
+    my $def = $conf->{LDAP_MAP}->{$name};
+    my $new_name = $def->{name_on_dev} || $def->{new_name} || $def->{name};
+    my $conf_cmd = "ldap attribute-map $new_name";
+    my $gp = $obj->{GROUP_POLICY};
+    my $cmd = "no map-value memberOf $dn $gp";
+    $self->cmd( $conf_cmd );
     $self->cmd( $cmd );
 }
 
@@ -2828,7 +3035,10 @@ sub define_structure {
             postpone => 1,
             next => [ { attr_name  => 'DEFAULT_GROUP_POLICY',
                         parse_name => 'GROUP_POLICY',
-                      } ],
+                      },
+                      { attr_name => 'AUTH_SERVER',
+                        parse_name => 'AUTH_SERVER',
+                      }, ],
             attributes => [ qw( ATTRIBUTES ) ],
             transfer => 'transfer_tunnel_group',
             remove   => 'remove_obj',
@@ -2895,6 +3105,29 @@ sub define_structure {
             attributes => [ qw( value ) ],
             transfer => 'transfer_no_sysopt_connection_permit_vpn',
             remove => 'remove_no_sysopt_connection_permit_vpn',
+        },
+        AUTH_SERVER => {
+            next => [ { attr_name  => 'LDAP_MAP',
+                        parse_name => 'LDAP_MAP', },
+                ],
+            manual_transfer => 1,
+            transfer => sub {},
+            remove   => sub {},
+        },
+        LDAP_MAP => {
+            next_list => [ { attr_name  => 'LDAP_MAP_VALUE',
+                             parse_name => 'LDAP_MAP_VALUE',
+                             is_not_attr => 1, },
+                ],
+            manual_transfer => 1,
+        },
+        LDAP_MAP_VALUE => {
+            attributes => [ qw( DN ) ],
+            next => [ { attr_name => 'GROUP_POLICY',
+                        parse_name => 'GROUP_POLICY', } ],
+            simple_object => 1,
+            transfer => 'transfer_ldap_map_value',
+            remove   => 'remove_ldap_map_value',
         },
     };
 }

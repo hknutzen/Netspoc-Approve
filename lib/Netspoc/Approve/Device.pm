@@ -6,7 +6,7 @@ Base class for all supported devices
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.4'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.5'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -679,13 +679,6 @@ sub route_line_a_eq_b {
 sub route_line_destination_a_eq_b {
     my ($self, $a, $b) = @_;
     return($a->{BASE} eq $b->{BASE} && $a->{MASK} eq $b->{MASK});
-}
-
-# Unique union of all elements.
-# Preserves original order.
-sub unique {
-    my %seen;
-    return grep { !$seen{$_}++ } @_;
 }
 
 # Default: No op
