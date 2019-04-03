@@ -1396,14 +1396,23 @@ $in = <<'END';
 ! vpn-filter-G1
 access-list vpn-filter-G1 extended permit ip 10.3.4.8 255.255.255.248 any4
 access-list vpn-filter-G1 extended deny ip any4 any4
-crypto ca certificate map ca-map-G1 10
- subject-name attr cn co G1
 ip local pool pool-G1 10.3.4.8-10.3.4.15 mask 255.255.255.248
 group-policy VPN-group-G1 internal
 group-policy VPN-group-G1 attributes
  address-pools value pool-G1
  vpn-filter value vpn-filter-G1
 
+! vpn-filter-G2
+access-list vpn-filter-G2 extended permit ip 10.3.4.16 255.255.255.248 any4
+access-list vpn-filter-G2 extended deny ip any4 any4
+ip local pool pool-G2 10.3.4.16-10.3.4.23 mask 255.255.255.248
+group-policy VPN-group-G2 internal
+group-policy VPN-group-G2 attributes
+ address-pools value pool-G2
+ vpn-filter value vpn-filter-G2
+
+crypto ca certificate map ca-map-G1 10
+ subject-name attr cn co G1
 tunnel-group VPN-tunnel-G1 type remote-access
 tunnel-group VPN-tunnel-G1 general-attributes
  authentication-server-group LDAP_KV
@@ -1424,6 +1433,7 @@ webvpn
 ldap attribute-map LDAPMAP
  map-name memberOf Group-Policy
  map-value memberOf CN=g-m1,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G1
+ map-value memberOf CN=g-m2,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G2
 END
 
 $out = <<'END';
@@ -1505,7 +1515,7 @@ END
 eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Insert and remove ldap map-value";
+$title = "Insert, unchanged and remove ldap map-value";
 ############################################################
 $device = $minimal_device. <<'END';
 
@@ -1517,6 +1527,15 @@ group-policy VPN-group-G2 internal
 group-policy VPN-group-G2 attributes
  address-pools value pool-G2
  vpn-filter value vpn-filter-G2
+
+! vpn-filter-G3
+access-list vpn-filter-G3 extended permit ip 10.3.4.24 255.255.255.248 any4
+access-list vpn-filter-G3 extended deny ip any4 any4
+ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
+group-policy VPN-group-G3 internal
+group-policy VPN-group-G3 attributes
+ address-pools value pool-G3
+ vpn-filter value vpn-filter-G3
 
 crypto ca certificate map ca-map-G1 10
  subject-name attr cn co G1
@@ -1541,6 +1560,7 @@ aaa-server LDAP_KV (inside) host 10.2.8.16
 
 ldap attribute-map LDAPMAP
  map-name memberOf Group-Policy
+ map-value memberOf CN=g-m3,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G3
  map-value memberOf CN=g-m2,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G2
 END
 
@@ -1557,11 +1577,11 @@ ldap attribute-map LDAPMAP
 map-value memberOf CN=g-m1,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G1
 webvpn
 certificate-group-map ca-map-G1 10 VPN-tunnel-G1
-clear configure group-policy VPN-group-G2
+clear configure group-policy VPN-group-G3
 ldap attribute-map LDAPMAP
-no map-value memberOf CN=g-m2,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G2
-clear configure access-list vpn-filter-G2
-no ip local pool pool-G2 10.3.4.16-10.3.4.23 mask 255.255.255.248
+no map-value memberOf CN=g-m3,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G3
+clear configure access-list vpn-filter-G3
+no ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
 END
 
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
