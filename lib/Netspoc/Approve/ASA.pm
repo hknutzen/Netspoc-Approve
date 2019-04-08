@@ -1465,6 +1465,9 @@ sub generate_names_for_transfer {
         next if $parse_name eq 'DYNAMIC_MAP';
         next if $parse_name eq 'IP_TUNNEL_GROUP_DEFINE';
 
+        # aaa-server has fixed name.
+        next if $parse_name eq 'AUTH_SERVER';
+
         my $hash = $spoc->{$parse_name};
         for my $name ( keys %$hash ) {
             if ($parse_name =~ /^TUNNEL_GROUP/) {
@@ -1811,6 +1814,7 @@ sub make_equal {
                 info("Using $parse_name $name on device for $spoc_name");
                 $self->mark_as_unchanged( $parse_name );
                 $spoc_value->{name_on_dev} = $name;
+                $conf_value = $found_obj;
             }
             else {
                 $spoc_value->{transfer} = 1;
@@ -3111,6 +3115,7 @@ sub define_structure {
                         parse_name => 'LDAP_MAP', },
                 ],
             manual_transfer => 1,
+            simple_object => 1,
             transfer => sub {},
             remove   => sub {},
         },
