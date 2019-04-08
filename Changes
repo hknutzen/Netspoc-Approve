@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+2.6       2019-04-08 15:22:59+02:00 Europe/Berlin
+
+ - Fix: Use existing aaa-server on device.
+
 2.5       2019-03-18 16:43:38+01:00 Europe/Berlin
 
  - ASA: Added support for 'ldap attribute-map'.
