@@ -2256,6 +2256,9 @@ sub remove_spare_objects_on_device {
             # Only remove objects that have been defined by Netspoc.
             next if $parse_name ne 'CRYPTO_MAP_SEQ' and $obj_name !~ /DRC-\d+$/;
 
+            # Don't remove simple object, that is in use again.
+            next if $object->{needed};
+
             # So we do not try to remove the object again later.
             $object->{needed} = 1;
             info("Remove spare $parse_name $obj_name");
