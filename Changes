@@ -1,3 +1,9 @@
+2.7       2019-04-09 15:12:24+02:00 Europe/Berlin
+
+ - Fix: Use correct name of group policy in map-value of ldap attribute-map.
+ - Fix: No longer remove spare ip local pool and group policy,
+        if referenced by new config.
+
 2.6       2019-04-08 15:22:59+02:00 Europe/Berlin
 
  - Fix: Use existing aaa-server on device.

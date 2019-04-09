@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.6'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.7'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 
@@ -1972,7 +1972,7 @@ sub make_equal {
                     # the corresponding attribute in that superior object
                     # has to be altered, so that it carries the name of the
                     # transferred or changed object.
-                    if ( $spoc_next and not ($is_not_attr or $is_simple)) {
+                    if ( $spoc_next and not $is_not_attr) {
                         if ( ! $conf_next || $conf_next ne $new_conf_next ) {
                             $spoc_value->{change_attr}->{$next_attr_name} =
                                 $new_conf_next;
@@ -2002,7 +2002,7 @@ sub make_equal {
                             }
                         }
                     }
-                    if ($modified_list and not ($is_not_attr or $is_simple)) {
+                    if ($modified_list and not $is_not_attr) {
                         $spoc_value->{change_attr}->{$next_attr_name} =
                             \@new_list;
                         $modified = 1;
@@ -2255,6 +2255,9 @@ sub remove_spare_objects_on_device {
 
             # Only remove objects that have been defined by Netspoc.
             next if $parse_name ne 'CRYPTO_MAP_SEQ' and $obj_name !~ /DRC-\d+$/;
+
+            # Don't remove simple object, that is in use again.
+            next if $object->{needed};
 
             # So we do not try to remove the object again later.
             $object->{needed} = 1;

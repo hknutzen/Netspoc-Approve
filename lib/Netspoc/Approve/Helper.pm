@@ -33,7 +33,7 @@ use strict;
 use warnings;
 use NetAddr::IP::Util;
 
-our $VERSION = '2.6'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.7'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(info abort warn_info internal_err debug
