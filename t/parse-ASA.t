@@ -1541,7 +1541,7 @@ group-policy VPN-group-G1-DRC-0 attributes
 address-pools value pool-G1-DRC-0
 vpn-filter value vpn-filter-G1-DRC-0
 ldap attribute-map LDAPMAP
-map-value memberOf CN=g-m1,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G1
+map-value memberOf CN=g-m1,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G1-DRC-0
 access-list vpn-filter-G2-DRC-0 extended permit ip 10.3.4.16 255.255.255.248 any4
 access-list vpn-filter-G2-DRC-0 extended deny ip any4 any4
 ip local pool pool-G2-DRC-0 10.3.4.16-10.3.4.23 mask 255.255.255.248
@@ -1551,7 +1551,7 @@ group-policy VPN-group-G2-DRC-0 attributes
 address-pools value pool-G2-DRC-0
 vpn-filter value vpn-filter-G2-DRC-0
 ldap attribute-map LDAPMAP
-map-value memberOf CN=g-m2,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G2
+map-value memberOf CN=g-m2,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G2-DRC-0
 tunnel-group VPN-tunnel-G1-DRC-0 general-attributes
 tunnel-group VPN-tunnel-G1-DRC-0 general-attributes
 tunnel-group VPN-tunnel-G1-DRC-0 ipsec-attributes
@@ -1628,7 +1628,7 @@ group-policy VPN-group-G1-DRC-0 attributes
 address-pools value pool-G1-DRC-0
 vpn-filter value vpn-filter-G1-DRC-0
 ldap attribute-map LDAPMAP
-map-value memberOf CN=g-m1,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G1
+map-value memberOf CN=g-m1,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G1-DRC-0
 webvpn
 certificate-group-map ca-map-G1 10 VPN-tunnel-G1
 clear configure group-policy VPN-group-G3

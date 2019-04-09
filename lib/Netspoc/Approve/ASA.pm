@@ -1972,7 +1972,7 @@ sub make_equal {
                     # the corresponding attribute in that superior object
                     # has to be altered, so that it carries the name of the
                     # transferred or changed object.
-                    if ( $spoc_next and not ($is_not_attr or $is_simple)) {
+                    if ( $spoc_next and not $is_not_attr) {
                         if ( ! $conf_next || $conf_next ne $new_conf_next ) {
                             $spoc_value->{change_attr}->{$next_attr_name} =
                                 $new_conf_next;
@@ -2002,7 +2002,7 @@ sub make_equal {
                             }
                         }
                     }
-                    if ($modified_list and not ($is_not_attr or $is_simple)) {
+                    if ($modified_list and not $is_not_attr) {
                         $spoc_value->{change_attr}->{$next_attr_name} =
                             \@new_list;
                         $modified = 1;
