@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.7'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.8'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 
@@ -87,6 +87,7 @@ my %attr2cmd =
      },
      TUNNEL_GROUP_GENERAL => {
          DEFAULT_GROUP_POLICY      => 'default-group-policy',
+         AUTH_SERVER               => 'authentication-server-group',
      },
      DEFAULT_GROUP => {
          TUNNEL_GROUP             => 'tunnel-group-map',
@@ -1459,14 +1460,12 @@ sub generate_names_for_transfer {
 
     for my $parse_name ( keys %{$structure} ) {
         next if $structure->{$parse_name}->{anchor};
+        next if $structure->{$parse_name}->{fixed_name};
         next if $parse_name eq 'CRYPTO_MAP_SEQ';
 
         # Dynamic crypto map has certificate as name.
         next if $parse_name eq 'DYNAMIC_MAP';
         next if $parse_name eq 'IP_TUNNEL_GROUP_DEFINE';
-
-        # aaa-server has fixed name.
-        next if $parse_name eq 'AUTH_SERVER';
 
         my $hash = $spoc->{$parse_name};
         for my $name ( keys %$hash ) {
@@ -1773,10 +1772,21 @@ sub make_equal {
 
 #    info("MAKE EQUAL( $parse_name ) => CONF:$conf_name, SPOC:$spoc_name ");
 
-    my $modified;
+    # Use object with same name from device.
+    if ($structure->{$parse_name}->{fixed_name}) {
+        if ($conf_name and $spoc_name) {
+            if ($conf_name ne $spoc_name) {
+                $conf_name = undef;
+            }
+        }
+        if ($spoc_name and not $conf_name) {
+            $conf_name = $spoc_name;
+        }
+    }
+
     my $conf_value = $conf_name && $conf->{$parse_name}->{$conf_name};
     my $spoc_value = $spoc_name && $spoc->{$parse_name}->{$spoc_name};
-    my $is_simple = $structure->{$parse_name}->{simple_object};
+    my $simple_object = $structure->{$parse_name}->{simple_object};
 
     if ( $spoc_value ) {
 
@@ -1793,7 +1803,7 @@ sub make_equal {
         # Instead, search object with identical attributes on device.
         # If found, take that object.
         # Otherwise transfer object from netspoc.
-        if ($is_simple) {
+        if ($simple_object) {
             my $found_obj;
 
             # Prefer current value on device, if unchanged.
@@ -1830,6 +1840,7 @@ sub make_equal {
         }
     }
 
+    my $modified;
     my $childs_processed;
     if ($spoc_value && $spoc_value->{name_on_dev}) {
 
@@ -1909,7 +1920,7 @@ sub make_equal {
             $spoc_value->{name_on_dev} = $conf_name;
             $childs_processed = 1;
         }
-        elsif (not $is_simple) {
+        elsif (not $simple_object) {
             # String-compare and mark changed attributes.
             $modified = $self->equalize_attributes( $conf_value, $spoc_value,
                                                     $parse_name, $structure );
@@ -3118,7 +3129,7 @@ sub define_structure {
                         parse_name => 'LDAP_MAP', },
                 ],
             manual_transfer => 1,
-            simple_object => 1,
+            fixed_name => 1,
             transfer => sub {},
             remove   => sub {},
         },

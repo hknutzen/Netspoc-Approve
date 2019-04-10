@@ -1,3 +1,8 @@
+2.8       2019-04-10 15:24:09+02:00 Europe/Berlin
+
+ - Fix: Find correct aaa-server on device by name.
+ - authentication-server-group is transferred or changed now.
+
 2.7       2019-04-09 15:12:24+02:00 Europe/Berlin
 
  - Fix: Use correct name of group policy in map-value of ldap attribute-map.

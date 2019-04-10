@@ -1518,6 +1518,11 @@ eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
 $title = "Find existent aaa-server and ldap-map on device";
 ############################################################
 $device = $minimal_device. <<'END';
+aaa-server ABC protocol ldap
+aaa-server ABC (inside) host 1.2.8.15
+ ldap-attribute-map OTHER
+ldap attribute-map OTHER
+ map-name memberOf Group-Policy
 aaa-server LDAP_KV protocol ldap
 aaa-server LDAP_KV (inside) host 10.2.8.16
  ldap-base-dn DC=example,DC=com
@@ -1554,6 +1559,7 @@ ldap attribute-map LDAPMAP
 map-value memberOf CN=g-m2,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G2-DRC-0
 tunnel-group VPN-tunnel-G1-DRC-0 general-attributes
 tunnel-group VPN-tunnel-G1-DRC-0 general-attributes
+authentication-server-group LDAP_KV
 tunnel-group VPN-tunnel-G1-DRC-0 ipsec-attributes
 ikev1 trust-point ASDM_TrustPoint1
 ikev1 user-authentication none
@@ -1569,11 +1575,75 @@ END
 eq_or_diff(approve('ASA', $device, $in), $out, $title);
 
 ############################################################
+$title = "Change authentication server at tunnel-group";
+############################################################
+$device = $minimal_device. <<'END';
+
+access-list vpn-filter-G1 extended permit ip 10.3.4.8 255.255.255.248 any4
+access-list vpn-filter-G1 extended deny ip any4 any4
+crypto ca certificate map ca-map-G1 10
+ subject-name attr cn co G1
+ip local pool pool-G1 10.3.4.8-10.3.4.15 mask 255.255.255.248
+group-policy VPN-group-G1 internal
+group-policy VPN-group-G1 attributes
+ address-pools value pool-G1
+ vpn-filter value vpn-filter-G1
+access-list vpn-filter-G2 extended permit ip 10.3.4.16 255.255.255.248 any4
+access-list vpn-filter-G2 extended deny ip any4 any4
+ip local pool pool-G2 10.3.4.16-10.3.4.23 mask 255.255.255.248
+group-policy VPN-group-G2 internal
+group-policy VPN-group-G2 attributes
+ address-pools value pool-G2
+ vpn-filter value vpn-filter-G2
+tunnel-group VPN-tunnel-G1 type remote-access
+tunnel-group VPN-tunnel-G1 general-attributes
+ authentication-server-group OLD
+tunnel-group VPN-tunnel-G1 ipsec-attributes
+ ikev1 trust-point ASDM_TrustPoint1
+ ikev1 user-authentication none
+tunnel-group VPN-tunnel-G1 webvpn-attributes
+ authentication aaa certificate
+tunnel-group-map ca-map-G1 10 VPN-tunnel-G1
+
+aaa-server LDAP_KV protocol ldap
+aaa-server LDAP_KV (inside) host 10.2.8.16
+ ldap-base-dn DC=example,DC=com
+ ldap-scope subtree
+ ldap-naming-attribute dNSHostName
+ ldap-login-password *****
+ ldap-login-dn CN=VPN,OU=Admin,DC=example,DC=com
+ ldap-attribute-map LDAPMAP
+
+aaa-server OLD protocol ldap
+aaa-server OLD (inside) host 10.2.9.16
+ ldap-base-dn DC=example,DC=com
+ ldap-scope subtree
+ ldap-naming-attribute dNSHostName
+ ldap-login-password *****
+ ldap-login-dn CN=VPN,OU=Admin,DC=example,DC=com
+ ldap-attribute-map LDAPMAP
+
+webvpn
+ certificate-group-map ca-map-G1 10 VPN-tunnel-G1
+
+ldap attribute-map LDAPMAP
+ map-name memberOf Group-Policy
+ map-value memberOf CN=g-m1,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G1
+ map-value memberOf CN=g-m2,OU=VPN,OU=Gruppen,DC=example,DC=com VPN-group-G2
+END
+
+$out = <<'END';
+tunnel-group VPN-tunnel-G1 general-attributes
+authentication-server-group LDAP_KV
+END
+
+eq_or_diff(approve('ASA', $device, $in), $out, $title);
+
+############################################################
 $title = "Insert, unchanged and remove ldap map-value";
 ############################################################
 $device = $minimal_device. <<'END';
 
-! vpn-filter-G2
 access-list vpn-filter-G2 extended permit ip 10.3.4.16 255.255.255.248 any4
 access-list vpn-filter-G2 extended deny ip any4 any4
 ip local pool pool-G2 10.3.4.16-10.3.4.23 mask 255.255.255.248
@@ -1582,7 +1652,6 @@ group-policy VPN-group-G2 attributes
  address-pools value pool-G2
  vpn-filter value vpn-filter-G2
 
-! vpn-filter-G3
 access-list vpn-filter-G3 extended permit ip 10.3.4.24 255.255.255.248 any4
 access-list vpn-filter-G3 extended deny ip any4 any4
 ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
