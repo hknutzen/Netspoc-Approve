@@ -184,7 +184,14 @@ sub approve {
         BAIL_OUT "Unexpected status: $status\n$stderr\n";
     }
     $stderr and BAIL_OUT "STDERR:\n$stderr\n";
-    return filter_compare_output($stdout);
+    my $changes = filter_compare_output($stdout);
+    if ($changes and $status == 0) {
+        BAIL_OUT "Got status 'unchanged', but changes found:\n$changes";
+    }
+    elsif (not $changes and $status == 1) {
+        BAIL_OUT "Got status 'changed' but no changes found";
+    }
+    return $changes;
 }
 
 sub approve_err {
