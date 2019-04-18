@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+2.9       2019-04-18 12:05:28+02:00 Europe/Berlin
+
  - Fixed exit code of command "diamonds compare".
    Change in Crypto-Filter ACL wasn't reported, if interface ACL was unchanged.
    Change in IPv6 routing wasn't reported, IPv4 routing was unchanged.
