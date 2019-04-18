@@ -7,7 +7,7 @@
 # but shows output of running processes to multiple users.
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,10 +29,10 @@ POLICYDB=$(get-netspoc-approve-conf netspocdir)
 LOCK=$POLICYDB/LOCK
 CURRENT=$POLICYDB/current
 NEXT=$POLICYDB/next
-LOG=$POLICYDB/next/compile.log
+LOG=$NEXT/compile.log
 
 # Exists if compile failed and compile.log may be outdated.
-FAILED=$POLICYDB/next/failed
+FAILED=$NEXT/failed
 
 msg   () { echo $@ >&2; }
 abort () { echo $@ >&2; exit 1; }
@@ -42,7 +42,6 @@ abort () { echo $@ >&2; exit 1; }
 # true  (0): all changes from repository have already been processed
 # false (1): SRC isn't up to date
 uptodate () {
-    local out
     [ -d $SRC ] || return 1
 
     # Must use relative pathname for suid-cvs.
