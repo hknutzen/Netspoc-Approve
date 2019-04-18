@@ -706,7 +706,7 @@ sub process_routing {
         my $version = $routing eq 'ROUTING_VRF'? "IPv4" : "IPv6";
 
         # Track whether routing changed for device for later info output.
-        $self->{CHANGE}->{ROUTING} = 0;
+        $self->mark_as_unchanged('ROUTING');
 
         # Collect commands for every vrf
         for my $vrf (sort @vrfs) {
@@ -741,7 +741,7 @@ sub process_routing {
             # before deleting the old default route.
             for my $r (sort {$b->{MASK} cmp $a->{MASK}} @{$spoc_routing}) {
                 next if $r->{DELETE};
-                $self->{CHANGE}->{ROUTING} = 1;
+                $self->mark_as_changed('ROUTING');
                 my $cmd = $self->route_add($r, $vrf);
 
                 # ASA doesn't allow two routes to identical
@@ -763,7 +763,7 @@ sub process_routing {
             # Delete rules on device without equivalent in netspoc config.
             for my $r (@$conf_routing) {
                 next if $r->{DELETE};
-                $self->{CHANGE}->{ROUTING} = 1;
+                $self->mark_as_changed('ROUTING');
                 push(@cmds, $self->route_del($r, $vrf));
             }
 
