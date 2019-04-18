@@ -6,7 +6,7 @@ Base class for Cisco routers (IOS, NX-OS)
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2017 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2011 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 
 This program is free software; you can redistribute it and/or modify
@@ -191,7 +191,7 @@ sub unassign_acl   {
 sub update_acls {
     my ($self, $conf, $spoc, $update_info, $adder, $deleter) = @_;
     @$update_info or return;
-    $self->{CHANGE}->{ACCESS_LIST} = 1;
+    $self->mark_as_changed('ACCESS_LIST');
 
     # 1. Pass: Add new ACLs.
     for my $info (@$update_info) {
@@ -294,7 +294,7 @@ sub equalize_acls_of_objects {
 
     # Pass 2: Try to equalize ACLs by incremental changes to ACL on device.
     my ($line_start, $line_incr) = $self->ACL_line_discipline();
-    $self->{CHANGE}->{ACCESS_LIST} = 0;
+    $self->mark_as_unchanged('ACCESS_LIST');
     for my $pair (@$object_pairs){
         my ($conf_obj, $spoc_obj) = @$pair;
         for my $in_out (qw(IN OUT)) {
@@ -317,7 +317,7 @@ sub equalize_acls_of_objects {
                 next if $ready;
 
                 if (my $vcmds = $spoc_acl->{modify_cmds} ) {
-                    $self->{CHANGE}->{ACCESS_LIST} = 1;
+                    $self->mark_as_changed('ACCESS_LIST');
                     my $acl_name = $conf_acl->{name};
 
                     # Change line numbers of ACL entries on device to the same
