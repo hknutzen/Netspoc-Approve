@@ -46,13 +46,6 @@ sub abort { die "Error:", @_, "\n"; }
 
 my $config = Netspoc::Approve::Load_Config::load();
 
-# Get real UID of calling user (not the effective UID from setuid wrapper).
-my $real_uid = $<;
-
-# Get users pw entry.
-my @pwentry = getpwuid($real_uid) or
-    abort("Can't get pwentry of UID $real_uid: $!");
-
 # Path of policy database.
 my $policydb = $config->{netspocdir};
 
@@ -80,26 +73,10 @@ if ($> != $< or $ENV{SUDO_USER}) {
 # Lock policy database.
 sysopen my $lock_fh, "$lock", O_RDONLY | O_CREAT or
     abort("Error: can't open $lock: $!");
-if (not flock($lock_fh, LOCK_EX | LOCK_NB)) {
 
-# Not needed, because this is only used from wrapper script.
-#    # Read user and time from lockfile.
-#    open(my $fh, '<', $lock) or abort("Can't open $lock for reading: $!");
-#    my $status = <$fh> || '';
-#    close $fh;
-#    chomp $status;
-#    print STDERR "Another $0 is running. $status\n";
-
-    # Status code 2 signals, that a process is already running.
-    exit 2
-}
-
-# Write user and time to lockfile for better error message.
-my $user =  $pwentry[0] or abort("Can't get user name for UID $real_uid");
-open(my $fh, '>', $lock) or abort("Can't open $lock for writing: $!");
-my $status = "Started by $user at " . localtime() . "\n";
-print $fh $status;
-close $fh;
+# Status code 2 signals, that a process is already running.
+# Not error message needed, because this is only called from wrapper script.
+flock($lock_fh, LOCK_EX | LOCK_NB) or exit 2;
 
 # Cleanup leftovers from possible previous unsuccessful build of this policy.
 system('rm', '-rf', $next);
