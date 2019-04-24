@@ -71,8 +71,11 @@ my $next = "$policydb/next";
 # The lock file for preventing concurrent updates.
 my $lock = "$policydb/LOCK";
 
-# Set secure path.
-$ENV{PATH} = "/usr/local/bin:/usr/bin:/bin";
+# Set secure path, if run as other user.
+# Real UID != effective UID or started by sudo.
+if ($> != $< or $ENV{SUDO_USER}) {
+    $ENV{PATH} = "/usr/local/bin:/usr/bin:/bin";
+}
 
 # Lock policy database.
 sysopen my $lock_fh, "$lock", O_RDONLY | O_CREAT or
