@@ -143,8 +143,8 @@ my $lcount = 0;
 my $prev_policy;
 if($prev_policy = readlink $link) {
 
-    # Link must have name "p<number>".
-    ($lcount) = ($prev_policy =~ /^p(\d+)$/) or
+    # Link must have name "p<number>". Untaint $prev_policy.
+    ($prev_policy, $lcount) = ($prev_policy =~ /^(p(\d+))$/) or
         log_abort("Invalid policy name '$prev_policy' found in $link");
 }
 
