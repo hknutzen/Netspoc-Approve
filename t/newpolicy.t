@@ -4,13 +4,14 @@ use strict;
 use warnings;
 use File::Spec::Functions qw/ file_name_is_absolute splitpath catdir catfile /;
 use File::Path 'make_path';
+use Cwd;
 use File::Temp qw/ tempdir /;
 use IPC::Run3;
 use Time::HiRes qw(usleep);
 use Test::More;
 use Test::Differences;
 
-my $APPROVE_DIR = "$ENV{HOME}/Netspoc-Approve";
+my $APPROVE_DIR = cwd;
 
 # Set up PATH and PERL5LIB, such that files and libraries are searched
 # in $HOME/Netspoc-Approve
