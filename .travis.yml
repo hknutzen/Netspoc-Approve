@@ -12,6 +12,7 @@ matrix:
         - perl: dev
 sudo: false
 before_install:
+    - sudo apt install -y cvs
     - git clone git://github.com/travis-perl/helpers ~/travis-perl-helpers
     - source ~/travis-perl-helpers/init
     - build-perl
