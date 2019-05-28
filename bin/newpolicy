@@ -87,7 +87,7 @@ if flock -n -s 9 ; then
 
     # We got the lock.
     # newpolicy.pl isn't running.
-    POLICY=$(basename $(readlink $CURRENT || true))
+    POLICY=$(basename $(readlink $CURRENT || echo 'unknown'))
     SRC=$POLICYDB/$POLICY/src
     if uptodate ; then
 
@@ -119,7 +119,7 @@ else
             msg "---"
         fi
     fi
-fi 9<$LOCK
+fi 9>$LOCK
 
 # Start newpolicy.pl in background.
 # - Process must not be terminated if this script is killed.
