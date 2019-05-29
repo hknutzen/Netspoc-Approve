@@ -116,10 +116,32 @@ sleep 0.5
 END
 
     # Install suid-newpolicy, that simply calls newpolicy.pl
-    symlink "$APPROVE_DIR/bin/newpolicy.pl", "$dir/my-bin/suid-newpolicy";
+    # Use current perl interpreter.
+    write_file("$dir/my-bin/suid-newpolicy", <<"END");
+#!/bin/sh
+$^X $APPROVE_DIR/bin/newpolicy.pl
+END
+
+    # Install dymmy version of command 'netspoc' if not already installed.
+    system('which netspoc >/dev/null') == 0 or
+        write_file("$dir/my-bin/netspoc", <<'END');
+#!/bin/sh
+if grep -qr BAD $1 ; then
+ echo 'Syntax error: Typed name expected at line 1 of next/src/topology, near "BAD<--HERE--> SYNTAX"' >&2
+ sleep 0.1
+ false
+else
+ true
+fi
+END
 
     system "chmod a+x $dir/my-bin/*";
     $ENV{PATH} = "$dir/my-bin:$ENV{PATH}";
+}
+
+sub start_newpolicy {
+    open(my $fh, '-|', "$APPROVE_DIR/bin/newpolicy 2>&1");
+    return $fh;
 }
 
 sub check_newpolicy {
@@ -141,17 +163,17 @@ verbose = 0;
 network:n1 = { ip = 10.1.1.0/24; }
 END
 
-open(my $fh1, '-|', 'newpolicy 2>&1');
+my $fh1 = start_newpolicy();
 usleep 60000;
-open(my $fh2, '-|', 'newpolicy 2>&1');
+my $fh2 = start_newpolicy();
 change_netspoc(<<'END');
 -- topology
 network:n1 = { ip = 10.1.1.0/24; }  # Comment
 END
 
-open(my $fh3, '-|', 'newpolicy 2>&1');
+my $fh3 = start_newpolicy();
 usleep 1000000;
-open(my $fh4, '-|', 'newpolicy 2>&1');
+my $fh4 = start_newpolicy();
 
 check_newpolicy($fh1, <<'END', 'Start and show');
 Processing current changeset
@@ -177,7 +199,7 @@ Processing current changeset
 Updated current policy to 'p2'
 END
 
-open($fh1, '-|', 'newpolicy 2>&1');
+$fh1 = start_newpolicy();
 
 check_newpolicy($fh1, <<'END', 'Up to date');
 Newest changeset is already available as current p2
@@ -188,7 +210,7 @@ change_netspoc(<<'END');
 network:n1 = { ip = 10.1.1.0/24; }  BAD SYNTAX
 END
 
-open($fh1, '-|', 'newpolicy 2>&1');
+$fh1 = start_newpolicy();
 
 check_newpolicy($fh1, <<'END', 'Failed to compile');
 Processing current changeset
