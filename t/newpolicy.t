@@ -11,6 +11,11 @@ use Time::HiRes qw(usleep);
 use Test::More;
 use Test::Differences;
 
+# Don't run this test on travis-ci, where netspoc isn't installed
+if (system('which netspoc >/dev/null') != 0) {
+    plan skip_all => 'Program "netspoc" not available';
+}
+
 my $APPROVE_DIR = cwd;
 
 # Set up PATH and PERL5LIB, such that files and libraries are searched
@@ -122,19 +127,6 @@ END
 $^X $APPROVE_DIR/bin/newpolicy.pl
 END
 
-    # Install dymmy version of command 'netspoc' if not already installed.
-    system('which netspoc >/dev/null') == 0 or
-        write_file("$dir/my-bin/netspoc", <<'END');
-#!/bin/sh
-if grep -qr BAD $1 ; then
- echo 'Syntax error: Typed name expected at line 1 of next/src/topology, near "BAD<--HERE--> SYNTAX"' >&2
- sleep 0.1
- false
-else
- true
-fi
-END
-
     system "chmod a+x $dir/my-bin/*";
     $ENV{PATH} = "$dir/my-bin:$ENV{PATH}";
 }
@@ -166,6 +158,7 @@ END
 my $fh1 = start_newpolicy();
 usleep 60000;
 my $fh2 = start_newpolicy();
+usleep 60000;
 change_netspoc(<<'END');
 -- topology
 network:n1 = { ip = 10.1.1.0/24; }  # Comment
