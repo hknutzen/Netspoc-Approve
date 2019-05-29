@@ -82,6 +82,7 @@ sub setup_netspoc {
     # Initialize empty CVS repository.
     mkdir 'cvsroot';
     $ENV{CVSROOT} = "$dir/cvsroot";
+    delete $ENV{CVSREAD};
     system "$orig_cvs init";
 
     # Create initial netspoc files and put them under CVS control.
