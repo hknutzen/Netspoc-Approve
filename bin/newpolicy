@@ -59,7 +59,7 @@ show_log_background () {
     TAIL_PID=$!
     trap 'kill $TAIL_PID' EXIT
     # $LOG is locked during write.
-    # If lock bekomes available, we know that writing has finished.
+    # If lock becomes available, we know that writing has finished.
     flock -s $LOG -c true 2>/dev/null
     # Wait until all lines are read.
     sleep 0.1
