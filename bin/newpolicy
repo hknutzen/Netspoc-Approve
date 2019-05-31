@@ -69,7 +69,7 @@ show_log_background () {
 }
 
 wait_log_available () {
-    while [ -f $FAILED ] || ! [ -f $LOG ] ; do sleep 1 ; done
+    while [ -f $FAILED ] || ! [ -f $LOG ] ; do sleep 0.1 ; done
     return
 }
 
