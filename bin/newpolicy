@@ -53,18 +53,19 @@ uptodate () {
 }
 
 # Show compile.log as long the file is locked.
+# Ignore error messages, if $LOG already has disappeared.
 show_log_background () {
-    tail -n 1 -f $LOG &
+    tail -n 1 -f $LOG 2>/dev/null &
     TAIL_PID=$!
     trap 'kill $TAIL_PID' EXIT
     # $LOG is locked during write.
     # If lock bekomes available, we know that writing has finished.
-    flock -s $LOG -c true
+    flock -s $LOG -c true 2>/dev/null
     # Wait until all lines are read.
     sleep 0.1
-    kill $TAIL_PID
+    kill $TAIL_PID 2>/dev/null &&
+        wait $TAIL_PID 2>/dev/null
     trap EXIT
-    wait $TAIL_PID 2>/dev/null || true
 }
 
 wait_log_available () {
