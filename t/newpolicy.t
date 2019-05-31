@@ -31,7 +31,7 @@ $ENV{PATH} = "$APPROVE_DIR/bin:$ENV{PATH}";
 
 # Create working directory, set as current directory for relative paths.
 # Set as HOME directory for config file .netspoc-approve.
-my $dir = tempdir(CLEANUP => 1);
+my $dir = tempdir(CLEANUP => 1, DIR => $APPROVE_DIR);
 chdir $dir;
 $ENV{HOME} = $dir;
 
