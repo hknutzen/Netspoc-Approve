@@ -32,7 +32,7 @@ NEXT=$POLICYDB/next
 LOG=$NEXT/compile.log
 
 # Exists if compile failed and compile.log may be outdated.
-FAILED=$NEXT/failed
+FAILED=$POLICYDB/failed
 
 msg   () { echo $@ >&2; }
 abort () { echo $@ >&2; exit 1; }
@@ -53,7 +53,7 @@ uptodate () {
 }
 
 # Show compile.log as long the file is locked.
-# Ignore error messages, if $LOG already has disappeared.
+# Ignore error messages, if $LOG already was move from 'next' to 'current'.
 show_log_background () {
     tail -n 1 -f $LOG 2>/dev/null &
     TAIL_PID=$!
@@ -69,14 +69,14 @@ show_log_background () {
 }
 
 wait_log_available () {
-    while [ -f $FAILED ] || ! [ -f $LOG ] ; do sleep 0.1 ; done
+    while ! [ $LOG -nt $FAILED ] ; do sleep 0.1 ; done
     return
 }
 
 wait_log_short () {
-    ! [ -f $FAILED ] && [ -f $LOG ] && return 0
+    [ $LOG -nt $FAILED ] && return 0
     sleep 0.1
-    ! [ -f $FAILED ] && [ -f $LOG ] && return 0
+    [ $LOG -nt $FAILED ] && return 0
     return 1
 }
 

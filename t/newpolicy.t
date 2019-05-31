@@ -140,9 +140,12 @@ sub start_newpolicy {
 sub check_newpolicy {
     my ($fh, $expected, $title) = @_;
 
-    # Read all lines at once.
-    local $/ = undef;
-    my $got = <$fh>;
+    my $got = '';
+    while(my $line = <$fh>) {
+        $got .= $line;
+        chomp $line;
+#        diag $line;
+    }
     close $fh;
     $got =~ s|\Q$dir/policydb/||;
     eq_or_diff($got, $expected, $title);
@@ -211,6 +214,18 @@ Processing current changeset
 Syntax error: Typed name expected at line 1 of next/src/topology, near "BAD<--HERE--> SYNTAX"
 New policy failed to compile
 Left current policy as 'p2'
+END
+
+change_netspoc(<<'END');
+-- topology
+network:n1 = { ip = 10.1.1.0/24; }  # GOOD AGAIN
+END
+
+$fh1 = start_newpolicy();
+
+check_newpolicy($fh1, <<'END', 'Up to date again');
+Processing current changeset
+Updated current policy to 'p3'
 END
 
 ############################################################

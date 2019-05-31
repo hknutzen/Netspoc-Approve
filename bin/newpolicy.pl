@@ -210,6 +210,9 @@ if ($? == 0) {
         log_abort("Failed to create symlink $link to $policy");
     log_line("Updated current policy to '$policy'\n");
 
+    # Remove 'failed' marker.
+    system("rm -f $policydb/failed");
+
     # Cleanup previous code directory.
     # Remove huge and no longer used files from pass 1.
     if ($prev_policy) {
@@ -229,7 +232,7 @@ else {
     log_line("New policy failed to compile\n");
 
     # Mark data as failed for use in wrapper.
-    system("touch $next/failed");
+    system("touch $policydb/failed");
     my $current = readlink $link;
     $current and log_line("Left current policy as '$current'\n");
 
