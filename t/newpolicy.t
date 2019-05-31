@@ -106,7 +106,7 @@ END
 sub change_netspoc {
     my ($in) = @_;
     prepare_dir('netspoc', $in);
-    system "$orig_cvs -Q commit -m test netspoc";
+    system "$orig_cvs -Q commit -m test netspoc >/dev/null";
 }
 
 sub setup_bin {
