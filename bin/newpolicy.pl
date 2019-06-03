@@ -72,7 +72,7 @@ if ($> != $< or $ENV{SUDO_USER}) {
 
 # Lock policy database.
 sysopen my $lock_fh, "$lock", O_RDONLY | O_CREAT or
-    abort("Error: can't open $lock: $!");
+    abort("Can't open $lock: $!");
 
 # Status code 2 signals, that a process is already running.
 # No error message needed, because this is only called from wrapper script.
@@ -83,7 +83,7 @@ system('rm', '-rf', $next);
 
 # Create directory for new policy.
 print STDERR "Creating new policy\n";
-mkdir $next or abort("Error: can't create $next: $!");
+mkdir $next or abort("Can't create $next: $!");
 
 # Directory and file names of new policy in policy database.
 my $psrc  = "$next/src";
@@ -148,7 +148,7 @@ if($prev_policy = readlink $link) {
 # to speed up pass 2 of Netspoc compiler.
 my $prev_link;
 if ($prev_policy) {
-   mkdir $pcode or abort("Error: can't create $pcode: $!");
+   mkdir $pcode or abort("Can't create $pcode: $!");
    my $prev_code = "../../$prev_policy/code";
    $prev_link = "$pcode/.prev";
    symlink $prev_code, $prev_link or
