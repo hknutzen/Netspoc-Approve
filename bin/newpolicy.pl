@@ -75,7 +75,7 @@ sysopen my $lock_fh, "$lock", O_RDONLY | O_CREAT or
     abort("Error: can't open $lock: $!");
 
 # Status code 2 signals, that a process is already running.
-# Not error message needed, because this is only called from wrapper script.
+# No error message needed, because this is only called from wrapper script.
 flock($lock_fh, LOCK_EX | LOCK_NB) or exit 2;
 
 # Cleanup leftovers from possible previous unsuccessful build of this policy.
@@ -108,7 +108,7 @@ sub log_abort {
 $log_fh->autoflush(1);
 
 # In server mode, cvs commands need relative pathnames.
-# Hence change into parent directory.
+# Hence change into directory, where files are checked out.
 chdir($next) or log_abort("Can't 'cd $next': $!");
 
 # Check out newest files from repository into subdirectory "src" of
