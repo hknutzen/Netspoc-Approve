@@ -58,9 +58,8 @@ show_log_background () {
     tail -n 1 -f $LOG 2>/dev/null &
     TAIL_PID=$!
     trap 'kill $TAIL_PID' EXIT
-    # $LOG is locked during write.
-    # If lock becomes available, we know that writing has finished.
-    flock -s $LOG -c true 2>/dev/null
+    # If LOCK becomes available, we know that writing has finished.
+    flock -s $LOCK -c true 2>/dev/null
     # Wait until all lines are read.
     sleep 0.1
     kill $TAIL_PID 2>/dev/null &&

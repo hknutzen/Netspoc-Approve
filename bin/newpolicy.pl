@@ -104,10 +104,6 @@ sub log_abort {
     exit 1;
 }
 
-# Lock $plog
-# After lock is removed, outside programs know, that logging has finished.
-flock($log_fh, LOCK_EX) or log_abort("Can't lock $plog");
-
 # So other programs reading from this file see the output immediately.
 $log_fh->autoflush(1);
 
