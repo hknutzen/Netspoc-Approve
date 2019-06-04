@@ -7,6 +7,7 @@ use File::Path 'make_path';
 use Cwd;
 use File::Temp qw/ tempdir /;
 use IPC::Run3;
+use Fcntl qw(:DEFAULT :flock);
 use Time::HiRes qw(usleep);
 use Test::More;
 use Test::Differences;
@@ -15,6 +16,10 @@ use Test::Differences;
 if (system('which netspoc >/dev/null') != 0) {
     plan skip_all => 'Program "netspoc" not available';
 }
+
+# newpolicy.pl checks for SUDO_USER in environment.
+# In this case tests would fail.
+delete $ENV{SUDO_USER};
 
 my $APPROVE_DIR = cwd;
 
@@ -34,9 +39,6 @@ $ENV{PATH} = "$APPROVE_DIR/bin:$ENV{PATH}";
 my $dir = tempdir(CLEANUP => 1, DIR => $APPROVE_DIR);
 chdir $dir;
 $ENV{HOME} = $dir;
-
-my $orig_cvs = `which cvs`;
-chomp $orig_cvs;
 
 sub write_file {
     my($name, $data) = @_;
@@ -83,16 +85,16 @@ sub setup_netspoc {
     mkdir 'cvsroot';
     $ENV{CVSROOT} = "$dir/cvsroot";
     delete $ENV{CVSREAD};
-    system "$orig_cvs init";
+    system "cvs init";
 
     # Create initial netspoc files and put them under CVS control.
     mkdir('import');
     prepare_dir('import', $in);
     chdir 'import';
-    system "$orig_cvs -Q import -m start netspoc vendor version";
+    system "cvs -Q import -m start netspoc vendor version";
     chdir $dir;
     system 'rm -r import';
-    system "$orig_cvs -Q checkout netspoc";
+    system "cvs -Q checkout netspoc";
 
     # Create config file .netspoc-approve for newpolicy
     mkdir('policydb');
@@ -106,19 +108,32 @@ END
 sub change_netspoc {
     my ($in) = @_;
     prepare_dir('netspoc', $in);
-    system "$orig_cvs -Q commit -m test netspoc >/dev/null";
+    system "cvs -Q commit -m test netspoc >/dev/null";
 }
 
 sub setup_bin {
     my ($dir) = @_;
 
-    # Install slow version of cvs, that is called inside newpolicy.pl,
-    # so we can observe parallel execution.
+    # Install version of cvs, that can be controlled to wait after
+    # completion.
     mkdir("$dir/my-bin");
+    my $orig_bin = `which cvs`;
+    chomp $orig_bin;
     write_file("$dir/my-bin/cvs", <<"END");
 #!/bin/sh
-$orig_cvs "\$@"
-sleep 0.5
+$orig_bin "\$@"
+status=\$?
+
+# Wait when "cvs checkout" is called inside newpolicy.pl
+if echo \$* | grep -q checkout; then
+   flock $dir/do-wait -c true 2>/dev/null
+
+# Signal that 'uptodate' check in 'newpolicy' has started.
+elif echo "\$*" | grep -q -e '-n -q -f update'; then
+   touch $dir/is-started
+fi
+
+exit \$status
 END
 
     # Install suid-newpolicy, that simply calls newpolicy.pl
@@ -137,6 +152,13 @@ sub start_newpolicy {
     return $fh;
 }
 
+sub wait_newpolicy_started {
+    while(not -f 'is-started') {
+        usleep 1000;
+    }
+    system 'rm -f is-started';
+}
+
 sub check_newpolicy {
     my ($fh, $expected, $title) = @_;
 
@@ -151,25 +173,39 @@ sub check_newpolicy {
     eq_or_diff($got, $expected, $title);
 }
 
-setup_bin($dir);
 setup_netspoc($dir, <<'END');
 -- config
 verbose = 0;
 -- topology
 network:n1 = { ip = 10.1.1.0/24; }
 END
+setup_bin($dir);
 
+sysopen my $lock_fh, 'policydb/LOCK', O_RDONLY | O_CREAT;
+
+# Let newpolicy.pl wait.
+sysopen my $wait_fh, 'do-wait', O_RDONLY | O_CREAT;
+flock($wait_fh, LOCK_EX | LOCK_NB);
 my $fh1 = start_newpolicy();
-usleep 60000;
+
+# Wait until compile.log has been created.
+while(not -f 'policydb/next/compile.log') {
+    usleep 1000;
+}
 my $fh2 = start_newpolicy();
-usleep 60000;
+wait_newpolicy_started();
+
 change_netspoc(<<'END');
 -- topology
 network:n1 = { ip = 10.1.1.0/24; }  # Comment
 END
 
 my $fh3 = start_newpolicy();
-usleep 1000000;
+wait_newpolicy_started();
+
+# Let newpolicy.pl proceed.
+close $wait_fh;
+
 my $fh4 = start_newpolicy();
 
 check_newpolicy($fh1, <<'END', 'Start and show');
