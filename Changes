@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+2.011     2019-06-07 12:47:36+02:00 Europe/Berlin
+
+ - Fix: newpolicy must only read, not write file LOCK.
+
 2.010     2019-06-07 11:49:28+02:00 Europe/Berlin
 
  - Changed and simplified newpolicy and newpolicy.pl
@@ -14,42 +18,42 @@
    - Only untaint path if run as other user.
    - Added automatic tests.
 
-2.9       2019-04-18 12:05:28+02:00 Europe/Berlin
+2.009       2019-04-18 12:05:28+02:00 Europe/Berlin
 
  - Fixed exit code of command "diamonds compare".
    Change in Crypto-Filter ACL wasn't reported, if interface ACL was unchanged.
    Change in IPv6 routing wasn't reported, IPv4 routing was unchanged.
 
-2.8       2019-04-10 15:24:09+02:00 Europe/Berlin
+2.008       2019-04-10 15:24:09+02:00 Europe/Berlin
 
  - Fix: Find correct aaa-server on device by name.
  - authentication-server-group is transferred or changed now.
 
-2.7       2019-04-09 15:12:24+02:00 Europe/Berlin
+2.007       2019-04-09 15:12:24+02:00 Europe/Berlin
 
  - Fix: Use correct name of group policy in map-value of ldap attribute-map.
  - Fix: No longer remove spare ip local pool and group policy,
         if referenced by new config.
 
-2.6       2019-04-08 15:22:59+02:00 Europe/Berlin
+2.006       2019-04-08 15:22:59+02:00 Europe/Berlin
 
  - Fix: Use existing aaa-server on device.
 
-2.5       2019-03-18 16:43:38+01:00 Europe/Berlin
+2.005       2019-03-18 16:43:38+01:00 Europe/Berlin
 
  - ASA: Added support for 'ldap attribute-map'.
 
-2.4       2019-02-12 18:20:59+01:00 Europe/Berlin
+2.004       2019-02-12 18:20:59+01:00 Europe/Berlin
 
  - Adapted version parsing to IOS 16.x.x having more than one dot.
 
-2.3       2018-10-24 17:44:42+02:00 Europe/Berlin
+2.003       2018-10-24 17:44:42+02:00 Europe/Berlin
 
  - Check ACL usage in raw files:
    - ACL must only be referenced once,
    - must not reference unknown ACL.
 
-2.2       2018-08-14 11:27:07+02:00 Europe/Berlin
+2.002       2018-08-14 11:27:07+02:00 Europe/Berlin
 
  - IP addresses of interfaces are compared now between device and Netspoc.
    A warning is printed if differences are found.
@@ -59,7 +63,7 @@
  - No longer show warning about unused default tunnel-group-map
    referencing built-in tunnel-group on device.
 
-2.1       2018-07-18 15:08:47+02:00 Europe/Berlin
+2.001       2018-07-18 15:08:47+02:00 Europe/Berlin
 
  - Added support for attribute 'extended-key-usage' for ASA.
  - ASA configuration with active 'global access-list' is rejected now,
@@ -69,7 +73,7 @@
  - Command 'newpolicy' now ignores file '.cvsrc' to better handle
    empty directories in diff.
 
-2.0       2018-03-12 11:28:02+01:00 Europe/Berlin
+2.000       2018-03-12 11:28:02+01:00 Europe/Berlin
 
  - When switching from incoming to outgoing ACL or vice versa,
    unused ACL is now removed only after new ACL is defined.
