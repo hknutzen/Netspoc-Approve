@@ -181,7 +181,7 @@ network:n1 = { ip = 10.1.1.0/24; }
 END
 setup_bin($dir);
 
-sysopen my $lock_fh, 'policydb/LOCK', O_RDONLY | O_CREAT;
+system 'touch policydb/LOCK';
 
 # Let newpolicy.pl wait.
 sysopen my $wait_fh, 'do-wait', O_RDONLY | O_CREAT;

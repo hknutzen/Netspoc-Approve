@@ -34,7 +34,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.010'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.011'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
