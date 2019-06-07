@@ -119,7 +119,7 @@ else
             msg "---"
         fi
     fi
-fi 9>$LOCK
+fi 9<$LOCK
 
 # Start newpolicy.pl in background.
 # - Process must not be terminated if this script is killed.
