@@ -82,7 +82,6 @@ flock($lock_fh, LOCK_EX | LOCK_NB) or exit 2;
 system('rm', '-rf', $next);
 
 # Create directory for new policy.
-print STDERR "Creating new policy\n";
 mkdir $next or abort("Can't create $next: $!");
 
 # Directory and file names of new policy in policy database.
@@ -95,7 +94,6 @@ open my $log_fh, '>', $plog or abort("Can't open $plog: $!");
 sub log_line {
     my ($line) = @_;
     print $log_fh $line;
-    print STDERR $line;
 }
 
 sub log_abort {
@@ -191,9 +189,9 @@ if ($? == 0) {
     print $policy_fh "# $policy # Current policy, don't edit manually!\n";
     close $policy_fh;
     if (!$exists) {
-        system('cvs', 'add', $pfile) == 0 or log_abort("Aborted");
+        system('cvs', '-Q', 'add', $pfile) == 0 or log_abort("Aborted");
     }
-    system('cvs', 'commit', '-m', $policy , $pfile) == 0 or
+    system('cvs', '-Q', 'commit', '-m', $policy , $pfile) == 0 or
         log_abort("Aborted");
 
     # Move temporary directory to final name
