@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/local/bin/perl
 
 =head1 NAME
 
@@ -18,7 +18,7 @@ Integrates NetSPoC with version control / build management.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -46,13 +46,6 @@ sub abort { die "Error:", @_, "\n"; }
 
 my $config = Netspoc::Approve::Load_Config::load();
 
-# Get real UID of calling user (not the effective UID from setuid wrapper).
-my $real_uid = $<;
-
-# Get users pw entry.
-my @pwentry = getpwuid($real_uid) or
-    abort("Can't get pwentry of UID $real_uid: $!");
-
 # Path of policy database.
 my $policydb = $config->{netspocdir};
 
@@ -71,39 +64,25 @@ my $next = "$policydb/next";
 # The lock file for preventing concurrent updates.
 my $lock = "$policydb/LOCK";
 
-# Set secure path.
-$ENV{PATH} = "/usr/local/bin:/usr/bin:/bin";
+# Set secure path, if run as other user.
+# Real UID != effective UID or started by sudo.
+if ($> != $< or $ENV{SUDO_USER}) {
+    $ENV{PATH} = "/usr/local/bin:/usr/bin:/bin";
+}
 
 # Lock policy database.
 sysopen my $lock_fh, "$lock", O_RDONLY | O_CREAT or
-    abort("Error: can't open $lock: $!");
-if (not flock($lock_fh, LOCK_EX | LOCK_NB)) {
+    abort("Can't open $lock: $!");
 
-# Not needed, because this is only used from wrapper script.
-#    # Read user and time from lockfile.
-#    open(my $fh, '<', $lock) or abort("Can't open $lock for reading: $!");
-#    my $status = <$fh> || '';
-#    close $fh;
-#    chomp $status;
-#    print STDERR "Another $0 is running. $status\n";
-
-    # Status code 2 signals, that a process is already running.
-    exit 2
-}
-
-# Write user and time to lockfile for better error message.
-my $user =  $pwentry[0] or abort("Can't get user name for UID $real_uid");
-open(my $fh, '>', $lock) or abort("Can't open $lock for writing: $!");
-my $status = "Started by $user at " . localtime() . "\n";
-print $fh $status;
-close $fh;
+# Status code 2 signals, that a process is already running.
+# No error message needed, because this is only called from wrapper script.
+flock($lock_fh, LOCK_EX | LOCK_NB) or exit 2;
 
 # Cleanup leftovers from possible previous unsuccessful build of this policy.
 system('rm', '-rf', $next);
 
 # Create directory for new policy.
-print STDERR "Creating new policy\n";
-mkdir $next or abort("Error: can't create $next: $!");
+mkdir $next or abort("Can't create $next: $!");
 
 # Directory and file names of new policy in policy database.
 my $psrc  = "$next/src";
@@ -115,7 +94,6 @@ open my $log_fh, '>', $plog or abort("Can't open $plog: $!");
 sub log_line {
     my ($line) = @_;
     print $log_fh $line;
-    print STDERR $line;
 }
 
 sub log_abort {
@@ -124,15 +102,11 @@ sub log_abort {
     exit 1;
 }
 
-# Lock $plog
-# After lock is removed, outside programs know, that logging has finished.
-flock($log_fh, LOCK_EX) or log_abort("Can't lock $plog");
-
 # So other programs reading from this file see the output immediately.
 $log_fh->autoflush(1);
 
 # In server mode, cvs commands need relative pathnames.
-# Hence change into parent directory.
+# Hence change into directory, where files are checked out.
 chdir($next) or log_abort("Can't 'cd $next': $!");
 
 # Check out newest files from repository into subdirectory "src" of
@@ -163,8 +137,8 @@ my $lcount = 0;
 my $prev_policy;
 if($prev_policy = readlink $link) {
 
-    # Link must have name "p<number>".
-    ($lcount) = ($prev_policy =~ /^p(\d+)$/) or
+    # Link must have name "p<number>". Untaint $prev_policy.
+    ($prev_policy, $lcount) = ($prev_policy =~ /^(p(\d+))$/) or
         log_abort("Invalid policy name '$prev_policy' found in $link");
 }
 
@@ -172,7 +146,7 @@ if($prev_policy = readlink $link) {
 # to speed up pass 2 of Netspoc compiler.
 my $prev_link;
 if ($prev_policy) {
-   mkdir $pcode or abort("Error: can't create $pcode: $!");
+   mkdir $pcode or abort("Can't create $pcode: $!");
    my $prev_code = "../../$prev_policy/code";
    $prev_link = "$pcode/.prev";
    symlink $prev_code, $prev_link or
@@ -215,9 +189,9 @@ if ($? == 0) {
     print $policy_fh "# $policy # Current policy, don't edit manually!\n";
     close $policy_fh;
     if (!$exists) {
-        system('cvs', 'add', $pfile) == 0 or log_abort("Aborted");
+        system('cvs', '-Q', 'add', $pfile) == 0 or log_abort("Aborted");
     }
-    system('cvs', 'commit', '-m', $policy , $pfile) == 0 or
+    system('cvs', '-Q', 'commit', '-m', $policy , $pfile) == 0 or
         log_abort("Aborted");
 
     # Move temporary directory to final name
@@ -229,6 +203,9 @@ if ($? == 0) {
     symlink $policy, $link or
         log_abort("Failed to create symlink $link to $policy");
     log_line("Updated current policy to '$policy'\n");
+
+    # Remove 'failed' marker.
+    system("rm -f $policydb/failed");
 
     # Cleanup previous code directory.
     # Remove huge and no longer used files from pass 1.
@@ -249,7 +226,7 @@ else {
     log_line("New policy failed to compile\n");
 
     # Mark data as failed for use in wrapper.
-    system("touch $next/failed");
+    system("touch $policydb/failed");
     my $current = readlink $link;
     $current and log_line("Left current policy as '$current'\n");
 

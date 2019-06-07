@@ -35,8 +35,8 @@ patches/Expect.pm.patch
 suid-support/Makefile
 suid-support/README
 suid-support/diamonds.c
+suid-support/sudo-newpolicy
 suid-support/sudoers
-suid-support/suid-newpolicy
 suid-support/suid-newpolicy.c
 t/ASA-modify-ACL.t
 t/Linux.t
@@ -45,6 +45,7 @@ t/drc3.t
 t/get-conf.t
 t/merge_IPv6.t
 t/missing-approve.t
+t/newpolicy.t
 t/parse-ASA.t
 t/parse-IOS.t
 t/parse-NX-OS.t

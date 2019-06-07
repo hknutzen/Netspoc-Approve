@@ -1,11 +1,14 @@
-/* Wrapper script for newpolicy.pl				*/
-/* This should be installed setuid and setgid.			*/
+/* Wrapper script for newpolicy.pl
+   This should be installed setuid and setgid
+   to some dedicated user and group ID.
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-char program[] = "/usr/local/bin/newpolicy.pl";
+char program[] = "/home/MGMT/knutzehe-admin/Netspoc-Approve/bin/newpolicy.pl";
 
 int main( int argc, char *argv[])
 {

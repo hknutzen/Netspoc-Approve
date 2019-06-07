@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # Read option from config of Netspoc-Approve.
 #
 # https://github.com/hknutzen/Netspoc-Approve

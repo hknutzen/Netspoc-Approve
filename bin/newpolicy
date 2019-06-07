@@ -32,7 +32,7 @@ NEXT=$POLICYDB/next
 LOG=$NEXT/compile.log
 
 # Exists if compile failed and compile.log may be outdated.
-FAILED=$NEXT/failed
+FAILED=$POLICYDB/failed
 
 msg   () { echo $@ >&2; }
 abort () { echo $@ >&2; exit 1; }
@@ -53,29 +53,29 @@ uptodate () {
 }
 
 # Show compile.log as long the file is locked.
+# Ignore error messages, if $LOG already was move from 'next' to 'current'.
 show_log_background () {
-    tail -n 1 -f $LOG &
+    tail -n 1 -f $LOG 2>/dev/null &
     TAIL_PID=$!
     trap 'kill $TAIL_PID' EXIT
-    # $LOG is locked during write.
-    # If lock bekomes available, we know that writing has finished.
-    flock -s $LOG -c true
+    # If LOCK becomes available, we know that writing has finished.
+    flock -s $LOCK -c true 2>/dev/null
     # Wait until all lines are read.
     sleep 0.1
-    kill $TAIL_PID
+    kill $TAIL_PID 2>/dev/null &&
+        wait $TAIL_PID 2>/dev/null
     trap EXIT
-    wait $TAIL_PID 2>/dev/null || true
 }
 
 wait_log_available () {
-    while [ -f $FAILED ] || ! [ -f $LOG ] ; do sleep 1 ; done
+    while ! [ $LOG -nt $FAILED ] ; do sleep 0.1 ; done
     return
 }
 
 wait_log_short () {
-    ! [ -f $FAILED ] && [ -f $LOG ] && return 0
+    [ $LOG -nt $FAILED ] && return 0
     sleep 0.1
-    ! [ -f $FAILED ] && [ -f $LOG ] && return 0
+    [ $LOG -nt $FAILED ] && return 0
     return 1
 }
 
@@ -87,7 +87,7 @@ if flock -n -s 9 ; then
 
     # We got the lock.
     # newpolicy.pl isn't running.
-    POLICY=$(basename $(readlink $CURRENT || true))
+    POLICY=$(basename $(readlink $CURRENT || echo 'unknown'))
     SRC=$POLICYDB/$POLICY/src
     if uptodate ; then
 
@@ -119,7 +119,7 @@ else
             msg "---"
         fi
     fi
-fi 9<$LOCK
+fi 9>$LOCK
 
 # Start newpolicy.pl in background.
 # - Process must not be terminated if this script is killed.
