@@ -1,5 +1,19 @@
 {{$NEXT}}
 
+2.010     2019-06-07 11:49:28+02:00 Europe/Berlin
+
+ - Changed and simplified newpolicy and newpolicy.pl
+   - Better interaction with Netspoc-API:
+      Moved POLICYDB/next/failed to POLICYDB/failed
+   - No longer write current username to lock file.
+   - File compile.log is no longer locked, POLICYDB/LOCK is checked instead.
+   - Better handling of edge cases:
+     - No error message on first run with empty POLICYDB.
+     - Detect if netspoc fails fast.
+   - newpolicy.pl can run in taint mode again.
+   - Only untaint path if run as other user.
+   - Added automatic tests.
+
 2.9       2019-04-18 12:05:28+02:00 Europe/Berlin
 
  - Fixed exit code of command "diamonds compare".
