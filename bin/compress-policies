@@ -2,7 +2,7 @@
 # Compress policy-directories that are 4 days old.
 # This should be started by a daily cronjob.
 # Older directories have already been compressed
-# by previous runs of ths script.
+# by previous runs of this script.
 
 # Abort on error.
 set -e
