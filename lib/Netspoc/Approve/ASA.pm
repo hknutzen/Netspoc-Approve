@@ -909,6 +909,12 @@ sub get_parse_info {
                 # But declare it, because it has subcommands.
                 'webvpn' => { subcmd => {} },
 
+                # Handle separately for whitespace in name.
+                'anyconnect-custom perapp' => {
+                    store => ['ATTRIBUTES', '_cmd'],
+                    parse => \&get_to_eol,
+                },
+
                 # '_any' is special word, which matches any token.
                 # '_cmd' is replaced by current command name.
                 _any => {

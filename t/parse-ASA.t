@@ -607,6 +607,7 @@ group-policy VPN-group internal
 group-policy VPN-group attributes
  banner value Willkommen!
  dns-server 10.1.2.3 10.44.55.66
+ anyconnect-custom perapp value SomeName
  split-tunnel-network-list value split-tunnel
  split-tunnel-policy tunnelspecified
  vpn-idle-timeout 60
@@ -622,6 +623,7 @@ $out = <<'END';
 access-list split-tunnel-DRC-0 standard permit 10.2.42.0 255.255.255.224
 group-policy VPN-group-DRC-0 internal
 group-policy VPN-group-DRC-0 attributes
+anyconnect-custom perapp value SomeName
 banner value Willkommen!
 dns-server 10.1.2.3 10.44.55.66
 split-tunnel-policy tunnelspecified
@@ -746,6 +748,7 @@ group-policy VPN-group attributes
  split-tunnel-policy tunnelspecified
  vpn-idle-timeout 60
  pfs
+ anyconnect-custom perapp value SomeName
 username jon.doe@token.example.com nopassword
 username jon.doe@token.example.com attributes
  vpn-group-policy VPN-group
@@ -771,6 +774,7 @@ dns-server value 10.1.2.3
 split-tunnel-policy tunnelall
 vpn-session-timeout 40
 group-policy VPN-group attributes
+no anyconnect-custom perapp
 no pfs
 no vpn-idle-timeout
 END
