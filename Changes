@@ -1,5 +1,10 @@
 {{$NEXT}}
 
+2.012     2019-08-14 11:14:42+02:00 Europe/Berlin
+
+ - Fix: 'no anyconnect-custom perapp'
+ - Cron: Compress old files after 4 days.
+
 2.011     2019-06-07 12:47:36+02:00 Europe/Berlin
 
  - Fix: newpolicy must only read, not write file LOCK.
