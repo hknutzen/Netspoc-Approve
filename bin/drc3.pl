@@ -35,7 +35,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '2.011'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.012'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 

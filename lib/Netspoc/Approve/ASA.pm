@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.011'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.012'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 
@@ -908,6 +908,12 @@ sub get_parse_info {
                 # This command is ignored.
                 # But declare it, because it has subcommands.
                 'webvpn' => { subcmd => {} },
+
+                # Handle separately for whitespace in name.
+                'anyconnect-custom perapp' => {
+                    store => ['ATTRIBUTES', '_cmd'],
+                    parse => \&get_to_eol,
+                },
 
                 # '_any' is special word, which matches any token.
                 # '_cmd' is replaced by current command name.
