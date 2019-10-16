@@ -6,7 +6,7 @@ Base class for the different varieties of Cisco devices.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2018 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -127,8 +127,11 @@ my %IP_Names = (
 );
 
 my %PORT_Names_TCP = (
+    'aol'               => 5190,
     'bgp'               => 179,
     'chargen'           => 19,
+    'citrix-ica'        => 1494,
+    'cifs'              => 3020,
     'citrix-ica'        => 1494,
     'cmd'               => 514,
     'connectedapps-plain' => 15001,
@@ -137,7 +140,7 @@ my %PORT_Names_TCP = (
     'daytime'           => 13,
     'discard'           => 9,
     'domain'            => 53,
-    'drip'              => 3949,        # NX-OS 6.x
+    'drip'              => 3949,
     'echo'              => 7,
     'exec'              => 512,
     'finger'            => 79,
@@ -178,7 +181,6 @@ my %PORT_Names_TCP = (
     'tacacs-ds'         => 65,
     'talk'              => 517,
     'telnet'            => 23,
-    'time'              => 37,
     'uucp'              => 540,
     'whois'             => 43,
     'www'               => 80
@@ -193,9 +195,10 @@ my %PORT_Names_UDP = (
     'biff'          => 512,
     'bootpc'        => 68,
     'bootps'        => 67,
+    'cifs'          => 3020,
     'discard'       => 9,
     'dns'           => 53,
-    'dnsix'         => 90,
+    'dnsix'         => 195,
     'domain'        => 53,
     'echo'          => 7,
     'isakmp'        => 500,
@@ -215,6 +218,7 @@ my %PORT_Names_UDP = (
     'rip'           => 520,
     'ripng'         => 521,
     'ripv6'         => 521,
+    'secureid-udp'  => 5510,
     'sip'           => 5060,
     'snmp'          => 161,
     'snmptrap'      => 162,
@@ -225,6 +229,7 @@ my %PORT_Names_UDP = (
     'talk'          => 517,
     'tftp'          => 69,
     'time'          => 37,
+    'vxlan'         => 4789,
     'who'           => 513,
     'www'           => 80,
     'xdmcp'         => 177
