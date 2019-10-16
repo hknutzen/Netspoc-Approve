@@ -1,3 +1,8 @@
+2.013     2019-10-16 15:18:04+02:00 Europe/Berlin
+
+ - Added new named port names: aol, cifs, citrix-ica, secureid-udp, vxlan
+ - Changed definition for port name: dnsix from 90 to 195
+
 2.012     2019-08-14 11:14:42+02:00 Europe/Berlin
 
  - Fix: 'no anyconnect-custom perapp'
