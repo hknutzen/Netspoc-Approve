@@ -812,6 +812,8 @@ sub get_parse_info {
 
 # ldap attribute-map map-name
 #  map-value user-attribute-name user-value-string Cisco-value-string
+# -or-
+#  map-value user-attribute-name "user value string" Cisco-value-string
         'ldap attribute-map' => {
             store => 'LDAP_MAP',
             named => 1,
@@ -823,7 +825,7 @@ sub get_parse_info {
                     store => 'LDAP_MAP_VALUE',
                     multi => 1,
                     parse => ['seq',
-                              { store => 'DN', parse => \&get_token },
+                              { store => 'DN', parse => \&get_string },
                               { store => 'GROUP_POLICY', parse => \&get_token },
                               ]
                 }
@@ -2664,14 +2666,14 @@ sub transfer_ip_local_pool {
 sub transfer_ldap_map_value {
     my ( $self, $spoc, $structure, $parse_name, $obj_name ) = @_;
     my $obj = $spoc->{$parse_name}->{$obj_name};
-    my ($name, $dn) = split / /, $obj_name;
+    my ($name, $dn) = split(/ /, $obj_name, 2);
     my $def = $spoc->{LDAP_MAP}->{$name};
     my $new_name = $def->{name_on_dev} || $def->{new_name} || $def->{name};
     my $conf_cmd = "ldap attribute-map $new_name";
     my $change_attr = $obj->{change_attr};
     my $gp =
         $change_attr && $change_attr->{GROUP_POLICY} || $obj->{GROUP_POLICY};
-    my $cmd = "map-value memberOf $dn $gp";
+    my $cmd = qq/map-value memberOf "$dn" $gp/;
     $self->cmd( $conf_cmd );
     $self->cmd( $cmd );
 }
@@ -2679,12 +2681,12 @@ sub transfer_ldap_map_value {
 sub remove_ldap_map_value {
     my ( $self, $conf, $parse_name, $obj_name ) = @_;
     my $obj = $conf->{$parse_name}->{$obj_name};
-    my ($name, $dn) = split / /, $obj_name;
+    my ($name, $dn) = split(/ /, $obj_name, 2);
     my $def = $conf->{LDAP_MAP}->{$name};
     my $new_name = $def->{name_on_dev} || $def->{new_name} || $def->{name};
     my $conf_cmd = "ldap attribute-map $new_name";
     my $gp = $obj->{GROUP_POLICY};
-    my $cmd = "no map-value memberOf $dn $gp";
+    my $cmd = qq/no map-value memberOf "$dn" $gp/;
     $self->cmd( $conf_cmd );
     $self->cmd( $cmd );
 }

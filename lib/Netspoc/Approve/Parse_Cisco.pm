@@ -6,7 +6,7 @@ Functions to parse Cisco command lines.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 
 This program is free software; you can redistribute it and/or modify
@@ -40,7 +40,7 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT =
     qw(err_at_line
-       get_token get_regex get_int get_ip get_eol unread
+       get_token get_string get_regex get_int get_ip get_eol unread
        get_ip_pair get_ip_prefix get_ipv6_prefix
        check_token check_regex check_int check_loglevel check_ip
        get_sorted_encr_list get_token_list
@@ -80,6 +80,26 @@ sub get_token {
     my $result = check_token($arg);
     defined($result) or err_at_line($arg, 'Missing token');
     return $result;
+}
+
+# Read single token without "" or
+# if first token starts with " then read multiple tokens
+# until one is found that ends with ".
+# Single "token" is also ok.
+# Attention: This changes consecutive white space to a single white space.
+sub get_string {
+    my($arg) = @_;
+    my $string = get_token($arg);
+    if (not $string =~ s/^"//) {
+        return $string;
+    }
+    while (1) {
+        if ($string =~ s/"$//) {
+            return $string;
+        }
+        my $next = get_token($arg);
+        $string .= ' ' . $next;
+    }
 }
 
 sub get_eol {
