@@ -1519,7 +1519,7 @@ END
 eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
 
 ############################################################
-$title = "Find existent aaa-server and ldap-map on device";
+$title = "Find existant aaa-server and ldap-map on device";
 ############################################################
 $device = $minimal_device. <<'END';
 aaa-server ABC protocol ldap
