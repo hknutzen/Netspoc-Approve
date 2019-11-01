@@ -354,8 +354,17 @@ sub analyze_conf_lines {
 
         # Process $rest (non indent part of line).
         $first_subcmd = 0;
-        my @args = split(' ', $rest);
-        my $orig = join(' ', @args);
+        my @args;
+        my $orig = $rest;
+
+        # Find
+        # - simple token without white space and
+        # - quoted token "...", "..\".."
+        while (length($rest)) {
+            (my $arg, $rest) = $rest =~ /^ ("(?:\\"|[^"])*" | \S+) (.*) $/x;
+            push @args, $arg;
+            $rest =~ s/^\s*//;
+        }
         my ($cmd, $lookup);
 
         # Look for command line (@args) within command dictionary of specific

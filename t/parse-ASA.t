@@ -1687,7 +1687,7 @@ aaa-server LDAP_KV (inside) host 10.2.8.16
 
 ldap attribute-map LDAPMAP
  map-name memberOf Group-Policy
- map-value memberOf "CN=g-m3,OU=VPN,OU=hi ho,DC=example,DC=com" VPN-group-G3
+ map-value memberOf "CN=g-m3,OU=VPN,OU=hi  h\"o\" x,DC=example,DC=com" VPN-group-G3
  map-value memberOf "CN=g-m2,OU=VPN,OU=local group,DC=example,DC=com" VPN-group-G2
 END
 
@@ -1706,7 +1706,7 @@ webvpn
 certificate-group-map ca-map-G1 10 VPN-tunnel-G1
 clear configure group-policy VPN-group-G3
 ldap attribute-map LDAPMAP
-no map-value memberOf "CN=g-m3,OU=VPN,OU=hi ho,DC=example,DC=com" VPN-group-G3
+no map-value memberOf "CN=g-m3,OU=VPN,OU=hi  h\"o\" x,DC=example,DC=com" VPN-group-G3
 clear configure access-list vpn-filter-G3
 no ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
 END

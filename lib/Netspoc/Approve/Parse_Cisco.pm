@@ -82,23 +82,15 @@ sub get_token {
     return $result;
 }
 
-# Read single token without "" or
-# if first token starts with " then read multiple tokens
-# until one is found that ends with ".
-# Single "token" is also ok.
-# Attention: This changes consecutive white space to a single white space.
+# Strip "" from token.
 sub get_string {
     my($arg) = @_;
-    my $string = get_token($arg);
-    if (not $string =~ s/^"//) {
-        return $string;
+    my $token = get_token($arg);
+    if ($token =~ /^"(.*)"$/) {
+        return $1;
     }
-    while (1) {
-        if ($string =~ s/"$//) {
-            return $string;
-        }
-        my $next = get_token($arg);
-        $string .= ' ' . $next;
+    else {
+        return $token;
     }
 }
 
