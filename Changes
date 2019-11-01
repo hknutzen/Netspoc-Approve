@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+2.014     2019-11-01 11:57:04+01:00 Europe/Berlin
+
+ - Double quoted string is now accepted for map-value of ldap attribute-map.
+
 2.013     2019-10-16 15:18:04+02:00 Europe/Berlin
 
  - Added new named port names: aol, cifs, citrix-ica, secureid-udp, vxlan
