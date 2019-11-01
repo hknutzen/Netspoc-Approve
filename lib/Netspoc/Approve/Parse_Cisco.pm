@@ -6,7 +6,7 @@ Functions to parse Cisco command lines.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2015 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 
 This program is free software; you can redistribute it and/or modify
@@ -35,12 +35,12 @@ use Regexp::IPv6 qw($IPv6_re);
 
 require Exporter;
 
-our $VERSION = '2.013'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.014'; # VERSION: inserted by DZP::OurPkgVersion
 
 our @ISA = qw(Exporter);
 our @EXPORT =
     qw(err_at_line
-       get_token get_regex get_int get_ip get_eol unread
+       get_token get_string get_regex get_int get_ip get_eol unread
        get_ip_pair get_ip_prefix get_ipv6_prefix
        check_token check_regex check_int check_loglevel check_ip
        get_sorted_encr_list get_token_list
@@ -80,6 +80,18 @@ sub get_token {
     my $result = check_token($arg);
     defined($result) or err_at_line($arg, 'Missing token');
     return $result;
+}
+
+# Strip "" from token.
+sub get_string {
+    my($arg) = @_;
+    my $token = get_token($arg);
+    if ($token =~ /^"(.*)"$/) {
+        return $1;
+    }
+    else {
+        return $token;
+    }
 }
 
 sub get_eol {
