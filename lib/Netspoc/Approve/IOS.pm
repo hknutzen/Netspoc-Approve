@@ -624,7 +624,7 @@ sub handle_reload_banner {
     if ($$output_ref =~
         m/
         ^ (.*?)                # Prefix from original command
-        (?:\r\n{1,2}){3}       # 3 empty lines
+        (?:\r\n{1,2}){3,4}     # 3 empty lines, but sometimes 4
         \x07 [*]{3}\r\n        # BELL + ***
         [*]{3} ([^\r\n]+) \r\n # *** Message
         [*]{3}\r\n             # ***
