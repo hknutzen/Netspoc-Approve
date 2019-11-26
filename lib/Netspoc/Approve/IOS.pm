@@ -455,7 +455,7 @@ sub prepare_device {
     unless ($self->{COMPARE}) {
         $self->enter_conf_mode();
 
-        # Don't slow down the system by looging to console.
+        # Don't slow down the system by logging to console.
         $self->cmd('no logging console');
         info("Disabled 'logging console'");
 
