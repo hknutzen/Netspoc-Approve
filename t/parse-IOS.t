@@ -94,6 +94,27 @@ $out = '';
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Device file with CRLF";
+############################################################
+$device = <<'END';
+interface Loopback1
+ vrf forwarding 001
+ ip address 10.1.1.1 255.255.255.255
+END
+
+$in  = <<'END';
+interface Loopback1
+ vrf forwarding 001
+ ip address 10.1.1.1 255.255.255.255
+END
+
+$device =~ s/\n/\r\n/g;
+
+$out = <<'END';
+END
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Multiple occurrences of command";
 ############################################################
 $device = <<END;

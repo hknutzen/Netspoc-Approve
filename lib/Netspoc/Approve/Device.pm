@@ -181,6 +181,14 @@ sub load_spocfile {
     close($file);
 
     my $count = @result;
+
+    # Strip CR and end of line
+    # if file was read directly from router (e.g. with "sh run").
+    #
+    if ($count > 0 and $result[0] =~ /\r$/) {
+        s/\r$// for @result;
+    }
+
     info("Read config file $path with $count lines");
     return \@result;
 }
