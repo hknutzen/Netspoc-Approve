@@ -47,5 +47,9 @@ historydir  = /home/diamonds/history
 # Timeout in seconds when establishing new session to device.
 #login_timeout = 10
 
-# Delete policy directories in "netspocdir" after this many days.
+# Delete policy directories in netspocdir, historydir, statusdir
+# after this many days.
 # keep_history = 365
+
+# Compress files in netspocdir after this many days.
+# compress_at = 4
