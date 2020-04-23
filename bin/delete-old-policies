@@ -8,7 +8,7 @@ set -e
 
 abort () { echo $@ >&2; exit 1; }
 
-# Get netspoc directory from config file
+# Get DAYS from config file
 DAYS=$(get-netspoc-approve-conf keep_history)
 
 # Ensure a sane value for DAYS, take 365 as default

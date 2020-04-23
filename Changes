@@ -1,3 +1,12 @@
+2.015     2020-04-23 16:38:12+02:00 Europe/Berlin
+
+ - Compress files even with hardlinks, using option -f of bzip2.
+ - New config option "compress_at" with default value 4
+   in config file (/usr/local)/etc/netspoc-approve
+ - Allow not only 3 but 4 empty lines before reload banner.
+ - Strip CR at end of lines read from device.
+   This is useful when applying drc3.pl directly to output of "sh run".
+
 2.014     2019-11-01 11:57:04+01:00 Europe/Berlin
 
  - Double quoted string is now accepted for map-value of ldap attribute-map.

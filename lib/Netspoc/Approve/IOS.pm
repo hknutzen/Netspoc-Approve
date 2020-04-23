@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.014'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.015'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -455,7 +455,7 @@ sub prepare_device {
     unless ($self->{COMPARE}) {
         $self->enter_conf_mode();
 
-        # Don't slow down the system by looging to console.
+        # Don't slow down the system by logging to console.
         $self->cmd('no logging console');
         info("Disabled 'logging console'");
 
@@ -624,7 +624,7 @@ sub handle_reload_banner {
     if ($$output_ref =~
         m/
         ^ (.*?)                # Prefix from original command
-        (?:\r\n{1,2}){3}       # 3 empty lines
+        (?:\r\n{1,2}){3,4}     # 3 empty lines, but sometimes 4
         \x07 [*]{3}\r\n        # BELL + ***
         [*]{3} ([^\r\n]+) \r\n # *** Message
         [*]{3}\r\n             # ***

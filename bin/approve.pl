@@ -31,7 +31,7 @@ use POSIX qw(strftime);
 use Netspoc::Approve::Status;
 use Netspoc::Approve::Load_Config;
 
-our $VERSION = '2.014'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.015'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Clean %ENV for taint mode.
 $ENV{PATH} = '/usr/local/bin:/usr/bin:/bin';
