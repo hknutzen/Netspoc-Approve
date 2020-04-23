@@ -19,5 +19,5 @@ find $DIR -maxdepth 1 -mindepth 1 -type d -daystart -ctime $DAYS -print0 |
 # Find files inside these directories,
 # but ignore toplevel files, i.e. "compile.log".
 xargs -r -0 -I '{}' find '{}' -mindepth 2 -type f -print0 |
-# Compress files, even with hardlinks
-xargs -r -0 bzip2 -9
+# Compress files, even with hardlinks.
+xargs -r -0 bzip2 -9 -f
