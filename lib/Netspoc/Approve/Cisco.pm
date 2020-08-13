@@ -601,102 +601,119 @@ sub normalize_proto {
 }
 
 ##############################################################################
-# Purpose    : Adds acls from raw data config hash to corresponding ipv4/ipv6
-#              config hash or acls from (combined) ipv6 config hash to
-#              (combined) ipv4 config hash. Unless $mode equals 'prepend',
-#              new acls are added at the beginning of acl array.
-# Parameters : $spoc - ipv4 netspoc config in $result - hash format.
-#              $add_conf - raw or ipv6 config in $result - hash format.
-#              $mode - 'append', 'prepend', 'ipv6', indicates operational mode.
+# Purpose    : Adds acls from raw data config to corresponding ipv4/ipv6
+#              config or acls from (combined) ipv6 config to
+#              (combined) ipv4 config. Unless $mode equals 'prepend',
+#              entries are added at the end of acl.
+# Parameters : $spoc_conf - ipv4 netspoc config
+#              $add_conf - raw or ipv6 config
+#              $spoc_obj - Object where ACL is added or changed
+#              $add_obj  - Object from where ACL is taken
+#              $acl_attr - Attribute where ACL name is found
+#              $mode - 'append', 'prepend', 'dual_stack',
+#                      indicates operational mode.
 sub merge_acls {
-    my ($self, $spoc, $add_conf, $mode) = @_;
-    my $raw_only = keys %$spoc? 0 : 1;
-    my %raw_acl_seen;
+    my ($self, $spoc_conf, $add_conf, $spoc_obj, $add_obj, $acl_attr, $mode) = @_;
 
-    # Iterate over interfaces in config to add.
-    for my $intf_name ( keys %{ $add_conf->{IF} } ) {
-        my $add_intf = delete($add_conf->{IF}->{$intf_name});
-        my $spoc_intf = $spoc->{IF}->{$intf_name};
+    my $add_name = $add_obj->{$acl_attr} or return;
+    my $add_acl = $add_conf->{ACCESS_LIST}->{$add_name};
+    if (not $add_acl) {
+        abort("Referencing unknown ACL '$add_name' in raw");
+    }
+    if ($add_acl->{RAW_USED}) {
+        abort("ACL '$add_name' must not be referenced" .
+              " multiple times in raw");
+    }
+    $add_acl->{RAW_USED} = 1;
 
-        # Create interface entry in main config hash, if it doesnt exist.
-        if ( ! $spoc_intf ) {
-            $mode ne 'dual_stack' and not $raw_only and
-            warn_info("Interface $intf_name referenced in raw doesn't",
-                      " exist in Netspoc");
-            $spoc_intf = $spoc->{IF}->{$intf_name} = { name => $intf_name };
-        }
+    # Access list already exists in netspoc config.
+    # Add additional entries.
+    if(my $spoc_name = $spoc_obj->{$acl_attr}) {
 
-        # Merge acls for possibly existing access-group of this interface.
-        for my $direction ( qw( IN OUT ) ) {
-            my $access_group = "ACCESS_GROUP_$direction";
-            if (my $add_name = $add_intf->{$access_group}) {
-                my $add_acl = delete($add_conf->{ACCESS_LIST}->{$add_name});
-                if (not $add_acl) {
-                    if ($raw_acl_seen{$add_name}) {
-                        abort("ACL '$add_name' must not be referenced" .
-                              " multiple times in raw");
-                    }
-                    else {
-                        abort("Referencing unknown ACL '$add_name' in raw");
-                    }
-                }
-                $raw_acl_seen{$add_name} = 1;
+        my $msg;
+        my $spoc_entries = $spoc_conf->{ACCESS_LIST}->{$spoc_name}->{LIST} ||= [];
+        my $add_entries = $add_acl->{LIST};
 
-                # Access group exists already for this interface in
-                # netspoc config, add additional acl entries.
-                if(my $spoc_name = $spoc_intf->{$access_group}) {
+        # Append mode adds entries behind last permit line.
+        if ($mode eq 'append') {
+            $msg = 'Appending';
 
-                    my $msg;
-                    my $spoc_entries =
-                        $spoc->{ACCESS_LIST}->{$spoc_name}->{LIST} ||= [];
-                    my $add_entries = $add_acl->{LIST};
-
-                    # Append mode adds entries behind last permit line.
-                    if ($mode eq 'append') {
-                        $msg = 'Appending';
-
-                        # Find last permit line within netspoc entries.
-                        my $index = @$spoc_entries;
-                        while ($index > 0) {
-                            if ($spoc_entries->[$index-1]->{MODE} eq 'deny') {
-                                $index--;
-                            }
-                            else {
-                                last;
-                            }
-                        }
-                        splice(@$spoc_entries, $index, 0, @$add_entries);
-                    }
-                    else {
-                        $msg = 'Prepending';
-                        unshift(@$spoc_entries, @$add_entries);
-                    }
-
-                    my $count = @$add_entries;
-                    info("$msg $count entries to $direction ACL of $intf_name");
+            # Find last permit line within netspoc entries.
+            my $index = @$spoc_entries;
+            while ($index > 0) {
+                if ($spoc_entries->[$index-1]->{MODE} eq 'deny') {
+                    $index--;
                 }
                 else {
-                    # Access group does not exist for current
-                    # interface in netspoc. Abort if it exists for
-                    # another interface. This can only happen with
-                    # access groups defined in raw files. Generate new
-                    # acl and access group entries otherwise.
-                    $spoc->{ACCESS_LIST}->{$add_name} and
-                        abort("Name clash for '$add_name' of ACCESS_LIST from "
-                              . ($mode eq 'dual_stack'? "ipv6" : "raw"));
-                    $spoc->{ACCESS_LIST}->{$add_name} = $add_acl;
-                    $spoc_intf->{$access_group} = $add_name;
+                    last;
                 }
             }
+            splice(@$spoc_entries, $index, 0, @$add_entries);
         }
-    }
-    # Check for unbound ACL in raw.
-    # Must not trigger autovivification.
-    if (my $acls = $add_conf->{ACCESS_LIST}) {
-        if (my @names = sort keys %$acls) {
-            abort("Found unbound ACCESS_LIST in raw: " . join(', ', @names));
+        else {
+            $msg = 'Prepending';
+            unshift(@$spoc_entries, @$add_entries);
         }
+
+        my $count = @$add_entries;
+        info("$msg $count entries to $acl_attr ACL of $spoc_obj->{name}");
     }
+    else {
+        # Access group does not exist for current
+        # object in netspoc. Abort if it exists for
+        # another interface. This can only happen with
+        # access groups defined in raw files. Generate new
+        # acl and access group entries otherwise.
+        $spoc_conf->{ACCESS_LIST}->{$add_name} and
+            abort("Name clash for '$add_name' of ACCESS_LIST from "
+                  . ($mode eq 'dual_stack'? "ipv6" : "raw"));
+        $spoc_conf->{ACCESS_LIST}->{$add_name} = $add_acl;
+        $spoc_obj->{$acl_attr} = $add_name;
+    }
+
+}
+
+sub get_merge_worker {
+    my ($self) = @_;
+    my $merge_interfaces = sub {
+        my ($self, $spoc_conf, $add_conf, $mode) = @_;
+
+        my $spoc_IF = $spoc_conf->{IF} ||= {};
+        my $add_IF = $add_conf->{IF};
+        for my $intf_name (sort keys %$add_IF) {
+            my $add_intf = $add_IF->{$intf_name};
+            my $spoc_intf = $spoc_IF->{$intf_name};
+
+            # Create interface entry, if it doesnt exist.
+            if (not $spoc_intf) {
+                $spoc_intf = $spoc_IF->{$intf_name} = { name => $intf_name };
+            }
+            for my $direction ( qw( IN OUT ) ) {
+                my $access_group = "ACCESS_GROUP_$direction";
+                $self->merge_acls($spoc_conf, $add_conf, $spoc_intf, $add_intf,
+                                  $access_group, $mode)
+            }
+        }
+    };
+    my $check_unbound_acls = sub {
+        my ($self, $spoc_conf, $add_conf, $mode) = @_;
+        # Check for unbound ACL in raw.
+        # Must not trigger autovivification.
+        # Remove {RAW_USED}, because merge_acls is called two times:
+        # 1. merging raw, 2. merging ipv6
+        if (my $acls = $add_conf->{ACCESS_LIST}) {
+            if (my @names =
+                grep { not delete($acls->{$_}->{RAW_USED}) } keys %$acls)
+            {
+                abort("Found unbound ACCESS_LIST in raw: " .
+                      join(', ', sort @names));
+            }
+        }
+    };
+    return { IF => $merge_interfaces,
+             ACCESS_LIST => sub {},
+             _FINALIZE => $check_unbound_acls,
+    };
 }
 
 sub enter_conf_mode {

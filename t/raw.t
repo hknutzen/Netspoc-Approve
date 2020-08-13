@@ -241,7 +241,7 @@ END
 eq_or_diff( approve('IOS', $device, $spoc), $out, $title );
 
 ############################################################
-$title = "Reference unknown interface";
+$title = "Implicitly defined interface from raw has no address";
 ############################################################
 $device = <<END;
 interface Ethernet0
@@ -267,7 +267,6 @@ END
 };
 
 $out = <<'END';
-WARNING>>> Interface Ethernet0 referenced in raw doesn't exist in Netspoc
 WARNING>>> Different address defined for interface Ethernet0: Conf: 10.0.5.1 255.255.255.0, Netspoc: missing
 END
 
@@ -552,8 +551,6 @@ END
 
 $spoc = {
 spoc4 => <<END
-interface Ethernet0/1
- nameif outside
 END
 ,
 raw4 => <<END
@@ -589,6 +586,169 @@ nem enable
 password-storage enable
 pfs enable
 vpn-tunnel-protocol ikev1
+END
+
+eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+
+############################################################
+$title = "Prepend and append crypto filter ACL";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/1
+ nameif outside
+END
+
+$spoc = {
+spoc4 => <<END
+access-list crypto-1.2.3.4 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+crypto map crypto-outside 1 set peer 1.2.3.4
+crypto map crypto-outside 1 match address crypto-1.2.3.4
+END
+,
+raw4 => <<END
+access-list prepend extended permit ip host 10.1.1.10 10.1.7.0 255.255.255.240
+crypto map crypto-outside 1 set peer 1.2.3.4
+crypto map crypto-outside 1 match address prepend
+[APPEND]
+access-list append extended deny ip any host 224.0.1.1 log
+crypto map crypto-outside 1 set peer 1.2.3.4
+crypto map crypto-outside 1 match address append
+END
+};
+
+$out = <<'END';
+access-list crypto-1.2.3.4-DRC-0 extended permit ip host 10.1.1.10 10.1.7.0 255.255.255.240
+access-list crypto-1.2.3.4-DRC-0 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+access-list crypto-1.2.3.4-DRC-0 extended deny ip any host 224.0.1.1 log
+crypto map crypto-outside 1 set peer 1.2.3.4
+crypto map crypto-outside 1 match address crypto-1.2.3.4-DRC-0
+END
+
+eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+
+############################################################
+$title = "Change crypto map attributes";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/1
+ nameif outside
+END
+
+$spoc = {
+spoc4 => <<END
+crypto ipsec ikev2 ipsec-proposal Trans2
+ protocol esp encryption aes-256
+ protocol esp integrity sha-384
+access-list crypto-1.2.3.4 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+crypto map crypto-outside 9 set peer 1.2.3.4
+crypto map crypto-outside 9 match address crypto-1.2.3.4
+crypto map crypto-outside 9 set ikev2 ipsec-proposal Trans2
+crypto map crypto-outside 9 set pfs group19
+crypto map crypto-outside 9 set security-association lifetime seconds 3600
+tunnel-group 1.2.3.4 type ipsec-l2l
+tunnel-group 1.2.3.4 ipsec-attributes
+ peer-id-validate nocheck
+END
+,
+raw4 => <<END
+crypto ipsec ikev2 ipsec-proposal Trans1
+ protocol esp encryption 3des
+ protocol esp integrity sha-1
+crypto map crypto-outside 1 set peer 1.2.3.4
+crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans1
+END
+};
+
+$out = <<'END';
+access-list crypto-1.2.3.4-DRC-0 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+crypto ipsec ikev2 ipsec-proposal Trans1-DRC-0
+protocol esp encryption 3des
+protocol esp integrity sha-1
+crypto map crypto-outside 9 set peer 1.2.3.4
+crypto map crypto-outside 9 set pfs group19
+crypto map crypto-outside 9 set security-association lifetime seconds 3600
+no crypto map crypto-outside 9 set ikev2 ipsec-proposal
+crypto map crypto-outside 9 set ikev2 ipsec-proposal Trans1-DRC-0
+crypto map crypto-outside 9 match address crypto-1.2.3.4-DRC-0
+tunnel-group 1.2.3.4 type ipsec-l2l
+tunnel-group 1.2.3.4 ipsec-attributes
+peer-id-validate nocheck
+END
+
+eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+
+############################################################
+$title = "Add crypto map entry";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/1
+ nameif outside
+END
+
+$spoc = {
+spoc4 => <<END
+crypto ipsec ikev2 ipsec-proposal Trans2
+ protocol esp encryption aes-256
+ protocol esp integrity sha-384
+access-list crypto-1.2.3.4 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+crypto map crypto-outside 1 set peer 1.2.3.4
+crypto map crypto-outside 1 match address crypto-1.2.3.4
+crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2
+crypto map crypto-outside 1 set pfs group19
+crypto map crypto-outside 1 set security-association lifetime seconds 3600
+tunnel-group 1.2.3.4 type ipsec-l2l
+tunnel-group 1.2.3.4 ipsec-attributes
+ peer-id-validate nocheck
+END
+,
+raw4 => <<END
+crypto ipsec ikev2 ipsec-proposal Trans2x
+ protocol esp encryption aes-256
+ protocol esp integrity sha-384
+interface Ethernet0/1
+ nameif outside
+access-list crypto-1.2.3.9 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+crypto map crypto-outside 1 set peer 1.2.3.9
+crypto map crypto-outside 1 match address crypto-1.2.3.9
+crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2x
+crypto map crypto-outside 1 set pfs group19
+crypto map crypto-outside 1 set security-association lifetime seconds 3600
+tunnel-group 1.2.3.9 type ipsec-l2l
+tunnel-group 1.2.3.9 ipsec-attributes
+ peer-id-validate nocheck
+END
+};
+
+$out = <<'END';
+access-list crypto-1.2.3.4-DRC-0 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+crypto ipsec ikev2 ipsec-proposal Trans2-DRC-0
+protocol esp encryption aes-256
+protocol esp integrity sha-384
+crypto map crypto-outside 1 set peer 1.2.3.4
+crypto map crypto-outside 1 set pfs group19
+crypto map crypto-outside 1 set security-association lifetime seconds 3600
+no crypto map crypto-outside 1 set ikev2 ipsec-proposal
+crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2-DRC-0
+crypto map crypto-outside 1 match address crypto-1.2.3.4-DRC-0
+access-list crypto-1.2.3.9-DRC-0 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+crypto ipsec ikev2 ipsec-proposal Trans2x-DRC-0
+protocol esp encryption aes-256
+protocol esp integrity sha-384
+crypto map crypto-outside 2 set peer 1.2.3.9
+crypto map crypto-outside 2 set pfs group19
+crypto map crypto-outside 2 set security-association lifetime seconds 3600
+no crypto map crypto-outside 2 set ikev2 ipsec-proposal
+crypto map crypto-outside 2 set ikev2 ipsec-proposal Trans2x-DRC-0
+crypto map crypto-outside 2 match address crypto-1.2.3.9-DRC-0
+tunnel-group 1.2.3.4 type ipsec-l2l
+tunnel-group 1.2.3.4 ipsec-attributes
+peer-id-validate nocheck
+tunnel-group 1.2.3.9 type ipsec-l2l
+tunnel-group 1.2.3.9 ipsec-attributes
+peer-id-validate nocheck
 END
 
 eq_or_diff( approve('ASA', $device, $spoc), $out, $title );

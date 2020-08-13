@@ -615,57 +615,68 @@ sub parse_config {
 #              and ipv6 commands.
 sub merge {
     my ($self, $spoc_conf, $prepend, $append, $dual_stack) = @_;
+    my $worker_hash = $self->get_merge_worker();
+    my $process = sub {
+        my ($add_conf, $mode) = @_;
+        return if not $add_conf;
+        for my $key (reverse sort keys %$add_conf) {
+            my $raw_v = $add_conf->{$key};
+            next if not keys %$raw_v;
 
+            if (my $worker = $worker_hash->{$key}) {
+                $worker->($self, $spoc_conf, $add_conf, $mode);
+                next;
+            }
+
+            if ($mode eq 'append') {
+                abort("Must only use ACLs in [APPEND] part, but found $key");
+            }
+
+            if ($key eq 'ROUTING_VRF' or $key eq 'ROUTING6_VRF' ) {
+                my $spoc_v = $spoc_conf->{$key} ||= {};
+                for my $vrf (sort keys %$raw_v) {
+                    my $raw_routes = $raw_v->{$vrf};
+                    my $spoc_routes = $spoc_v->{$vrf} ||= [];
+                    unshift(@$spoc_routes, @$raw_routes);
+                    my $count = @$raw_routes;
+                    my $for = $vrf ? " for VRF $vrf" : $vrf;
+                    if ($count) {
+                        my $msg = $dual_stack?
+                            "Merged $count routes${for} from IPv6 config" :
+                            "Prepended $count routes${for} from raw";
+                        info($msg);
+                    }
+                }
+            }
+
+            # Hash of named entries: USERNAME, ...
+            else {
+                my $spoc_v = $spoc_conf->{$key};
+                my $count = 0;
+                for my $name (sort keys %$raw_v) {
+                    my $entry = $raw_v->{$name};
+                    if($spoc_v->{$name}) {
+                        abort("Name clash for '$name' of $key from raw");
+                    }
+                    $spoc_v->{$name} = $entry;
+                    $count++;
+                }
+                if ($count) {
+                    info("Added $count entries of $key from raw");
+                    $spoc_conf->{$key} = $spoc_v;
+                }
+            }
+        }
+        if (my $worker = $worker_hash->{_FINALIZE}) {
+            $worker->($self, $spoc_conf, $add_conf, $mode);
+        }
+    };
     if ($dual_stack) {
-        $self->merge_acls($spoc_conf, $prepend, 'dual_stack');
+        $process->($prepend, 'dual_stack');
     }
     else {
-        $self->merge_acls($spoc_conf, $prepend, 'prepend');
-        $self->merge_acls($spoc_conf, $append, 'append');
-    }
-
-    if (my @keys = grep { my $v = $append->{$_};
-                          ref $v eq 'HASH' && keys %$v || ref $v eq 'ARRAY' }
-        keys %$append)
-    {
-        my $keys = join(',', @keys);
-        abort("Must only use ACLs in [APPEND] part, but found $keys");
-    }
-
-    for my $key (%$prepend) {
-        my $raw_v = $prepend->{$key};
-
-        if ($key eq 'ROUTING_VRF' or $key eq 'ROUTING6_VRF' ) {
-            my $spoc_v = $spoc_conf->{$key} ||= {};
-            for my $vrf (sort keys %$raw_v) {
-                my $raw_routes = $raw_v->{$vrf};
-                my $spoc_routes = $spoc_v->{$vrf} ||= [];
-                unshift(@$spoc_routes, @$raw_routes);
-                my $count = @$raw_routes;
-                my $for = $vrf ? " for VRF $vrf" : $vrf;
-                if ($count) {
-                    my $msg = $dual_stack?
-                        "Merged $count routes${for} from IPv6 config" :
-                        "Prepended $count routes${for} from raw";
-                    info($msg);
-                }
-            }
-        }
-
-        # Hash of named entries: USERNAME, ...
-        else {
-            my $spoc_v = $spoc_conf->{$key} ||= {};
-            my $count = 0;
-            for my $name (sort keys %$raw_v) {
-                my $entry = $raw_v->{$name};
-                if($spoc_v->{$name}) {
-                    abort("Name clash for '$name' of $key from raw");
-                }
-                $spoc_v->{$name} = $entry;
-                $count++;
-            }
-            info("Added $count entries of $key from raw") if $count;
-        }
+        $process->($prepend, 'prepend');
+        $process->($append, 'append');
     }
 }
 
