@@ -421,6 +421,8 @@ Enter configuration commands, one per line.  End with CNTL/Z.
 
 
 
+
+
 ***
 *** --- SHUTDOWN in 0:05:00 ---
 ***
@@ -498,12 +500,16 @@ Enter configuration commands, one per line.  End with CNTL/Z.
 router#
 
 
+
+
 ***
 *** --- SHUTDOWN in 0:05:00 ---
 ***
 
 router#ip route 10.1.1.0 255.255.255.0 10.1.2.3
 router#ip route 10.1.2.0 255.255.255.0 10.2.3.4
+
+
 
 
 ***

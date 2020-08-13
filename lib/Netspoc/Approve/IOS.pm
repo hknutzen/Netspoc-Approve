@@ -33,7 +33,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.015'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.016'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Parse info.
 # Key is a single or multi word command.
@@ -624,7 +624,7 @@ sub handle_reload_banner {
     if ($$output_ref =~
         m/
         ^ (.*?)                # Prefix from original command
-        (?:\r\n{1,2}){3,4}     # 3 empty lines, but sometimes 4
+        (?:\r\n{1,2}){3}       # 3 empty lines
         \x07 [*]{3}\r\n        # BELL + ***
         [*]{3} ([^\r\n]+) \r\n # *** Message
         [*]{3}\r\n             # ***
@@ -641,7 +641,7 @@ sub handle_reload_banner {
         # Because of 'logging synchronous' we are sure to get another prompt
         # if the banner is the only output before current prompt.
         # Read next prompt and set $$output_ref to next output.
-        if(not $prefix and $postfix =~ /^ [\r\n]* $/sx) {
+        if($prefix =~ /^[\r\n]*$/ and $postfix =~ /^[\r\n]*$/) {
             info("Found banner before output, expecting another prompt");
             my $con = $self->{CONSOLE};
             my $result = $con->con_wait($self->{ENAPROMPT});

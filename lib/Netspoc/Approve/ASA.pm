@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.015'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.016'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 
@@ -1341,6 +1341,71 @@ sub parse_og_port_spec {
         $self->SUPER::parse_port_spec($arg, $type);
 }
 
+# Get workers called in merge() of Device.pm
+sub get_merge_worker {
+    my ($self) = @_;
+    my $merge_crypto_maps = sub {
+        my ($self, $spoc_conf, $add_conf, $mode) = @_;
+        my $spoc_list = $spoc_conf->{CRYPTO_MAP_LIST};
+        my $add_list = $add_conf->{CRYPTO_MAP_LIST} ||= {};
+        my $spoc_seq = $spoc_conf->{CRYPTO_MAP_SEQ} ||= {};
+        my $add_seq = $add_conf->{CRYPTO_MAP_SEQ} ||= {};
+        for my $crypto_map_name (sort keys %$add_list) {
+            my %known_peers;
+            my $seq_nr = 0;
+            if(my $h = $spoc_list->{$crypto_map_name}) {
+                my $names = $h->{PEERS};
+                for my $name (@$names) {
+                    my $map = $spoc_seq->{$name};
+                    my $peer = $map->{PEER} || $map->{DYNAMIC_MAP};
+                    my $seq = $map->{SEQ};
+                    $known_peers{$peer} = $name;
+                    if ($seq > $seq_nr) {
+                        $seq_nr = $seq;
+                    }
+                }
+                $seq_nr++;
+            }
+            my $h = $add_list->{$crypto_map_name} or next;
+            my $names = $h->{PEERS};
+            for my $name_seq (@$names) {
+                my $add_map = $add_seq->{$name_seq};
+                my $peer = $add_map->{PEER} || $add_map->{DYNAMIC_MAP};
+                if (my $spoc_name = $known_peers{$peer}) {
+                    my $spoc_map = $spoc_seq->{$spoc_name};
+                    for my $attr (keys %$add_map) {
+                        next if $attr =~ /^(?:SEQ|name)$/;
+                        if ($attr eq 'MATCH_ADDRESS') {
+                            $self->merge_acls($spoc_conf, $add_conf,
+                                              $spoc_map, $add_map, $attr, $mode);
+                        }
+                        else {
+                            $spoc_map->{$attr} = $add_map->{$attr};
+                        }
+                    }
+                }
+                else {
+                    my $new = $name_seq;
+                    if ($seq_nr) {
+                        $new =~ s/ .*$/ $seq_nr/;
+                        $add_map->{name} = $new;
+                        $add_map->{SEQ} = $seq_nr;
+                    }
+                    push @{$spoc_list->{$crypto_map_name}->{PEERS}}, $new;
+                    $spoc_seq->{$new} = $add_map;
+                    $self->merge_acls($spoc_conf, $add_conf,
+                                      undef, $add_map, 'MATCH_ADDRESS', $mode);
+                }
+            }
+        }
+    };
+    my $super = $self->SUPER::get_merge_worker();
+    return { %$super,
+             CRYPTO_MAP_LIST => $merge_crypto_maps,
+             CRYPTO_MAP_SEQ => sub {},
+    };
+}
+
 ##############################################################
 my @known_status =
     (
@@ -2304,8 +2369,8 @@ sub mark_connected {
         for my $pair (get_next_names($parse, $object)) {
             my ($next_parse_name, $next_name) = @$pair;
             my $next_obj = $conf->{$next_parse_name}->{$next_name} or
-                abort("Can't find $next_parse_name $next_name" .
-                      " referenced by $parse_name $object->{name}");
+                abort("Can't find $next_parse_name '$next_name'" .
+                      " referenced by $parse_name '$object->{name}'");
             $self->mark_connected( $conf, $next_parse_name,
                                    $next_obj, $structure );
         }

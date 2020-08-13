@@ -34,7 +34,7 @@ use base "Netspoc::Approve::Device";
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.015'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.016'; # VERSION: inserted by DZP::OurPkgVersion
 
 my $config = {
     user => 'root',
@@ -396,61 +396,62 @@ sub normalize {
 #              hash. Unless $mode equals 'prepend', new acls are added at
 #              the beginning of acl array.
 # Parameters : $spoc - ipv4 netspoc config in $result - hash format.
-#              $raw_conf - raw or ipv6 config in $result - hash format.
+#              $add_conf - raw or ipv6 config in $result - hash format.
 #              $mode - 'append', 'prepend', 'ipv6', indicates operational mode.
-sub merge_acls {
-    my ($self, $spoc_conf, $raw_conf, $mode) = @_;
-    my $spoc_tables = $spoc_conf->{IPTABLES};
-    my $raw_tables = $raw_conf->{IPTABLES};
-    for my $table_name (keys %$raw_tables) {
-
-        # Delete entry from raw because it must not be processed again
-        # in generic merge_rawdata.
-        my $raw_chains = delete($raw_tables->{$table_name});
-        my $spoc_chains = $spoc_tables->{$table_name};
-        if(not $spoc_chains) {
-            info("Adding all chains of table '$table_name'");
-            $spoc_tables->{$table_name} = $raw_chains;
-            next;
-        }
-        for my $raw_chain (values %$raw_chains) {
-            my $chain_name = $raw_chain->{name};
-            my $spoc_chain = $spoc_chains->{$chain_name};
-            if(not $spoc_chain) {
-                info("Adding chain '$chain_name' of table '$table_name'");
-                $spoc_chains->{$chain_name} = $raw_chain;
+sub get_merge_worker {
+    my ($self) = @_;
+    my $merge_iptables = sub {
+        my ($self, $spoc_conf, $add_conf, $mode) = @_;
+        my $spoc_tables = $spoc_conf->{IPTABLES};
+        my $add_tables = $add_conf->{IPTABLES};
+        for my $table_name (keys %$add_tables) {
+            my $spoc_chains = $spoc_tables->{$table_name};
+            my $add_chains = $add_tables->{$table_name};
+            if(not $spoc_chains) {
+                info("Adding all chains of table '$table_name'");
+                $spoc_tables->{$table_name} = $add_chains;
                 next;
             }
-            if(not $spoc_chain->{POLICY}) {
-                abort("Must not redefine chain '$chain_name' from rawdata");
-            }
-
-            # Prepend/append raw acl.
-            my $msg;
-            my $spoc_entries = $spoc_chain->{RULES} ||= [];
-            my $raw_entries = $raw_chain->{RULES};
-            if ($mode eq 'append') {
-                $msg = 'Appending';
-
-                # Find last non deny line.
-                my $index = @$spoc_entries;
-                while ($index > 0) {
-                    if ($spoc_entries->[$index-1]->{-j} =~ /^drop/i) {
-                        $index--;
-                    }
-                    else {
-                        last;
-                    }
+            for my $add_chain (values %$add_chains) {
+                my $chain_name = $add_chain->{name};
+                my $spoc_chain = $spoc_chains->{$chain_name};
+                if(not $spoc_chain) {
+                    info("Adding chain '$chain_name' of table '$table_name'");
+                    $spoc_chains->{$chain_name} = $add_chain;
+                    next;
                 }
-                splice(@$spoc_entries, $index, 0, @$raw_entries);
+                if(not $spoc_chain->{POLICY}) {
+                    abort("Must not redefine chain '$chain_name' from rawdata");
+                }
+
+                # Prepend/append.
+                my $msg;
+                my $spoc_entries = $spoc_chain->{RULES} ||= [];
+                my $add_entries = $add_chain->{RULES};
+                if ($mode eq 'append') {
+                    $msg = 'Appending';
+
+                    # Find last non deny line.
+                    my $index = @$spoc_entries;
+                    while ($index > 0) {
+                        if ($spoc_entries->[$index-1]->{-j} =~ /^drop/i) {
+                            $index--;
+                        }
+                        else {
+                            last;
+                        }
+                    }
+                    splice(@$spoc_entries, $index, 0, @$add_entries);
+                }
+                else {
+                    $msg = 'Prepending';
+                    unshift(@$spoc_entries, @$add_entries);
+                }
+                info("$msg to chain '$chain_name' of table '$table_name'");
             }
-            else {
-                $msg = 'Prepending';
-                unshift(@$spoc_entries, @$raw_entries);
-            }
-            info("$msg to chain '$chain_name' of table '$table_name'");
         }
-    }
+    };
+    return { IPTABLES => $merge_iptables };
 }
 
 sub postprocess_routes {
