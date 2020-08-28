@@ -6,7 +6,7 @@ Base class for the different varieties of Cisco devices.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2020 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
