@@ -252,6 +252,8 @@ END
 
 $spoc = {
 spoc4 => <<END
+ip access-list extended Ethernet1_in
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
 interface Ethernet1
  ip address 10.0.6.1 255.255.255.0
  ip access-group Ethernet1_in in
@@ -328,7 +330,8 @@ END
 };
 
 $out = <<END;
-ERROR>>> ACL 'in_out' must not be referenced multiple times in raw
+ERROR>>> ACL in_out is referenced from two places:
+ Ethernet1 and Ethernet1
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
@@ -369,7 +372,8 @@ END
 };
 
 $out = <<END;
-ERROR>>> ACL 'foo' must not be referenced multiple times in raw
+ERROR>>> ACL foo is referenced from two places:
+ Ethernet1 and Ethernet2
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
@@ -398,7 +402,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> Referencing unknown ACL 'Ethernet1_in' in raw
+ERROR>>> ACL Ethernet1_in referenced at 'Ethernet1' does not exist
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );

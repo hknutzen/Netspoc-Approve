@@ -374,7 +374,20 @@ sub postprocess_config {
         }
     }
 
-    for my $intf (values %{ $p->{IF} }) {
+    my %acl_seen;
+    for my $name (sort keys %{ $p->{IF} }) {
+        my $intf = $p->{IF}->{$name};
+        for my $what (qw(IN OUT)) {
+            my $acl_name = $intf->{"ACCESS_GROUP_$what"} or next;
+            $p->{ACCESS_LIST}->{$acl_name} or
+                abort("ACL $acl_name referenced at '$intf->{name}'".
+                      " does not exist");
+            if (my $other = $acl_seen{$acl_name}) {
+                abort("ACL $acl_name is referenced from two places:\n".
+                      " $other and $intf->{name}")
+            }
+            $acl_seen{$acl_name} = $intf->{name};
+        }
         if (my $imap = $intf->{CRYPTO_MAP}) {
             $p->{CRYPTO_MAP}->{$imap} or
                 abort("Missing definition for crypto map '$imap' used at"
