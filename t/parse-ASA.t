@@ -465,6 +465,23 @@ END
 eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
 
 ############################################################
+$title = "Reference same ACL from two interfaces";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended permit tcp any any eq 22
+access-group outside_in in interface inside
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+ERROR>>> Multiple occurrences of command not allowed
+ERROR>>>  at line 7, pos 5:
+ERROR>>> >>access-group outside_in in interface outside<<
+END
+eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+
+############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";
 ############################################################
 # Differences are ignored.
