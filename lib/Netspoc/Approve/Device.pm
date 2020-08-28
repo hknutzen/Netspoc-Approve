@@ -619,7 +619,7 @@ sub merge {
     my $process = sub {
         my ($add_conf, $mode) = @_;
         return if not $add_conf;
-        for my $key (reverse sort keys %$add_conf) {
+        for my $key (keys %$add_conf) {
             my $raw_v = $add_conf->{$key};
             next if not keys %$raw_v;
 
