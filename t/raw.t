@@ -697,7 +697,7 @@ spoc4 => <<END
 crypto ipsec ikev2 ipsec-proposal Trans2
  protocol esp encryption aes-256
  protocol esp integrity sha-384
-access-list crypto-1.2.3.4 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+access-list crypto-1.2.3.4 extended permit ip host 10.1.1.14 10.1.2.0 255.255.255.240
 crypto map crypto-outside 1 set peer 1.2.3.4
 crypto map crypto-outside 1 match address crypto-1.2.3.4
 crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2
@@ -714,20 +714,27 @@ crypto ipsec ikev2 ipsec-proposal Trans2x
  protocol esp integrity sha-384
 interface Ethernet0/1
  nameif outside
-access-list crypto-1.2.3.9 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+access-list crypto-1.2.3.9 extended permit ip host 10.1.1.19 10.1.2.0 255.255.255.240
 crypto map crypto-outside 1 set peer 1.2.3.9
 crypto map crypto-outside 1 match address crypto-1.2.3.9
 crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2x
 crypto map crypto-outside 1 set pfs group19
 crypto map crypto-outside 1 set security-association lifetime seconds 3600
+access-list crypto-1.2.3.3 extended permit ip host 10.1.1.13 10.1.2.0 255.255.255.240
+crypto map crypto-outside 2 set peer 1.2.3.3
+crypto map crypto-outside 2 match address crypto-1.2.3.3
+crypto map crypto-outside 2 set ikev2 ipsec-proposal Trans2x
 tunnel-group 1.2.3.9 type ipsec-l2l
 tunnel-group 1.2.3.9 ipsec-attributes
+ peer-id-validate nocheck
+tunnel-group 1.2.3.3 type ipsec-l2l
+tunnel-group 1.2.3.3 ipsec-attributes
  peer-id-validate nocheck
 END
 };
 
 $out = <<'END';
-access-list crypto-1.2.3.4-DRC-0 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+access-list crypto-1.2.3.4-DRC-0 extended permit ip host 10.1.1.14 10.1.2.0 255.255.255.240
 crypto ipsec ikev2 ipsec-proposal Trans2-DRC-0
 protocol esp encryption aes-256
 protocol esp integrity sha-384
@@ -737,7 +744,7 @@ crypto map crypto-outside 1 set security-association lifetime seconds 3600
 no crypto map crypto-outside 1 set ikev2 ipsec-proposal
 crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2-DRC-0
 crypto map crypto-outside 1 match address crypto-1.2.3.4-DRC-0
-access-list crypto-1.2.3.9-DRC-0 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+access-list crypto-1.2.3.9-DRC-0 extended permit ip host 10.1.1.19 10.1.2.0 255.255.255.240
 crypto ipsec ikev2 ipsec-proposal Trans2x-DRC-0
 protocol esp encryption aes-256
 protocol esp integrity sha-384
@@ -747,6 +754,14 @@ crypto map crypto-outside 2 set security-association lifetime seconds 3600
 no crypto map crypto-outside 2 set ikev2 ipsec-proposal
 crypto map crypto-outside 2 set ikev2 ipsec-proposal Trans2x-DRC-0
 crypto map crypto-outside 2 match address crypto-1.2.3.9-DRC-0
+access-list crypto-1.2.3.3-DRC-0 extended permit ip host 10.1.1.13 10.1.2.0 255.255.255.240
+crypto map crypto-outside 3 set peer 1.2.3.3
+no crypto map crypto-outside 3 set ikev2 ipsec-proposal
+crypto map crypto-outside 3 set ikev2 ipsec-proposal Trans2x-DRC-0
+crypto map crypto-outside 3 match address crypto-1.2.3.3-DRC-0
+tunnel-group 1.2.3.3 type ipsec-l2l
+tunnel-group 1.2.3.3 ipsec-attributes
+peer-id-validate nocheck
 tunnel-group 1.2.3.4 type ipsec-l2l
 tunnel-group 1.2.3.4 ipsec-attributes
 peer-id-validate nocheck

@@ -1390,7 +1390,9 @@ sub get_merge_worker {
                         $new =~ s/ .*$/ $seq_nr/;
                         $add_map->{name} = $new;
                         $add_map->{SEQ} = $seq_nr;
+                        $seq_nr++;
                     }
+                    debug("Add: $add_map->{name} ");
                     push @{$spoc_list->{$crypto_map_name}->{PEERS}}, $new;
                     $spoc_seq->{$new} = $add_map;
                     $self->merge_acls($spoc_conf, $add_conf,
