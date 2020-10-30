@@ -1351,23 +1351,26 @@ sub get_merge_worker {
         my $spoc_seq = $spoc_conf->{CRYPTO_MAP_SEQ} ||= {};
         my $add_seq = $add_conf->{CRYPTO_MAP_SEQ} ||= {};
         for my $crypto_map_name (sort keys %$add_list) {
+            my $h = $add_list->{$crypto_map_name} or next;
             my %known_peers;
-            my $seq_nr = 0;
-            if(my $h = $spoc_list->{$crypto_map_name}) {
-                my $names = $h->{PEERS};
+            my $peer_seq = 1;
+            my $dyn_seq = 65536;
+            if(my $h2 = $spoc_list->{$crypto_map_name}) {
+                my $names = $h2->{PEERS};
                 for my $name (@$names) {
                     my $map = $spoc_seq->{$name};
                     my $peer = $map->{PEER} || $map->{DYNAMIC_MAP};
-                    my $seq = $map->{SEQ};
                     $known_peers{$peer} = $name;
-                    if ($seq > $seq_nr) {
-                        $seq_nr = $seq;
+                    if ($map->{DYNAMIC_MAP}) {
+                        my $seq = $map->{SEQ};
+                        if ($seq < $dyn_seq) {
+                            $dyn_seq = $seq;
+                        }
                     }
                 }
-                $seq_nr++;
             }
-            my $h = $add_list->{$crypto_map_name} or next;
             my $names = $h->{PEERS};
+            my @add;
             for my $name_seq (@$names) {
                 my $add_map = $add_seq->{$name_seq};
                 my $peer = $add_map->{PEER} || $add_map->{DYNAMIC_MAP};
@@ -1385,19 +1388,43 @@ sub get_merge_worker {
                     }
                 }
                 else {
-                    my $new = $name_seq;
-                    if ($seq_nr) {
-                        $new =~ s/ .*$/ $seq_nr/;
-                        $add_map->{name} = $new;
-                        $add_map->{SEQ} = $seq_nr;
-                        $seq_nr++;
+                    my $seq_nr;
+                    if ($add_map->{PEER}) {
+                        $seq_nr = $peer_seq++;
                     }
-                    debug("Add: $add_map->{name} ");
-                    push @{$spoc_list->{$crypto_map_name}->{PEERS}}, $new;
-                    $spoc_seq->{$new} = $add_map;
+                    else {
+                        $seq_nr = --$dyn_seq;
+                    }
+                    # Collect added entries.
+                    my $new = $name_seq;
+                    $new =~ s/ .*$/ $seq_nr/;
+                    $add_map->{name} = $new;
+                    $add_map->{SEQ} = $seq_nr;
+                    unshift @add, $add_map;
                     $self->merge_acls($spoc_conf, $add_conf,
                                       undef, $add_map, 'MATCH_ADDRESS', $mode);
                 }
+            }
+            # Shift seq numbers of current entries.
+            if(my $h2 = $spoc_list->{$crypto_map_name}) {
+                my $incr = $peer_seq - 1;
+                for my $name (@{$h2->{PEERS}}) {
+                    my $map = $spoc_seq->{$name};
+                    my $peer = $map->{PEER} or next;
+                    my $seq = $map->{SEQ};
+                    $seq += $incr;
+                    $map->{SEQ} = $seq;
+                    delete $spoc_seq->{$name};
+                    $name =~ s/ .*$/ $seq/;
+                    $map->{name} = $name;
+                    $spoc_seq->{$name} = $map;
+                }
+            }
+            # Prepend new entries.
+            for my $map (@add) {
+                my $name = $map->{name};
+                $spoc_seq->{$name} = $map;
+                unshift @{$spoc_list->{$crypto_map_name}->{PEERS}}, $name;
             }
         }
     };
@@ -1691,15 +1718,10 @@ sub equalize_crypto {
     my $spoc_entries = [ sort by_peer
                          map($spoc->{CRYPTO_MAP_SEQ}->{$_},
                              @{$spoc_crypto->{PEERS}}) ];
-
-    my $modified;
+    my @added_entries;
 
     my $diff = Algorithm::Diff->new( $conf_entries, $spoc_entries,
                                      { keyGen => \&crypto_entry2key } );
-
-    # Try this sequence number for next to be added entry.
-    my $peer_seq = 1;
-    my $dyn_seq = 65535;
 
     while ( $diff->Next() ) {
 
@@ -1718,10 +1740,27 @@ sub equalize_crypto {
             next;
         }
 
-        $modified = 1;
+        if ( my $count = $diff->Items(1) ) {
+            info(" CRYPTO: $count extra lines on device");
+        }
 
         # On spoc but not on device.
-        for my $spoc_entry ( $diff->Items(2) ) {
+        push(@added_entries, $diff->Items(2));
+    }
+
+    my $modified;
+    if (@added_entries) {
+        $modified = 1;
+
+        # Sort by sequence number.
+        # Entries from raw got lowest seq number.
+        @added_entries = sort { $a->{SEQ} <=> $b->{SEQ} } @added_entries;
+
+        # Try this sequence number for next to be added entry.
+        my $peer_seq = 1;
+        my $dyn_seq = 65535;
+
+        for my $spoc_entry (@added_entries) {
             my $spoc_name = $spoc_entry->{name};
             my ($map_name) = split(/ /, $spoc_name);
             if ($spoc_entry->{PEER}) {
@@ -1737,13 +1776,8 @@ sub equalize_crypto {
             $self->make_equal($conf, $spoc, 'CRYPTO_MAP_SEQ',
                               undef, $spoc_name, $structure);
         }
-
-        if ( my $count = $diff->Items(1) ) {
-            info(" CRYPTO: $count extra lines on device");
-        }
-        if ( my $count = $diff->Items(2) ) {
-            info(" CRYPTO: $count extra lines from Netspoc");
-        }
+        my $count = @added_entries;
+        info(" CRYPTO: $count extra lines from Netspoc");
     }
     return $modified;
 }
