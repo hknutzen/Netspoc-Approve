@@ -1,3 +1,9 @@
+2.017     2020-11-02 12:42:58+01:00 Europe/Berlin
+
+ - Crypto map entries from raw file are prepended
+   to entries from Netspoc now.
+ - Fix: More then one crypto map entry can be added in raw file now.
+
 2.016     2020-08-13 15:08:13+02:00 Europe/Berlin
 
  - Attributes of crypto map can be changed and added from raw files now.

@@ -34,7 +34,7 @@ use Netspoc::Approve::Helper;
 use Expect;
 require Exporter;
 
-our $VERSION = '2.016'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.017'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # Constructor.

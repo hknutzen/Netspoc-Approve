@@ -6,7 +6,7 @@ Base class for all supported devices
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2020 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.016'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.017'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -619,7 +619,7 @@ sub merge {
     my $process = sub {
         my ($add_conf, $mode) = @_;
         return if not $add_conf;
-        for my $key (reverse sort keys %$add_conf) {
+        for my $key (keys %$add_conf) {
             my $raw_v = $add_conf->{$key};
             next if not keys %$raw_v;
 

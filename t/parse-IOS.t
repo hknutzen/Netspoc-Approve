@@ -464,6 +464,61 @@ END
 eq_or_diff(approve('IOS', $device, $in), $out, $title);
 
 ############################################################
+$title = "Unknown ACL on device";
+############################################################
+$device = <<END;
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$out = <<'END';
+ERROR>>> ACL test-DRC-0 referenced at 'Serial1' does not exist
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Reference same ACL from two interfaces";
+############################################################
+$device = <<END;
+ip access-list extended test-DRC-0
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq ntp
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+interface Serial2
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+END
+
+$out = <<'END';
+ERROR>>> ACL test-DRC-0 is referenced from two places:
+ Serial1 and Serial2
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Reference same ACL from two times";
+############################################################
+$device = <<END;
+ip access-list extended test-DRC-0
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq ntp
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+ ip access-group test-DRC-0 out
+END
+
+$out = <<'END';
+ERROR>>> ACL test-DRC-0 is referenced from two places:
+ Serial1 and Serial1
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
 $title = "Change object-group";
 ############################################################
 $device = <<END;
@@ -1262,16 +1317,20 @@ interface Serial3
 END
 
 $in = <<'END';
+ip access-list extended test1
+ permit ip any 10.127.18.0 0.0.0.255
 interface Serial1
  ip address 1.1.1.1 255.0.0.0
  ip address 10.1.2.1 255.255.255.0 secondary
  ip address 10.1.2.250 255.255.255.0 secondary
- ip access-group test in
+ ip access-group test1 in
+ip access-list extended test2
+ permit ip any 10.127.18.0 0.0.0.255
 interface Serial2
  ip address 10.1.2.1 255.255.255.0 secondary
  ip address 10.1.2.250 255.255.255.0
  ip address 1.1.1.1 255.255.255.0 secondary
- ip access-group test in
+ ip access-group test2 in
 ip access-list extended test
  deny ip any any log-input
 END

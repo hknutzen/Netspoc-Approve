@@ -247,7 +247,7 @@ $fh1 = start_newpolicy();
 
 check_newpolicy($fh1, <<'END', 'Failed to compile');
 Processing current changeset
-Syntax error: Typed name expected at line 1 of next/src/topology, near "BAD<--HERE--> SYNTAX"
+Syntax error: Typed name expected at line 1 of next/src/topology, near "10.1.1.0/24; }  --HERE-->BAD"
 New policy failed to compile
 Left current policy as 'p2'
 END

@@ -252,6 +252,8 @@ END
 
 $spoc = {
 spoc4 => <<END
+ip access-list extended Ethernet1_in
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
 interface Ethernet1
  ip address 10.0.6.1 255.255.255.0
  ip access-group Ethernet1_in in
@@ -328,7 +330,8 @@ END
 };
 
 $out = <<END;
-ERROR>>> ACL 'in_out' must not be referenced multiple times in raw
+ERROR>>> ACL in_out is referenced from two places:
+ Ethernet1 and Ethernet1
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
@@ -369,7 +372,8 @@ END
 };
 
 $out = <<END;
-ERROR>>> ACL 'foo' must not be referenced multiple times in raw
+ERROR>>> ACL foo is referenced from two places:
+ Ethernet1 and Ethernet2
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
@@ -398,7 +402,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> Referencing unknown ACL 'Ethernet1_in' in raw
+ERROR>>> ACL Ethernet1_in referenced at 'Ethernet1' does not exist
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
@@ -551,6 +555,10 @@ END
 
 $spoc = {
 spoc4 => <<END
+crypto ipsec ikev1 transform-set abc esp-3des esp-sha-hmac
+crypto dynamic-map outside_dyn_map 20 set pfs
+crypto dynamic-map outside_dyn_map 20 set ikev1 transform-set abc
+crypto map outside_map 65535 ipsec-isakmp dynamic outside_dyn_map
 END
 ,
 raw4 => <<END
@@ -559,10 +567,10 @@ crypto ipsec ikev1 transform-set ESP-AES-256-SHA esp-aes-256 esp-sha-hmac
 crypto ipsec ikev1 transform-set ESP-3DES-SHA esp-3des esp-sha-hmac
 crypto ipsec ikev1 transform-set ESP-AES-256-MD5 esp-aes-256 esp-md5-hmac
 
-crypto dynamic-map outside_dyn_map 20 set pfs
-crypto dynamic-map outside_dyn_map 20 set ikev1 transform-set ESP-AES-256-SHA ESP-3DES-MD5
-crypto dynamic-map outside_dyn_map 20 set reverse-route
-crypto map outside_map 65535 ipsec-isakmp dynamic outside_dyn_map
+crypto dynamic-map raw_dyn_map 20 set pfs
+crypto dynamic-map raw_dyn_map 20 set ikev1 transform-set ESP-AES-256-SHA ESP-3DES-MD5
+crypto dynamic-map raw_dyn_map 20 set reverse-route
+crypto map outside_map 65535 ipsec-isakmp dynamic raw_dyn_map
 crypto map outside_map interface outside
 
 group-policy DfltGrpPolicy attributes
@@ -576,10 +584,15 @@ END
 $out = <<'END';
 crypto ipsec ikev1 transform-set ESP-AES-256-SHA-DRC-0 esp-aes-256 esp-sha-hmac
 crypto ipsec ikev1 transform-set ESP-3DES-MD5-DRC-0 esp-3des esp-md5-hmac
+crypto dynamic-map raw_dyn_map 20 set pfs group2
+crypto dynamic-map raw_dyn_map 20 set reverse-route
+no crypto dynamic-map raw_dyn_map 20 set ikev1 transform-set
+crypto dynamic-map raw_dyn_map 20 set ikev1 transform-set ESP-AES-256-SHA-DRC-0 ESP-3DES-MD5-DRC-0
+crypto map outside_map 65534 ipsec-isakmp dynamic raw_dyn_map
+crypto ipsec ikev1 transform-set abc-DRC-0 esp-3des esp-sha-hmac
 crypto dynamic-map outside_dyn_map 20 set pfs group2
-crypto dynamic-map outside_dyn_map 20 set reverse-route
 no crypto dynamic-map outside_dyn_map 20 set ikev1 transform-set
-crypto dynamic-map outside_dyn_map 20 set ikev1 transform-set ESP-AES-256-SHA-DRC-0 ESP-3DES-MD5-DRC-0
+crypto dynamic-map outside_dyn_map 20 set ikev1 transform-set abc-DRC-0
 crypto map outside_map 65535 ipsec-isakmp dynamic outside_dyn_map
 group-policy DfltGrpPolicy attributes
 nem enable
@@ -693,7 +706,7 @@ spoc4 => <<END
 crypto ipsec ikev2 ipsec-proposal Trans2
  protocol esp encryption aes-256
  protocol esp integrity sha-384
-access-list crypto-1.2.3.4 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+access-list crypto-1.2.3.4 extended permit ip host 10.1.1.14 10.1.2.0 255.255.255.240
 crypto map crypto-outside 1 set peer 1.2.3.4
 crypto map crypto-outside 1 match address crypto-1.2.3.4
 crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2
@@ -710,39 +723,54 @@ crypto ipsec ikev2 ipsec-proposal Trans2x
  protocol esp integrity sha-384
 interface Ethernet0/1
  nameif outside
-access-list crypto-1.2.3.9 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+access-list crypto-1.2.3.9 extended permit ip host 10.1.1.19 10.1.2.0 255.255.255.240
 crypto map crypto-outside 1 set peer 1.2.3.9
 crypto map crypto-outside 1 match address crypto-1.2.3.9
 crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2x
 crypto map crypto-outside 1 set pfs group19
 crypto map crypto-outside 1 set security-association lifetime seconds 3600
+access-list crypto-1.2.3.3 extended permit ip host 10.1.1.13 10.1.2.0 255.255.255.240
+crypto map crypto-outside 2 set peer 1.2.3.3
+crypto map crypto-outside 2 match address crypto-1.2.3.3
+crypto map crypto-outside 2 set ikev2 ipsec-proposal Trans2x
 tunnel-group 1.2.3.9 type ipsec-l2l
 tunnel-group 1.2.3.9 ipsec-attributes
+ peer-id-validate nocheck
+tunnel-group 1.2.3.3 type ipsec-l2l
+tunnel-group 1.2.3.3 ipsec-attributes
  peer-id-validate nocheck
 END
 };
 
 $out = <<'END';
-access-list crypto-1.2.3.4-DRC-0 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
-crypto ipsec ikev2 ipsec-proposal Trans2-DRC-0
-protocol esp encryption aes-256
-protocol esp integrity sha-384
-crypto map crypto-outside 1 set peer 1.2.3.4
-crypto map crypto-outside 1 set pfs group19
-crypto map crypto-outside 1 set security-association lifetime seconds 3600
-no crypto map crypto-outside 1 set ikev2 ipsec-proposal
-crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2-DRC-0
-crypto map crypto-outside 1 match address crypto-1.2.3.4-DRC-0
-access-list crypto-1.2.3.9-DRC-0 extended permit ip host 10.1.1.10 10.1.2.0 255.255.255.240
+access-list crypto-1.2.3.9-DRC-0 extended permit ip host 10.1.1.19 10.1.2.0 255.255.255.240
 crypto ipsec ikev2 ipsec-proposal Trans2x-DRC-0
 protocol esp encryption aes-256
 protocol esp integrity sha-384
-crypto map crypto-outside 2 set peer 1.2.3.9
-crypto map crypto-outside 2 set pfs group19
-crypto map crypto-outside 2 set security-association lifetime seconds 3600
+crypto map crypto-outside 1 set peer 1.2.3.9
+crypto map crypto-outside 1 set pfs group19
+crypto map crypto-outside 1 set security-association lifetime seconds 3600
+no crypto map crypto-outside 1 set ikev2 ipsec-proposal
+crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2x-DRC-0
+crypto map crypto-outside 1 match address crypto-1.2.3.9-DRC-0
+access-list crypto-1.2.3.3-DRC-0 extended permit ip host 10.1.1.13 10.1.2.0 255.255.255.240
+crypto map crypto-outside 2 set peer 1.2.3.3
 no crypto map crypto-outside 2 set ikev2 ipsec-proposal
 crypto map crypto-outside 2 set ikev2 ipsec-proposal Trans2x-DRC-0
-crypto map crypto-outside 2 match address crypto-1.2.3.9-DRC-0
+crypto map crypto-outside 2 match address crypto-1.2.3.3-DRC-0
+access-list crypto-1.2.3.4-DRC-0 extended permit ip host 10.1.1.14 10.1.2.0 255.255.255.240
+crypto ipsec ikev2 ipsec-proposal Trans2-DRC-0
+protocol esp encryption aes-256
+protocol esp integrity sha-384
+crypto map crypto-outside 3 set peer 1.2.3.4
+crypto map crypto-outside 3 set pfs group19
+crypto map crypto-outside 3 set security-association lifetime seconds 3600
+no crypto map crypto-outside 3 set ikev2 ipsec-proposal
+crypto map crypto-outside 3 set ikev2 ipsec-proposal Trans2-DRC-0
+crypto map crypto-outside 3 match address crypto-1.2.3.4-DRC-0
+tunnel-group 1.2.3.3 type ipsec-l2l
+tunnel-group 1.2.3.3 ipsec-attributes
+peer-id-validate nocheck
 tunnel-group 1.2.3.4 type ipsec-l2l
 tunnel-group 1.2.3.4 ipsec-attributes
 peer-id-validate nocheck
