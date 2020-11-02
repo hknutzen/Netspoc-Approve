@@ -1410,7 +1410,7 @@ sub get_merge_worker {
                 my $incr = $peer_seq - 1;
                 for my $name (@{$h2->{PEERS}}) {
                     my $map = $spoc_seq->{$name};
-                    my $peer = $map->{PEER} or next;
+                    $map->{PEER} or next;
                     my $seq = $map->{SEQ};
                     $seq += $incr;
                     $map->{SEQ} = $seq;
