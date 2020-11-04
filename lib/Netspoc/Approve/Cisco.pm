@@ -844,6 +844,22 @@ sub check_device_IP {
               " Conf: $conf_addr, Netspoc: $spoc_addr");
 }
 
+sub check_dupl_acl_ref {
+    my ($self, $cfg) = @_;
+    my %acl_seen;
+    for my $name (sort keys %{ $cfg->{IF} }) {
+        my $intf = $cfg->{IF}->{$name};
+        for my $what (qw(IN OUT)) {
+            my $acl_name = $intf->{"ACCESS_GROUP_$what"} or next;
+            if (my $other = $acl_seen{$acl_name}) {
+                abort("ACL $acl_name is referenced from two places:\n".
+                      " $other and $intf->{name}")
+            }
+            $acl_seen{$acl_name} = $intf->{name};
+        }
+    }
+}
+
 # All active interfaces on device must be known by Netspoc.
 sub check_device_interfaces {
     my ($self, $conf, $spoc) = @_;
@@ -919,6 +935,7 @@ sub checkinterfaces {
     # interface config.
     if (grep { /^(?:ACCESS_LIST|CRYPTO)/ } keys %$spoc) {
         $self->check_device_interfaces($conf, $spoc);
+        $self->check_dupl_acl_ref($conf);
     }
 
     $self->check_spoc_interfaces($conf, $spoc, $has_mpls);
