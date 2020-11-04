@@ -1,3 +1,8 @@
+2.018     2020-11-04 11:34:13+01:00 Europe/Berlin
+
+ - Fix: Sanity check for access-list bound to more than one interface
+   is only done for managed interfaces of device having multiple VRFs.
+
 2.017     2020-11-02 12:42:58+01:00 Europe/Berlin
 
  - Crypto map entries from raw file are prepended

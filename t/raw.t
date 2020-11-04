@@ -330,8 +330,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> ACL in_out is referenced from two places:
- Ethernet1 and Ethernet1
+ERROR>>> ACL 'in_out' must not be referenced multiple times in raw
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
@@ -372,8 +371,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> ACL foo is referenced from two places:
- Ethernet1 and Ethernet2
+ERROR>>> ACL 'foo' must not be referenced multiple times in raw
 END
 
 eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );

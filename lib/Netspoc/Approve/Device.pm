@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.017'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '2.018'; # VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -182,11 +182,11 @@ sub load_spocfile {
 
     my $count = @result;
 
-    # Strip CR and end of line
+    # Strip CR characters
     # if file was read directly from router (e.g. with "sh run").
-    #
-    if ($count > 0 and $result[0] =~ /\r$/) {
-        s/\r$// for @result;
+    # Found mostly at end of line, but also seen at \r\n\r.
+    if ($count > 0 and $result[0] =~ /\r/) {
+        s/\r//g for @result;
     }
 
     info("Read config file $path with $count lines");
