@@ -519,6 +519,54 @@ END
 eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
 
 ############################################################
+$title = "Ignore unmanaged VRF in check for same ACL";
+############################################################
+$device = <<END;
+ip access-list extended test
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq ntp
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group test in
+interface Serial1
+ ip unnumbered Ethernet1
+ vrf forwarding 009
+ ip access-group test in
+interface Serial2
+ ip unnumbered Ethernet1
+ vrf forwarding 009
+ ip access-group test in
+interface Serial3
+ ip unnumbered Ethernet1
+ vrf forwarding 009
+ shutdown
+ ip access-group test in
+interface Serial4
+ ip unnumbered Ethernet1
+ vrf forwarding 009
+ shutdown
+ ip access-group test in
+END
+
+$in = <<"END";
+ip access-list extended test
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq ntp
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.13 eq ntp
+interface e0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group test in
+END
+
+# Reference of ACL "test" in VRF 009 isn't recognized.
+$out = <<'END';
+ip access-list resequence test 10000 10000
+ip access-list extended test
+10001 permit udp 10.0.6.0 0.0.0.255 host 10.0.1.13 eq ntp
+ip access-list resequence test 10 10
+END
+
+eq_or_diff(approve('IOS', $device, $in), $out, $title);
+
+############################################################
 $title = "Change object-group";
 ############################################################
 $device = <<END;

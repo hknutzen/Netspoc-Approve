@@ -395,9 +395,10 @@ sub align_vrfs {
         my $val = $intf->{$name};
         my $vrf = $val->{VRF} || '';
         next if $spoc_vrf{$vrf};
-        next if $val->{SHUTDOWN};
         delete $intf->{$name};
-        $removed{$vrf} = 1;
+        if (not $val->{SHUTDOWN}) {
+            $removed{$vrf} = 1;
+        }
     }
     my $routing = $conf->{ROUTING_VRF};
     for my $vrf (keys %$routing) {
