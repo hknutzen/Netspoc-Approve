@@ -500,7 +500,7 @@ END
 eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
 
 ############################################################
-$title = "Reference same ACL from two times";
+$title = "Reference same ACL two times";
 ############################################################
 $device = <<END;
 ip access-list extended test-DRC-0
