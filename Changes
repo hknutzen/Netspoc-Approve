@@ -1,5 +1,10 @@
 {{$NEXT}}
 
+2.019     2020-11-05 12:43:19+01:00 Europe/Berlin
+
+ - Fixed again: Sanity check for access-list bound to more than one interface.
+   Also ignore shutdown interfaces of unmanaged VRF.
+
 2.018     2020-11-04 11:34:13+01:00 Europe/Berlin
 
  - Fix: Sanity check for access-list bound to more than one interface
