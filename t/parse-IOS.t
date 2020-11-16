@@ -519,6 +519,45 @@ END
 eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
 
 ############################################################
+$title = "Ignore shutdown interface in check for same ACL";
+############################################################
+$device = <<END;
+ip access-list extended test-DRC-0
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq ntp
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+interface Serial2
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+ shutdown
+END
+
+$out = <<'END';
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
+$title = "Ignore interface without IP in check for same ACL";
+############################################################
+$device = <<END;
+ip access-list extended test-DRC-0
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq ntp
+interface Serial1
+ ip unnumbered Ethernet1
+ ip access-group test-DRC-0 in
+interface Serial2
+ ip access-group test-DRC-0 in
+ shutdown
+END
+
+$out = <<'END';
+END
+
+eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+
+############################################################
 $title = "Ignore unmanaged VRF in check for same ACL";
 ############################################################
 $device = <<END;
