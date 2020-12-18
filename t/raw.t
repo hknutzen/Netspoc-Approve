@@ -713,6 +713,12 @@ crypto map crypto-outside 1 set security-association lifetime seconds 3600
 tunnel-group 1.2.3.4 type ipsec-l2l
 tunnel-group 1.2.3.4 ipsec-attributes
  peer-id-validate nocheck
+crypto map crypto-outside 2 set peer 1.2.3.10
+crypto map crypto-outside 2 set ikev2 ipsec-proposal Trans2
+crypto map crypto-outside 2 set pfs group19
+tunnel-group 1.2.3.10 type ipsec-l2l
+tunnel-group 1.2.3.10 ipsec-attributes
+ peer-id-validate nocheck
 END
 ,
 raw4 => <<END
@@ -766,8 +772,78 @@ crypto map crypto-outside 3 set security-association lifetime seconds 3600
 no crypto map crypto-outside 3 set ikev2 ipsec-proposal
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Trans2-DRC-0
 crypto map crypto-outside 3 match address crypto-1.2.3.4-DRC-0
+crypto map crypto-outside 4 set peer 1.2.3.10
+crypto map crypto-outside 4 set pfs group19
+no crypto map crypto-outside 4 set ikev2 ipsec-proposal
+crypto map crypto-outside 4 set ikev2 ipsec-proposal Trans2-DRC-0
+tunnel-group 1.2.3.10 type ipsec-l2l
+tunnel-group 1.2.3.10 ipsec-attributes
+peer-id-validate nocheck
 tunnel-group 1.2.3.3 type ipsec-l2l
 tunnel-group 1.2.3.3 ipsec-attributes
+peer-id-validate nocheck
+tunnel-group 1.2.3.4 type ipsec-l2l
+tunnel-group 1.2.3.4 ipsec-attributes
+peer-id-validate nocheck
+tunnel-group 1.2.3.9 type ipsec-l2l
+tunnel-group 1.2.3.9 ipsec-attributes
+peer-id-validate nocheck
+END
+
+eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+
+############################################################
+$title = "Add crypto map entry; must not overwrite while shifting";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/1
+ nameif outside
+END
+
+$spoc = {
+spoc4 => <<END
+crypto ipsec ikev2 ipsec-proposal Trans2
+ protocol esp encryption aes-256
+ protocol esp integrity sha-384
+crypto map crypto-outside 1 set peer 1.2.3.4
+crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2
+tunnel-group 1.2.3.4 type ipsec-l2l
+tunnel-group 1.2.3.4 ipsec-attributes
+ peer-id-validate nocheck
+crypto map crypto-outside 2 set peer 1.2.3.10
+crypto map crypto-outside 2 set ikev2 ipsec-proposal Trans2
+tunnel-group 1.2.3.10 type ipsec-l2l
+tunnel-group 1.2.3.10 ipsec-attributes
+ peer-id-validate nocheck
+END
+,
+raw4 => <<END
+interface Ethernet0/1
+ nameif outside
+crypto map crypto-outside 1 set peer 1.2.3.9
+crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2
+tunnel-group 1.2.3.9 type ipsec-l2l
+tunnel-group 1.2.3.9 ipsec-attributes
+ peer-id-validate nocheck
+END
+};
+
+$out = <<'END';
+crypto ipsec ikev2 ipsec-proposal Trans2-DRC-0
+protocol esp encryption aes-256
+protocol esp integrity sha-384
+crypto map crypto-outside 1 set peer 1.2.3.9
+no crypto map crypto-outside 1 set ikev2 ipsec-proposal
+crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2-DRC-0
+crypto map crypto-outside 2 set peer 1.2.3.4
+no crypto map crypto-outside 2 set ikev2 ipsec-proposal
+crypto map crypto-outside 2 set ikev2 ipsec-proposal Trans2-DRC-0
+crypto map crypto-outside 3 set peer 1.2.3.10
+no crypto map crypto-outside 3 set ikev2 ipsec-proposal
+crypto map crypto-outside 3 set ikev2 ipsec-proposal Trans2-DRC-0
+tunnel-group 1.2.3.10 type ipsec-l2l
+tunnel-group 1.2.3.10 ipsec-attributes
 peer-id-validate nocheck
 tunnel-group 1.2.3.4 type ipsec-l2l
 tunnel-group 1.2.3.4 ipsec-attributes

@@ -1,3 +1,10 @@
+2.020     2020-12-18 13:01:44+01:00 Europe/Berlin
+
+ - Fixed merging of crypto map from raw.
+   This failed if number of seq nums from raw was smaller than from Netspoc.
+ - Fixed again: Sanity check for access-list bound to more than one interface.
+   Also ignore interface that is shutdown or has no IP.
+
 2.019     2020-11-05 12:43:19+01:00 Europe/Berlin
 
  - Fixed again: Sanity check for access-list bound to more than one interface.
