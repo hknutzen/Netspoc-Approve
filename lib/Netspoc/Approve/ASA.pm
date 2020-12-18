@@ -1355,6 +1355,7 @@ sub get_merge_worker {
             my %known_peers;
             my $peer_seq = 1;
             my $dyn_seq = 65536;
+            # Collect known peers from Netspoc for $crypto_map_name.
             if(my $h2 = $spoc_list->{$crypto_map_name}) {
                 my $names = $h2->{PEERS};
                 for my $name (@$names) {
@@ -1374,6 +1375,7 @@ sub get_merge_worker {
             for my $name_seq (@$names) {
                 my $add_map = $add_seq->{$name_seq};
                 my $peer = $add_map->{PEER} || $add_map->{DYNAMIC_MAP};
+                # Found same peer from Netspoc. Change this entry.
                 if (my $spoc_name = $known_peers{$peer}) {
                     my $spoc_map = $spoc_seq->{$spoc_name};
                     for my $attr (keys %$add_map) {
@@ -1387,6 +1389,7 @@ sub get_merge_worker {
                         }
                     }
                 }
+                # Add new peer from raw.
                 else {
                     my $seq_nr;
                     if ($add_map->{PEER}) {
@@ -1406,9 +1409,12 @@ sub get_merge_worker {
                 }
             }
             # Shift seq numbers of current entries.
+            my $get_seq = sub { my($n) = @_; $spoc_seq->{$n}->{SEQ}; };
             if(my $h2 = $spoc_list->{$crypto_map_name}) {
                 my $incr = $peer_seq - 1;
-                for my $name (@{$h2->{PEERS}}) {
+                # Process large seq num first to prevent overwriting.
+                for my $name (sort { $get_seq->($b) <=> $get_seq->($a) }
+                              @{$h2->{PEERS}}) {
                     my $map = $spoc_seq->{$name};
                     $map->{PEER} or next;
                     my $seq = $map->{SEQ};
