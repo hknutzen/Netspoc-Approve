@@ -17,11 +17,21 @@ jobs:
         uses: shogo82148/actions-setup-perl@v1
         with:
           perl-version: 5.32
-      - name: Get dependencies
+#      - name: Get dependencies
+#        run: |
+#          cpanm --notest Dist::Zilla
+#          dzil authordeps --missing | cpanm --notest
+#          dzil listdeps --author --missing | cpanm --notest
+#          cpanm -n Devel::Cover
+#          cpanm -n Devel::Cover::Report::Coveralls
+      - name: Get Dist::Zilla
+        run: cpanm --notest Dist::Zilla
+      - name: Get authordeps
+        run: dzil authordeps --missing | cpanm --notest
+      - name: Get deps
+        run: dzil listdeps --author --missing | cpanm --notest
+      - name: Get Devel::Cover..
         run: |
-          cpanm --notest Dist::Zilla
-          dzil authordeps --missing | cpanm --notest
-          dzil listdeps --author --missing | cpanm --notest
           cpanm -n Devel::Cover
           cpanm -n Devel::Cover::Report::Coveralls
       - name: Calc coverage
