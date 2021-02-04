@@ -9,14 +9,15 @@ name: tests
 jobs:
   coverage:
     runs-on: ubuntu-latest
+    container:
+      image: perldocker/perl-tester:5.32
     steps:
-      - name: Install latest stable Perl
-        uses: shogo82148/actions-setup-perl@v1
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Get dependencies
         run: |
-          cpanm --installdeps .
+          dzil authordeps --missing | cpanm --notest
+          dzil listdeps --author --missing | cpanm --notest
           cpanm -n Devel::Cover::Report::Coveralls
       - name: Calc coverage
         env:
