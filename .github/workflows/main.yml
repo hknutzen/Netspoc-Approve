@@ -27,6 +27,7 @@ jobs:
       - name: Get Dist::Zilla
         run: cpanm --notest Dist::Zilla
       - name: Get authordeps
+        run: dzil authordeps --missing # Debug
         run: dzil authordeps --missing | cpanm --notest
       - name: Get deps
         run: dzil listdeps --author --missing | cpanm --notest
