@@ -26,7 +26,7 @@ jobs:
 #          cpanm -n Devel::Cover::Report::Coveralls
       - name: Get Dist::Zilla
         run: cpanm --notest Dist::Zilla
-      - name Get perlcritic manually
+      - name: Get perlcritic manually
         run: cpanm --notest Code::TidyAll::Plugin::PerlCritic Perl::Critic
       - name: Get authordeps
         run: dzil authordeps --missing | cpanm --notest
