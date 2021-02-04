@@ -1,3 +1,5 @@
+name: tests
+
 on:
   push:
     branches: [ master ]
@@ -5,17 +7,19 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-name: tests
 jobs:
   coverage:
     runs-on: ubuntu-latest
-    container:
-      image: perldocker/perl-tester:5.32
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Set up perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: 5.32
       - name: Get dependencies
         run: |
+          cpanm --notest Dist::Zilla
           dzil authordeps --missing | cpanm --notest
           dzil listdeps --author --missing | cpanm --notest
           cpanm -n Devel::Cover
