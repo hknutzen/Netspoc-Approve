@@ -18,8 +18,13 @@ jobs:
         run: |
           dzil authordeps --missing | cpanm --notest
           dzil listdeps --author --missing | cpanm --notest
+          cpanm -n Devel::Cover
           cpanm -n Devel::Cover::Report::Coveralls
       - name: Calc coverage
         env:
+          HARNESS_PERL_SWITCHES='-MDevel::Cover=-ignore,^x?t/,-blib,0'
+        run: prove
+      - name: Upload to Coveralls
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cover -test -report Coveralls
+        run: cover -report Coveralls
