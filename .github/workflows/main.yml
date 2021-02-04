@@ -27,11 +27,9 @@ jobs:
       - name: Get Dist::Zilla
         run: cpanm --notest Dist::Zilla
       - name: Get authordeps
-        run: |
-          dzil authordeps --missing # Debug
-          dzil authordeps --missing | cpanm --notest
+        run: dzil authordeps --missing | cpanm --notest
       - name: Get deps
-        run: dzil listdeps --author --missing | cpanm --notest
+        run: dzil listdeps --author --missing # | cpanm --notest
       - name: Get Devel::Cover..
         run: |
           cpanm -n Devel::Cover
