@@ -4,38 +4,20 @@ on:
   push:
     branches: [ master ]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
 jobs:
   coverage:
     runs-on: ubuntu-latest
+    container:
+      image: perldocker/perl-tester:5.32
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Set up perl
-        uses: shogo82148/actions-setup-perl@v1
-        with:
-          perl-version: 5.32
-#      - name: Get dependencies
-#        run: |
-#          cpanm --notest Dist::Zilla
-#          dzil authordeps --missing | cpanm --notest
-#          dzil listdeps --author --missing | cpanm --notest
-#          cpanm -n Devel::Cover
-#          cpanm -n Devel::Cover::Report::Coveralls
-      - name: Get Dist::Zilla
-        run: cpanm --notest Dist::Zilla
-      - name: Get perlcritic manually
-        run: cpanm --notest Code::TidyAll::Plugin::PerlCritic Perl::Critic
-      - name: Get authordeps
-        run: dzil authordeps --missing | cpanm --notest
-      - name: Get deps
-        run: dzil listdeps --author --missing | cpanm --notest
-      - name: Get Devel::Cover..
+      - name: Get dependencies
         run: |
-          cpanm -n Devel::Cover
-          cpanm -n Devel::Cover::Report::Coveralls
+          dzil authordeps --missing | cpanm --notest
+          cpanm --notest Code::TidyAll::Plugin::PerlCritic Perl::Critic
+          dzil listdeps --author --missing | cpanm --notest
+          cpanm -n Devel::Cover Devel::Cover::Report::Coveralls
       - name: Calc coverage
         env:
           HARNESS_PERL_SWITCHES: -MDevel::Cover=-ignore,^x?t/,-blib,0
