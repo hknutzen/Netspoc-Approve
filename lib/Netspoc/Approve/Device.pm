@@ -637,8 +637,7 @@ sub merge {
                 for my $vrf (sort keys %$raw_v) {
                     my $raw_routes = $raw_v->{$vrf};
                     my $spoc_routes = $spoc_v->{$vrf} ||= [];
-                    unshift(@$spoc_routes, @$raw_routes);
-                    my $count = @$raw_routes;
+                    my $count = $self->merge_routes($spoc_routes, $raw_routes);
                     my $for = $vrf ? " for VRF $vrf" : $vrf;
                     if ($count) {
                         my $msg = $dual_stack?
@@ -678,6 +677,24 @@ sub merge {
         $process->($prepend, 'prepend');
         $process->($append, 'append');
     }
+}
+
+sub merge_routes {
+    my ($self, $spoc_routes, $raw_routes) = @_;
+    my @add;
+  RAW:
+    for my $r (@$raw_routes) {
+        for my $s (@$spoc_routes) {
+            if ($self->route_line_a_eq_b($r, $s)) {
+                warn_info("Ignoring duplicate route from raw:",
+                          " $r->{orig}");
+                    next RAW;
+            }
+        }
+        push @add, $r;
+    }
+    unshift(@$spoc_routes, @add);
+    return scalar @add;
 }
 
 sub route_line_a_eq_b {

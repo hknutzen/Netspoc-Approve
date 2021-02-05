@@ -4,7 +4,8 @@ use strict;
 use warnings;
 
 our @ISA    = qw(Exporter);
-our @EXPORT = qw(approve approve_err approve_status check_parse_and_unchanged
+our @EXPORT = qw(approve approve_warn approve_err
+                 approve_status check_parse_and_unchanged
                  prepare_simulation
                  simul_run simul_err simul_compare write_file
                  run check_output drc3_err missing_approve);
@@ -173,7 +174,7 @@ sub filter_compare_output {
     return(join("\n", @cmds, ''));
 }
 
-sub approve {
+sub approve_warn {
     my($type, $conf, $spoc) = @_;
     my ($status, $stdout, $stderr) =
         compare_files($type, $conf, $spoc);
@@ -183,7 +184,6 @@ sub approve {
         $stderr ||= '';
         BAIL_OUT "Unexpected status: $status\n$stderr\n";
     }
-    $stderr and BAIL_OUT "STDERR:\n$stderr\n";
     my $changes = filter_compare_output($stdout);
     if ($changes and $status == 0) {
         BAIL_OUT "Got status 'unchanged', but changes found:\n$changes";
@@ -191,6 +191,13 @@ sub approve {
     elsif (not $changes and $status == 1) {
         BAIL_OUT "Got status 'changed' but no changes found";
     }
+    return ($changes, $stderr);
+}
+
+sub approve {
+    my($type, $conf, $spoc) = @_;
+    my ($changes, $stderr) = approve_warn($type, $conf, $spoc);
+    $stderr and BAIL_OUT "STDERR:\n$stderr\n";
     return $changes;
 }
 

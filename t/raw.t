@@ -16,7 +16,7 @@ interface Ethernet0/1
 END
 
 # Input from Netspoc, from raw, output from approve.
-my($spoc, $device, $out);
+my($spoc, $device, $out, $err);
 my $title;
 
 ############################################################
@@ -25,7 +25,7 @@ $title = "Merge routing IOS";
 $spoc = {
 spoc4 => <<END
 ip route 10.20.0.0 255.248.0.0 10.1.2.3
-ip route 10.22.0.0 255.255.0.0 10.1.2.4
+ip route 10.23.0.0 255.255.0.0 10.1.2.5
 END
 ,
 raw4 => <<END
@@ -36,7 +36,7 @@ END
 
 $out = <<END;
 ip route 10.22.0.0 255.255.0.0 10.1.2.4
-ip route 10.22.0.0 255.255.0.0 10.1.2.4
+ip route 10.23.0.0 255.255.0.0 10.1.2.5
 ip route 10.20.0.0 255.248.0.0 10.1.2.3
 ip route 10.0.0.0 255.0.0.0 10.1.2.2
 END
@@ -49,7 +49,7 @@ $title = "Merge routing ASA";
 $spoc = {
 spoc4 => <<END
 route inside 10.20.0.0 255.248.0.0 10.1.2.3
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
+route inside 10.23.0.0 255.255.0.0 10.1.2.5
 END
 ,
 raw4 => <<END
@@ -60,7 +60,7 @@ END
 
 $out = <<END;
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
+route inside 10.23.0.0 255.255.0.0 10.1.2.5
 route inside 10.20.0.0 255.248.0.0 10.1.2.3
 route inside 10.0.0.0 255.0.0.0 10.1.2.2
 END
@@ -74,7 +74,7 @@ $spoc = {
 spoc4 => <<END
 vrf context one
  ip route 10.20.0.0/19 10.1.2.3
-ip route 10.22.0.0/16 10.1.2.4
+ip route 10.23.0.0/16 10.1.2.5
 END
 ,
 raw4 => <<END
@@ -86,7 +86,7 @@ END
 
 $out = <<END;
 ip route 10.22.0.0/16 10.1.2.4
-ip route 10.22.0.0/16 10.1.2.4
+ip route 10.23.0.0/16 10.1.2.5
 vrf context one
 ip route 10.20.0.0/19 10.1.2.3
 vrf context two
@@ -101,7 +101,7 @@ $title = "Merge routing Linux";
 $spoc = {
 spoc4 => <<END
 ip route add 10.20.0.0/19 via 10.1.2.3
-ip route add 10.22.0.0/16 via 10.1.2.4
+ip route add 10.23.0.0/16 via 10.1.2.5
 END
 ,
 raw4 => <<END
@@ -113,7 +113,7 @@ END
 $out = <<END;
 ip route add 10.20.0.0/19 via 10.1.2.3
 ip route add 10.22.0.0/16 via 10.1.2.4
-ip route add 10.22.0.0/16 via 10.1.2.4
+ip route add 10.23.0.0/16 via 10.1.2.5
 ip route add 10.0.0.0/8 via 10.1.2.2
 END
 
@@ -138,6 +138,31 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 
 eq_or_diff( approve('IOS', '', $spoc), $out, $title );
+
+############################################################
+$title = "Duplicate route from raw";
+############################################################
+$spoc = {
+spoc4 => <<END
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+,
+raw4 => <<END
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+};
+
+$out = <<END;
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+
+$err = <<END;
+WARNING>>> Ignoring duplicate route from raw: ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+
+my ($o, $e) = approve_warn('IOS', '', $spoc);
+eq_or_diff($o, $out, $title );
+eq_or_diff($e, $err, $title );
 
 ############################################################
 $title = "No routing in [APPEND] part";
