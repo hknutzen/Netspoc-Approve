@@ -1002,7 +1002,7 @@ sub con_shutdown {
     my $con = $self->{CONSOLE};
     if (!$con->{RESULT}->{ERROR}) {
         $con->{TIMEOUT} = $con->{LOGIN_TIMEOUT};
-        $con->con_issue_cmd('exit', eof);
+        $con->con_issue_cmd('exit', ''); # Don't wait for next prompt.
     }
     delete $self->{CONSOLE};
 }
