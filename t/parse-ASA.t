@@ -47,7 +47,7 @@ access-list outside_in-DRC-0 extended deny ip any any
 access-group outside_in-DRC-0 in interface outside
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Add and delete IPV6-access list";
@@ -77,7 +77,7 @@ access-list inside_in line 1 extended permit tcp 1000::abcd:1:0/120 1000::abcd:2
 no access-list inside_in line 2 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "IPv6 routing - add new route";
@@ -94,7 +94,7 @@ $out = <<END;
 ipv6 route outside 10::3:0/112 10::2:2
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "IPv6 routing - network of equal size";
@@ -113,7 +113,7 @@ END
 $out = <<END;
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "IPv6 routing - replace network with smaller one.";
@@ -134,7 +134,7 @@ ipv6 route outside 10::3:0/120 10::2:2
 no ipv6 route outside 10::3:0/112 10::2:2
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "IPv6 routing - replace network with bigger one.";
@@ -155,7 +155,7 @@ ipv6 route outside 10::3:0/112 10::2:2
 no ipv6 route outside 10::3:0/120 10::2:2
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Abort on 1 instead of icmp in raw file";
@@ -182,7 +182,7 @@ ERROR>>>  at line 1, pos 5:
 ERROR>>> >>access-list inside_in extended permit 1 any4 any4 3 6<<
 END
 
-eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Abort on 58 instead of icmp6 in raw file";
@@ -209,7 +209,7 @@ ERROR>>>  at line 1, pos 5:
 ERROR>>> >>access-list inside_in extended permit 58 any6 any6 128<<
 END
 
-eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Substitute numeric icmp6 type with appropriate name";
@@ -232,7 +232,7 @@ END
 $out = <<END;
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Interface with and without IP address";
 ############################################################
@@ -251,7 +251,7 @@ END
 $out = <<END;
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Add sysopt";
@@ -268,7 +268,7 @@ $out = <<END;
 no sysopt connection permit-vpn
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Remove sysopt";
@@ -285,7 +285,7 @@ $out = <<END;
 sysopt connection permit-vpn
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Increment index of names";
@@ -313,7 +313,7 @@ network-object 10.0.5.0 255.255.255.0
 access-list outside_in line 1 extended permit udp object-group g0-DRC-1 any eq 79
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Parse routing and ACL with object-groups";
@@ -352,7 +352,7 @@ END
 
 # Check whether output is as expected with given input
 # AND whether output is empty for identical input.
-check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 ############################################################
 $title = "Abort on unknown sub command of object-group";
@@ -374,7 +374,7 @@ ERROR>>> Unexpected command in line 7:
 >>unknown command<<
 END
 
-eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "object-group of type tcp-udp";
@@ -394,7 +394,7 @@ ERROR>>> Expected port number or port name
 ERROR>>>  at line 7, pos 3:
 ERROR>>> >>port-object eq http<<
 END
-eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Port specifer 'neq'";
@@ -409,7 +409,7 @@ END
 $out = <<'END';
 ERROR>>> port specifier 'neq' not implemented
 END
-eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Unknown port specifier";
@@ -426,7 +426,7 @@ ERROR>>> Unexpected token 'foo'
 ERROR>>>  at line 5, pos 8:
 ERROR>>> >>access-list outside_in extended permit tcp any any foo 22<<
 END
-eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Different port specifers";
@@ -444,7 +444,7 @@ END
 $out = <<'END';
 END
 
-eq_or_diff(approve('ASA', $device, $device), $out, $title);
+test_run($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Unsupported global ACL ";
@@ -462,7 +462,7 @@ ERROR>>> Global access-list not supported
 ERROR>>>  at line 8, pos 1:
 ERROR>>> >>access-group global_ACL global<<
 END
-eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Reference same ACL from two interfaces";
@@ -479,7 +479,7 @@ ERROR>>> Multiple occurrences of command not allowed
 ERROR>>>  at line 7, pos 5:
 ERROR>>> >>access-group outside_in in interface outside<<
 END
-eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";
@@ -501,7 +501,7 @@ END
 $out = <<END;
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Parse crypto map, dynamic map with tunnel-group";
@@ -553,7 +553,7 @@ access-list crypto-acl2-DRC-0 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 crypto dynamic-map some-name 10 match address crypto-acl2-DRC-0
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 END
-check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 ############################################################
 $title = "Parse default tunnel-group-map";
@@ -571,7 +571,7 @@ tunnel-group VPN-single-DRC-0 webvpn-attributes
 authentication certificate
 tunnel-group-map default-group VPN-single-DRC-0
 END
-check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 ############################################################
 $title = "Must not change type of tunnel-group";
@@ -596,7 +596,7 @@ $out = <<"END";
 ERROR>>> Can't change type of TUNNEL_GROUP_DEFINE VPN-single
 END
 
-eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Don't touch tunnel-group-map referencing built in";
@@ -611,7 +611,7 @@ END
 $out = <<"END";
 END
 
-eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Parse username, group-policy";
@@ -657,7 +657,7 @@ username jon.doe@token.example.com attributes
 vpn-filter value vpn-filter-DRC-0
 vpn-group-policy VPN-group-DRC-0
 END
-check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 ############################################################
 $title = "Parse group-policy DfltGrpPolicy";
@@ -678,7 +678,7 @@ vpn-simultaneous-logins 1
 vpn-tunnel-protocol ikev2
 END
 
-check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 ############################################################
 $title = "Parse tunnel-group of type ipsec-l2l (IP as name)";
@@ -718,7 +718,7 @@ tunnel-group 193.155.130.1 ipsec-attributes
 peer-id-validate nocheck
 tunnel-group 193.155.130.2 type ipsec-l2l
 END
-check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 
 ############################################################
@@ -750,7 +750,7 @@ username jon.doe@token.example.com attributes
 no password-storage
 no vpn-simultaneous-logins
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 
 ############################################################
@@ -795,7 +795,7 @@ no anyconnect-custom perapp
 no pfs
 no vpn-idle-timeout
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Remove group-policy and username";
@@ -822,7 +822,7 @@ clear configure username jon.doe@token.example.com
 clear configure group-policy VPN-group
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Clear group-policy DfltGrpPolicy";
@@ -841,7 +841,7 @@ $out = <<'END';
 clear configure group-policy DfltGrpPolicy
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Duplicate ca certificate map";
@@ -857,7 +857,7 @@ $out = <<'END';
 ERROR>>> Two ca cert map items use identical subject-name: 'map1', 'map2'
 END
 
-eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Parse tunnel-group, group-policy, ca cert map, pool";
@@ -924,7 +924,7 @@ tunnel-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
 webvpn
 certificate-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
 END
-check_parse_and_unchanged('ASA', $minimal_device, $in, $out, $title);
+check_parse_and_unchanged($title, 'ASA', $minimal_device, $in, $out);
 
 ############################################################
 $title = "Remove tunnel-group, crypto-ca-cert-map, tunnel-group-map";
@@ -949,7 +949,7 @@ no tunnel-group VPN-tunnel ipsec-attributes
 clear configure tunnel-group VPN-tunnel
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Modify tunnel-group ipsec-attributes";
@@ -979,7 +979,7 @@ $out = <<'END';
 tunnel-group VPN-tunnel ipsec-attributes
 trust-point ASDM_TrustPoint5
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Change IP tunnel-group to mapped tunnel-group";
@@ -1015,7 +1015,7 @@ tunnel-group-map ca-map-DRC-0 10 193.155.130.20
 no tunnel-group 193.155.130.20 ipsec-attributes
 clear configure tunnel-group 193.155.130.20
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Missing type definition for tunnel-group";
@@ -1031,7 +1031,7 @@ END
 $out = <<'END';
 ERROR>>> Missing type definition for tunnel-group tunnel1
 END
-eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "tunnelgroup-map references unknown tunnel-group";
@@ -1046,7 +1046,7 @@ END
 $out = <<'END';
 ERROR>>> 'tunnel-group-map ca-map 20 193.155.130.20' references unknown tunnel-group 193.155.130.20
 END
-eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Must not delete default tunnel-group";
@@ -1065,7 +1065,7 @@ END
 $out = <<'END';
 no tunnel-group DefaultRAGroup ipsec-attributes
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Modify ip local pool";
@@ -1103,7 +1103,7 @@ group-policy VPN-group attributes
 address-pools value pool-DRC-0
 no ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Add webvpn-attributes, delete ipsec-attributes";
@@ -1132,7 +1132,7 @@ tunnel-group NAME webvpn-attributes
 authentication aaa
 no tunnel-group NAME ipsec-attributes
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Add extended-key-usage";
@@ -1161,7 +1161,7 @@ $out = <<'END';
 crypto ca certificate map ca-map 10
 extended-key-usage co clientauth
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Remove extended-key-usage";
@@ -1190,7 +1190,7 @@ $out = <<'END';
 crypto ca certificate map ca-map 10
 no extended-key-usage co clientauth
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Change extended-key-usage";
@@ -1224,7 +1224,7 @@ $out = <<'END';
 crypto ca certificate map ca-map 10
 extended-key-usage co clientauth
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Add certificate-group-map";
@@ -1254,7 +1254,7 @@ $out = <<'END';
 webvpn
 certificate-group-map ca-map 10 NAME
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Delete tunnel-group";
@@ -1274,7 +1274,7 @@ $out = <<'END';
 no tunnel-group 193.155.130.20 ipsec-attributes
 clear configure tunnel-group 193.155.130.20
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Insert and delete entries from crypto map sequence";
@@ -1334,7 +1334,7 @@ clear configure access-list crypto-outside-1
 clear configure access-list crypto-outside-3
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Too many encryption types";
@@ -1350,7 +1350,7 @@ ERROR>>>  at line 2, pos 7:
 ERROR>>> >>protocol esp encryption aes192 aes 3des des<<
 END
 
-eq_or_diff(approve_err('ASA', $device, $device), $out, $title);
+test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Insert, change and delete dynamic crypto map";
@@ -1407,7 +1407,7 @@ no crypto ipsec ikev1 transform-set Trans3 esp-aes-256 esp-md5-hmac
 clear configure access-list crypto-outside-65533
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Unchanged ldap map-values";
@@ -1460,7 +1460,7 @@ END
 $out = <<'END';
 END
 
-eq_or_diff(approve('ASA', $in, $in), $out, $title);
+test_run($title, 'ASA', $in, $in, $out);
 
 ############################################################
 $title = "Transfer aaa-server manually";
@@ -1471,7 +1471,7 @@ $out = <<'END';
 ERROR>>> AUTH_SERVER LDAP_KV must be transferred manually
 END
 
-eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Transfer ldap map manually";
@@ -1503,7 +1503,7 @@ $out = <<'END';
 ERROR>>> LDAP_MAP LDAPMAP-DRC-0 must be transferred manually
 END
 
-eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Reject aaa-server with different ldap maps";
@@ -1533,7 +1533,7 @@ $out = <<'END';
 ERROR>>> aaa-server LDAP_KV must not use different values in 'ldap-attribute-map'
 END
 
-eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Find existant aaa-server and ldap-map on device";
@@ -1593,7 +1593,7 @@ webvpn
 certificate-group-map ca-map-G1-DRC-0 10 VPN-tunnel-G1-DRC-0
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Change authentication server at tunnel-group";
@@ -1658,7 +1658,7 @@ tunnel-group VPN-tunnel-G1 general-attributes
 authentication-server-group LDAP_KV
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Insert, unchanged and remove ldap map-value";
@@ -1728,7 +1728,7 @@ clear configure access-list vpn-filter-G3
 no ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 done_testing;

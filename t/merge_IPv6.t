@@ -42,7 +42,7 @@ route inside 10.20.0.0 255.255.255.0 10.1.2.3
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - alter IPv6 routing, leaving IPv4 routing untouched";
@@ -75,7 +75,7 @@ access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
 END
 
-eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 $title = "ASA - ipv4 but no ipv6 config";
@@ -93,7 +93,7 @@ route inside 10.20.0.0 255.255.255.0 10.1.2.3
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - ipv6 but no ipv4 config";
@@ -111,7 +111,7 @@ ipv6 route inside 10::3:0/120 10::2:2
 ipv6 route inside 10::2:0/1 10::2:5
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - ipv4 and ipv6 configs and raws";
@@ -159,7 +159,7 @@ access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - ipv4 config and ipv6 raw only";
@@ -188,7 +188,7 @@ access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - ipv6 config and ipv4 raw only";
@@ -217,7 +217,7 @@ access-list inside_in-DRC-0 extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.
 access-group inside_in-DRC-0 in interface inside
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - Invalid IPv6 address in IPv4 raw ACL";
@@ -241,7 +241,7 @@ ERROR>>> IPv6 address not allowed in IPv4 raw file:
 ERROR>>> access-list inside_in extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
 END
 
-eq_or_diff( approve_err('ASA', $minimal_ASA, $spoc), $out, $title );
+test_err($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - Invalid IPv4 address in IPv6 raw ACL";
@@ -266,7 +266,7 @@ ERROR>>> IPv4 address not allowed in IPv6 raw file:
 ERROR>>> access-list inside_in extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 END
 
-eq_or_diff( approve_err('ASA', $minimal_ASA, $spoc), $out, $title );
+test_err($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - any allowed in ipv4 raw with ipv4 config";
@@ -296,7 +296,7 @@ access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - any not allowed in ipv4 raw with ipv6 config";
@@ -319,7 +319,7 @@ ERROR>>> Bare 'any' only allowed in raw file for IPv4-only device:
 ERROR>>> access-list inside_in extended permit ip any any
 END
 
-eq_or_diff( approve_err('ASA', $minimal_ASA, $spoc), $out, $title );
+test_err($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - any not allowed in ipv6 raw";
@@ -342,7 +342,7 @@ ERROR>>> Bare 'any' only allowed in raw file for IPv4-only device:
 ERROR>>> access-list inside_in extended permit ip any any
 END
 
-eq_or_diff( approve_err('ASA', $minimal_ASA, $spoc), $out, $title );
+test_err($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - any allowed on device";
@@ -371,7 +371,7 @@ access-list inside_in line 2 extended permit ip any4 any4
 no access-list inside_in line 3 extended permit ip any any
 END
 
-eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 $title = "ASA - do not alter any on device if only ipv4 input exists";
@@ -392,7 +392,7 @@ END
 $out = <<END;
 END
 
-eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 $title = "ASA - alter any on device if IPv4 and IPv6 input exists";
@@ -420,7 +420,7 @@ access-list inside_in line 1 extended permit ip any4 any4
 no access-list inside_in line 2 extended permit ip any any
 END
 
-eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 $title = "ASA - merge ACL";
@@ -456,7 +456,7 @@ access-list outside_in-DRC-0 extended deny ip any any
 access-group outside_in-DRC-0 in interface outside
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - ipv6 interface unknown in ipv4";
@@ -480,7 +480,7 @@ access-list outside_in-DRC-0 extended deny ip any any
 access-group outside_in-DRC-0 in interface outside
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title );
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "Only IPv6 address known for device";
@@ -518,7 +518,7 @@ route inside 10.20.0.0 255.255.255.0 10.1.2.3
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
 END
 
-eq_or_diff( approve('ASA', $minimal_ASA, $spoc), $out, $title);
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 done_testing;

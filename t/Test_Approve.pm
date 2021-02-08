@@ -4,8 +4,8 @@ use strict;
 use warnings;
 
 our @ISA    = qw(Exporter);
-our @EXPORT = qw(approve approve_warn approve_err
-                 approve_status check_parse_and_unchanged
+our @EXPORT = qw(test_run test_warn test_err test_status
+                 check_parse_and_unchanged
                  prepare_simulation
                  simul_run simul_err simul_compare write_file
                  run check_output drc3_err missing_approve);
@@ -194,6 +194,13 @@ sub approve_warn {
     return ($changes, $stderr);
 }
 
+sub test_warn {
+    my($title, $type, $conf, $spoc, $warn, $expected) = @_;
+    my ($o, $e) = approve_warn($type, $conf, $spoc);
+    eq_or_diff($o, $expected, "$title changes");
+    eq_or_diff($e, $warn, "$title warnings");
+}
+
 sub approve {
     my($type, $conf, $spoc) = @_;
     my ($changes, $stderr) = approve_warn($type, $conf, $spoc);
@@ -201,17 +208,21 @@ sub approve {
     return $changes;
 }
 
-sub approve_err {
-    my($type, $conf, $spoc) = @_;
-    my ($status, $stdout, $stderr) =
-        compare_files($type, $conf, $spoc);
-    return($stderr);
+sub test_run {
+    my($title, $type, $conf, $spoc, $expected) = @_;
+    eq_or_diff(approve($type, $conf, $spoc), $expected, $title);
 }
 
-sub approve_status {
-    my($type, $conf, $spoc, $raw) = @_;
-    my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc, $raw);
-    return($status);
+sub test_err {
+    my($title, $type, $conf, $spoc, $expected) = @_;
+    my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc);
+    eq_or_diff($stderr, $expected, $title);
+}
+
+sub test_status {
+    my($title, $type, $conf, $spoc, $num) = @_;
+    my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc);
+    ok($status == $num, $title);
 }
 
 # Blocks of expected output are split by single lines,
@@ -284,14 +295,14 @@ sub simul_compare {
 # Check whether output is as expected with given input
 # AND whether output is empty for identical input.
 sub check_parse_and_unchanged {
-    my ( $type, $minimal_device, $in, $out, $title ) = @_;
-    eq_or_diff( approve( $type, $minimal_device, $in ), $out, $title );
+    my ($title, $type, $minimal_device, $in, $out) = @_;
+    eq_or_diff(approve( $type, $minimal_device, $in ), $out, $title);
 
     $out = '';
     $title =~ /^Parse (.*)/ or
 	BAIL_OUT "Need title starting with 'Parse' as argument!";
     $title = "Empty out on identical in ($1)";
-    eq_or_diff( approve( $type, $in, $in ), $out, $title );
+    eq_or_diff(approve( $type, $in, $in ), $out, $title);
 }
 
 sub drc3_err {

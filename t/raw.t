@@ -16,7 +16,7 @@ interface Ethernet0/1
 END
 
 # Input from Netspoc, from raw, output from approve.
-my($spoc, $device, $out, $err);
+my($spoc, $device, $out, $warn);
 my $title;
 
 ############################################################
@@ -41,7 +41,7 @@ ip route 10.20.0.0 255.248.0.0 10.1.2.3
 ip route 10.0.0.0 255.0.0.0 10.1.2.2
 END
 
-eq_or_diff( approve('IOS', '', $spoc), $out, $title );
+test_run($title, 'IOS', '', $spoc, $out);
 
 ############################################################
 $title = "Merge routing ASA";
@@ -65,7 +65,7 @@ route inside 10.20.0.0 255.248.0.0 10.1.2.3
 route inside 10.0.0.0 255.0.0.0 10.1.2.2
 END
 
-eq_or_diff( approve('ASA', '', $spoc ), $out, $title );
+test_run($title, 'ASA', '', $spoc , $out);
 
 ############################################################
 $title = "Merge routing NX-OS";
@@ -93,7 +93,7 @@ vrf context two
 ip route 10.0.0.0/8 10.1.2.2
 END
 
-eq_or_diff( approve('NX-OS', '', $spoc), $out, $title );
+test_run($title, 'NX-OS', '', $spoc, $out);
 
 ############################################################
 $title = "Merge routing Linux";
@@ -117,7 +117,7 @@ ip route add 10.23.0.0/16 via 10.1.2.5
 ip route add 10.0.0.0/8 via 10.1.2.2
 END
 
-eq_or_diff( approve('Linux', '', $spoc), $out, $title );
+test_run($title, 'Linux', '', $spoc, $out);
 
 ############################################################
 $title = "Different next hop";
@@ -137,7 +137,7 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.4
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 
-eq_or_diff( approve('IOS', '', $spoc), $out, $title );
+test_run($title, 'IOS', '', $spoc, $out);
 
 ############################################################
 $title = "Duplicate route from raw";
@@ -156,13 +156,11 @@ $out = <<END;
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 
-$err = <<END;
+$warn = <<END;
 WARNING>>> Ignoring duplicate route from raw: ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 
-my ($o, $e) = approve_warn('IOS', '', $spoc);
-eq_or_diff($o, $out, $title );
-eq_or_diff($e, $err, $title );
+test_warn($title, 'IOS', '', $spoc, $warn, $out);
 
 ############################################################
 $title = "No routing in [APPEND] part";
@@ -180,7 +178,7 @@ $out = <<END;
 ERROR>>> Must only use ACLs in [APPEND] part, but found ROUTING_VRF
 END
 
-eq_or_diff( approve_err('NX-OS', '', $spoc), $out, $title );
+test_err($title, 'NX-OS', '', $spoc, $out);
 
 ############################################################
 $title = "Merge IOS ACL";
@@ -223,7 +221,7 @@ interface Ethernet1
 ip access-group Ethernet1_in-DRC-0 in
 END
 
-eq_or_diff( approve('IOS', $device, $spoc), $out, $title );
+test_run($title, 'IOS', $device, $spoc, $out);
 
 ############################################################
 $title = "Add IOS ACL";
@@ -263,7 +261,7 @@ interface Ethernet1
 ip access-group Ethernet1_out-DRC-0 out
 END
 
-eq_or_diff( approve('IOS', $device, $spoc), $out, $title );
+test_run($title, 'IOS', $device, $spoc, $out);
 
 ############################################################
 $title = "Implicitly defined interface from raw has no address";
@@ -297,7 +295,7 @@ $out = <<'END';
 WARNING>>> Different address defined for interface Ethernet0: Conf: 10.0.5.1 255.255.255.0, Netspoc: missing
 END
 
-eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
+test_err($title, 'IOS', $device, $spoc, $out);
 
 ############################################################
 $title = "Name clash with IOS ACL";
@@ -328,7 +326,7 @@ $out = <<END;
 ERROR>>> Name clash for 'Ethernet1_in' of ACCESS_LIST from raw
 END
 
-eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
+test_err($title, 'IOS', $device, $spoc, $out);
 
 ############################################################
 $title = "Must not bind same ACL multiple times";
@@ -358,7 +356,7 @@ $out = <<END;
 ERROR>>> ACL 'in_out' must not be referenced multiple times in raw
 END
 
-eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
+test_err($title, 'IOS', $device, $spoc, $out);
 
 ############################################################
 $title = "Must not bind same ACL at different interfaces";
@@ -399,7 +397,7 @@ $out = <<END;
 ERROR>>> ACL 'foo' must not be referenced multiple times in raw
 END
 
-eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
+test_err($title, 'IOS', $device, $spoc, $out);
 
 ############################################################
 $title = "Unknown ACL in raw";
@@ -428,7 +426,7 @@ $out = <<END;
 ERROR>>> ACL Ethernet1_in referenced at 'Ethernet1' does not exist
 END
 
-eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
+test_err($title, 'IOS', $device, $spoc, $out);
 
 ############################################################
 $title = "Unbound ACLs in raw";
@@ -459,7 +457,7 @@ $out = <<END;
 ERROR>>> Found unbound ACCESS_LIST in raw: Ethernet0_in, Ethernet1_in
 END
 
-eq_or_diff( approve_err('IOS', $device, $spoc), $out, $title );
+test_err($title, 'IOS', $device, $spoc, $out);
 
 ############################################################
 $title = "Name clash with object-group";
@@ -490,7 +488,7 @@ $out = <<'END';
 ERROR>>> Name clash for 'g1' of OBJECT_GROUP from raw
 END
 
-eq_or_diff(approve_err('ASA', $device, $spoc), $out, $title);
+test_err($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 $title = "Merge Linux chains";
@@ -539,7 +537,7 @@ COMMIT
 COMMIT
 END
 
-eq_or_diff( approve('Linux', '', $spoc), $out, $title );
+test_run($title, 'Linux', '', $spoc, $out);
 
 ############################################################
 $title = "Must not reference Netspoc generated chain";
@@ -565,7 +563,7 @@ $out = <<'END';
 ERROR>>> Must not redefine chain 'c1' from rawdata
 END
 
-eq_or_diff( approve_err('Linux', '', $spoc), $out, $title );
+test_err($title, 'Linux', '', $spoc, $out);
 
 ############################################################
 $title = "Add crypto";
@@ -624,7 +622,7 @@ pfs enable
 vpn-tunnel-protocol ikev1
 END
 
-eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 $title = "Prepend and append crypto filter ACL";
@@ -661,7 +659,7 @@ crypto map crypto-outside 1 set peer 1.2.3.4
 crypto map crypto-outside 1 match address crypto-1.2.3.4-DRC-0
 END
 
-eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 $title = "Change crypto map attributes";
@@ -713,7 +711,7 @@ tunnel-group 1.2.3.4 ipsec-attributes
 peer-id-validate nocheck
 END
 
-eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 $title = "Add crypto map entry";
@@ -815,7 +813,7 @@ tunnel-group 1.2.3.9 ipsec-attributes
 peer-id-validate nocheck
 END
 
-eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 $title = "Add crypto map entry; must not overwrite while shifting";
@@ -878,7 +876,7 @@ tunnel-group 1.2.3.9 ipsec-attributes
 peer-id-validate nocheck
 END
 
-eq_or_diff( approve('ASA', $device, $spoc), $out, $title );
+test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
 done_testing;

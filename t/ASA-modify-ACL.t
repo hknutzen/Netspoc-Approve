@@ -51,7 +51,7 @@ access-list inside line 2 extended permit ip host 3.3.3.3 any
 access-list inside line 4 extended permit ip host 4.4.4.4 any
 access-list inside line 6 extended permit ip host 6.6.6.6 any
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Delete ACL entries";
@@ -77,7 +77,7 @@ $out = <<'END';
 no access-list inside line 4 extended permit ip host 4.4.4.4 any
 no access-list inside line 1 extended permit ip host 1.1.1.1 any
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Move ACL entries upwards";
@@ -107,7 +107,7 @@ $out = <<'END';
 no access-list inside line 6 extended permit ip host 6.6.6.6 any\N access-list inside line 2 extended permit ip host 6.6.6.6 any
 no access-list inside line 5 extended permit ip host 4.4.4.4 any\N access-list inside line 3 extended permit ip host 4.4.4.4 any
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Move ACL entries downwards";
@@ -137,7 +137,7 @@ $out = <<'END';
 no access-list inside line 3 extended permit ip host 3.3.3.3 any\N access-list inside line 6 extended permit ip host 3.3.3.3 any
 no access-list inside line 2 extended permit ip host 2.2.2.2 any\N access-list inside line 3 extended permit ip host 2.2.2.2 any
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Move successive ACL entries downwards";
@@ -169,7 +169,7 @@ access-list inside line 6 extended permit ip host 7.7.7.7 any
 no access-list inside line 2 extended permit ip host 2.2.2.2 any\N access-list inside line 5 extended permit ip host 2.2.2.2 any
 no access-list inside line 1 extended permit ip host 1.1.1.1 any\N access-list inside line 4 extended permit ip host 1.1.1.1 any
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Change standard ACL non incrementally";
@@ -192,7 +192,7 @@ access-list inside-DRC-0 standard permit 2.2.2.2 255.255.255.254
 access-group inside-DRC-0 in interface inside
 clear configure access-list inside
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Add object-group";
@@ -218,7 +218,7 @@ network-object host 2.2.2.2
 network-object host 3.3.3.3
 access-list inside line 1 extended permit ip object-group g1-DRC-0 any
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Remove object-group";
@@ -229,7 +229,7 @@ no access-list inside line 1 extended permit ip object-group g1 any
 no object-group network g1
 END
 
-eq_or_diff(approve('ASA', $in, $device), $out, $title);
+test_run($title, 'ASA', $in, $device, $out);
 
 ############################################################
 $title = "Modify type of object-group";
@@ -260,7 +260,7 @@ access-list outside_in line 1 extended permit object-group g1-DRC-0 any host 10.
 no access-list outside_in line 2 extended permit object-group g1 any host 10.0.1.11
 no object-group service g1 tcp
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Modify object-group; referenced multiple times";
@@ -300,7 +300,7 @@ object-group network g1
 network-object host 2.2.2.2
 no network-object host 4.4.4.4
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Object group used in two ACLs; 1. occurrence new, 2. unchanged";
@@ -328,7 +328,7 @@ END
 $out = <<'END';
 access-list inside line 1 extended permit ip object-group g1-0 any
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Multiple ACL lines, nearly identical except for object groups";
@@ -356,7 +356,7 @@ END
 $out = <<'END';
 access-list inside line 1 extended permit ip object-group g1-0 any
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Move ACL line with object-groups, name of group changes";
@@ -411,7 +411,7 @@ no object-group network g1
 no object-group network g4
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Object-group with identical names from netspoc and from device";
@@ -446,7 +446,7 @@ $out = <<'END';
 access-list out line 1 extended permit tcp object-group g26 object-group g2 eq 25
 no access-list out line 2 extended permit tcp object-group g2 object-group g26 eq 25
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Ignore description in object-group";
@@ -480,7 +480,7 @@ network-object 10.0.7.0 255.255.255.0
 no network-object 10.0.3.0 255.255.255.0
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Move ACL entry with log";
@@ -505,7 +505,7 @@ no access-list inside line 2 extended permit ip host 2.2.2.2 any log 5 interval 
 no access-list inside line 3 extended deny ip any any log warnings\N access-list inside line 2 extended deny ip any any
 no access-list inside line 3 extended permit ip host 1.1.1.1 any log\N access-list inside line 2 extended permit ip host 1.1.1.1 any log errors
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Recognize named kerberos port";
@@ -526,7 +526,7 @@ END
 $out = <<'END';
 no access-list inside line 1 extended permit tcp host 2.2.2.2 any eq kerberos\N access-list inside line 2 extended permit tcp host 2.2.2.2 any eq 750
 END
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Handle spare ACL";
@@ -546,7 +546,7 @@ $out = <<'END';
 WARNING>>> Spare ACCESS_LIST: foo-DRC-1
 END
 
-eq_or_diff(approve_err('ASA', $device, $in), $out, $title);
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Handle ACL line with remark";
@@ -578,7 +578,7 @@ no access-list inside line 4 permit ip host 2.2.2.2 any
 no access-list inside line 1 remark Test1
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Remove incoming, add outgoing ACL";
@@ -602,7 +602,7 @@ clear configure access-list inside
 no object-group network g0
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Remove outgoing, add incoming ACL";
@@ -626,7 +626,7 @@ clear configure access-list outside
 no object-group network g0
 END
 
-eq_or_diff(approve('ASA', $device, $in), $out, $title);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 done_testing;

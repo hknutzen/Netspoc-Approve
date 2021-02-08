@@ -33,7 +33,7 @@ $out = <<'END';
 no ip route 0.0.0.0 0.0.0.0 10.2.2.2\N ip route 0.0.0.0 0.0.0.0 10.3.3.3
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Bad indentation after first subcommand";
@@ -49,7 +49,7 @@ ERROR>>> Expected indentation '1' but got '2' at line 3:
 ERROR>>> >>  10.0.2.0 0.0.0.255<<
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Higher indentation of subcommands";
@@ -62,7 +62,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('IOS', $device, $device), $out, $title);
+test_run($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Higher indentation of unknown subcommands";
@@ -91,7 +91,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Device file with CRLF";
@@ -112,7 +112,7 @@ $device =~ s/\n/\r\n/g;
 
 $out = <<'END';
 END
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Multiple occurrences of command";
@@ -130,7 +130,7 @@ ERROR>>>  at line 3, pos 2:
 ERROR>>> >>interface e0<<
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Bad indentation after subcommands";
@@ -147,7 +147,7 @@ ERROR>>> Expected indentation '0' but got '1' at line 4:
 ERROR>>> >> object-group network g2<<
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Certificate chain";
@@ -168,7 +168,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Parse routing, object-group and ACL";
@@ -200,7 +200,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('IOS', $device, $device), $out, $title);
+test_run($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "point-to-point interface";
@@ -219,7 +219,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('IOS', $device, $device), $out, $title);
+test_run($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Parse crypto EZVPN";
@@ -264,7 +264,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('IOS', $device, $device), $out, $title);
+test_run($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Parse crypto map";
@@ -303,7 +303,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('IOS', $device, $device), $out, $title);
+test_run($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Change routing";
@@ -326,7 +326,7 @@ no ip route 10.40.0.0 255.255.0.0 10.1.2.3\\N ip route 10.40.0.0 255.255.0.0 10.
 no ip route 10.30.0.0 255.255.0.0 10.1.2.3
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Leave routing unchanged";
@@ -354,7 +354,7 @@ END
 $out = <<END;
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Route with interface name";
@@ -374,7 +374,7 @@ no ip route 10.10.0.0 255.255.0.0 serial0 10.1.2.3\N ip route 10.10.0.0 255.255.
 no ip route 10.20.0.0 255.255.0.0 10.1.2.3\N ip route 10.20.0.0 255.255.0.0 serial1 10.1.2.3
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Named static route";
@@ -392,7 +392,7 @@ END
 $out = <<END;
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Tagged static route";
@@ -412,7 +412,7 @@ no ip route 10.10.0.0 255.255.0.0 10.1.2.3 tag 10\\N ip route 10.10.0.0 255.255.
 no ip route 10.20.0.0 255.255.0.0 10.1.2.3 tag 20\\N ip route 10.20.0.0 255.255.0.0 10.1.2.3 tag 30
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Change ACL";
@@ -461,7 +461,7 @@ no 30000\\N 40002 permit igmp 10.0.5.0 0.0.0.255 host 10.0.1.11
 ip access-list resequence test-DRC-0 10 10
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Unknown ACL on device";
@@ -476,7 +476,7 @@ $out = <<'END';
 ERROR>>> ACL test-DRC-0 referenced at 'Serial1' does not exist
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Reference same ACL from two interfaces";
@@ -497,7 +497,7 @@ ERROR>>> ACL test-DRC-0 is referenced from two places:
  Serial1 and Serial2
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Reference same ACL two times";
@@ -516,7 +516,7 @@ ERROR>>> ACL test-DRC-0 is referenced from two places:
  Serial1 and Serial1
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Ignore shutdown interface in check for same ACL";
@@ -536,7 +536,7 @@ END
 $out = <<'END';
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Ignore interface without IP in check for same ACL";
@@ -555,7 +555,7 @@ END
 $out = <<'END';
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Ignore unmanaged VRF in check for same ACL";
@@ -603,7 +603,7 @@ ip access-list extended test
 ip access-list resequence test 10 10
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Change object-group";
@@ -649,7 +649,7 @@ object-group network g2-DRC-0
 10.0.5.0 0.0.0.128
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Remove and add object-group";
@@ -690,7 +690,7 @@ ip access-list resequence test-DRC-0 10 10
 no object-group network g1-DRC-0
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Unknown object-group";
@@ -709,7 +709,7 @@ $out = <<'END';
 ERROR>>> Can't find OBJECT_GROUP g1-DRC-0 referenced by test-DRC-0
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Nested object-group";
@@ -728,7 +728,7 @@ ERROR>>>  at line 5, pos 0:
 ERROR>>> >>group-object g1<<
 END
 
-eq_or_diff(approve_err('IOS', $device, $device), $out, $title);
+test_err($title, 'IOS', $device, $device, $out);
 
 ############################################################
 $title = "Compare unchanged ACL and non-existant outgoing ACL";
@@ -754,8 +754,7 @@ END
 $out = <<END;
 END
 
-my $status = approve_status('IOS', $device, $in);
-ok($status == 0, $title);
+test_status($title, 'IOS', $device, $in, 0);
 
 ############################################################
 $title = "Handle ACL line with remark";
@@ -794,7 +793,7 @@ no 10000
 ip access-list resequence inside 10 10
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Add lines at end of ACL";
@@ -827,7 +826,7 @@ ip access-list extended test
 ip access-list resequence test 10 10
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Remove incoming, add outgoing ACL";
@@ -856,7 +855,7 @@ no ip access-group test in
 no ip access-list extended test
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "ACL with unknown keyword";
@@ -882,7 +881,7 @@ ERROR>>> Can't compare ACL with unknown attribute:
  permit ip any host 10.0.1.1 fragments
 END
 
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Can't change ACL with more than 9999 lines";
@@ -904,7 +903,7 @@ $out = <<END;
 ERROR>>> Can\'t handle ACL test with 10000 or more entries
 END
 
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Change ACL, prevent lockout";
@@ -944,7 +943,7 @@ no 10000
 ip access-list resequence test 10 10
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Change ACL, prevent ephemeral permit";
@@ -984,7 +983,7 @@ no 30000\\N 1 deny ip host 10.1.2.3 host 10.1.1.1
 ip access-list resequence test 10 10
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Move successive ACL entries downwards";
@@ -1025,7 +1024,7 @@ no 10000\\N 50001 permit ip any host 1.1.1.1
 ip access-list resequence test 10 10
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Don't change ACL line which permit administrative access";
@@ -1065,7 +1064,7 @@ ip access-group test-DRC-1 in
 no ip access-list extended test-DRC-0
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Don't change ACL where ESP/AH may permit administrative access";
@@ -1106,7 +1105,7 @@ ip access-group test-DRC-1 in
 no ip access-list extended test-DRC-0
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Change incoming crypto filter ACL";
@@ -1151,7 +1150,7 @@ no 10000
 ip access-list resequence crypto-filter-Ethernet1-1 10 10
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Crypto maps differ in size";
@@ -1165,7 +1164,7 @@ $out = <<END;
 ERROR>>> Crypto maps differ for interface Ethernet1
 END
 
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Crypto map only from device";
@@ -1193,7 +1192,7 @@ ERROR>>> Missing crypto map at interface Ethernet1 from Netspoc
 ERROR>>> Missing crypto map at interface Ethernet2 from device
 END
 
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Don't change crypto filter ACL which permit administrative access";
@@ -1245,7 +1244,7 @@ set ip access-group crypto-filter-Ethernet1-1-DRC-1 in
 no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Change outgoing crypto filter ACL";
@@ -1290,7 +1289,7 @@ no 10000
 ip access-list resequence crypto-filter-Ethernet1-1 10 10
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Move incoming to outgoing crypto filter ACL";
@@ -1339,7 +1338,7 @@ no set ip access-group crypto-filter-Ethernet1-1-DRC-0 in
 no ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Interface with dhcp address ";
@@ -1361,7 +1360,7 @@ END
 $out = <<END;
 END
 
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Check Netspoc interfaces";
@@ -1384,7 +1383,7 @@ $out = <<'END';
 ERROR>>> Interface 'Serial3' from Netspoc not known on device
 END
 
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Check device interfaces";
@@ -1427,7 +1426,7 @@ WARNING>>> Interface 'Serial3' on device is not known by Netspoc
 WARNING>>> Different address defined for interface Serial1: Conf: 10.1.1.1 255.255.255.0, Netspoc: 1.1.1.1 255.0.0.0,10.1.2.1 255.255.255.0,10.1.2.250 255.255.255.0
 END
 
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Check 'ip inspect'";
@@ -1458,7 +1457,7 @@ ERROR>>> Different 'ip inspect' defined for interface Serial1: Conf: enabled, Ne
 ERROR>>> Different 'ip inspect' defined for interface Serial2: Conf: disabled, Netspoc: enabled
 END
 
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Only change VRFs mentioned in Netspoc";
@@ -1494,7 +1493,7 @@ ip access-group acl2-DRC-1 in
 ip route vrf 013 10.30.0.0 255.255.0.0 10.3.3.3
 END
 
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Check VRF of interfaces";
@@ -1526,7 +1525,7 @@ ERROR>>> Different VRFs defined for interface Serial1: Conf: -, Netspoc: 013
 ERROR>>> Different VRFs defined for interface Serial3: Conf: 013, Netspoc: -
 END
 
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Unknown interface in VRF";
@@ -1561,7 +1560,7 @@ END
 $out = <<END;
 WARNING>>> Interface 'Ethernet1' on device is not known by Netspoc
 END
-eq_or_diff(approve_err('IOS', $device, $in), $out, $title);
+test_err($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Managed and unmanaged VRF in one device";
@@ -1569,7 +1568,7 @@ $title = "Managed and unmanaged VRF in one device";
 
 $in =~ s/ip route 10.20.0.0 255.255.0.0 10.1.2.3//msg;
 $out = '';
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 $title = "Crypto of unmanaged VRF is left unchanged";
@@ -1613,7 +1612,7 @@ ip access-list extended crypto-filter-Ethernet1-1-DRC-0
 no 10000
 ip access-list resequence crypto-filter-Ethernet1-1-DRC-0 10 10
 END
-eq_or_diff(approve('IOS', $device, $in), $out, $title);
+test_run($title, 'IOS', $device, $in, $out);
 
 ############################################################
 done_testing;

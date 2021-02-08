@@ -28,7 +28,7 @@ END
 
 $out = $in;
 
-check_parse_and_unchanged($type, $minimal_device, $in, $out, $title);
+check_parse_and_unchanged($title, $type, $minimal_device, $in, $out);
 
 ############################################################
 $title = "Parse ACL with chains und multiple tables";
@@ -136,7 +136,7 @@ COMMIT
 -A POSTROUTING -j SNAT -s 10.1.2.3 -d 192.168.1.16/29 --to-source 10.2.3.4
 COMMIT
 END
-check_parse_and_unchanged($type, $minimal_device, $in, $out, $title);
+check_parse_and_unchanged($title, $type, $minimal_device, $in, $out);
 
 ############################################################
 $title = "Parse routing with iptables";
@@ -160,7 +160,7 @@ iptables differs at [keys: <->filter]
 COMMIT
 END
 
-check_parse_and_unchanged($type, $minimal_device, $in, $out, $title);
+check_parse_and_unchanged($title, $type, $minimal_device, $in, $out);
 
 ############################################################
 $title = "Change routing";
@@ -183,7 +183,7 @@ ip route del 10.40.0.0/16 via 10.1.2.3\\N ip route add 10.40.0.0/16 via 10.1.2.4
 ip route del 10.30.0.0/16 via 10.1.2.3
 END
 
-eq_or_diff(approve($type, $device, $in), $out, $title);
+test_run($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "Change iptables port";
@@ -214,7 +214,7 @@ iptables differs at filter:c3:RULES:0:--dport:[23<->22]
 COMMIT
 END
 
-eq_or_diff(approve($type, $device, $in), $out, $title);
+test_run($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "Remove iptables port";
@@ -245,7 +245,7 @@ iptables differs at filter:c3:RULES:0:[keys: --dport<->]
 COMMIT
 END
 
-eq_or_diff(approve($type, $device, $in), $out, $title);
+test_run($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "Change iptables protocol";
@@ -276,7 +276,7 @@ iptables differs at filter:c3:RULES:0:-p:[tcp<->udp]
 COMMIT
 END
 
-eq_or_diff(approve($type, $device, $in), $out, $title);
+test_run($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "Add iptables rule";
@@ -309,7 +309,7 @@ iptables differs at filter:c3:RULES:[size: 1<->2]
 COMMIT
 END
 
-eq_or_diff(approve($type, $device, $in), $out, $title);
+test_run($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "Unknown command";
@@ -326,7 +326,7 @@ ERROR>>>  at line 1, pos 0:
 ERROR>>> >>foo<<
 END
 
-eq_or_diff(approve_err($type, $device, $in), $out, $title);
+test_err($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "Unexpected trailing '!'";
@@ -345,7 +345,7 @@ ERROR>>>  at line 3, pos 10:
 ERROR>>> >>-A FORWARD -i eth1 -j ACCEPT -p TCP --syn !<<
 END
 
-eq_or_diff(approve_err($type, $device, $in), $out, $title);
+test_err($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "Negation at option or at arg";
@@ -364,7 +364,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve($type, $device, $in), $out, $title);
+test_run($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "TCP-flags as syn option ";
@@ -383,7 +383,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve($type, $device, $in), $out, $title);
+test_run($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "Ignore option '-m' ";
@@ -403,7 +403,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve($type, $device, $in), $out, $title);
+test_run($title, $type, $device, $in, $out);
 
 ############################################################
 $title = "--set-mark and --xsetmark ";
@@ -425,7 +425,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve($type, $device, $in), $out, $title);
+test_run($title, $type, $device, $in, $out);
 
 ############################################################
 done_testing;
