@@ -3,8 +3,7 @@
 # - /etc/netspoc-approve
 # - /usr/local/etc/netspoc-approve
 # - ~/.netspoc-approve
-# Multiple configuration files are read if present.
-# Options from a specific file overwrite the more general options.
+# Only the most specific file is used.
 # Syntax: key = value
 
 # Directory, where generated device configuration is searched.

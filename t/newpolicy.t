@@ -175,7 +175,7 @@ sub check_newpolicy {
 
 setup_netspoc($dir, <<'END');
 -- config
-verbose = 0;
+quiet = 1;
 -- topology
 network:n1 = { ip = 10.1.1.0/24; }
 END
@@ -247,7 +247,8 @@ $fh1 = start_newpolicy();
 
 check_newpolicy($fh1, <<'END', 'Failed to compile');
 Processing current changeset
-Syntax error: Typed name expected at line 1 of next/src/topology, near "10.1.1.0/24; }  --HERE-->BAD"
+Error: Typed name expected at line 1 of next/src/topology, near "10.1.1.0/24; }  --HERE-->BAD"
+Aborted
 New policy failed to compile
 Left current policy as 'p2'
 END

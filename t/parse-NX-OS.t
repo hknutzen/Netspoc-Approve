@@ -81,7 +81,7 @@ END
 
 # Check whether output is as expected with given input
 # AND whether output is empty for identical input.
-check_parse_and_unchanged( $device_type, $minimal_device, $in, $out, $title );
+check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 ############################################################
 $title = "Move ACL entries";
@@ -113,7 +113,7 @@ ip access-list outside_in
 no 40000\N 10001 permit ip host 4.4.4.4 any
 resequence ip access-list outside_in 10 10
 END
-eq_or_diff(approve($device_type, $device, $in), $out, $title);
+test_run($title, $device_type, $device, $in, $out);
 
 ############################################################
 $title = "Object group used in two ACLs; 1. occurrence new, 2. unchanged";
@@ -154,7 +154,7 @@ ip access-list inside
 1 permit ip addrgroup g1-0 any
 resequence ip access-list inside 10 10
 END
-eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+test_run($title, 'NX-OS', $device, $in, $out);
 
 ############################################################
 $title = "Remove in ACL with object-group, add out ACL";
@@ -192,7 +192,7 @@ no ip access-group inside in
 no ip access-list inside
 no object-group ip address g1
 END
-eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+test_run($title, 'NX-OS', $device, $in, $out);
 
 ############################################################
 $title = "Ignore ACL line with remark";
@@ -224,7 +224,7 @@ no 30000
 no 10000
 resequence ip access-list inside 10 10
 END
-eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+test_run($title, 'NX-OS', $device, $in, $out);
 
 ############################################################
 $title = "Managed and unmanaged VRF in one device; add VRF route";
@@ -263,7 +263,7 @@ vrf context 013
 ip route 10.40.0.0/16 10.1.2.4
 END
 
-eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+test_run($title, 'NX-OS', $device, $in, $out);
 
 ############################################################
 $title = "Ignore pseudo mpls interface from netspoc";
@@ -287,7 +287,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+test_run($title, 'NX-OS', $device, $in, $out);
 
 ############################################################
 $title = "Interface mgmt0 is located in management VRF by default";
@@ -305,7 +305,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+test_run($title, 'NX-OS', $device, $in, $out);
 
 ############################################################
 $title = "Ignore swapped primary and secondary IP address";
@@ -324,7 +324,7 @@ END
 
 $out = '';
 
-eq_or_diff(approve('NX-OS', $device, $in), $out, $title);
+test_run($title, 'NX-OS', $device, $in, $out);
 
 ############################################################
 done_testing;

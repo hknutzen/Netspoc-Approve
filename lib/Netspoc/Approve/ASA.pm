@@ -35,7 +35,7 @@ use Algorithm::Diff;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.020'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = 'v2.021'; # VERSION: inserted by DZP::OurPkgVersion
 
 # Global variables.
 
@@ -712,6 +712,8 @@ sub get_parse_info {
                 'ikev2 remote-authentication pre-shared-key' => {
                     parse => \&skip,
                 },
+                # Ignore manually configured 'isakmp keepalive disable'.
+                'isakmp keepalive' => { parse => \&skip, },
 
                 # '_any' is special word, which matches any token.
                 # '_cmd' is replaced by current command name.

@@ -32,7 +32,7 @@ use warnings;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.020'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = 'v2.021'; # VERSION: inserted by DZP::OurPkgVersion
 
 sub get_parse_info {
     my ($self) = @_;
