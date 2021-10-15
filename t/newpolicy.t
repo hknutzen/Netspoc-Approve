@@ -175,7 +175,7 @@ sub check_newpolicy {
 
 setup_netspoc($dir, <<'END');
 -- config
-verbose = 0;
+quiet = 1;
 -- topology
 network:n1 = { ip = 10.1.1.0/24; }
 END
