@@ -1,5 +1,10 @@
 {{$NEXT}}
 
+v2.021    2021-10-15 12:49:02+02:00 Europe/Berlin
+
+ - Ignore manually configured 'isakmp keepalive' options at
+   'tunnel-group ipsec-attributes'.
+
 2.020     2020-12-18 13:01:44+01:00 Europe/Berlin
 
  - Fixed merging of crypto map from raw.
