@@ -712,6 +712,8 @@ sub get_parse_info {
                 'ikev2 remote-authentication pre-shared-key' => {
                     parse => \&skip,
                 },
+                # Ignore manually configured 'isakmp keepalive disable'.
+                'isakmp keepalive' => { parse => \&skip, },
 
                 # '_any' is special word, which matches any token.
                 # '_cmd' is replaced by current command name.

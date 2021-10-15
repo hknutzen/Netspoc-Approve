@@ -685,6 +685,7 @@ $title = "Parse tunnel-group of type ipsec-l2l (IP as name)";
 ############################################################
 
 # Ignore pre-shared keys shown as '******'
+# Ignore manually configured 'isakmp keepalive' commands.
 $in = <<'END';
 tunnel-group 193.155.130.1 type ipsec-l2l
 tunnel-group 193.155.130.1 ipsec-attributes
@@ -693,6 +694,8 @@ tunnel-group 193.155.130.2 type ipsec-l2l
 tunnel-group 193.155.130.2 ipsec-attributes
  ikev2 local-authentication pre-shared-key ***
  ikev2 remote-authentication pre-shared-key ****
+ isakmp keepalive disable
+ isakmp keepalive threshold 15 retry 3
 tunnel-group 193.155.130.3 type ipsec-l2l
 tunnel-group 193.155.130.3 ipsec-attributes
  peer-id-validate nocheck
@@ -883,7 +886,6 @@ tunnel-group VPN-tunnel general-attributes
 tunnel-group VPN-tunnel ipsec-attributes
  peer-id-validate req
  isakmp ikev1-user-authentication none
- isakmp keepalive threshold 15 retry 3
  trust-point ASDM_TrustPoint4
 tunnel-group VPN-tunnel webvpn-attributes
  authentication aaa certificate
@@ -913,7 +915,6 @@ tunnel-group VPN-tunnel-DRC-0 general-attributes
 default-group-policy VPN-group-DRC-0
 tunnel-group VPN-tunnel-DRC-0 ipsec-attributes
 isakmp ikev1-user-authentication none
-isakmp keepalive threshold 15 retry 3
 peer-id-validate req
 trust-point ASDM_TrustPoint4
 tunnel-group VPN-tunnel-DRC-0 webvpn-attributes
