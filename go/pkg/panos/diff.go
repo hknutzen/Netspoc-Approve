@@ -96,7 +96,7 @@ func (ab *rulesPair) diffRules(vsysPath string) []string {
 	var result []string
 	aRules := ab.a.rules
 	bRules := ab.b.rules
-	delIdx := -1 // Next index after deleted rule
+	delIdx := -1 // Next index after deleted rule(s).
 	for _, r := range s.Ranges {
 		if r.IsDelete() {
 			delIdx = r.HighA
@@ -295,15 +295,46 @@ func (ab *rulesPair) removeUnneededObjects(vsysPath string) []string {
 	return result
 }
 
+type addrListPair struct {
+	a []string
+	b []string
+}
+
+func (ab *addrListPair) LenA() int { return len(ab.a) }
+func (ab *addrListPair) LenB() int { return len(ab.b) }
+
+func (ab *addrListPair) Equal(ai, bi int) bool {
+	return ab.a[ai] == ab.b[bi]
+}
+
 func (ab *rulesPair) equalize(a, b *panRule, rulesPath string) []string {
 	var result []string
-	cmd0 := "action=edit&type=config&xpath=" + rulesPath + nameAttr(a.Name)
+	cmd0 := "type=config&xpath=" + rulesPath + nameAttr(a.Name)
 	equalizeAddresses := func(la, lb []string, where string) bool {
-		return stringsEq(la, lb)
+		ab := &addrListPair{a: la, b: lb}
+		s := myers.Diff(nil, ab)
+		for _, r := range s.Ranges {
+			if r.IsDelete() {
+				for _, adr := range la[r.LowA:r.HighA] {
+					text := textAttr(adr)
+					cmd := "action=delete&" + cmd0 + "/" + where + "/member" + text
+					result = append(result, cmd)
+				}
+			} else if r.IsInsert() {
+				object := &panMembers{Member: lb[r.LowB:r.HighB]}
+				elem := "&element=" + printXMLValue(object)
+				cmd := "action=set&" + cmd0 + "/" + where + elem
+				result = append(result, cmd)
+			}
+		}
+		return true
 	}
 	equalizeGroups := func(la, lb []string) bool {
 		ga := ab.a.groups[la[0]]
 		gb := ab.b.groups[lb[0]]
+		// ToDo:
+		// - Check, if groups has already been equalized.
+		// Group uses static>member, not member as XML elements.
 		if equalizeAddresses(ga.Members, gb.Members, ga.Name) {
 			ga.needed = true
 			gb.needed = false
@@ -328,9 +359,10 @@ func (ab *rulesPair) equalize(a, b *panRule, rulesPath string) []string {
 				}
 			}
 		}
+		// Replace current members by new members.
 		object := &panMembers{Member: lb}
 		elem := "&element=" + printXMLValue(object)
-		cmd := cmd0 + "/" + where + elem
+		cmd := "action=edit&" + cmd0 + "/" + where + elem
 		result = append(result, cmd)
 	}
 	equalizeList(a.Source, b.Source, "source")

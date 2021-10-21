@@ -42,32 +42,52 @@ ${prefix}
 ${postfix}
 =END=
 
+############################################################
 =TITLE=No differences
 =DEVICE=${input}
 =NETSPOC=${input}
 =OUTPUT=NONE
 
+############################################################
 =TITLE=Only group names differ
 =DEVICE=${input}
 =NETSPOC=${input}
 =SUBST=/g0/g2/
 =OUTPUT=NONE
 
+############################################################
 =TITLE=Add element to destination
 =DEVICE=${input}
 =SUBST=|<member>NET_10.1.2.0_24</member>||
 =NETSPOC=${input}
 =OUTPUT=
-action=edit&type=config&
+action=set&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
   /destination&
  element=
   <member>NET_10.1.2.0_24</member>
-  <member>NET_10.1.3.0_24</member>
 =END=
 
+############################################################
+=TITLE=Remove element from destination
+=DEVICE=${input}
+=NETSPOC=${input}
+=SUBST=|<member>NET_10.1.2.0_24</member>||
+=OUTPUT=
+action=delete&type=config&
+ xpath=
+  /config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
+  /destination/member[text()='NET_10.1.2.0_24']
+action=delete&type=config&
+ xpath=
+  /config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='NET_10.1.2.0_24']
+=END=
+
+############################################################
 =TITLE=Add to empty device
 =DEVICE=
 ${prefix}
@@ -144,6 +164,7 @@ action=set&type=config&
  <protocol><udp><port>123</port></udp></protocol>
 =END=
 
+############################################################
 =TITLE=Remove all from device
 =DEVICE=
 ${input}
@@ -185,7 +206,7 @@ action=delete&type=config&
   /vsys/entry[@name='vsys2']/service/entry[@name='udp 123']
 =END=
 
-
+############################################################
 =TITLE=Change service
 =VAR=input
 =DEVICE=

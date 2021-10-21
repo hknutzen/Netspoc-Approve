@@ -143,6 +143,10 @@ func nameAttr(n string) string {
 	return "[@name='" + n + "']"
 }
 
+func textAttr(n string) string {
+	return "[text()='" + n + "']"
+}
+
 func showErr(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
 }
