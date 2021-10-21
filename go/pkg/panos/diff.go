@@ -155,20 +155,43 @@ func stringsEq(a, b []string) bool {
 }
 
 func (ab *rulesPair) objectsEq(a, b []string) bool {
-	// Compare elements of group.
-	if len(a) == 1 && len(b) == 1 {
-		if ga := ab.a.groups[a[0]]; ga != nil {
-			if gb := ab.b.groups[b[0]]; gb != nil {
-				return stringsEq(ga.Members, gb.Members)
-			}
-			return false
+	t1 := getObjListType(a, ab.a)
+	t2 := getObjListType(b, ab.b)
+	return t1 == t2 && t1 != otherT
+}
+
+type objListType int
+
+const (
+	otherT = iota
+	listT
+	groupT
+	anyT
+)
+
+func getObjListType(l []string, v vsysInfo) objListType {
+	if len(l) == 1 {
+		e := l[0]
+		if e == "any" {
+			return anyT
 		}
-		if gb := ab.b.groups[b[0]]; gb != nil {
-			return false
+		if g := v.groups[e]; g != nil {
+			if getObjListType(g.Members, v) == listT {
+				return groupT
+			}
+			// Nested groups are not supported.
+			return otherT
 		}
 	}
-	// Compare address names.
-	return stringsEq(a, b)
+	if len(l) == 0 {
+		return otherT
+	}
+	for _, e := range l {
+		if v.addresses[e] == nil {
+			return otherT
+		}
+	}
+	return listT
 }
 
 func (ab *rulesPair) markObjects(l []*panRule) {
@@ -275,35 +298,43 @@ func (ab *rulesPair) removeUnneededObjects(vsysPath string) []string {
 func (ab *rulesPair) equalize(a, b *panRule, rulesPath string) []string {
 	var result []string
 	cmd0 := "action=edit&type=config&xpath=" + rulesPath + nameAttr(a.Name)
-	equalizedGroups := func(la, lb []string) bool {
-		if len(lb) != 1 {
-			return false
-		}
-		gb := ab.b.groups[lb[0]]
-		if gb == nil {
-			return false
-		}
-		if len(la) != 1 {
-			return false
-		}
+	equalizeAddresses := func(la, lb []string, where string) bool {
+		return stringsEq(la, lb)
+	}
+	equalizeGroups := func(la, lb []string) bool {
 		ga := ab.a.groups[la[0]]
-		if ga == nil {
-			return false
-		}
-		if stringsEq(ga.Members, gb.Members) {
+		gb := ab.b.groups[lb[0]]
+		if equalizeAddresses(ga.Members, gb.Members, ga.Name) {
 			ga.needed = true
 			gb.needed = false
 			return true
 		}
 		return false
 	}
-	equalizeAdresses := func(la, lb []string) {
-		if equalizedGroups(la, lb) {
-			return
+	equalizeList := func(la, lb []string, where string) {
+		t1 := getObjListType(la, ab.a)
+		t2 := getObjListType(lb, ab.b)
+		if t1 == t2 && t1 != otherT {
+			switch t1 {
+			case anyT:
+				return
+			case groupT:
+				if equalizeGroups(la, lb) {
+					return
+				}
+			case listT:
+				if equalizeAddresses(la, lb, where) {
+					return
+				}
+			}
 		}
+		object := &panMembers{Member: lb}
+		elem := "&element=" + printXMLValue(object)
+		cmd := cmd0 + "/" + where + elem
+		result = append(result, cmd)
 	}
-	equalizeAdresses(a.Source, b.Source)
-	equalizeAdresses(a.Destination, b.Destination)
+	equalizeList(a.Source, b.Source, "source")
+	equalizeList(a.Destination, b.Destination, "destination")
 	if !stringsEq(a.Service, b.Service) {
 		elem := "&element=" + printXMLValue(b.Service)
 		cmd := cmd0 + "/service" + elem

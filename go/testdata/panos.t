@@ -4,7 +4,6 @@
 </entry></vsys></entry></devices></config>
 =END=
 
-=TITLE=No differences
 =VAR=input
 ${prefix}
 <rulebase><security><rules>
@@ -13,7 +12,10 @@ ${prefix}
 <from><member>z1</member></from>
 <to><member>z2</member></to>
 <source><member>g0</member></source>
-<destination><member>NET_10.1.2.0_24</member></destination>
+<destination>
+ <member>NET_10.1.2.0_24</member>
+ <member>NET_10.1.3.0_24</member>
+</destination>
 <service><member>udp 123</member><member>tcp</member></service>
 <application><member>any</member></application>
 <rule-type>interzone</rule-type>
@@ -31,17 +33,40 @@ ${prefix}
 <entry name="IP_10.1.1.10"><ip-netmask>10.1.1.10/32</ip-netmask></entry>
 <entry name="IP_10.1.1.20"><ip-netmask>10.1.1.20/32</ip-netmask></entry>
 <entry name="NET_10.1.2.0_24"><ip-netmask>10.1.2.0/24</ip-netmask></entry>
+<entry name="NET_10.1.3.0_24"><ip-netmask>10.1.3.0/24</ip-netmask></entry>
 </address>
 <service>
 <entry name="tcp"><protocol><tcp><port>1-65535</port></tcp></protocol></entry>
 <entry name="udp 123"><protocol><udp><port>123</port></udp></protocol></entry>
 </service>
 ${postfix}
-=DEVICE=
-${input}
-=NETSPOC=
-${input}
+=END=
+
+=TITLE=No differences
+=DEVICE=${input}
+=NETSPOC=${input}
 =OUTPUT=NONE
+
+=TITLE=Only group names differ
+=DEVICE=${input}
+=NETSPOC=${input}
+=SUBST=/g0/g2/
+=OUTPUT=NONE
+
+=TITLE=Add element to destination
+=DEVICE=${input}
+=SUBST=|<member>NET_10.1.2.0_24</member>||
+=NETSPOC=${input}
+=OUTPUT=
+action=edit&type=config&
+ xpath=
+  /config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
+  /destination&
+ element=
+  <member>NET_10.1.2.0_24</member>
+  <member>NET_10.1.3.0_24</member>
+=END=
 
 =TITLE=Add to empty device
 =DEVICE=
@@ -59,7 +84,10 @@ action=set&type=config&
  <from><member>z1</member></from>
  <to><member>z2</member></to>
  <source><member>g0</member></source>
- <destination><member>NET_10.1.2.0_24</member></destination>
+ <destination>
+  <member>NET_10.1.2.0_24</member>
+  <member>NET_10.1.3.0_24</member>
+ </destination>
  <service><member>udp 123</member><member>tcp</member></service>
  <log-start>yes</log-start>
  <log-end>yes</log-end>
@@ -84,6 +112,12 @@ action=set&type=config&
 action=set&type=config&
  xpath=
  /config/devices/entry[@name='localhost.localdomain']
+ /vsys/entry[@name='vsys2']/address/entry[@name='NET_10.1.3.0_24']&
+ element=
+ <ip-netmask>10.1.3.0/24</ip-netmask>
+action=set&type=config&
+ xpath=
+ /config/devices/entry[@name='localhost.localdomain']
  /vsys/entry[@name='vsys2']/address-group/entry[@name='g0']&
  element=
  <static>
@@ -94,13 +128,20 @@ action=set&type=config&
  xpath=
  /config/devices/entry[@name='localhost.localdomain']
  /vsys/entry[@name='vsys2']/service/entry[@name='tcp']&
- element=<Value>tcp 1-65535</Value>
+ element=
+ <protocol>
+  <tcp>
+   <port>
+    1-65535
+   </port>
+  </tcp>
+ </protocol>
 action=set&type=config&
  xpath=
  /config/devices/entry[@name='localhost.localdomain']
  /vsys/entry[@name='vsys2']/service/entry[@name='udp 123']&
  element=
- <Value>udp 123</Value>
+ <protocol><udp><port>123</port></udp></protocol>
 =END=
 
 =TITLE=Remove all from device
@@ -126,6 +167,10 @@ action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/address/entry[@name='NET_10.1.2.0_24']
+action=delete&type=config&
+ xpath=
+  /config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='NET_10.1.3.0_24']
 action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
@@ -213,8 +258,9 @@ action=set&type=config&
  xpath=
  /config/devices/entry[@name='localhost.localdomain']
  /vsys/entry[@name='vsys2']/service/entry[@name='udp 123']&
- element=<Value>udp 123</Value>
+ element=<protocol><udp><port>123</port></udp></protocol>
 action=delete&type=config&
  xpath=
  /config/devices/entry[@name='localhost.localdomain']
  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 80']
+=END=

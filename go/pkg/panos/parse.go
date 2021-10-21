@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"strings"
 )
 
 type PanConfig struct {
@@ -38,6 +39,10 @@ type panRule struct {
 	RuleType    string   `xml:"rule-type"`
 }
 
+type panMembers struct {
+	Member []string `xml:"member"`
+}
+
 type panAddress struct {
 	XMLName   xml.Name    `xml:"entry"`
 	Name      string      `xml:"name,attr"`
@@ -66,20 +71,20 @@ type panService struct {
 }
 
 type rawService struct {
-	Name     string      `xml:"name,attr"`
-	Protocol rawProtocol `xml:"protocol"`
-	Unknown  []AnyHolder `xml:",any"`
+	Name     string       `xml:"name,attr"`
+	Protocol *rawProtocol `xml:"protocol"`
+	Unknown  []AnyHolder  `xml:",any"`
 }
 
 type rawProtocol struct {
-	TCP     rawPort     `xml:"tcp"`
-	UDP     rawPort     `xml:"udp"`
+	TCP     *rawPort    `xml:"tcp"`
+	UDP     *rawPort    `xml:"udp"`
 	Unknown []AnyHolder `xml:",any"`
 }
 type rawPort struct {
-	Port     string      `xml:"port"`
-	Override struct{}    `xml:"override"`
-	Unknown  []AnyHolder `xml:",any"`
+	Port string `xml:"port"`
+	//Override struct{}    `xml:"override,omitempty"`
+	Unknown []AnyHolder `xml:",any"`
 }
 
 type AnyHolder struct {
@@ -99,18 +104,20 @@ func (v *panService) UnmarshalXML(
 	unknown := s.Unknown
 	p := s.Protocol
 	unknown = append(unknown, p.Unknown...)
-	t := p.TCP
-	unknown = append(unknown, t.Unknown...)
-	if port := t.Port; port != "" {
-		value = "tcp " + port
-	}
-	u := p.UDP
-	unknown = append(unknown, u.Unknown...)
-	if port := u.Port; port != "" {
-		if value != "" {
-			return fmt.Errorf("Must not use both tcp and udp in %s", start)
+	if t := p.TCP; t != nil {
+		unknown = append(unknown, t.Unknown...)
+		if port := t.Port; port != "" {
+			value = "tcp " + port
 		}
-		value = "udp " + port
+	}
+	if u := p.UDP; u != nil {
+		unknown = append(unknown, u.Unknown...)
+		if port := u.Port; port != "" {
+			if value != "" {
+				return fmt.Errorf("Must not use both tcp and udp in %s", start)
+			}
+			value = "udp " + port
+		}
 	}
 	if value == "" && unknown == nil {
 		return fmt.Errorf("Expected tcp or udp in %v", start)
@@ -118,6 +125,25 @@ func (v *panService) UnmarshalXML(
 	*v = panService{Name: s.Name, Value: value, Unknown: unknown}
 
 	return nil
+}
+
+func (v *panService) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	s := new(rawService)
+	s.Name = v.Name
+	p := new(rawProtocol)
+	s.Protocol = p
+	val := v.Value
+	i := strings.Index(val, " ")
+	proto := val[:i]
+	port := val[i+1:]
+	pr := &rawPort{Port: port}
+	switch proto {
+	case "tcp":
+		p.TCP = pr
+	case "udp":
+		p.UDP = pr
+	}
+	return e.EncodeElement(s, start)
 }
 
 func parseXML(data []byte) (*PanConfig, error) {

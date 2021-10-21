@@ -93,7 +93,8 @@ func runTest(t *testing.T, d *tstdata.Descr) {
 	var stdout string
 	stderr := capture.Capture(&os.Stderr, func() {
 		stdout = capture.Capture(&os.Stdout, func() {
-			status = capture.CatchPanic(panos.Main)
+			//status = capture.CatchPanic(panos.Main)
+			status = panos.Main()
 		})
 	})
 
