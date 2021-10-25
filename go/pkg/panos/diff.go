@@ -3,9 +3,12 @@ package panos
 import (
 	"fmt"
 	"github.com/pkg/diff/myers"
+	"sort"
 )
 
 func diffConfig(a, b *panVsys, vsysPath string) []string {
+	sortMembers(a)
+	sortMembers(b)
 	ab := rulesPairFrom(a, b)
 	ab.markObjects(b.Rules)
 	result := ab.diffRules(vsysPath)
@@ -90,6 +93,7 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 
 func (ab *rulesPair) diffRules(vsysPath string) []string {
 	ab.genUniqRuleNames()
+	ab.genUniqGroupNames()
 	rulesPath := vsysPath + "/rulebase/security/rules/entry"
 	cmd0 := "type=config&xpath=" + rulesPath
 	s := myers.Diff(nil, ab)
@@ -121,6 +125,8 @@ func (ab *rulesPair) diffRules(vsysPath string) []string {
 				moveTo = "&where=before&dst=" + aName
 			}
 			for _, ru := range bRules[r.LowB:r.HighB] {
+				ab.adaptGroup(ru.Source)
+				ab.adaptGroup(ru.Destination)
 				name := nameAttr(ru.Name)
 				elem := "&element=" + printXMLValue(ru)
 				cmd1 := "action=set&" + cmd0 + name + elem
@@ -135,7 +141,7 @@ func (ab *rulesPair) diffRules(vsysPath string) []string {
 			for i := r.LowA; i < r.HighA; i++ {
 				rA := aRules[i]
 				rB := bRules[i+offset]
-				result = append(result, ab.equalize(rA, rB, rulesPath)...)
+				result = append(result, ab.equalize(rA, rB, vsysPath)...)
 			}
 		}
 	}
@@ -307,37 +313,56 @@ func (ab *addrListPair) Equal(ai, bi int) bool {
 	return ab.a[ai] == ab.b[bi]
 }
 
-func (ab *rulesPair) equalize(a, b *panRule, rulesPath string) []string {
+func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
+	rulePath := vsysPath + "/rulebase/security/rules/entry" + nameAttr(a.Name)
+	groupPath := vsysPath + "/address-group/entry"
 	var result []string
-	cmd0 := "type=config&xpath=" + rulesPath + nameAttr(a.Name)
-	equalizeAddresses := func(la, lb []string, where string) bool {
+	cmd0 := "type=config&xpath="
+	hasEqualizedAddresses := func(la, lb []string, path string) bool {
 		ab := &addrListPair{a: la, b: lb}
 		s := myers.Diff(nil, ab)
 		for _, r := range s.Ranges {
 			if r.IsDelete() {
 				for _, adr := range la[r.LowA:r.HighA] {
 					text := textAttr(adr)
-					cmd := "action=delete&" + cmd0 + "/" + where + "/member" + text
+					cmd := "action=delete&" + cmd0 + path + "/member" + text
 					result = append(result, cmd)
 				}
 			} else if r.IsInsert() {
 				object := &panMembers{Member: lb[r.LowB:r.HighB]}
 				elem := "&element=" + printXMLValue(object)
-				cmd := "action=set&" + cmd0 + "/" + where + elem
+				cmd := "action=set&" + cmd0 + path + elem
 				result = append(result, cmd)
 			}
 		}
 		return true
 	}
-	equalizeGroups := func(la, lb []string) bool {
+	hasEqualizedGroups := func(la, lb []string) bool {
 		ga := ab.a.groups[la[0]]
 		gb := ab.b.groups[lb[0]]
-		// ToDo:
-		// - Check, if groups has already been equalized.
-		// Group uses static>member, not member as XML elements.
-		if equalizeAddresses(ga.Members, gb.Members, ga.Name) {
+		if gb.nameOnDevice != "" {
+			// Current group from netspoc is already available on device.
+			// No need to transfer the group.
+			// But rule must be changed in this situation:
+			// conf  spoc
+			// g2    g1
+			// g3    g1
+			return gb.nameOnDevice == ga.Name
+		}
+		if ga.needed {
+			// Current group on device has already been marked as needed.
+			// conf  spoc
+			// g3    g1
+			// g3    g2
+			// Don't change group on device twice.
+			// Instead change occurrence of group in second rule on device.
+			return false
+		}
+		path := groupPath + nameAttr(ga.Name) + "/static"
+		if hasEqualizedAddresses(ga.Members, gb.Members, path) {
 			ga.needed = true
 			gb.needed = false
+			gb.nameOnDevice = ga.Name
 			return true
 		}
 		return false
@@ -350,11 +375,17 @@ func (ab *rulesPair) equalize(a, b *panRule, rulesPath string) []string {
 			case anyT:
 				return
 			case groupT:
-				if equalizeGroups(la, lb) {
+				if hasEqualizedGroups(la, lb) {
 					return
 				}
+				gb := ab.b.groups[lb[0]]
+				if name := gb.nameOnDevice; name != "" {
+					lb[0] = name
+				} else if name := ab.findGroupOnDevice(gb); name != "" {
+					lb[0] = name
+				}
 			case listT:
-				if equalizeAddresses(la, lb, where) {
+				if hasEqualizedAddresses(la, lb, rulePath+"/"+where) {
 					return
 				}
 			}
@@ -375,6 +406,36 @@ func (ab *rulesPair) equalize(a, b *panRule, rulesPath string) []string {
 	return result
 }
 
+func (ab *rulesPair) findGroupOnDevice(gb *panAddressGroup) string {
+GROUP:
+	for _, ga := range ab.a.vsys.AddressGroups {
+		if len(ga.Members) != len(gb.Members) {
+			continue
+		}
+		for i, n := range gb.Members {
+			if n != ga.Members[i] {
+				continue GROUP
+			}
+		}
+		ga.needed = true
+		gb.needed = false
+		gb.nameOnDevice = ga.Name
+		return ga.Name
+	}
+	return ""
+}
+
+func (ab *rulesPair) adaptGroup(lb []string) {
+	if getObjListType(lb, ab.b) == groupT {
+		gb := ab.b.groups[lb[0]]
+		if name := gb.nameOnDevice; name != "" {
+			lb[0] = name
+		} else if name := ab.findGroupOnDevice(gb); name != "" {
+			lb[0] = name
+		}
+	}
+}
+
 // Rename rules in b such that names are unique in respect to rules in a.
 func (ab *rulesPair) genUniqRuleNames() {
 	aNames := make(map[string]bool)
@@ -393,5 +454,37 @@ func (ab *rulesPair) genUniqRuleNames() {
 				break
 			}
 		}
+	}
+}
+
+// Rename groups in b such that names are unique in respect to groups in a.
+func (ab *rulesPair) genUniqGroupNames() {
+	aNames := make(map[string]bool)
+	for _, g := range ab.a.vsys.AddressGroups {
+		aNames[g.Name] = true
+	}
+	for _, g := range ab.b.vsys.AddressGroups {
+		name := g.Name
+		if !aNames[name] {
+			continue
+		}
+		for i := 1; ; i++ {
+			new := fmt.Sprintf("%s-%d", name, i)
+			if !aNames[new] {
+				g.Name = new
+				break
+			}
+		}
+	}
+}
+
+func sortMembers(v *panVsys) {
+	for _, ru := range v.Rules {
+		sort.Strings(ru.Source)
+		sort.Strings(ru.Destination)
+		sort.Strings(ru.Service)
+	}
+	for _, g := range v.AddressGroups {
+		sort.Strings(g.Members)
 	}
 }
