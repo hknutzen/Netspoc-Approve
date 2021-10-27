@@ -1,11 +1,11 @@
-=VAR=prefix
+=TEMPL=prefix
 <config><devices><entry name="localhost.localdomain"><vsys><entry name="vsys2">
-=VAR=postfix
+=TEMPL=postfix
 </entry></vsys></entry></devices></config>
 =END=
 
-=VAR=input
-${prefix}
+=TEMPL=input
+[[prefix]]
 <rulebase><security><rules>
 <entry name="r1">
 <action>allow</action>
@@ -39,27 +39,27 @@ ${prefix}
 <entry name="tcp"><protocol><tcp><port>1-65535</port></tcp></protocol></entry>
 <entry name="udp 123"><protocol><udp><port>123</port></udp></protocol></entry>
 </service>
-${postfix}
+[[postfix]]
 =END=
 
 ############################################################
 =TITLE=No differences
-=DEVICE=${input}
-=NETSPOC=${input}
+=DEVICE=[[input]]
+=NETSPOC=[[input]]
 =OUTPUT=NONE
 
 ############################################################
 =TITLE=Only group names differ
-=DEVICE=${input}
+=DEVICE=[[input]]
 =SUBST=/g0/g2/
-=NETSPOC=${input}
+=NETSPOC=[[input]]
 =OUTPUT=NONE
 
 ############################################################
 =TITLE=Change service
-=DEVICE=${input}
+=DEVICE=[[input]]
 =SUBST=|<member>udp 123</member>||
-=NETSPOC=${input}
+=NETSPOC=[[input]]
 =SUBST=|<member>tcp</member>||
 =SUBST=/g0/g2/
 =OUTPUT=
@@ -92,9 +92,9 @@ action=delete&type=config&
 
 ############################################################
 =TITLE=Add element to group
-=DEVICE=${input}
+=DEVICE=[[input]]
 =SUBST=|<member>IP_10.1.1.10</member>||
-=NETSPOC=${input}
+=NETSPOC=[[input]]
 =OUTPUT=
 action=set&type=config&
  xpath=
@@ -107,8 +107,8 @@ action=set&type=config&
 
 ############################################################
 =TITLE=Remove element from group
-=DEVICE=${input}
-=NETSPOC=${input}
+=DEVICE=[[input]]
+=NETSPOC=[[input]]
 =SUBST=|<member>IP_10.1.1.10</member>||
 =OUTPUT=
 action=delete&type=config&
@@ -124,9 +124,9 @@ action=delete&type=config&
 
 ############################################################
 =TITLE=Add element to destination
-=DEVICE=${input}
+=DEVICE=[[input]]
 =SUBST=|<member>NET_10.1.2.0_24</member>||
-=NETSPOC=${input}
+=NETSPOC=[[input]]
 =OUTPUT=
 action=set&type=config&
  xpath=
@@ -139,8 +139,8 @@ action=set&type=config&
 
 ############################################################
 =TITLE=Remove element from destination
-=DEVICE=${input}
-=NETSPOC=${input}
+=DEVICE=[[input]]
+=NETSPOC=[[input]]
 =SUBST=|<member>NET_10.1.2.0_24</member>||
 =OUTPUT=
 action=delete&type=config&
@@ -157,10 +157,10 @@ action=delete&type=config&
 ############################################################
 =TITLE=Add to empty device
 =DEVICE=
-${prefix}
-${postfix}
+[[prefix]]
+[[postfix]]
 =NETSPOC=
-${input}
+[[input]]
 =OUTPUT=
 action=set&type=config&
  xpath=
@@ -237,10 +237,10 @@ action=set&type=config&
 ############################################################
 =TITLE=Remove all from device
 =DEVICE=
-${input}
+[[input]]
 =NETSPOC=
-${prefix}
-${postfix}
+[[prefix]]
+[[postfix]]
 =OUTPUT=
 action=delete&type=config&
  xpath=
