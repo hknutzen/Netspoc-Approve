@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 	"path"
@@ -302,18 +302,18 @@ func (s *state) doTemplSubst(text string) (string, error) {
 	var result strings.Builder
 	prevIdx := 0
 
-	re := regexp.MustCompile(`(?s)\[\[.*?\]\]`)
+	// Take "]" in "]]]" as part of YAML sequence.
+	re := regexp.MustCompile(`(?s)\[\[.*?\]?\]\]`)
 	il := re.FindAllStringIndex(text, -1)
 	for _, p := range il {
 		result.WriteString(text[prevIdx:p[0]])
 		prevIdx = p[1]
 		pair := text[p[0]+2 : p[1]-2] // without "[[" and "]]"
 		var name string
-		var data map[string]interface{}
+		var data interface{}
 		if i := strings.IndexAny(pair, " \t\n"); i != -1 {
 			name = pair[:i]
 			y := pair[i+1:]
-			data = make(map[string]interface{})
 			if err := yaml.Unmarshal([]byte(y), &data); err != nil {
 				log.Fatalf(
 					"Invalid YAML data in call to template [[%s]] of file %s: %v",
@@ -333,6 +333,7 @@ func (s *state) doTemplSubst(text string) (string, error) {
 		result.WriteString(b.String())
 	}
 	result.WriteString(text[prevIdx:])
+	//fmt.Fprintf(os.Stderr, "%s\n", result.String())
 	return result.String(), nil
 }
 
@@ -347,6 +348,9 @@ func (s *state) applySubst(text string) (string, error) {
 		s.rest = s.rest[len(line):]
 		line = line[len("=SUBST="):]
 		line = strings.TrimSpace(line)
+		if len(line) == 0 {
+			return "", fmt.Errorf("invalid empty substitution in %s", s.filename)
+		}
 		parts := strings.Split(line[1:], line[0:1])
 		if len(parts) != 3 || parts[2] != "" {
 			return "", errors.New("invalid substitution: =SUBST=" + line)

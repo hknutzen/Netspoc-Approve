@@ -106,7 +106,6 @@ func (ab *rulesPair) diffRules(vsysPath string) []string {
 			delIdx = r.HighA
 			for _, ru := range aRules[r.LowA:r.HighA] {
 				name := nameAttr(ru.Name)
-				// No longer referenced objects are deleted later.
 				cmd := "action=delete&" + cmd0 + name
 				result = append(result, cmd)
 			}
@@ -252,8 +251,9 @@ func (ab *rulesPair) transferNeededObjects(vsysPath string) []string {
 	for _, o := range ab.b.vsys.AddressGroups {
 		if o.needed {
 			name := nameAttr(o.Name)
-			elem := "&element=" + printXMLValue(o)
-			cmd := "action=set&" + cmd0 + name + elem
+			object := &panMembers{Member: o.Members}
+			elem := "&element=" + printXMLValue(object)
+			cmd := "action=set&" + cmd0 + name + "/static" + elem
 			result = append(result, cmd)
 		}
 	}
@@ -321,6 +321,33 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 	hasEqualizedAddresses := func(la, lb []string, path string) bool {
 		ab := &addrListPair{a: la, b: lb}
 		s := myers.Diff(nil, ab)
+		// Check if an incremental change is viable.
+		// Be
+		// - D the number of deleted elements
+		// - I the number of inserted elements
+		// - N the new number of elements
+		// - O the old number of elements
+		// - U the number of elements that stay unchanged
+		// N = O - D + I
+		// U = O - D
+		// Delete operations are expensive,
+		// because we need a single call for each deletion.
+		// But if U is large, it would be also be expensive
+		// to transfer all elements again.
+		// Heuristic:
+		// If D > U/2 then don't change incrementally but transfer all elements.
+		o := len(la)
+		d := 0
+		for _, r := range s.Ranges {
+			if r.IsDelete() {
+				d += r.HighA - r.LowA
+			}
+		}
+		u := o - d
+		if 2*d > u+1 { // +1: allow some deletes in small group
+			return false
+		}
+		insert := ""
 		for _, r := range s.Ranges {
 			if r.IsDelete() {
 				for _, adr := range la[r.LowA:r.HighA] {
@@ -330,10 +357,13 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 				}
 			} else if r.IsInsert() {
 				object := &panMembers{Member: lb[r.LowB:r.HighB]}
-				elem := "&element=" + printXMLValue(object)
-				cmd := "action=set&" + cmd0 + path + elem
-				result = append(result, cmd)
+				insert += printXMLValue(object)
 			}
+		}
+		if insert != "" {
+			elem := "&element=" + insert
+			cmd := "action=set&" + cmd0 + path + elem
+			result = append(result, cmd)
 		}
 		return true
 	}
@@ -368,6 +398,7 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 		return false
 	}
 	equalizeList := func(la, lb []string, where string) {
+		path := rulePath + "/" + where
 		t1 := getObjListType(la, ab.a)
 		t2 := getObjListType(lb, ab.b)
 		if t1 == t2 && t1 != otherT {
@@ -378,22 +409,17 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 				if hasEqualizedGroups(la, lb) {
 					return
 				}
-				gb := ab.b.groups[lb[0]]
-				if name := gb.nameOnDevice; name != "" {
-					lb[0] = name
-				} else if name := ab.findGroupOnDevice(gb); name != "" {
-					lb[0] = name
-				}
 			case listT:
-				if hasEqualizedAddresses(la, lb, rulePath+"/"+where) {
+				if hasEqualizedAddresses(la, lb, path) {
 					return
 				}
 			}
 		}
+		ab.adaptGroup(lb)
 		// Replace current members by new members.
 		object := &panMembers{Member: lb}
 		elem := "&element=" + printXMLValue(object)
-		cmd := "action=edit&" + cmd0 + "/" + where + elem
+		cmd := "action=edit&" + cmd0 + path + elem
 		result = append(result, cmd)
 	}
 	equalizeList(a.Source, b.Source, "source")
@@ -432,6 +458,9 @@ func (ab *rulesPair) adaptGroup(lb []string) {
 			lb[0] = name
 		} else if name := ab.findGroupOnDevice(gb); name != "" {
 			lb[0] = name
+		} else {
+			// Name may have been changed to prevent name clashes.
+			lb[0] = gb.Name
 		}
 	}
 }
