@@ -101,14 +101,14 @@ func (s *state) compareCommon(conf1, conf2 *PanConfig) ([]string, error) {
 	l2 := conf2.Entries
 	if len(l2) != 1 {
 		return nil, fmt.Errorf(
-			"Expected exactly one device entry in netspoc configuration")
+			"Expected exactly one device entry in Netspoc configuration")
 	}
 	d1 := l1[0]
 	d2 := l2[0]
 	device := d1.Name
 	if device != d2.Name {
 		return nil, fmt.Errorf(
-			"Different device names: device='%s', netspoc='%s'", device, d2.Name)
+			"Different device names: device='%s', Netspoc='%s'", device, d2.Name)
 	}
 	devicePath := "/config/devices/entry" + nameAttr(device)
 	m := make(map[string]*panVsys)
@@ -133,7 +133,10 @@ func (s *state) compareCommon(conf1, conf2 *PanConfig) ([]string, error) {
 				"Unknown name '%s' in VSYS of device configuration", name)
 		}
 		xPath := devicePath + "/vsys/entry" + nameAttr(name)
-		l := diffConfig(v1, v2, xPath)
+		l, err := diffConfig(v1, v2, xPath)
+		if err != nil {
+			return nil, fmt.Errorf("%v of vsys '%s'", err, name)
+		}
 		cmds = append(cmds, l...)
 	}
 	return cmds, nil

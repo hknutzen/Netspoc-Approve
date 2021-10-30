@@ -6,15 +6,17 @@ import (
 	"sort"
 )
 
-func diffConfig(a, b *panVsys, vsysPath string) []string {
+func diffConfig(a, b *panVsys, vsysPath string) ([]string, error) {
 	sortMembers(a)
 	sortMembers(b)
 	ab := rulesPairFrom(a, b)
-	ab.markObjects(b.Rules)
+	if err := ab.markObjects(b.Rules); err != nil {
+		return nil, err
+	}
 	result := ab.diffRules(vsysPath)
 	result = append(result, ab.transferNeededObjects(vsysPath)...)
 	result = append(result, ab.removeUnneededObjects(vsysPath)...)
-	return result
+	return result, nil
 }
 
 type vsysInfo struct {
@@ -162,13 +164,13 @@ func stringsEq(a, b []string) bool {
 func (ab *rulesPair) objectsEq(a, b []string) bool {
 	t1 := getObjListType(a, ab.a)
 	t2 := getObjListType(b, ab.b)
-	return t1 == t2 && t1 != otherT
+	return t1 == t2 && t1 != unknownT
 }
 
 type objListType int
 
 const (
-	otherT = iota
+	unknownT = iota
 	listT
 	groupT
 	anyT
@@ -185,52 +187,73 @@ func getObjListType(l []string, v vsysInfo) objListType {
 				return groupT
 			}
 			// Nested groups are not supported.
-			return otherT
+			return unknownT
 		}
 	}
 	if len(l) == 0 {
-		return otherT
+		return unknownT
 	}
 	for _, e := range l {
 		if v.addresses[e] == nil {
-			return otherT
+			return unknownT
 		}
 	}
 	return listT
 }
 
-func (ab *rulesPair) markObjects(l []*panRule) {
+func (ab *rulesPair) markObjects(l []*panRule) error {
 	for _, ru := range l {
-		ab.markAddresses(ru.Source)
-		ab.markAddresses(ru.Destination)
-		ab.markServices(ru.Service)
+		if err := ab.markAddresses(ru.Source); err != nil {
+			return fmt.Errorf("%v in source of rule %s", err, ru.Name)
+		}
+		if err := ab.markAddresses(ru.Destination); err != nil {
+			return fmt.Errorf("%v in destination of rule %s", err, ru.Name)
+		}
+		if err := ab.markServices(ru.Service); err != nil {
+			return fmt.Errorf("%v in service of rule %s", err, ru.Name)
+		}
 	}
+	return nil
 }
 
-func (ab *rulesPair) markAddresses(l []string) {
+func (ab *rulesPair) markAddresses(l []string) error {
 	for _, name := range l {
+		if name == "any" {
+			continue
+		}
 		if g := ab.b.groups[name]; g != nil {
 			// Preliminary mark group from Netspoc as needed.  Mark will
 			// be moved to group on device later if an equivalent group
 			// is found.
 			g.needed = true
-			ab.markAddresses(g.Members)
+			if err := ab.markAddresses(g.Members); err != nil {
+				return fmt.Errorf("%v of addressgroup %s", err, name)
+			}
 		} else if a := ab.a.addresses[name]; a != nil {
 			a.needed = true
 		} else if a := ab.b.addresses[name]; a != nil {
 			a.needed = true
+		} else {
+			return fmt.Errorf("Referencing unknown '%s'", name)
 		}
 	}
+	return nil
 }
 
-func (ab *rulesPair) markServices(l []string) {
+func (ab *rulesPair) markServices(l []string) error {
 	for _, name := range l {
+		if name == "any" {
+			continue
+		}
 		if s := ab.a.services[name]; s != nil {
 			s.needed = true
 		} else if s := ab.b.services[name]; s != nil {
 			s.needed = true
+		} else {
+			return fmt.Errorf("Referencing unknown '%s'", name)
 		}
 	}
+	return nil
 }
 
 // Transfer objects from b, that are needed in a.
@@ -401,7 +424,7 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 		path := rulePath + "/" + where
 		t1 := getObjListType(la, ab.a)
 		t2 := getObjListType(lb, ab.b)
-		if t1 == t2 && t1 != otherT {
+		if t1 == t2 && t1 != unknownT {
 			switch t1 {
 			case anyT:
 				return
