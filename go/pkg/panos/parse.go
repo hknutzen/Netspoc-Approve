@@ -7,9 +7,19 @@ import (
 	"strings"
 )
 
+func parseXML(data []byte) (*PanConfig, error) {
+	v := new(PanConfig)
+	err := xml.Unmarshal(data, v)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 type PanConfig struct {
-	XMLName xml.Name    `xml:"config"`
-	Entries []panDevice `xml:"devices>entry"`
+	XMLName xml.Name     `xml:"config"`
+	Entries []*panDevice `xml:"devices>entry"`
+	source  string
 }
 
 type panDevice struct {
@@ -26,17 +36,22 @@ type panVsys struct {
 }
 
 type panRule struct {
-	XMLName     xml.Name `xml:"entry"`
-	Name        string   `xml:"name,attr"`
-	Action      string   `xml:"action"`
-	From        []string `xml:"from>member"`
-	To          []string `xml:"to>member"`
-	Source      []string `xml:"source>member"`
-	Destination []string `xml:"destination>member"`
-	Service     []string `xml:"service>member"`
-	LogStart    string   `xml:"log-start"`
-	LogEnd      string   `xml:"log-end"`
-	RuleType    string   `xml:"rule-type"`
+	XMLName     xml.Name    `xml:"entry"`
+	Name        string      `xml:"name,attr"`
+	Action      string      `xml:"action"`
+	From        []string    `xml:"from>member"`
+	To          []string    `xml:"to>member"`
+	Source      []string    `xml:"source>member"`
+	Destination []string    `xml:"destination>member"`
+	Service     []string    `xml:"service>member"`
+	Application []string    `xml:"application>member"`
+	LogStart    string      `xml:"log-start"`
+	LogEnd      string      `xml:"log-end"`
+	LogSetting  string      `xml:"logs-setting,omitempty"`
+	RuleType    string      `xml:"rule-type"`
+	Unknown     []AnyHolder `xml:",any"`
+	// Artifical attribute in raw files
+	Append *struct{} `xml:"APPEND,omitempty"`
 }
 
 type panMembers struct {
@@ -44,13 +59,14 @@ type panMembers struct {
 }
 
 type panAddress struct {
-	XMLName   xml.Name    `xml:"entry"`
-	Name      string      `xml:"name,attr"`
-	IpNetmask string      `xml:"ip-netmask,omitempty"`
-	IpRange   string      `xml:"ip-range,omitempty"`
-	Tag       string      `xml:"tag,omitempty"`
-	Unknown   []AnyHolder `xml:",any"`
-	needed    bool
+	XMLName   xml.Name `xml:"entry"`
+	Name      string   `xml:"name,attr"`
+	IpNetmask string   `xml:"ip-netmask,omitempty"`
+	//IpRange   string      `xml:"ip-range,omitempty"`
+	Tag     string      `xml:"tag,omitempty"`
+	Unknown []AnyHolder `xml:",any"`
+	invalid bool
+	needed  bool
 }
 
 type panAddressGroup struct {
@@ -67,6 +83,7 @@ type panService struct {
 	Name    string   `xml:"name,attr"`
 	Value   string
 	Unknown []AnyHolder
+	invalid bool
 	needed  bool
 }
 
@@ -144,15 +161,6 @@ func (v *panService) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		p.UDP = pr
 	}
 	return e.EncodeElement(s, start)
-}
-
-func parseXML(data []byte) (*PanConfig, error) {
-	v := new(PanConfig)
-	err := xml.Unmarshal(data, v)
-	if err != nil {
-		return nil, err
-	}
-	return v, nil
 }
 
 // Print only value of object as XML, strip outer opening and closing tags.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/diff/myers"
 	"sort"
+	"strings"
 )
 
 func diffConfig(a, b *panVsys, vsysPath string) ([]string, error) {
@@ -14,8 +15,8 @@ func diffConfig(a, b *panVsys, vsysPath string) ([]string, error) {
 		return nil, err
 	}
 	result := ab.diffRules(vsysPath)
-	result = append(result, ab.transferNeededObjects(vsysPath)...)
 	result = append(result, ab.removeUnneededObjects(vsysPath)...)
+	result = append(result, ab.transferNeededObjects(vsysPath)...)
 	return result, nil
 }
 
@@ -87,8 +88,10 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		ab.objectsEq(a.Source, b.Source) &&
 		ab.objectsEq(a.Destination, b.Destination) &&
 		stringsEq(a.Service, b.Service) &&
+		stringsEq(a.Application, b.Application) &&
 		a.LogStart == b.LogStart &&
 		a.LogEnd == b.LogEnd &&
+		a.LogSetting == b.LogSetting &&
 		a.RuleType == b.RuleType
 
 }
@@ -212,6 +215,15 @@ func (ab *rulesPair) markObjects(l []*panRule) error {
 		if err := ab.markServices(ru.Service); err != nil {
 			return fmt.Errorf("%v in service of rule %s", err, ru.Name)
 		}
+		if a := ru.Application; len(a) != 1 || a[0] != "any" {
+			return fmt.Errorf(
+				"Unexpected values %v in attribute <application> of rule %s",
+				a, ru.Name)
+		}
+		if u := ru.Unknown; len(u) != 0 {
+			return fmt.Errorf("Unexpected attributes %v in rule %s",
+				u, ru.Name)
+		}
 	}
 	return nil
 }
@@ -230,7 +242,14 @@ func (ab *rulesPair) markAddresses(l []string) error {
 				return fmt.Errorf("%v of addressgroup %s", err, name)
 			}
 		} else if a := ab.a.addresses[name]; a != nil {
-			a.needed = true
+			ok, err := isValidAddress(a)
+			if err != nil {
+				return err
+			}
+			if ok {
+				a.needed = true
+				continue
+			}
 		} else if a := ab.b.addresses[name]; a != nil {
 			a.needed = true
 		} else {
@@ -246,8 +265,16 @@ func (ab *rulesPair) markServices(l []string) error {
 			continue
 		}
 		if s := ab.a.services[name]; s != nil {
-			s.needed = true
-		} else if s := ab.b.services[name]; s != nil {
+			ok, err := isValidService(s)
+			if err != nil {
+				return err
+			}
+			if ok {
+				s.needed = true
+				continue
+			}
+		}
+		if s := ab.b.services[name]; s != nil {
 			s.needed = true
 		} else {
 			return fmt.Errorf("Referencing unknown '%s'", name)
@@ -322,6 +349,44 @@ func (ab *rulesPair) removeUnneededObjects(vsysPath string) []string {
 		}
 	}
 	return result
+}
+
+func isValidAddress(a *panAddress) (bool, error) {
+	if a.invalid {
+		return false, nil
+	}
+	parts := strings.SplitN(a.Name, "_", 2)
+	if len(parts) != 2 || !(parts[0] == "IP" || parts[0] == "NET") {
+		a.invalid = true
+		return false, fmt.Errorf("Address '%s' has invalid name", a.Name)
+	}
+	var ip string
+	switch parts[0] {
+	case "IP":
+		ip = parts[1] + "/32"
+	case "NET":
+		ip = strings.Replace(parts[1], "_", "/", 1)
+	}
+	a.invalid = a.IpNetmask != ip || len(a.Unknown) != 0
+	return !a.invalid, nil
+}
+
+func isValidService(s *panService) (bool, error) {
+	if s.invalid {
+		return false, nil
+	}
+	parts := strings.Split(s.Name, " ")
+	l := len(parts)
+	if !(l == 2 || l == 1) || !(parts[0] == "tcp" || parts[0] == "udp") {
+		s.invalid = true
+		return false, fmt.Errorf("Service '%s' has invalid name", s.Name)
+	}
+	v := s.Name
+	if l == 1 {
+		v += " 1-65535"
+	}
+	s.invalid = v != s.Value || len(s.Unknown) != 0
+	return !s.invalid, nil
 }
 
 type addrListPair struct {

@@ -110,6 +110,7 @@ action=set&type=config&
    <member>NET_10.1.3.0_24</member>
   </destination>
   <service><member>udp 123</member></service>
+  <application><member>any</member></application>
   <log-start>yes</log-start>
   <log-end>yes</log-end>
   <rule-type>interzone</rule-type>
@@ -208,6 +209,7 @@ action=set&type=config&
   <member>tcp 80</member>
   <member>udp 123</member>
  </service>
+ <application><member>any</member></application>
  <log-start>yes</log-start>
  <log-end>yes</log-end>
  <rule-type>interzone</rule-type>
@@ -324,6 +326,7 @@ action=set&type=config&
   <source><member>IP_10.1.1.10</member><member>IP_10.1.1.20</member></source>
   <destination><member>NET_10.1.2.0_24</member><member>NET_10.1.3.0_24</member></destination>
   <service><member>tcp 80</member><member>udp 123</member></service>
+  <application><member>any</member></application>
   <log-start>yes</log-start><log-end>yes</log-end>
   <rule-type>interzone</rule-type>
 action=delete&type=config&
@@ -520,13 +523,6 @@ action=edit&type=config&
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']/source&
   element=
    <member>g1-1</member>
-action=set&type=config&
- xpath=
-  /config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/address-group/entry[@name='g1-1']/static&
-  element=
-   <member>IP_10.1.1.1</member>
-   <member>IP_10.1.1.2</member>
 action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
@@ -543,6 +539,13 @@ action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/address-group/entry[@name='g1']
+action=set&type=config&
+ xpath=
+  /config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g1-1']/static&
+  element=
+   <member>IP_10.1.1.1</member>
+   <member>IP_10.1.1.2</member>
 =END=
 
 ############################################################
