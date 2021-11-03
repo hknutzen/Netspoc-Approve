@@ -140,6 +140,7 @@ func mergeRaw(c, r *PanConfig) error {
 			if r.Append == nil {
 				top = append(top, r)
 			} else {
+				r.Append = nil
 				if len(r.From) != 1 || len(r.To) != 1 {
 					return fmt.Errorf(
 						"Must not use rule '%s' with multiple zones in From/To in raw",
@@ -160,16 +161,16 @@ func mergeRaw(c, r *PanConfig) error {
 					idx = i
 					last = r
 				}
-				if idx == -1 {
-					return fmt.Errorf(
-						"Can't APPEND to unknown rule with From=%s, To=%s",
-						z.from, z.to)
-				}
-				if last.Action == "drop" {
-					v1.Rules = append(v1.Rules[:idx], append(l, v1.Rules[idx:]...)...)
-				} else {
-					v1.Rules = append(v1.Rules, l...)
-				}
+			}
+			if idx == -1 {
+				return fmt.Errorf(
+					"Can't APPEND to unknown rule with From=%s, To=%s",
+					z.from, z.to)
+			}
+			if last.Action == "drop" {
+				v1.Rules = append(v1.Rules[:idx], append(l, v1.Rules[idx:]...)...)
+			} else {
+				v1.Rules = append(v1.Rules, l...)
 			}
 		}
 		return nil

@@ -47,7 +47,7 @@ type panRule struct {
 	Application []string    `xml:"application>member"`
 	LogStart    string      `xml:"log-start"`
 	LogEnd      string      `xml:"log-end"`
-	LogSetting  string      `xml:"logs-setting,omitempty"`
+	LogSetting  string      `xml:"log-setting,omitempty"`
 	RuleType    string      `xml:"rule-type"`
 	Unknown     []AnyHolder `xml:",any"`
 	// Artifical attribute in raw files

@@ -14,7 +14,7 @@ import (
 
 var count int
 
-func TestNetspoc(t *testing.T) {
+func TestApprove(t *testing.T) {
 	os.Unsetenv("LANG")
 	count = 0
 	runTestFiles(t)

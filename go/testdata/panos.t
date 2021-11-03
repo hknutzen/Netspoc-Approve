@@ -1,5 +1,5 @@
 =TEMPL=prefix
-<config><devices><entry name="localhost.localdomain"><vsys><entry name="vsys2">
+<config><devices><entry name="localhost.localdomain"><vsys><entry name="{{.}}">
 =TEMPL=postfix
 </entry></vsys></entry></devices></config>
 =END=
@@ -9,8 +9,8 @@
 {{range .}}
 <entry name="{{.name}}">
 <action>{{or .action "allow"}}</action>
-<from><member>z1</member></from>
-<to><member>z2</member></to>
+<from><member>{{or .from "z1"}}</member></from>
+<to><member>{{or .to "z2"}}</member></to>
 {{range .src}}<source><member>{{.}}</member></source>{{end}}
 {{range .dst}}<destination><member>{{.}}</member></destination>{{end}}
 {{range .srv}}<service><member>{{.}}</member></service>{{end}}
@@ -18,6 +18,7 @@
 <rule-type>interzone</rule-type>
 <log-start>yes</log-start>
 <log-end>yes</log-end>
+{{if .extra}}{{.extra}}{{end}}
 </entry>
 {{end}}
 </rules></security></rulebase>
@@ -49,7 +50,7 @@
 </service>
 
 =TEMPL=input
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - name: r1
   src: [g0]
@@ -187,7 +188,7 @@ action=delete&type=config&
 ############################################################
 =TITLE=Add to empty device
 =DEVICE=
-[[prefix]]
+[[prefix vsys2]]
 [[postfix]]
 =NETSPOC=
 [[input]]
@@ -268,7 +269,7 @@ action=set&type=config&
 =DEVICE=
 [[input]]
 =NETSPOC=
-[[prefix]]
+[[prefix vsys2]]
 [[postfix]]
 =OUTPUT=
 action=delete&type=config&
@@ -349,11 +350,12 @@ action=delete&type=config&
 - {proto: udp, port: 123}
 ]]
 [[postfix]]
+=END=
 
 ############################################################
 =TITLE=Merge two groups to one
 =DEVICE=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - {name: r1, src: [g0], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
 - {name: r2, src: [g1], dst: [NET_10.1.3.0_24], srv: [udp 123]}
@@ -364,7 +366,7 @@ action=delete&type=config&
 ]]
 [[identical]]
 =NETSPOC=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - {name: r1, src: [g2], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
 - {name: r2, src: [g2], dst: [NET_10.1.3.0_24], srv: [udp 123]}
@@ -395,7 +397,7 @@ action=delete&type=config&
 ############################################################
 =TITLE=Split single group to different ones
 =DEVICE=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - {name: r1, src: [g0], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
 - {name: r2, src: [g0], dst: [NET_10.1.3.0_24], srv: [udp 123]}
@@ -405,7 +407,7 @@ action=delete&type=config&
 ]]
 [[identical]]
 =NETSPOC=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - {name: r1, src: [g1], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
 - {name: r2, src: [g2], dst: [NET_10.1.3.0_24], srv: [udp 123]}
@@ -448,11 +450,12 @@ action=set&type=config&
 - {proto: tcp, port: 80}
 ]]
 [[postfix]]
+=END=
 
 ############################################################
-=TITLE=Add new elements in one go
+=TITLE=Add new elements to group in one go
 =DEVICE=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - {name: r1, src: [g1], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
 ]]
@@ -461,7 +464,7 @@ action=set&type=config&
 ]]
 [[identical]]
 =NETSPOC=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - {name: r1, src: [g1], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
 ]]
@@ -494,11 +497,12 @@ action=set&type=config&
 - {proto: tcp, port: 80}
 ]]
 [[postfix]]
+=END=
 
 ############################################################
 =TITLE=Create new group instead of deleting many elements
 =DEVICE=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - {name: r1, src: [g1], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
 ]]
@@ -508,7 +512,7 @@ action=set&type=config&
 ]]
 [[identical]]
 =NETSPOC=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - {name: r1, src: [g1], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
 ]]
@@ -549,9 +553,9 @@ action=set&type=config&
 =END=
 
 ############################################################
-=TITLE=Transfer elements instead of deleting and inserting
+=TITLE=Transfer elements to rule instead of deleting and inserting
 =DEVICE=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - name: r1
   src: [IP_10.1.1.1, IP_10.1.1.2, IP_10.1.1.3, IP_10.1.1.4, IP_10.1.1.5]
@@ -560,7 +564,7 @@ action=set&type=config&
 ]]
 [[identical]]
 =NETSPOC=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - name: r1
   src: [IP_10.1.1.1, IP_10.1.1.2]
@@ -587,9 +591,9 @@ action=delete&type=config&
 =END=
 
 ############################################################
-=TITLE=Adapt elements by deleting and inserting
+=TITLE=Adapt elements in rule by deleting and inserting
 =DEVICE=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - name: r1
   src: [IP_10.1.1.2, IP_10.1.1.3, IP_10.1.1.4, IP_10.1.1.5]
@@ -598,7 +602,7 @@ action=delete&type=config&
 ]]
 [[identical]]
 =NETSPOC=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - name: r1
   src: [IP_10.1.1.1, IP_10.1.1.2, IP_10.1.1.4, IP_10.1.1.5]
@@ -621,9 +625,9 @@ action=delete&type=config&
 =END=
 
 ############################################################
-=TITLE=Delete multiple elements
+=TITLE=Delete multiple elements from rule
 =DEVICE=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - name: r1
   src: [IP_10.1.1.1, IP_10.1.1.2, IP_10.1.1.3, IP_10.1.1.4, IP_10.1.1.5]
@@ -632,7 +636,7 @@ action=delete&type=config&
 ]]
 [[identical]]
 =NETSPOC=
-[[prefix]]
+[[prefix vsys2]]
 [[rules
 - name: r1
   src: [IP_10.1.1.1, IP_10.1.1.3, IP_10.1.1.5]
@@ -655,4 +659,201 @@ action=delete&type=config&
 action=delete&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.4']
+=END=
+
+############################################################
+# Changed for tests below
+=TEMPL=identical
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [tcp 80]
+- name: r2
+  from: z1
+  to:   z2
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [any]
+- name: r3
+  from: z2
+  to:   z1
+  src:  [NET_10.1.2.0_24]
+  dst:  [IP_10.1.1.1]
+  srv: [tcp 80]
+- name: r4
+  from: z2
+  to:   z1
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [any]
+]]
+[[addresses
+- {name: IP_10.1.1.1, ip: 10.1.1.1/32}
+- {name: NET_10.1.2.0_24, ip: 10.1.2.0/24}
+]]
+[[services
+- {proto: tcp, port: 80}
+]]
+[[postfix]]
+=END=
+
+############################################################
+=TITLE=Add rules from raw
+=DEVICE=
+[[identical]]
+=NETSPOC=
+-- router
+[[identical]]
+-- router.raw
+[[prefix vsys2]]
+[[rules
+- name: raw1
+  from: z1
+  to:   z2
+  src: [IP_10.1.1.2]
+  dst: [NET_10.1.2.0_24]
+  srv: [tcp 81]
+- name: raw-log1
+  from: z1
+  to:   z2
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [any]
+  extra: "<log-setting>TDC-Panorama</log-setting><APPEND/>"
+- name: raw-log2
+  from: z2
+  to:   z1
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [any]
+  extra: "<log-setting>TDC-Panorama</log-setting><APPEND/>"
+]]
+[[addresses
+- {name: IP_10.1.1.2, ip: 10.1.1.1/32}
+]]
+[[services
+- {proto: tcp, port: 81}
+]]
+[[postfix]]
+=OUTPUT=
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw1']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>IP_10.1.1.2</member></source>
+  <destination><member>NET_10.1.2.0_24</member></destination>
+  <service><member>tcp 81</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+action=move&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw1']&
+ where=before&dst=r1
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw-log1']&
+ element=
+  <action>drop</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>any</member></source>
+  <destination><member>any</member></destination>
+  <service><member>any</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <log-setting>TDC-Panorama</log-setting>
+  <rule-type>interzone</rule-type>
+action=move&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw-log1']&
+ where=before&dst=r2
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw-log2']&
+ element=
+  <action>drop</action>
+  <from><member>z2</member></from>
+  <to><member>z1</member></to>
+  <source><member>any</member></source>
+  <destination><member>any</member></destination>
+  <service><member>any</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <log-setting>TDC-Panorama</log-setting>
+  <rule-type>interzone</rule-type>
+action=move&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw-log2']&
+ where=before&dst=r4
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.2']&
+ element=<ip-netmask>10.1.1.1/32</ip-netmask>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 81']&
+ element=<protocol><tcp><port>81</port></tcp></protocol>
+=END=
+
+############################################################
+=TITLE=Append rule with multiple zones from raw
+#=TODO=1
+=DEVICE=
+[[identical]]
+=NETSPOC=
+-- router
+[[identical]]
+-- router.raw
+[[prefix vsys2]]
+[[rules
+- name: raw1
+  from: "z0\"</member><member>\"z1"
+  to: z2
+  src: [any]
+  dst: [NET_10.1.2.0_24]
+  srv: [any]
+  extra: "<APPEND/>"
+]]
+[[postfix]]
+=ERROR=
+Error: Must not use rule 'raw1' with multiple zones in From/To in raw
+=END=
+
+############################################################
+=TITLE=Append to unknown From/to pair from raw
+#=TODO=1
+=DEVICE=
+[[identical]]
+=NETSPOC=
+-- router
+[[identical]]
+-- router.raw
+[[prefix vsys2]]
+[[rules
+- name: raw1
+  from: z0
+  to: z2
+  src: [any]
+  dst: [NET_10.1.2.0_24]
+  srv: [any]
+  extra: "<APPEND/>"
+]]
+[[postfix]]
+=ERROR=
+Error: Can't APPEND to unknown rule with From=z0, To=z2
 =END=

@@ -371,7 +371,7 @@ func (s *state) getLine() string {
 // Fill input directory with file(s).
 // Parts of input are marked by single lines of dashes
 // followed by a filename.
-// If no markers are given, a single file named INPUT is used.
+// If no markers are given, a single file named "router" is used.
 func PrepareInDir(inDir, input string) {
 	if input == "NONE" {
 		input = ""
