@@ -14,6 +14,8 @@ func diffConfig(a, b *panVsys, vsysPath string) ([]string, error) {
 	if err := ab.markObjects(b.Rules); err != nil {
 		return nil, err
 	}
+	ab.genUniqRuleNames()
+	ab.genUniqGroupNames()
 	result := ab.diffRules(vsysPath)
 	result = append(result, ab.removeUnneededObjects(vsysPath)...)
 	result = append(result, ab.transferNeededObjects(vsysPath)...)
@@ -97,8 +99,6 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 }
 
 func (ab *rulesPair) diffRules(vsysPath string) []string {
-	ab.genUniqRuleNames()
-	ab.genUniqGroupNames()
 	rulesPath := vsysPath + "/rulebase/security/rules/entry"
 	cmd0 := "type=config&xpath=" + rulesPath
 	s := myers.Diff(nil, ab)
@@ -168,6 +168,18 @@ func (ab *rulesPair) objectsEq(a, b []string) bool {
 	t1 := getObjListType(a, ab.a)
 	t2 := getObjListType(b, ab.b)
 	return t1 == t2 && t1 != unknownT
+}
+
+func (ab *rulesPair) servicesEq(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, s := range a {
+		if s != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 type objListType int
@@ -253,7 +265,8 @@ func (ab *rulesPair) markAddresses(l []string) error {
 		} else if a := ab.b.addresses[name]; a != nil {
 			a.needed = true
 		} else {
-			return fmt.Errorf("Referencing unknown '%s'", name)
+			return fmt.Errorf("Referencing unknown object '%s' in Netspoc config",
+				name)
 		}
 	}
 	return nil
@@ -277,7 +290,8 @@ func (ab *rulesPair) markServices(l []string) error {
 		if s := ab.b.services[name]; s != nil {
 			s.needed = true
 		} else {
-			return fmt.Errorf("Referencing unknown '%s'", name)
+			return fmt.Errorf("Referencing unknown service '%s' in Netspoc config",
+				name)
 		}
 	}
 	return nil
@@ -358,7 +372,8 @@ func isValidAddress(a *panAddress) (bool, error) {
 	parts := strings.SplitN(a.Name, "_", 2)
 	if len(parts) != 2 || !(parts[0] == "IP" || parts[0] == "NET") {
 		a.invalid = true
-		return false, fmt.Errorf("Address '%s' has invalid name", a.Name)
+		return false, fmt.Errorf("Address '%s' from Netspoc has invalid name",
+			a.Name)
 	}
 	var ip string
 	switch parts[0] {
@@ -379,7 +394,8 @@ func isValidService(s *panService) (bool, error) {
 	l := len(parts)
 	if !(l == 2 || l == 1) || !(parts[0] == "tcp" || parts[0] == "udp") {
 		s.invalid = true
-		return false, fmt.Errorf("Service '%s' has invalid name", s.Name)
+		return false, fmt.Errorf("Service '%s' from Netspoc has invalid name",
+			s.Name)
 	}
 	v := s.Name
 	if l == 1 {
