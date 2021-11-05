@@ -576,18 +576,15 @@ func (ab *rulesPair) genUniqRuleNames() {
 
 // Rename groups in b such that names are unique in respect to groups in a.
 func (ab *rulesPair) genUniqGroupNames() {
-	aNames := make(map[string]bool)
-	for _, g := range ab.a.vsys.AddressGroups {
-		aNames[g.Name] = true
-	}
+	aGroups := ab.a.groups
 	for _, g := range ab.b.vsys.AddressGroups {
 		name := g.Name
-		if !aNames[name] {
+		if aGroups[name] == nil {
 			continue
 		}
 		for i := 1; ; i++ {
 			new := fmt.Sprintf("%s-%d", name, i)
-			if !aNames[new] {
+			if aGroups[new] == nil {
 				g.Name = new
 				break
 			}
