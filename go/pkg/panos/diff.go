@@ -3,8 +3,8 @@ package panos
 import (
 	"fmt"
 	"github.com/pkg/diff/myers"
+	"regexp"
 	"sort"
-	"strings"
 )
 
 func diffConfig(a, b *panVsys, vsysPath string) ([]string, error) {
@@ -253,23 +253,47 @@ func (ab *rulesPair) markAddresses(l []string) error {
 			if err := ab.markAddresses(g.Members); err != nil {
 				return fmt.Errorf("%v of addressgroup %s", err, name)
 			}
-		} else if a := ab.a.addresses[name]; a != nil {
-			ok, err := isValidAddress(a)
-			if err != nil {
-				return err
-			}
-			if ok {
-				a.needed = true
-				continue
-			}
-		} else if a := ab.b.addresses[name]; a != nil {
-			a.needed = true
-		} else {
+			continue
+		}
+		aB := ab.b.addresses[name]
+		if aB == nil {
 			return fmt.Errorf("Referencing unknown object '%s' in Netspoc config",
 				name)
 		}
+		if aA := ab.a.addresses[name]; aA != nil && addressEq(aA, aB) {
+			aA.needed = true
+		} else {
+			aB.needed = true
+		}
 	}
 	return nil
+}
+
+func addressEq(a, b *panAddress) bool {
+	return a.IpNetmask == b.IpNetmask && unknownEq(a.Unknown, b.Unknown)
+}
+
+func unknownEq(a, b []AnyHolder) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, uA := range a {
+		uB := b[i]
+		if uA.XMLName != uB.XMLName || !xmlEq(uA.XML, uB.XML) {
+			return false
+		}
+	}
+	return true
+}
+
+func xmlEq(a, b string) bool {
+	re1 := regexp.MustCompile(`>\s+`)
+	re2 := regexp.MustCompile(`\s+<`)
+	a = re1.ReplaceAllString(a, ">")
+	a = re2.ReplaceAllString(a, "<")
+	b = re1.ReplaceAllString(b, ">")
+	b = re2.ReplaceAllString(b, "<")
+	return a == b
 }
 
 func (ab *rulesPair) markServices(l []string) error {
@@ -277,24 +301,34 @@ func (ab *rulesPair) markServices(l []string) error {
 		if name == "any" {
 			continue
 		}
-		if s := ab.a.services[name]; s != nil {
-			ok, err := isValidService(s)
-			if err != nil {
-				return err
-			}
-			if ok {
-				s.needed = true
-				continue
-			}
-		}
-		if s := ab.b.services[name]; s != nil {
-			s.needed = true
-		} else {
+		sB := ab.b.services[name]
+		if sB == nil {
 			return fmt.Errorf("Referencing unknown service '%s' in Netspoc config",
 				name)
 		}
+		if sA := ab.a.services[name]; sA != nil && serviceEq(sA, sB) {
+			sA.needed = true
+		} else {
+			sB.needed = true
+		}
 	}
 	return nil
+}
+
+func serviceEq(a, b *panService) bool {
+	return protocolEq(a.Protocol, b.Protocol) && unknownEq(a.Unknown, b.Unknown)
+}
+
+func protocolEq(a, b panProtocol) bool {
+	return portEq(a.TCP, b.TCP) && portEq(a.UDP, b.UDP) &&
+		unknownEq(a.Unknown, b.Unknown)
+}
+
+func portEq(a, b *panPort) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Port == b.Port && unknownEq(a.Unknown, b.Unknown)
 }
 
 // Transfer objects from b, that are needed in a.
@@ -363,46 +397,6 @@ func (ab *rulesPair) removeUnneededObjects(vsysPath string) []string {
 		}
 	}
 	return result
-}
-
-func isValidAddress(a *panAddress) (bool, error) {
-	if a.invalid {
-		return false, nil
-	}
-	parts := strings.SplitN(a.Name, "_", 2)
-	if len(parts) != 2 || !(parts[0] == "IP" || parts[0] == "NET") {
-		a.invalid = true
-		return false, fmt.Errorf("Address '%s' from Netspoc has invalid name",
-			a.Name)
-	}
-	var ip string
-	switch parts[0] {
-	case "IP":
-		ip = parts[1] + "/32"
-	case "NET":
-		ip = strings.Replace(parts[1], "_", "/", 1)
-	}
-	a.invalid = a.IpNetmask != ip || len(a.Unknown) != 0
-	return !a.invalid, nil
-}
-
-func isValidService(s *panService) (bool, error) {
-	if s.invalid {
-		return false, nil
-	}
-	parts := strings.Split(s.Name, " ")
-	l := len(parts)
-	if !(l == 2 || l == 1) || !(parts[0] == "tcp" || parts[0] == "udp") {
-		s.invalid = true
-		return false, fmt.Errorf("Service '%s' from Netspoc has invalid name",
-			s.Name)
-	}
-	v := s.Name
-	if l == 1 {
-		v += " 1-65535"
-	}
-	s.invalid = v != s.Value || len(s.Unknown) != 0
-	return !s.invalid, nil
 }
 
 type addrListPair struct {

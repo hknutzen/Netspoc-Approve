@@ -700,23 +700,14 @@ action=delete&type=config&
 [[services
 - {proto: tcp, port: 80}
 ]]
-[[postfix]]
 =END=
 
-############################################################
-=TITLE=Add rules from raw
-=DEVICE=
-[[identical]]
-=NETSPOC=
--- router
-[[identical]]
--- router.raw
-[[prefix vsys2]]
+=TEMPL=raw
 [[rules
 - name: raw1
   from: z1
   to:   z2
-  src: [IP_10.1.1.2]
+  src: [RANGE_10.1.1.3-7]
   dst: [NET_10.1.2.0_24]
   srv: [tcp 81]
 - name: raw-log1
@@ -736,12 +727,26 @@ action=delete&type=config&
   srv: [any]
   extra: "<log-setting>TDC-Panorama</log-setting><APPEND/>"
 ]]
-[[addresses
-- {name: IP_10.1.1.2, ip: 10.1.1.1/32}
-]]
+<address>
+<entry name="RANGE_10.1.1.3-7"><ip-range>10.1.1.3-10.1.1.7</ip-range></entry>
+</address>
 [[services
 - {proto: tcp, port: 81}
 ]]
+=END=
+
+############################################################
+=TITLE=Add rules from raw
+=DEVICE=
+[[identical]]
+[[postfix]]
+=NETSPOC=
+-- router
+[[identical]]
+[[postfix]]
+-- router.raw
+[[prefix vsys2]]
+[[raw]]
 [[postfix]]
 =OUTPUT=
 action=set&type=config&
@@ -751,7 +756,7 @@ action=set&type=config&
   <action>allow</action>
   <from><member>z1</member></from>
   <to><member>z2</member></to>
-  <source><member>IP_10.1.1.2</member></source>
+  <source><member>RANGE_10.1.1.3-7</member></source>
   <destination><member>NET_10.1.2.0_24</member></destination>
   <service><member>tcp 81</member></service>
   <application><member>any</member></application>
@@ -802,8 +807,8 @@ action=move&type=config&
  where=before&dst=r4
 action=set&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.2']&
- element=<ip-netmask>10.1.1.1/32</ip-netmask>
+  /vsys/entry[@name='vsys2']/address/entry[@name='RANGE_10.1.1.3-7']&
+ element=<ip-range>10.1.1.3-10.1.1.7</ip-range>
 action=set&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/service/entry[@name='tcp 81']&
@@ -811,13 +816,92 @@ action=set&type=config&
 =END=
 
 ############################################################
-=TITLE=Append rule with multiple zones from raw
-#=TODO=1
+=TITLE=Recognize rules from raw already on device
 =DEVICE=
-[[identical]]
+[[prefix vsys2]]
+[[rules
+- name: raw1
+  from: z1
+  to:   z2
+  src: [RANGE_10.1.1.3-7]
+  dst: [NET_10.1.2.0_24]
+  srv: [tcp 81]
+- name: r1
+  from: z1
+  to:   z2
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [tcp 80]
+- name: raw-log1
+  from: z1
+  to:   z2
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [any]
+  extra: "<log-setting>TDC-Panorama</log-setting>"
+- name: r2
+  from: z1
+  to:   z2
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [any]
+- name: r3
+  from: z2
+  to:   z1
+  src:  [NET_10.1.2.0_24]
+  dst:  [IP_10.1.1.1]
+  srv: [tcp 80]
+- name: raw-log2
+  from: z2
+  to:   z1
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [any]
+  extra: "<log-setting>TDC-Panorama</log-setting>"
+- name: r4
+  from: z2
+  to:   z1
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [any]
+]]
+[[addresses
+- {name: IP_10.1.1.1, ip: 10.1.1.1/32}
+- {name: NET_10.1.2.0_24, ip: 10.1.2.0/24}
+]]
+[[services
+- {proto: tcp, port: 80}
+- {proto: tcp, port: 81}
+]]
+<address>
+ <entry name="RANGE_10.1.1.3-7">
+  <ip-range>10.1.1.3-10.1.1.7</ip-range>
+ </entry>
+</address>
+[[postfix]]
 =NETSPOC=
 -- router
 [[identical]]
+[[postfix]]
+-- router.raw
+[[prefix vsys2]]
+[[raw]]
+[[postfix]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Append rule with multiple zones from raw
+=DEVICE=
+[[identical]]
+[[postfix]]
+=NETSPOC=
+-- router
+[[identical]]
+[[postfix]]
 -- router.raw
 [[prefix vsys2]]
 [[rules
@@ -835,13 +919,14 @@ Error: Must not use rule 'raw1' with multiple zones in From/To in raw
 =END=
 
 ############################################################
-=TITLE=Append to unknown From/to pair from raw
-#=TODO=1
+=TITLE=Append to unknown from/to pair from raw
 =DEVICE=
 [[identical]]
+[[postfix]]
 =NETSPOC=
 -- router
 [[identical]]
+[[postfix]]
 -- router.raw
 [[prefix vsys2]]
 [[rules

@@ -3,8 +3,6 @@ package panos
 import (
 	"bytes"
 	"encoding/xml"
-	"fmt"
-	"strings"
 )
 
 func parseXML(data []byte) (*PanConfig, error) {
@@ -63,10 +61,10 @@ type panAddress struct {
 	Name      string   `xml:"name,attr"`
 	IpNetmask string   `xml:"ip-netmask,omitempty"`
 	//IpRange   string      `xml:"ip-range,omitempty"`
-	Tag     string      `xml:"tag,omitempty"`
+	//Tag     string      `xml:"tag,omitempty"`
 	Unknown []AnyHolder `xml:",any"`
-	invalid bool
-	needed  bool
+	//invalid bool
+	needed bool
 }
 
 type panAddressGroup struct {
@@ -79,88 +77,27 @@ type panAddressGroup struct {
 }
 
 type panService struct {
-	XMLName xml.Name `xml:"entry"`
-	Name    string   `xml:"name,attr"`
-	Value   string
-	Unknown []AnyHolder
-	invalid bool
-	needed  bool
+	XMLName  xml.Name    `xml:"entry"`
+	Name     string      `xml:"name,attr"`
+	Protocol panProtocol `xml:"protocol"`
+	Unknown  []AnyHolder `xml:",any"`
+	//invalid  bool
+	needed bool
 }
 
-type rawService struct {
-	Name     string       `xml:"name,attr"`
-	Protocol *rawProtocol `xml:"protocol"`
-	Unknown  []AnyHolder  `xml:",any"`
-}
-
-type rawProtocol struct {
-	TCP     *rawPort    `xml:"tcp"`
-	UDP     *rawPort    `xml:"udp"`
+type panProtocol struct {
+	TCP     *panPort    `xml:"tcp"`
+	UDP     *panPort    `xml:"udp"`
 	Unknown []AnyHolder `xml:",any"`
 }
-type rawPort struct {
-	Port string `xml:"port"`
-	//Override struct{}    `xml:"override,omitempty"`
+type panPort struct {
+	Port    string      `xml:"port"`
 	Unknown []AnyHolder `xml:",any"`
 }
 
 type AnyHolder struct {
 	XMLName xml.Name
 	XML     string `xml:",innerxml"`
-}
-
-func (v *panService) UnmarshalXML(
-	d *xml.Decoder, start xml.StartElement) error {
-
-	s := new(rawService)
-	if err := d.DecodeElement(s, &start); err != nil {
-		return err
-	}
-
-	value := ""
-	unknown := s.Unknown
-	p := s.Protocol
-	unknown = append(unknown, p.Unknown...)
-	if t := p.TCP; t != nil {
-		unknown = append(unknown, t.Unknown...)
-		if port := t.Port; port != "" {
-			value = "tcp " + port
-		}
-	}
-	if u := p.UDP; u != nil {
-		unknown = append(unknown, u.Unknown...)
-		if port := u.Port; port != "" {
-			if value != "" {
-				return fmt.Errorf("Must not use both tcp and udp in %s", start)
-			}
-			value = "udp " + port
-		}
-	}
-	if value == "" && unknown == nil {
-		return fmt.Errorf("Expected tcp or udp in %v", start)
-	}
-	*v = panService{Name: s.Name, Value: value, Unknown: unknown}
-
-	return nil
-}
-
-func (v *panService) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	s := new(rawService)
-	s.Name = v.Name
-	p := new(rawProtocol)
-	s.Protocol = p
-	val := v.Value
-	i := strings.Index(val, " ")
-	proto := val[:i]
-	port := val[i+1:]
-	pr := &rawPort{Port: port}
-	switch proto {
-	case "tcp":
-		p.TCP = pr
-	case "udp":
-		p.UDP = pr
-	}
-	return e.EncodeElement(s, start)
 }
 
 // Print only value of object as XML, strip outer opening and closing tags.
