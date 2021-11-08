@@ -5,6 +5,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/spf13/pflag"
 	"os"
+	"regexp"
 )
 
 type state struct {
@@ -137,6 +138,12 @@ func mergeRaw(c, r *PanConfig) error {
 		}
 		bot := make(map[zones][]*panRule)
 		for _, r := range v2.Rules {
+			re := regexp.MustCompile(`^r\d`)
+			if re.MatchString(r.Name) {
+				return fmt.Errorf(
+					"Must not use rule name starting with 'r<NUM>' in raw: %s",
+					r.Name)
+			}
 			if r.Append == nil {
 				top = append(top, r)
 			} else {

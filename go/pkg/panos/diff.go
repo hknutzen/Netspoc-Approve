@@ -94,7 +94,8 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		a.LogStart == b.LogStart &&
 		a.LogEnd == b.LogEnd &&
 		a.LogSetting == b.LogSetting &&
-		a.RuleType == b.RuleType
+		a.RuleType == b.RuleType &&
+		unknownEq(a.Unknown, b.Unknown)
 
 }
 

@@ -942,3 +942,30 @@ Error: Must not use rule 'raw1' with multiple zones in From/To in raw
 =ERROR=
 Error: Can't APPEND to unknown rule with From=z0, To=z2
 =END=
+
+############################################################
+=TITLE=Prevent name clash of rule from raw
+=DEVICE=
+[[prefix vsys2]]
+[[postfix]]
+=NETSPOC=
+-- router
+[[prefix vsys2]]
+[[postfix]]
+-- router.raw
+[[prefix vsys2]]
+[[rules
+- name: r3-2-1
+  from: z0
+  to: z2
+  src: [any]
+  dst: [NET_10.1.2.0_24]
+  srv: [any]
+]]
+[[addresses
+- {name: NET_10.1.2.0_24, ip: 10.1.2.0/24}
+]]
+[[postfix]]
+=ERROR=
+Error: Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
+=END=
