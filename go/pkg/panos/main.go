@@ -82,13 +82,13 @@ func (s *state) compareFiles(path1, path2 string) int {
 }
 
 func loadSpoc(path string) (*PanConfig, error) {
-	conf, err := getConfig(path)
+	conf, err := loadSpocFile(path)
 	if err != nil {
 		return nil, err
 	}
 	rawPath := path + ".raw"
 	if _, err := os.Stat(rawPath); err == nil {
-		raw, err := getConfig(rawPath)
+		raw, err := loadSpocFile(rawPath)
 		if err != nil {
 			return nil, err
 		}
@@ -98,7 +98,7 @@ func loadSpoc(path string) (*PanConfig, error) {
 	}
 }
 
-func getConfig(path string) (*PanConfig, error) {
+func loadSpocFile(path string) (*PanConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("Can't %v", err)
@@ -129,7 +129,7 @@ func mergeRaw(c, r *PanConfig) error {
 		// Add rules.
 		// Rules are prepended per default.
 		// Rules with attribute <APPEND> are appended,
-		// but before last "drop" rule with same From/to pair.
+		// but before last "drop" rule with same From/To pair.
 		// Analyze From/To pairs.
 		var top []*panRule
 		type zones struct {
