@@ -969,3 +969,57 @@ Error: Can't APPEND to unknown rule with From=z0, To=z2
 =ERROR=
 Error: Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
 =END=
+
+############################################################
+=TITLE=Ignore extra attributes with <member>any</member> in rule from device
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [any]
+  extra: "<category><member>any</member></category><destination-hip><member>any</member></destination-hip>"
+]]
+[[addresses
+- {name: IP_10.1.1.1, ip: 10.1.1.1/32}
+- {name: NET_10.1.2.0_24, ip: 10.1.2.0/24}
+]]
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [any]
+  extra: "<source-hip><member>any</member></source-hip><source-user><member>foo</member></source-user>"
+]]
+[[addresses
+- {name: IP_10.1.1.1, ip: 10.1.1.1/32}
+- {name: NET_10.1.2.0_24, ip: 10.1.2.0/24}
+]]
+[[postfix]]
+=OUTPUT=
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1-1']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>IP_10.1.1.1</member></source>
+  <destination><member>NET_10.1.2.0_24</member></destination>
+  <service><member>any</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start><log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+  <source-user><member>foo</member></source-user>
+=END=

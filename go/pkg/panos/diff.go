@@ -228,15 +228,6 @@ func (ab *rulesPair) markObjects(l []*panRule) error {
 		if err := ab.markServices(ru.Service); err != nil {
 			return fmt.Errorf("%v in service of rule %s", err, ru.Name)
 		}
-		if a := ru.Application; len(a) != 1 || a[0] != "any" {
-			return fmt.Errorf(
-				"Unexpected values %v in attribute <application> of rule %s",
-				a, ru.Name)
-		}
-		if u := ru.Unknown; len(u) != 0 {
-			return fmt.Errorf("Unexpected attributes %v in rule %s",
-				u, ru.Name)
-		}
 	}
 	return nil
 }

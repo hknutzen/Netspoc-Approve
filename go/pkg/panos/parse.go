@@ -34,20 +34,20 @@ type panVsys struct {
 }
 
 type panRule struct {
-	XMLName     xml.Name    `xml:"entry"`
-	Name        string      `xml:"name,attr"`
-	Action      string      `xml:"action"`
-	From        []string    `xml:"from>member"`
-	To          []string    `xml:"to>member"`
-	Source      []string    `xml:"source>member"`
-	Destination []string    `xml:"destination>member"`
-	Service     []string    `xml:"service>member"`
-	Application []string    `xml:"application>member"`
-	LogStart    string      `xml:"log-start"`
-	LogEnd      string      `xml:"log-end"`
-	LogSetting  string      `xml:"log-setting,omitempty"`
-	RuleType    string      `xml:"rule-type"`
-	Unknown     []AnyHolder `xml:",any"`
+	XMLName     xml.Name `xml:"entry"`
+	Name        string   `xml:"name,attr"`
+	Action      string   `xml:"action"`
+	From        []string `xml:"from>member"`
+	To          []string `xml:"to>member"`
+	Source      []string `xml:"source>member"`
+	Destination []string `xml:"destination>member"`
+	Service     []string `xml:"service>member"`
+	Application []string `xml:"application>member"`
+	LogStart    string   `xml:"log-start"`
+	LogEnd      string   `xml:"log-end"`
+	LogSetting  string   `xml:"log-setting,omitempty"`
+	RuleType    string   `xml:"rule-type"`
+	Unknown     RuleAttr `xml:",any"`
 	// Artifical attribute in raw files
 	Append *struct{} `xml:"APPEND,omitempty"`
 }
@@ -98,6 +98,25 @@ type panPort struct {
 type AnyHolder struct {
 	XMLName xml.Name
 	XML     string `xml:",innerxml"`
+}
+
+type RuleAttr []AnyHolder
+
+// Ignore attributes <source-user>, <category>, <source-hip>, <destination-hip>
+// if value is <member>any</member>.
+func (s *RuleAttr) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	var x []AnyHolder
+	d.DecodeElement(&x, &start)
+	for _, attr := range x {
+		switch attr.XMLName.Local {
+		case "source-user", "category", "source-hip", "destination-hip":
+			if attr.XML == "<member>any</member>" {
+				continue
+			}
+		}
+		*s = append(*s, attr)
+	}
+	return nil
 }
 
 // Print only value of object as XML, strip outer opening and closing tags.
