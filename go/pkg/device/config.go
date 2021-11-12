@@ -32,8 +32,8 @@ type Config struct {
 	checkBanner    *regexp.Regexp
 	aaaCredentials string
 	systemUser     string
-	timeout        int
-	loginTimeout   int
+	Timeout        int
+	LoginTimeout   int
 	keepHistory    int
 	compressAt     int
 }
@@ -92,9 +92,9 @@ func LoadConfig() *Config {
 		case "systemuser":
 			c.systemUser = val
 		case "timeout":
-			c.timeout = getInt()
+			c.Timeout = getInt()
 		case "login_timeout":
-			c.loginTimeout = getInt()
+			c.LoginTimeout = getInt()
 		case "keep_history":
 			c.keepHistory = getInt()
 		case "compress_at":

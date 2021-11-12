@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/spf13/pflag"
+	"net/http"
 	"os"
 	"regexp"
+	"strings"
 )
 
 type state struct {
-	compare bool
-	config  *device.Config
+	config     *device.Config
+	devName    string
+	httpClient *http.Client
+	urlPrefix  string
 }
 
 func Main() int {
@@ -38,7 +42,6 @@ func Main() int {
 
 	s := new(state)
 	s.config = device.LoadConfig()
-	s.compare = *compare
 
 	// Argument processing
 	args := fs.Args()
@@ -50,12 +53,12 @@ func Main() int {
 		return 1
 	case 2:
 		return s.compareFiles(args[0], args[1])
-		/*case 1:
+	case 1:
 		if *compare {
 			return s.compare(args[0])
 		} else {
-			return s.approve(args[0])
-		}*/
+			return 0 //s.approve(args[0])
+		}
 	}
 }
 
@@ -65,20 +68,59 @@ func (s *state) compareFiles(path1, path2 string) int {
 		showErr("%v", err)
 		return 1
 	}
-	conf2, err := loadSpoc(path2)
+	return s.compareWith(conf1, path2)
+}
+
+func (s *state) compare(path string) int {
+	conf1, err := s.loadDevice(path)
 	if err != nil {
 		showErr("%v", err)
 		return 1
 	}
-	cmds, err := s.compareCommon(conf1, conf2)
+	return s.compareWith(conf1, path)
+}
+
+func (s *state) compareWith(conf1 *PanConfig, path string) int {
+	conf2, err := loadSpoc(path)
 	if err != nil {
 		showErr("%v", err)
+		return 1
+	}
+	cmds, err := getChanges(conf1, conf2)
+	if err != nil {
+		showErr("%v", err)
+		return 1
+	}
+	if !s.devNameOK(conf1) {
 		return 1
 	}
 	for _, c := range cmds {
 		fmt.Println(c)
 	}
 	return 0
+}
+
+func getChanges(c1, c2 *PanConfig) ([]string, error) {
+	var cmds []string
+	err := processVsysPairs(c1, c2, func(v1, v2 *panVsys) error {
+		if v1 == nil {
+			return fmt.Errorf(
+				"Unknown name '%s' in VSYS of device configuration", v2.Name)
+		}
+		if v2 == nil {
+			return nil
+		}
+		device := c1.Entries[0].Name
+		devicePath := "/config/devices/entry" + nameAttr(device)
+		xPath := devicePath + "/vsys/entry" + nameAttr(v2.Name)
+		l, err := diffConfig(v1, v2, xPath)
+		if err != nil {
+			return fmt.Errorf("%v of vsys '%s'", err, v2.Name)
+		}
+		cmds = append(cmds, l...)
+		return nil
+	})
+	return cmds, err
 }
 
 func loadSpoc(path string) (*PanConfig, error) {
@@ -108,6 +150,30 @@ func loadSpocFile(path string) (*PanConfig, error) {
 		return nil, fmt.Errorf("Can't parse %s: %v", path, err)
 	}
 	return c, nil
+}
+
+func getHostnameIPList(path string) ([]string, []string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Can't %v", err)
+	}
+	reName := regexp.MustCompile(`/\[ BEGIN (.+) ]/`)
+	reIP := regexp.MustCompile(`/\[ IP = (.+) ]/`)
+	names := string(reName.Find(data))
+	ips := string(reIP.Find(data))
+	nameList := strings.Split(names, ", ")
+	if nameList == nil {
+		return nil, nil, fmt.Errorf("Missing device name in %s", path)
+	}
+	ipList := strings.Split(ips, ", ")
+	if ipList == nil {
+		return nil, nil, fmt.Errorf("Missing IP address in %s", path)
+	}
+	if len(nameList) != len(ipList) {
+		return nil, nil, fmt.Errorf(
+			"Number of device names and IP addresses don't match in %s", path)
+	}
+	return nameList, ipList, nil
 }
 
 func mergeRaw(c, r *PanConfig) error {
@@ -184,29 +250,6 @@ func mergeRaw(c, r *PanConfig) error {
 	})
 }
 
-func (s *state) compareCommon(c1, c2 *PanConfig) ([]string, error) {
-	var cmds []string
-	err := processVsysPairs(c1, c2, func(v1, v2 *panVsys) error {
-		if v1 == nil {
-			return fmt.Errorf(
-				"Unknown name '%s' in VSYS of device configuration", v2.Name)
-		}
-		if v2 == nil {
-			return nil
-		}
-		device := c1.Entries[0].Name
-		devicePath := "/config/devices/entry" + nameAttr(device)
-		xPath := devicePath + "/vsys/entry" + nameAttr(v2.Name)
-		l, err := diffConfig(v1, v2, xPath)
-		if err != nil {
-			return fmt.Errorf("%v of vsys '%s'", err, v2.Name)
-		}
-		cmds = append(cmds, l...)
-		return nil
-	})
-	return cmds, err
-}
-
 func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 	getDevVsysMap := func(c *PanConfig) (*panDevice, map[string]*panVsys, error) {
 		l := c.Entries
@@ -240,7 +283,7 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 		return err
 	}
 	if d1.Name != "" && d2.Name != "" && d1.Name != d2.Name {
-		return fmt.Errorf("Different device names: %s='%s', %s='%s'",
+		return fmt.Errorf("Different names in <device> of XML: %s='%s', %s='%s'",
 			c1.source, d1.Name, c2.source, d2.Name)
 	}
 	for _, v1 := range d1.Vsys {
@@ -257,6 +300,17 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 		}
 	}
 	return nil
+}
+
+func (s *state) devNameOK(conf *PanConfig) bool {
+	if s.devName != "" {
+		name := conf.Entries[0].Hostname
+		if name != s.devName {
+			showErr("Wrong device name: %s, expected: %s", name, s.devName)
+			return false
+		}
+	}
+	return true
 }
 
 func nameAttr(n string) string {

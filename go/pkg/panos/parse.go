@@ -21,8 +21,9 @@ type PanConfig struct {
 }
 
 type panDevice struct {
-	Name string     `xml:"name,attr"`
-	Vsys []*panVsys `xml:"vsys>entry"`
+	Name     string     `xml:"name,attr"`
+	Hostname string     `xml:"deviceconfig>system>hostname"`
+	Vsys     []*panVsys `xml:"vsys>entry"`
 }
 
 type panVsys struct {
@@ -57,14 +58,11 @@ type panMembers struct {
 }
 
 type panAddress struct {
-	XMLName   xml.Name `xml:"entry"`
-	Name      string   `xml:"name,attr"`
-	IpNetmask string   `xml:"ip-netmask,omitempty"`
-	//IpRange   string      `xml:"ip-range,omitempty"`
-	//Tag     string      `xml:"tag,omitempty"`
-	Unknown []AnyHolder `xml:",any"`
-	//invalid bool
-	needed bool
+	XMLName   xml.Name    `xml:"entry"`
+	Name      string      `xml:"name,attr"`
+	IpNetmask string      `xml:"ip-netmask,omitempty"`
+	Unknown   []AnyHolder `xml:",any"`
+	needed    bool
 }
 
 type panAddressGroup struct {
@@ -81,8 +79,7 @@ type panService struct {
 	Name     string      `xml:"name,attr"`
 	Protocol panProtocol `xml:"protocol"`
 	Unknown  []AnyHolder `xml:",any"`
-	//invalid  bool
-	needed bool
+	needed   bool
 }
 
 type panProtocol struct {

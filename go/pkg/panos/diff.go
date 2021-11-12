@@ -89,7 +89,7 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		stringsEq(a.To, b.To) &&
 		ab.objectsEq(a.Source, b.Source) &&
 		ab.objectsEq(a.Destination, b.Destination) &&
-		stringsEq(a.Service, b.Service) &&
+		ab.servicesEq(a.Service, b.Service) &&
 		stringsEq(a.Application, b.Application) &&
 		a.LogStart == b.LogStart &&
 		a.LogEnd == b.LogEnd &&
@@ -175,8 +175,14 @@ func (ab *rulesPair) servicesEq(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	for i, s := range a {
-		if s != b[i] {
+	for i, aName := range a {
+		bName := b[i]
+		if aName == bName && (aName == "any" || aName == "application-default") {
+			continue
+		}
+		sA := ab.a.services[aName]
+		sB := ab.b.services[bName]
+		if sA == nil || !serviceEq(sA, sB) {
 			return false
 		}
 	}
@@ -290,7 +296,7 @@ func xmlEq(a, b string) bool {
 
 func (ab *rulesPair) markServices(l []string) error {
 	for _, name := range l {
-		if name == "any" {
+		if name == "any" || name == "application-default" {
 			continue
 		}
 		sB := ab.b.services[name]
