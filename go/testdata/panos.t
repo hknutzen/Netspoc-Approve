@@ -981,7 +981,7 @@ Error: Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
   src: [IP_10.1.1.1]
   dst: [NET_10.1.2.0_24]
   srv: [any]
-  extra: "<category><member>any</member></category><destination-hip><member>any</member></destination-hip>"
+  extra: <category><member>any</member></category><destination-hip><member>any</member></destination-hip>"
 ]]
 [[addresses
 - {name: IP_10.1.1.1, ip: 10.1.1.1/32}
@@ -997,7 +997,14 @@ Error: Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
   src: [IP_10.1.1.1]
   dst: [NET_10.1.2.0_24]
   srv: [any]
-  extra: "<source-hip><member>any</member></source-hip><source-user><member>foo</member></source-user>"
+  extra: |
+    <source-hip>
+     <member>any</member>
+    </source-hip>
+
+    <source-user>
+     <member>foo</member>
+    </source-user>
 ]]
 [[addresses
 - {name: IP_10.1.1.1, ip: 10.1.1.1/32}

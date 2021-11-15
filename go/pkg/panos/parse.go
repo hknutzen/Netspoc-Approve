@@ -3,15 +3,32 @@ package panos
 import (
 	"bytes"
 	"encoding/xml"
+	"fmt"
+	"regexp"
 )
 
-func parseXML(data []byte) (*PanConfig, error) {
-	v := new(PanConfig)
+func parseResponse(data []byte) (*PanConfig, error) {
+	v := new(PanResponse)
 	err := xml.Unmarshal(data, v)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Parsing response: %v", err)
 	}
-	return v, nil
+	if v.Status != "success" {
+		return nil, fmt.Errorf("Request failed with status: %s", v.Status)
+	}
+	return v.Config, nil
+}
+
+func parseConfig(data []byte) (*PanConfig, error) {
+	v := new(PanConfig)
+	err := xml.Unmarshal(data, v)
+	return v, err
+}
+
+type PanResponse struct {
+	XMLName xml.Name   `xml:"response"`
+	Status  string     `xml:"status,attr"`
+	Config  *PanConfig `xml:"result>config"`
 }
 
 type PanConfig struct {
@@ -58,18 +75,18 @@ type panMembers struct {
 }
 
 type panAddress struct {
-	XMLName   xml.Name    `xml:"entry"`
-	Name      string      `xml:"name,attr"`
-	IpNetmask string      `xml:"ip-netmask,omitempty"`
-	Unknown   []AnyHolder `xml:",any"`
+	XMLName   xml.Name  `xml:"entry"`
+	Name      string    `xml:"name,attr"`
+	IpNetmask string    `xml:"ip-netmask,omitempty"`
+	Unknown   OtherAttr `xml:",any"`
 	needed    bool
 }
 
 type panAddressGroup struct {
-	XMLName      xml.Name    `xml:"entry"`
-	Name         string      `xml:"name,attr"`
-	Members      []string    `xml:"static>member"`
-	Unknown      []AnyHolder `xml:",any"`
+	XMLName      xml.Name  `xml:"entry"`
+	Name         string    `xml:"name,attr"`
+	Members      []string  `xml:"static>member"`
+	Unknown      OtherAttr `xml:",any"`
 	needed       bool
 	nameOnDevice string
 }
@@ -78,18 +95,18 @@ type panService struct {
 	XMLName  xml.Name    `xml:"entry"`
 	Name     string      `xml:"name,attr"`
 	Protocol panProtocol `xml:"protocol"`
-	Unknown  []AnyHolder `xml:",any"`
+	Unknown  OtherAttr   `xml:",any"`
 	needed   bool
 }
 
 type panProtocol struct {
-	TCP     *panPort    `xml:"tcp"`
-	UDP     *panPort    `xml:"udp"`
-	Unknown []AnyHolder `xml:",any"`
+	TCP     *panPort  `xml:"tcp"`
+	UDP     *panPort  `xml:"udp"`
+	Unknown OtherAttr `xml:",any"`
 }
 type panPort struct {
-	Port    string      `xml:"port"`
-	Unknown []AnyHolder `xml:",any"`
+	Port    string    `xml:"port"`
+	Unknown OtherAttr `xml:",any"`
 }
 
 type AnyHolder struct {
@@ -97,12 +114,24 @@ type AnyHolder struct {
 	XML     string `xml:",innerxml"`
 }
 
+type OtherAttr []AnyHolder
+
+func (s *OtherAttr) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	var x []AnyHolder
+	d.DecodeElement(&x, &start)
+	for _, attr := range x {
+		attr.XML = stripWhitespace(attr.XML)
+		*s = append(*s, attr)
+	}
+	return nil
+}
+
 type RuleAttr []AnyHolder
 
 // Ignore attributes <source-user>, <category>, <source-hip>, <destination-hip>
 // if value is <member>any</member>.
 func (s *RuleAttr) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	var x []AnyHolder
+	var x OtherAttr
 	d.DecodeElement(&x, &start)
 	for _, attr := range x {
 		switch attr.XMLName.Local {
@@ -114,6 +143,14 @@ func (s *RuleAttr) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 		*s = append(*s, attr)
 	}
 	return nil
+}
+
+func stripWhitespace(s string) string {
+	re1 := regexp.MustCompile(`>\s+`)
+	re2 := regexp.MustCompile(`\s+<`)
+	s = re1.ReplaceAllString(s, ">")
+	s = re2.ReplaceAllString(s, "<")
+	return s
 }
 
 // Print only value of object as XML, strip outer opening and closing tags.

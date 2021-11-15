@@ -1,6 +1,7 @@
 package panos
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -25,6 +26,7 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 				// backup device.
 				Timeout: time.Duration(s.config.LoginTimeout) * time.Second,
 			}).Dial,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
 	s.httpClient = client
@@ -51,14 +53,14 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf(
-				"Response failed with status code: %d and\nbody: %s\n",
+				"Request failed with status code: %d and\nbody: %s\n",
 				resp.StatusCode, body)
 		}
 		if err != nil {
 			return nil, err
 		}
 		s.devName = name
-		return parseXML(body)
+		return parseResponse(body)
 	}
 	return nil, fmt.Errorf(
 		"Devices are unreachable: %s", strings.Join(nameList, ", "))
@@ -71,8 +73,10 @@ func (s *state) getAPIKey(device string) (string, error) {
 	}
 	if user != "api-key" {
 		return "",
-			fmt.Errorf("Expected user 'api-key' for device %s in aaa_credentials",
-				device)
+			fmt.Errorf(
+				"Expected user 'api-key' not '%s' for device '%s'"+
+					" in aaa_credentials",
+				user, device)
 	}
 	return pass, nil
 }

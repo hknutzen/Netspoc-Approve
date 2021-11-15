@@ -3,7 +3,6 @@ package panos
 import (
 	"fmt"
 	"github.com/pkg/diff/myers"
-	"regexp"
 	"sort"
 )
 
@@ -277,21 +276,11 @@ func unknownEq(a, b []AnyHolder) bool {
 	}
 	for i, uA := range a {
 		uB := b[i]
-		if uA.XMLName != uB.XMLName || !xmlEq(uA.XML, uB.XML) {
+		if uA.XMLName != uB.XMLName || uA.XML != uB.XML {
 			return false
 		}
 	}
 	return true
-}
-
-func xmlEq(a, b string) bool {
-	re1 := regexp.MustCompile(`>\s+`)
-	re2 := regexp.MustCompile(`\s+<`)
-	a = re1.ReplaceAllString(a, ">")
-	a = re2.ReplaceAllString(a, "<")
-	b = re1.ReplaceAllString(b, ">")
-	b = re2.ReplaceAllString(b, "<")
-	return a == b
 }
 
 func (ab *rulesPair) markServices(l []string) error {

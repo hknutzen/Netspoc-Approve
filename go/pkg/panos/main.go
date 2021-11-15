@@ -57,6 +57,7 @@ func Main() int {
 		if *compare {
 			return s.compare(args[0])
 		} else {
+			showErr("Approve not implemented")
 			return 0 //s.approve(args[0])
 		}
 	}
@@ -145,7 +146,7 @@ func loadSpocFile(path string) (*PanConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Can't %v", err)
 	}
-	c, err := parseXML(data)
+	c, err := parseConfig(data)
 	if err != nil {
 		return nil, fmt.Errorf("Can't parse %s: %v", path, err)
 	}
@@ -157,18 +158,24 @@ func getHostnameIPList(path string) ([]string, []string, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("Can't %v", err)
 	}
-	reName := regexp.MustCompile(`/\[ BEGIN (.+) ]/`)
-	reIP := regexp.MustCompile(`/\[ IP = (.+) ]/`)
-	names := string(reName.Find(data))
-	ips := string(reIP.Find(data))
-	nameList := strings.Split(names, ", ")
-	if nameList == nil {
+	reName := regexp.MustCompile(`\[ BEGIN (.+) \]`)
+	reIP := regexp.MustCompile(`\[ IP = (.+) \]`)
+	var names string
+	if l := reName.FindSubmatch(data[:1000]); len(l) > 0 {
+		names = string(l[1])
+	}
+	var ips string
+	if l := reIP.FindSubmatch(data[:1000]); len(l) > 0 {
+		ips = string(l[1])
+	}
+	if names == "" {
 		return nil, nil, fmt.Errorf("Missing device name in %s", path)
 	}
-	ipList := strings.Split(ips, ", ")
-	if ipList == nil {
+	if ips == "" {
 		return nil, nil, fmt.Errorf("Missing IP address in %s", path)
 	}
+	ipList := strings.Split(ips, ", ")
+	nameList := strings.Split(names, ", ")
 	if len(nameList) != len(ipList) {
 		return nil, nil, fmt.Errorf(
 			"Number of device names and IP addresses don't match in %s", path)
