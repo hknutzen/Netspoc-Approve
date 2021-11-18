@@ -146,7 +146,7 @@ func getChanges(c1, c2 *PanConfig) ([]string, error) {
 		if v2 == nil {
 			return nil
 		}
-		device := c1.Entries[0].Name
+		device := c1.Devices.Entries[0].Name
 		devicePath := "/config/devices/entry" + nameAttr(device)
 		xPath := devicePath + "/vsys/entry" + nameAttr(v2.Name)
 		l, err := diffConfig(v1, v2, xPath)
@@ -181,6 +181,7 @@ func loadSpocFile(path string) (*PanConfig, error) {
 		return nil, fmt.Errorf("Can't %v", err)
 	}
 	c, err := parseConfig(data)
+	c.origin = "Netspoc"
 	if err != nil {
 		return nil, fmt.Errorf("Can't parse %s: %v", path, err)
 	}
@@ -222,7 +223,7 @@ func mergeRaw(c, r *PanConfig) error {
 	return processVsysPairs(c, r, func(v1, v2 *panVsys) error {
 		// Add complete vsys from raw.
 		if v1 == nil {
-			d1 := c.Entries[0]
+			d1 := c.Devices.Entries[0]
 			d1.Vsys = append(d1.Vsys, v2)
 			return nil
 		}
@@ -294,10 +295,10 @@ func mergeRaw(c, r *PanConfig) error {
 
 func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 	getDevVsysMap := func(c *PanConfig) (*panDevice, map[string]*panVsys, error) {
-		l := c.Entries
+		l := c.Devices.Entries
 		if len(l) != 1 {
 			return nil, nil, fmt.Errorf(
-				"Expected exactly one device entry in '%s' configuration", c.source)
+				"Expected exactly one device entry in '%s' configuration", c.origin)
 		}
 		d := l[0]
 		m := make(map[string]*panVsys)
@@ -305,12 +306,12 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 			name := v.Name
 			if name == "" {
 				return nil, nil, fmt.Errorf(
-					"Missing name in %d. VSYS of '%s' configuration", c.source, i+1)
+					"Missing name in %d. VSYS of '%s' configuration", c.origin, i+1)
 			}
 			if _, ok := m[name]; ok {
 				return nil, nil, fmt.Errorf(
 					"Duplicate name '%s' in VSYS of '%s' configuration",
-					c.source, name)
+					c.origin, name)
 			}
 			m[name] = v
 		}
@@ -326,7 +327,7 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 	}
 	if d1.Name != "" && d2.Name != "" && d1.Name != d2.Name {
 		return fmt.Errorf("Different names in <device> of XML: %s='%s', %s='%s'",
-			c1.source, d1.Name, c2.source, d2.Name)
+			c1.origin, d1.Name, c2.origin, d2.Name)
 	}
 	for _, v1 := range d1.Vsys {
 		v2 := m2[v1.Name]
@@ -346,7 +347,7 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 
 func (s *state) devNameOK(conf *PanConfig) error {
 	if s.devName != "" {
-		name := conf.Entries[0].Hostname
+		name := conf.Devices.Entries[0].Hostname
 		if name != s.devName {
 			return fmt.Errorf("Wrong device name: %s, expected: %s",
 				name, s.devName)
@@ -383,7 +384,7 @@ func closeLogFH(fh *os.File) {
 	}
 }
 
-var apiRE = regexp.MustCompile(`^(.*[?]key=).*?(&.*)$`)
+var apiRE = regexp.MustCompile(`^(.*[?&]key=).*?(&.*)$`)
 
 func doLog(fh *os.File, t string) {
 	if fh != nil {

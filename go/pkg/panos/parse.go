@@ -8,7 +8,7 @@ import (
 	"regexp"
 )
 
-func parseResponse(data []byte) (*PanConfig, error) {
+func parseResponse(data []byte) ([]byte, error) {
 	v := new(PanResponse)
 	err := xml.Unmarshal(data, v)
 	if err != nil {
@@ -19,7 +19,7 @@ func parseResponse(data []byte) (*PanConfig, error) {
 			"Request failed with response status: %s and\n body %s",
 			v.Status, string(data))
 	}
-	return v.Config, nil
+	return v.Result.XML, nil
 }
 
 func parseConfig(data []byte) (*PanConfig, error) {
@@ -29,15 +29,24 @@ func parseConfig(data []byte) (*PanConfig, error) {
 }
 
 type PanResponse struct {
-	XMLName xml.Name   `xml:"response"`
-	Status  string     `xml:"status,attr"`
-	Config  *PanConfig `xml:"result>config"`
+	XMLName xml.Name  `xml:"response"`
+	Status  string    `xml:"status,attr"`
+	Result  panResult `xml:"result"`
+}
+
+type panResult struct {
+	XML []byte `xml:",innerxml"`
 }
 
 type PanConfig struct {
-	XMLName xml.Name     `xml:"config"`
-	Entries []*panDevice `xml:"devices>entry"`
-	source  string
+	XMLName xml.Name    `xml:"config"`
+	Devices *PanDevices `xml:"devices"`
+	origin  string
+}
+
+type PanDevices struct {
+	XMLName xml.Name     `xml:"devices"`
+	Entries []*panDevice `xml:"entry"`
 }
 
 type panDevice struct {

@@ -2,6 +2,7 @@ package panos
 
 import (
 	"crypto/tls"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -44,7 +45,13 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		ip := ipList[i]
 		prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
 		s.urlPrefix = prefix
-		uri := prefix + "type=config&action=show&xpath=/"
+		// Use "get", not "show", to get candidate configuration.
+		// Must not use active configuration, since candidate may have
+		// been changed already by other user or by interrupted previous
+		// run of this program.
+		// Don't request full "config", but only "devices" part, since
+		// config contains very large predefined application data.
+		uri := prefix + "type=config&action=get&xpath=/config/devices"
 		doLog(logFH, uri)
 		resp, err := client.Get(uri)
 		if err != nil {
@@ -68,10 +75,19 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		return parseResponse(body)
+		data, err := parseResponse(body)
+		if err != nil {
+			return nil, err
+		}
+		d := new(PanDevices)
+		err = xml.Unmarshal(data, d)
+		if err != nil {
+			return nil, err
+		}
+		return &PanConfig{Devices: d, origin: "device"}, nil
 	}
 	return nil, fmt.Errorf(
-		"Devices are unreachable: %s", strings.Join(nameList, ", "))
+		"Devices unreachable: %s", strings.Join(nameList, ", "))
 }
 
 func (s *state) deviceCommands(l []string) error {
