@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"net/url"
 	"regexp"
 )
 
@@ -14,7 +15,9 @@ func parseResponse(data []byte) (*PanConfig, error) {
 		return nil, fmt.Errorf("Parsing response: %v", err)
 	}
 	if v.Status != "success" {
-		return nil, fmt.Errorf("Request failed with status: %s", v.Status)
+		return nil, fmt.Errorf(
+			"Request failed with response status: %s and\n body %s",
+			v.Status, string(data))
 	}
 	return v.Config, nil
 }
@@ -61,10 +64,10 @@ type panRule struct {
 	Destination []string `xml:"destination>member"`
 	Service     []string `xml:"service>member"`
 	Application []string `xml:"application>member"`
-	LogStart    string   `xml:"log-start"`
-	LogEnd      string   `xml:"log-end"`
+	LogStart    string   `xml:"log-start,omitempty"`
+	LogEnd      string   `xml:"log-end,omitempty"`
 	LogSetting  string   `xml:"log-setting,omitempty"`
-	RuleType    string   `xml:"rule-type"`
+	RuleType    string   `xml:"rule-type,omitempty"`
 	Unknown     RuleAttr `xml:",any"`
 	// Artifical attribute in raw files
 	Append *struct{} `xml:"APPEND,omitempty"`
@@ -165,5 +168,5 @@ func printXMLValue(v interface{}) string {
 	i := bytes.Index(b, []byte(">"))
 	j := bytes.LastIndex(b, []byte("<"))
 	b = b[i+1 : j]
-	return string(bytes.TrimSpace(b))
+	return url.QueryEscape(string(bytes.TrimSpace(b)))
 }

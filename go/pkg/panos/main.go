@@ -5,7 +5,9 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/spf13/pflag"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -14,6 +16,7 @@ type state struct {
 	config     *device.Config
 	devName    string
 	httpClient *http.Client
+	logPath    string
 	urlPrefix  string
 }
 
@@ -22,20 +25,23 @@ func Main() int {
 
 	// Setup custom usage function.
 	fs.Usage = func() {
+		prog := path.Base(os.Args[0])
 		fmt.Fprintf(os.Stderr,
-			"Usage: %s [options] FILE1 FILE2\n", os.Args[0])
+			"Usage: %s [options] FILE1\n"+
+				"     : %s FILE1 FILE2\n", prog, prog)
 		fs.PrintDefaults()
 	}
 
 	// Command line flags
 	//quiet := fs.BoolP("quiet", "q", false, "No info messages")
 	compare := fs.BoolP("compare", "C", false, "Compare only")
+	logDir := fs.StringP("logdir", "L", "", "Path for saving session logs")
 	//user := fs.StringP("user", "u", "", "Username for login to remote device")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == pflag.ErrHelp {
 			return 1
 		}
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		fs.Usage()
 		return 1
 	}
@@ -45,6 +51,7 @@ func Main() int {
 
 	// Argument processing
 	args := fs.Args()
+	var err error
 	switch len(args) {
 	case 0:
 		fallthrough
@@ -52,53 +59,81 @@ func Main() int {
 		fs.Usage()
 		return 1
 	case 2:
-		return s.compareFiles(args[0], args[1])
+		if *logDir != "" {
+			fs.Usage()
+			return 1
+		}
+		err = s.compareFiles(args[0], args[1])
 	case 1:
+		path := args[0]
+		s.setLogDir(*logDir, path)
 		if *compare {
-			return s.compare(args[0])
+			err = s.compare(path)
 		} else {
-			showErr("Approve not implemented")
-			return 0 //s.approve(args[0])
+			err = s.approve(path)
 		}
 	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return 1
+	}
+	return 0
 }
 
-func (s *state) compareFiles(path1, path2 string) int {
+func (s *state) compareFiles(path1, path2 string) error {
 	conf1, err := loadSpoc(path1)
 	if err != nil {
-		showErr("%v", err)
-		return 1
+		return err
 	}
-	return s.compareWith(conf1, path2)
+	return s.showCompare(conf1, path2)
 }
 
-func (s *state) compare(path string) int {
+func (s *state) compare(path string) error {
 	conf1, err := s.loadDevice(path)
 	if err != nil {
-		showErr("%v", err)
-		return 1
+		return err
 	}
-	return s.compareWith(conf1, path)
+	return s.showCompare(conf1, path)
 }
 
-func (s *state) compareWith(conf1 *PanConfig, path string) int {
+func (s *state) approve(path string) error {
+	conf1, err := s.loadDevice(path)
+	if err != nil {
+		return err
+	}
+	cmds, err := s.getCompare(conf1, path)
+	if err != nil {
+		return err
+	}
+	return s.deviceCommands(cmds)
+}
+
+func (s *state) showCompare(conf1 *PanConfig, path string) error {
+	cmds, err := s.getCompare(conf1, path)
+	if err != nil {
+		return err
+	}
+	for _, c := range cmds {
+		c, _ = url.QueryUnescape(c)
+		fmt.Println(c)
+	}
+	return nil
+}
+
+func (s *state) getCompare(conf1 *PanConfig, path string) ([]string, error) {
 	conf2, err := loadSpoc(path)
 	if err != nil {
-		showErr("%v", err)
-		return 1
+		return nil, err
 	}
 	cmds, err := getChanges(conf1, conf2)
 	if err != nil {
-		showErr("%v", err)
-		return 1
+		return nil, err
 	}
-	if !s.devNameOK(conf1) {
-		return 1
+	// Check hostname only after config has been validated above.
+	if err := s.devNameOK(conf1); err != nil {
+		return nil, err
 	}
-	for _, c := range cmds {
-		fmt.Println(c)
-	}
-	return 0
+	return cmds, nil
 }
 
 func getChanges(c1, c2 *PanConfig) ([]string, error) {
@@ -136,9 +171,8 @@ func loadSpoc(path string) (*PanConfig, error) {
 			return nil, err
 		}
 		return conf, mergeRaw(conf, raw)
-	} else {
-		return conf, nil
 	}
+	return conf, nil
 }
 
 func loadSpocFile(path string) (*PanConfig, error) {
@@ -160,14 +194,15 @@ func getHostnameIPList(path string) ([]string, []string, error) {
 	}
 	reName := regexp.MustCompile(`\[ BEGIN (.+) \]`)
 	reIP := regexp.MustCompile(`\[ IP = (.+) \]`)
-	var names string
-	if l := reName.FindSubmatch(data[:1000]); len(l) > 0 {
-		names = string(l[1])
+	header := data[:1000]
+	find := func(re *regexp.Regexp) string {
+		if l := re.FindSubmatch(header); l != nil {
+			return string(l[1])
+		}
+		return ""
 	}
-	var ips string
-	if l := reIP.FindSubmatch(data[:1000]); len(l) > 0 {
-		ips = string(l[1])
-	}
+	names := find(reName)
+	ips := find(reIP)
 	if names == "" {
 		return nil, nil, fmt.Errorf("Missing device name in %s", path)
 	}
@@ -309,25 +344,53 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 	return nil
 }
 
-func (s *state) devNameOK(conf *PanConfig) bool {
+func (s *state) devNameOK(conf *PanConfig) error {
 	if s.devName != "" {
 		name := conf.Entries[0].Hostname
 		if name != s.devName {
-			showErr("Wrong device name: %s, expected: %s", name, s.devName)
-			return false
+			return fmt.Errorf("Wrong device name: %s, expected: %s",
+				name, s.devName)
 		}
 	}
-	return true
+	return nil
 }
 
 func nameAttr(n string) string {
-	return "[@name='" + n + "']"
+	return "[@name='" + url.QueryEscape(n) + "']"
 }
 
 func textAttr(n string) string {
-	return "[text()='" + n + "']"
+	return "[text()='" + url.QueryEscape(n) + "']"
 }
 
-func showErr(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
+func (s *state) setLogDir(logDir, file string) {
+	if logDir != "" {
+		s.logPath = path.Join(logDir, path.Base(file))
+	}
+}
+
+func (s *state) getLogFH(ext string) (*os.File, error) {
+	if s.logPath == "" {
+		return nil, nil
+	}
+	file := s.logPath + ext
+	return os.Create(file)
+}
+
+func closeLogFH(fh *os.File) {
+	if fh != nil {
+		fh.Close()
+	}
+}
+
+var apiRE = regexp.MustCompile(`^(.*[?]key=).*?(&.*)$`)
+
+func doLog(fh *os.File, t string) {
+	if fh != nil {
+		if strings.HasPrefix(t, "http") {
+			t = apiRE.ReplaceAllString(t, "$1***$2")
+			t, _ = url.QueryUnescape(t)
+		}
+		fmt.Fprintln(fh, t)
+	}
 }

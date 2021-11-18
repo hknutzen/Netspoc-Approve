@@ -438,7 +438,7 @@ action=set&type=config&
 =END=
 
 ############################################################
-# Used for multiple tests
+# Changed for tests below
 =TEMPL=identical
 [[addresses
 - {name: IP_10.1.1.10, ip: 10.1.1.10/32}
@@ -981,7 +981,13 @@ Error: Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
   src: [IP_10.1.1.1]
   dst: [NET_10.1.2.0_24]
   srv: [any]
-  extra: <category><member>any</member></category><destination-hip><member>any</member></destination-hip>"
+  extra: |
+    <category>
+     <member>any</member>
+    </category>
+    <destination-hip>
+     <member>any</member>
+    </destination-hip>
 ]]
 [[addresses
 - {name: IP_10.1.1.1, ip: 10.1.1.1/32}
@@ -1029,4 +1035,140 @@ action=set&type=config&
   <log-start>yes</log-start><log-end>yes</log-end>
   <rule-type>interzone</rule-type>
   <source-user><member>foo</member></source-user>
+=END=
+
+############################################################
+=TITLE=Delete and insert rules, replace deny rule at end
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [tcp 80]
+- name: r2
+  action: drop
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [tcp 80]
+- name: r3
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [udp 123]
+- name: r4
+  action: drop
+  src: [any]
+  dst: [NET_10.1.2.0_24]
+  srv: [any]
+- name: r5
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [any]
+]]
+[[addresses
+- {name: IP_10.1.1.1, ip: 10.1.1.1/32}
+- {name: NET_10.1.2.0_24, ip: 10.1.2.0/24}
+]]
+[[services
+- {proto: tcp, port: 80}
+- {proto: udp, port: 123}
+]]
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [udp 123]
+- name: r2
+  action: drop
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [udp 123]
+- name: r3
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [tcp 80]
+- name: r4
+  action: drop
+  src: [any]
+  dst: [NET_10.1.2.0_24]
+  srv: [any]
+- name: r5
+  action: drop
+  src: [any]
+  dst: [any]
+  srv: [application-default]
+]]
+[[addresses
+- {name: IP_10.1.1.1, ip: 10.1.1.1/32}
+- {name: NET_10.1.2.0_24, ip: 10.1.2.0/24}
+]]
+[[services
+- {proto: tcp, port: 80}
+- {proto: udp, port: 123}
+]]
+[[postfix]]
+=OUTPUT=
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r2']
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r2-1']&
+ element=
+  <action>drop</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>IP_10.1.1.1</member></source>
+  <destination><member>NET_10.1.2.0_24</member></destination>
+  <service><member>udp 123</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+action=move&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r2-1']&
+ where=before&dst=r4
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r3-1']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>IP_10.1.1.1</member></source>
+  <destination><member>NET_10.1.2.0_24</member></destination>
+  <service><member>tcp 80</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+action=move&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r3-1']&
+ where=before&dst=r4
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r5']
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r5-1']&
+ element=
+  <action>drop</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>any</member></source>
+  <destination><member>any</member></destination>
+  <service><member>application-default</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
 =END=

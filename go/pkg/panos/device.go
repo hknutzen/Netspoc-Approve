@@ -18,6 +18,11 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		return nil, err
 	}
 
+	logFH, err := s.getLogFH(".config")
+	if err != nil {
+		return nil, err
+	}
+	defer closeLogFH(logFH)
 	var client = &http.Client{
 		Timeout: time.Duration(s.config.Timeout) * time.Second,
 		Transport: &http.Transport{
@@ -31,14 +36,17 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 	}
 	s.httpClient = client
 	for i, name := range nameList {
-		key, err := s.getAPIKey(name)
+		s.devName = name
+		key, err := s.getAPIKey()
 		if err != nil {
 			return nil, err
 		}
 		ip := ipList[i]
-		prefix := fmt.Sprintf("https://%s/api/?key=%s", ip, key)
+		prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
 		s.urlPrefix = prefix
-		resp, err := client.Get(prefix + "&type=config&action=show&xpath=/")
+		uri := prefix + "type=config&action=show&xpath=/"
+		doLog(logFH, uri)
+		resp, err := client.Get(uri)
 		if err != nil {
 			var urlErr *url.Error
 			if errors.As(err, &urlErr) {
@@ -50,6 +58,7 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		}
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
+		doLog(logFH, string(body))
 
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf(
@@ -59,15 +68,52 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.devName = name
 		return parseResponse(body)
 	}
 	return nil, fmt.Errorf(
 		"Devices are unreachable: %s", strings.Join(nameList, ", "))
 }
 
-func (s *state) getAPIKey(device string) (string, error) {
-	user, pass, err := s.config.GetAAAPassword(device)
+func (s *state) deviceCommands(l []string) error {
+	client := s.httpClient
+	prefix := s.urlPrefix
+	logFH, err := s.getLogFH(".change")
+	if err != nil {
+		return err
+	}
+	defer closeLogFH(logFH)
+	if len(l) == 0 {
+		doLog(logFH, "No changes")
+	}
+	for _, cmd := range l {
+		uri := prefix + cmd
+		doLog(logFH, uri)
+		resp, err := client.Get(uri)
+		if err != nil {
+			return err
+		}
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		doLog(logFH, string(body))
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf(
+				"Request failed with status code: %d and\nbody: %s\n",
+				resp.StatusCode, body)
+		}
+		if err != nil {
+			return err
+		}
+		_, err = parseResponse(body)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *state) getAPIKey() (string, error) {
+	user, pass, err := s.config.GetAAAPassword(s.devName)
 	if err != nil {
 		return "", err
 	}
@@ -76,7 +122,7 @@ func (s *state) getAPIKey(device string) (string, error) {
 			fmt.Errorf(
 				"Expected user 'api-key' not '%s' for device '%s'"+
 					" in aaa_credentials",
-				user, device)
+				user, s.devName)
 	}
 	return pass, nil
 }
