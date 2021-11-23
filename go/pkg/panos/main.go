@@ -18,6 +18,7 @@ type state struct {
 	httpClient *http.Client
 	logPath    string
 	urlPrefix  string
+	devUser    string
 }
 
 func Main() int {

@@ -75,7 +75,7 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		data, err := parseResponse(body)
+		_, data, err := parseResponse(body)
 		if err != nil {
 			return nil, err
 		}
@@ -91,54 +91,100 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 }
 
 func (s *state) deviceCommands(l []string) error {
-	client := s.httpClient
-	prefix := s.urlPrefix
 	logFH, err := s.getLogFH(".change")
 	if err != nil {
 		return err
 	}
 	defer closeLogFH(logFH)
 	if len(l) == 0 {
-		doLog(logFH, "No changes")
+		doLog(logFH, "No changes applied")
 	}
-	for _, cmd := range l {
-		uri := prefix + cmd
-		doLog(logFH, uri)
+	client := s.httpClient
+	doCmd := func(cmd string) (string, []byte, error) {
+		uri := s.urlPrefix + cmd
+		doLog(logFH, cmd)
 		resp, err := client.Get(uri)
 		if err != nil {
-			return err
+			return "", nil, err
 		}
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		doLog(logFH, string(body))
 
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf(
-				"Request failed with status code: %d and\nbody: %s\n",
+			return "", nil, fmt.Errorf(
+				"status code: %d and\nbody: %s\n",
 				resp.StatusCode, body)
 		}
 		if err != nil {
-			return err
+			return "", nil, err
 		}
-		_, err = parseResponse(body)
+		return parseResponse(body)
+	}
+	commit := func() error {
+		cmd := s.urlPrefix +
+			"type=commit&action=partial&cmd=<commit><partial><admin><member>" +
+			s.devUser + "</member></admin></partial></commit>"
+		msg, data, err := doCmd(cmd)
 		if err != nil {
 			return err
 		}
+		if strings.Contains(msg, "There are no changes to commit") ||
+			strings.Contains(msg, "The result of this commit would be the same") {
+			return nil
+		}
+		if msg != "" {
+			return fmt.Errorf("Unexpected message: %s", msg)
+		}
+		type enqueued struct {
+			Job string `xml:"job"`
+		}
+		j := new(enqueued)
+		err = xml.Unmarshal(data, j)
+		if err != nil {
+			return err
+		}
+		id := j.Job
+		for {
+			time.Sleep(5 * time.Second)
+			cmd := s.urlPrefix +
+				"type=op&cmd=<show><jobs><id>" + id + "</id></jobs></show>"
+			_, data, err := doCmd(cmd)
+			if err != nil {
+				return err
+			}
+			type status struct {
+				Result string `xml:"result"`
+			}
+			s := new(status)
+			err = xml.Unmarshal(data, s)
+			if err != nil {
+				return err
+			}
+			switch s.Result {
+			case "PEND":
+				continue
+			case "OK":
+				return nil
+			default:
+				return fmt.Errorf("Unexpected result: %s", s.Result)
+			}
+		}
+	}
+	for _, cmd := range l {
+		_, _, err := doCmd(cmd)
+		if err != nil {
+			return fmt.Errorf("Request %s failed with %v", cmd, err)
+		}
+	}
+	if err := commit(); err != nil {
+		return fmt.Errorf("Commit failed: %v", err)
 	}
 	return nil
 }
 
 func (s *state) getAPIKey() (string, error) {
 	user, pass, err := s.config.GetAAAPassword(s.devName)
-	if err != nil {
-		return "", err
-	}
-	if user != "api-key" {
-		return "",
-			fmt.Errorf(
-				"Expected user 'api-key' not '%s' for device '%s'"+
-					" in aaa_credentials",
-				user, s.devName)
-	}
-	return pass, nil
+	s.devUser = user
+	return pass, err
 }
