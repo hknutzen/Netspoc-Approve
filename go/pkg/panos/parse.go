@@ -15,11 +15,13 @@ func parseResponse(data []byte) (string, []byte, error) {
 		return "", nil, fmt.Errorf("Parsing response: %v", err)
 	}
 	if v.Status != "success" {
-		return "", nil, fmt.Errorf(
-			"response status: %s and\n body %s",
-			v.Status, string(data))
+		return "", nil, fmt.Errorf("%s", string(data))
 	}
-	return v.Msg, v.Result, nil
+	var b []byte
+	if r := v.Result; r != nil {
+		b, _ = xml.Marshal(r)
+	}
+	return v.Msg, b, nil
 }
 
 func parseConfig(data []byte) (*PanConfig, error) {
@@ -29,19 +31,28 @@ func parseConfig(data []byte) (*PanConfig, error) {
 }
 
 type PanResponse struct {
-	XMLName xml.Name `xml:"response"`
-	Status  string   `xml:"status,attr"`
-	Msg     string   `xml:"msg"`
-	Result  []byte   `xml:"result,innerxml"`
+	XMLName xml.Name   `xml:"response"`
+	Status  string     `xml:"status,attr"`
+	Msg     string     `xml:"msg"`
+	Result  *panResult `xml:"result"`
+}
+
+type panResult struct {
+	XMLName xml.Name
+	XML     []byte `xml:",innerxml"`
+}
+
+type PanResultDevices struct {
+	Devices *panDevices `xml:"devices"`
 }
 
 type PanConfig struct {
 	XMLName xml.Name    `xml:"config"`
-	Devices *PanDevices `xml:"devices"`
+	Devices *panDevices `xml:"devices"`
 	origin  string
 }
 
-type PanDevices struct {
+type panDevices struct {
 	XMLName xml.Name     `xml:"devices"`
 	Entries []*panDevice `xml:"entry"`
 }

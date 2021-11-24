@@ -279,6 +279,10 @@ action=delete&type=config&
 action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g0']
+action=delete&type=config&
+ xpath=
+  /config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.10']
 action=delete&type=config&
  xpath=
@@ -292,10 +296,6 @@ action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/address/entry[@name='NET_10.1.3.0_24']
-action=delete&type=config&
- xpath=
-  /config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/address-group/entry[@name='g0']
 action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
@@ -530,6 +530,10 @@ action=edit&type=config&
 action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g1']
+action=delete&type=config&
+ xpath=
+  /config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.3']
 action=delete&type=config&
  xpath=
@@ -539,10 +543,6 @@ action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.5']
-action=delete&type=config&
- xpath=
-  /config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/address-group/entry[@name='g1']
 action=set&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']

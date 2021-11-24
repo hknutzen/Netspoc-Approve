@@ -79,12 +79,12 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		d := new(PanDevices)
+		d := new(PanResultDevices)
 		err = xml.Unmarshal(data, d)
 		if err != nil {
 			return nil, err
 		}
-		return &PanConfig{Devices: d, origin: "device"}, nil
+		return &PanConfig{Devices: d.Devices, origin: "device"}, nil
 	}
 	return nil, fmt.Errorf(
 		"Devices unreachable: %s", strings.Join(nameList, ", "))
@@ -146,7 +146,7 @@ func (s *state) deviceCommands(l []string) error {
 		}
 		id := j.Job
 		for {
-			time.Sleep(5 * time.Second)
+			time.Sleep(10 * time.Second)
 			cmd := s.urlPrefix +
 				"type=op&cmd=<show><jobs><id>" + id + "</id></jobs></show>"
 			_, data, err := doCmd(cmd)
@@ -154,7 +154,7 @@ func (s *state) deviceCommands(l []string) error {
 				return err
 			}
 			type status struct {
-				Result string `xml:"result"`
+				Result string `xml:"job>result"`
 			}
 			s := new(status)
 			err = xml.Unmarshal(data, s)
@@ -167,7 +167,7 @@ func (s *state) deviceCommands(l []string) error {
 			case "OK":
 				return nil
 			default:
-				return fmt.Errorf("Unexpected result: %s", s.Result)
+				return fmt.Errorf("Unexpected job result: %q", s.Result)
 			}
 		}
 	}

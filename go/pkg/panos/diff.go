@@ -358,20 +358,21 @@ func (ab *rulesPair) transferNeededObjects(vsysPath string) []string {
 // Remove objects from a, that are no longer needed.
 func (ab *rulesPair) removeUnneededObjects(vsysPath string) []string {
 	var result []string
-	addressPath := vsysPath + "/address/entry"
-	cmd0 := "type=config&xpath=" + addressPath
+	var cmd0 string
 	delete := func(name string) {
 		cmd := "action=delete&" + cmd0 + nameAttr(name)
 		result = append(result, cmd)
 	}
-	for _, o := range ab.a.vsys.Addresses {
+	groupPath := vsysPath + "/address-group/entry"
+	cmd0 = "type=config&xpath=" + groupPath
+	for _, o := range ab.a.vsys.AddressGroups {
 		if !o.needed {
 			delete(o.Name)
 		}
 	}
-	groupPath := vsysPath + "/address-group/entry"
-	cmd0 = "type=config&xpath=" + groupPath
-	for _, o := range ab.a.vsys.AddressGroups {
+	addressPath := vsysPath + "/address/entry"
+	cmd0 = "type=config&xpath=" + addressPath
+	for _, o := range ab.a.vsys.Addresses {
 		if !o.needed {
 			delete(o.Name)
 		}
