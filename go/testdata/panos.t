@@ -196,27 +196,6 @@ action=delete&type=config&
 action=set&type=config&
  xpath=
  /config/devices/entry[@name='localhost.localdomain']
- /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']&
- element=
- <action>allow</action>
- <from><member>z1</member></from>
- <to><member>z2</member></to>
- <source><member>g0</member></source>
- <destination>
-  <member>NET_10.1.2.0_24</member>
-  <member>NET_10.1.3.0_24</member>
- </destination>
- <service>
-  <member>tcp 80</member>
-  <member>udp 123</member>
- </service>
- <application><member>any</member></application>
- <log-start>yes</log-start>
- <log-end>yes</log-end>
- <rule-type>interzone</rule-type>
-action=set&type=config&
- xpath=
- /config/devices/entry[@name='localhost.localdomain']
  /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.10']&
  element=
  <ip-netmask>10.1.1.10/32</ip-netmask>
@@ -262,6 +241,27 @@ action=set&type=config&
  /vsys/entry[@name='vsys2']/service/entry[@name='udp 123']&
  element=
  <protocol><udp><port>123</port></udp></protocol>
+action=set&type=config&
+ xpath=
+ /config/devices/entry[@name='localhost.localdomain']
+ /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']&
+ element=
+ <action>allow</action>
+ <from><member>z1</member></from>
+ <to><member>z2</member></to>
+ <source><member>g0</member></source>
+ <destination>
+  <member>NET_10.1.2.0_24</member>
+  <member>NET_10.1.3.0_24</member>
+ </destination>
+ <service>
+  <member>tcp 80</member>
+  <member>udp 123</member>
+ </service>
+ <application><member>any</member></application>
+ <log-start>yes</log-start>
+ <log-end>yes</log-end>
+ <rule-type>interzone</rule-type>
 =END=
 
 ############################################################
@@ -418,6 +418,12 @@ action=delete&type=config&
 ]]
 [[identical]]
 =OUTPUT=
+action=set&type=config&
+ xpath=
+  /config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g2']/static&
+ element=
+  <member>IP_10.1.1.10</member>
 action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
@@ -429,12 +435,6 @@ action=edit&type=config&
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r2']/source&
  element=
   <member>g2</member>
-action=set&type=config&
- xpath=
-  /config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/address-group/entry[@name='g2']/static&
- element=
-  <member>IP_10.1.1.10</member>
 =END=
 
 ############################################################
@@ -521,6 +521,13 @@ action=set&type=config&
 ]]
 [[identical]]
 =OUTPUT=
+action=set&type=config&
+ xpath=
+  /config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g1-1']/static&
+  element=
+   <member>IP_10.1.1.1</member>
+   <member>IP_10.1.1.2</member>
 action=edit&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
@@ -543,13 +550,6 @@ action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.5']
-action=set&type=config&
- xpath=
-  /config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/address-group/entry[@name='g1-1']/static&
-  element=
-   <member>IP_10.1.1.1</member>
-   <member>IP_10.1.1.2</member>
 =END=
 
 ############################################################
@@ -751,6 +751,14 @@ action=delete&type=config&
 =OUTPUT=
 action=set&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='RANGE_10.1.1.3-7']&
+ element=<ip-range>10.1.1.3-10.1.1.7</ip-range>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 81']&
+ element=<protocol><tcp><port>81</port></tcp></protocol>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw1']&
  element=
   <action>allow</action>
@@ -805,14 +813,6 @@ action=move&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw-log2']&
  where=before&dst=r4
-action=set&type=config&
- xpath=/config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/address/entry[@name='RANGE_10.1.1.3-7']&
- element=<ip-range>10.1.1.3-10.1.1.7</ip-range>
-action=set&type=config&
- xpath=/config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 81']&
- element=<protocol><tcp><port>81</port></tcp></protocol>
 =END=
 
 ############################################################
@@ -1035,6 +1035,160 @@ action=set&type=config&
   <log-start>yes</log-start><log-end>yes</log-end>
   <rule-type>interzone</rule-type>
   <source-user><member>foo</member></source-user>
+=END=
+
+############################################################
+=TITLE=Compare named service with any
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [tcp 80]
+]]
+[[services
+- {proto: tcp, port: 80}
+]]
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [any]
+]]
+[[postfix]]
+=OUTPUT=
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1-1']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>any</member></source>
+  <destination><member>any</member></destination>
+  <service><member>any</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start><log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 80']
+=END=
+
+############################################################
+=TITLE=Change name of service
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [TCP 80 HTTP]
+]]
+<service>
+ <entry name="TCP 80 HTTP">
+  <protocol><tcp><port>80</port></tcp></protocol>
+ </entry>
+</service>
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [tcp 80]
+]]
+[[services
+- {proto: tcp, port: 80}
+]]
+[[postfix]]
+=OUTPUT=
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 80']&
+   element=<protocol><tcp><port>80</port></tcp></protocol>
+action=edit&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']/service&
+ element=<member>tcp 80</member>
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='TCP 80 HTTP']
+=END=
+
+############################################################
+=TITLE=Extra attributes in service
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [TCP 80]
+]]
+[[addresses
+- {name: IP_10.1.1.1, ip: 10.1.1.1/32}
+- {name: NET_10.1.2.0_24, ip: 10.1.2.0/24}
+]]
+<service>
+ <entry name="TCP 80">
+   <protocol>
+     <tcp>
+       <port>80</port>
+       <override>
+         <no/>
+       </override>
+     </tcp>
+   </protocol>
+   <description>Hypertext Transfer Protocol (HTTP)</description>
+ </entry>
+</service>
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [IP_10.1.1.1]
+  dst: [NET_10.1.2.0_24]
+  srv: [TCP 80]
+]]
+[[addresses
+- {name: IP_10.1.1.1, ip: 10.1.1.1/32}
+- {name: NET_10.1.2.0_24, ip: 10.1.2.0/24}
+]]
+<service>
+ <entry name="TCP 80">
+   <protocol>
+     <tcp>
+       <port>80</port>
+     </tcp>
+   </protocol>
+   <description>Hypertext Transfer Protocol (HTTP)</description>
+ </entry>
+</service>
+[[postfix]]
+=OUTPUT=
+action
 =END=
 
 ############################################################

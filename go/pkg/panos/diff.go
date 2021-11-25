@@ -15,9 +15,9 @@ func diffConfig(a, b *panVsys, vsysPath string) ([]string, error) {
 	}
 	ab.genUniqRuleNames()
 	ab.genUniqGroupNames()
-	result := ab.diffRules(vsysPath)
+	ruleCmds := ab.diffRules(vsysPath)
+	result := append(ab.transferNeededObjects(vsysPath), ruleCmds...)
 	result = append(result, ab.removeUnneededObjects(vsysPath)...)
-	result = append(result, ab.transferNeededObjects(vsysPath)...)
 	return result, nil
 }
 
@@ -181,7 +181,7 @@ func (ab *rulesPair) servicesEq(a, b []string) bool {
 		}
 		sA := ab.a.services[aName]
 		sB := ab.b.services[bName]
-		if sA == nil || !serviceEq(sA, sB) {
+		if sA == nil || sB == nil || !serviceEq(sA, sB) {
 			return false
 		}
 	}
@@ -511,8 +511,9 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 	equalizeList(a.Source, b.Source, "source")
 	equalizeList(a.Destination, b.Destination, "destination")
 	if !stringsEq(a.Service, b.Service) {
-		elem := "&element=" + printXMLValue(b.Service)
-		cmd := cmd0 + "/service" + elem
+		object := &panMembers{Member: b.Service}
+		elem := "&element=" + printXMLValue(object)
+		cmd := "action=edit&" + cmd0 + rulePath + "/service" + elem
 		result = append(result, cmd)
 	}
 	return result
