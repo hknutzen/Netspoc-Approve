@@ -30,6 +30,19 @@ func parseConfig(data []byte) (*PanConfig, error) {
 	return v, err
 }
 
+func parseResponseConfig(body []byte) (*PanConfig, error) {
+	_, data, err := parseResponse(body)
+	if err != nil {
+		return nil, err
+	}
+	d := new(PanResultDevices)
+	err = xml.Unmarshal(data, d)
+	if err != nil {
+		return nil, err
+	}
+	return &PanConfig{Devices: d.Devices, origin: "device"}, nil
+}
+
 type PanResponse struct {
 	XMLName xml.Name   `xml:"response"`
 	Status  string     `xml:"status,attr"`

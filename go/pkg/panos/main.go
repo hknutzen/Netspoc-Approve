@@ -1,6 +1,7 @@
 package panos
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/spf13/pflag"
@@ -178,6 +179,13 @@ func loadSpoc(path string) (*PanConfig, error) {
 
 func loadSpocFile(path string) (*PanConfig, error) {
 	data, err := os.ReadFile(path)
+	// Also handle saved config of device:
+	// - starting with http address and
+	// - with config stored as <response><result><devices>...
+	if bytes.HasPrefix(data, []byte("http")) {
+		i := bytes.IndexByte(data, byte('\n'))
+		return parseResponseConfig(data[i+1:])
+	}
 	if err != nil {
 		return nil, fmt.Errorf("Can't %v", err)
 	}

@@ -73,16 +73,7 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		_, data, err := parseResponse(body)
-		if err != nil {
-			return nil, err
-		}
-		d := new(PanResultDevices)
-		err = xml.Unmarshal(data, d)
-		if err != nil {
-			return nil, err
-		}
-		return &PanConfig{Devices: d.Devices, origin: "device"}, nil
+		return parseResponseConfig(body)
 	}
 	return nil, fmt.Errorf(
 		"Devices unreachable: %s", strings.Join(nameList, ", "))
