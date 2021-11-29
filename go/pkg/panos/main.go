@@ -392,6 +392,8 @@ func doLog(fh *os.File, t string) {
 		if strings.HasPrefix(t, "http") {
 			t = apiRE.ReplaceAllString(t, "$1***$2")
 			t, _ = url.QueryUnescape(t)
+		} else if strings.HasPrefix(t, "action=") {
+			t, _ = url.QueryUnescape(t)
 		}
 		fmt.Fprintln(fh, t)
 	}

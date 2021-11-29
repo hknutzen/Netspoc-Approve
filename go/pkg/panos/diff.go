@@ -106,6 +106,11 @@ func (ab *rulesPair) diffRules(vsysPath string) []string {
 	aRules := ab.a.rules
 	bRules := ab.b.rules
 	delIdx := -1 // Next index after deleted rule(s).
+	type insRules struct {
+		move  string
+		rules []*panRule
+	}
+	var insert []insRules
 	for _, r := range s.Ranges {
 		if r.IsDelete() {
 			delIdx = r.HighA
@@ -115,7 +120,6 @@ func (ab *rulesPair) diffRules(vsysPath string) []string {
 				result = append(result, cmd)
 			}
 		} else if r.IsInsert() {
-			moveTo := ""
 			aPos := r.LowA
 			// Adapt position to next available rule if this rule has
 			// just been deleted.
@@ -124,28 +128,35 @@ func (ab *rulesPair) diffRules(vsysPath string) []string {
 			}
 			// New rule is initially appended as last element.
 			// Move to given position where required.
+			moveTo := ""
 			if aPos < len(aRules) {
 				aName := aRules[aPos].Name
 				moveTo = "&where=before&dst=" + aName
 			}
-			for _, ru := range bRules[r.LowB:r.HighB] {
-				ab.adaptGroup(ru.Source)
-				ab.adaptGroup(ru.Destination)
-				name := nameAttr(ru.Name)
-				elem := "&element=" + printXMLValue(ru)
-				cmd1 := "action=set&" + cmd0 + name + elem
-				result = append(result, cmd1)
-				if moveTo != "" {
-					cmd2 := "action=move&" + cmd0 + name + moveTo
-					result = append(result, cmd2)
-				}
-			}
+			// Add command later, when names of groups have been determined.
+			insert = append(insert, insRules{
+				move:  moveTo,
+				rules: bRules[r.LowB:r.HighB]})
 		} else {
 			offset := r.LowB - r.LowA
 			for i := r.LowA; i < r.HighA; i++ {
 				rA := aRules[i]
 				rB := bRules[i+offset]
 				result = append(result, ab.equalize(rA, rB, vsysPath)...)
+			}
+		}
+	}
+	for _, ins := range insert {
+		for _, ru := range ins.rules {
+			ab.adaptGroup(ru.Source)
+			ab.adaptGroup(ru.Destination)
+			name := nameAttr(ru.Name)
+			elem := "&element=" + printXMLValue(ru)
+			cmd1 := "action=set&" + cmd0 + name + elem
+			result = append(result, cmd1)
+			if ins.move != "" {
+				cmd2 := "action=move&" + cmd0 + name + ins.move
+				result = append(result, cmd2)
 			}
 		}
 	}
@@ -176,7 +187,11 @@ func (ab *rulesPair) servicesEq(a, b []string) bool {
 	}
 	for i, aName := range a {
 		bName := b[i]
-		if aName == bName && (aName == "any" || aName == "application-default") {
+		if aName == bName {
+			// any | application-default
+			// or two defined services with equal name
+			// and possibly different definitions.
+			// In this case, definition will be edited later.
 			continue
 		}
 		sA := ab.a.services[aName]
@@ -257,8 +272,11 @@ func (ab *rulesPair) markAddresses(l []string) error {
 			return fmt.Errorf("Referencing unknown object '%s' in Netspoc config",
 				name)
 		}
-		if aA := ab.a.addresses[name]; aA != nil && addressEq(aA, aB) {
+		if aA := ab.a.addresses[name]; aA != nil {
 			aA.needed = true
+			if !addressEq(aA, aB) {
+				aB.edit = true
+			}
 		} else {
 			aB.needed = true
 		}
@@ -293,8 +311,11 @@ func (ab *rulesPair) markServices(l []string) error {
 			return fmt.Errorf("Referencing unknown service '%s' in Netspoc config",
 				name)
 		}
-		if sA := ab.a.services[name]; sA != nil && serviceEq(sA, sB) {
+		if sA := ab.a.services[name]; sA != nil {
 			sA.needed = true
+			if !serviceEq(sA, sB) {
+				sB.edit = true
+			}
 		} else {
 			sB.needed = true
 		}
@@ -318,16 +339,25 @@ func portEq(a, b *panPort) bool {
 	return a.Port == b.Port && unknownEq(a.Unknown, b.Unknown)
 }
 
-// Transfer objects from b, that are needed in a.
+// Transfer objects from b, that are needed in a
+// or if object with same name exists in a and b, only change attributes.
 func (ab *rulesPair) transferNeededObjects(vsysPath string) []string {
 	var result []string
 	addressPath := vsysPath + "/address/entry"
 	cmd0 := "type=config&xpath=" + addressPath
 	for _, o := range ab.b.vsys.Addresses {
-		if o.needed {
+		if o.needed || o.edit {
+			action := ""
+			elem := "&element="
+			if o.edit {
+				action = "edit"
+				elem += printXML(o)
+			} else {
+				action = "set"
+				elem += printXMLValue(o)
+			}
 			name := nameAttr(o.Name)
-			elem := "&element=" + printXMLValue(o)
-			cmd := "action=set&" + cmd0 + name + elem
+			cmd := "action=" + action + "&" + cmd0 + name + elem
 			result = append(result, cmd)
 		}
 	}
@@ -345,10 +375,18 @@ func (ab *rulesPair) transferNeededObjects(vsysPath string) []string {
 	servicePath := vsysPath + "/service/entry"
 	cmd0 = "type=config&xpath=" + servicePath
 	for _, o := range ab.b.vsys.Services {
-		if o.needed {
+		if o.needed || o.edit {
+			action := ""
+			elem := "&element="
+			if o.edit {
+				action = "edit"
+				elem += printXML(o)
+			} else {
+				action = "set"
+				elem += printXMLValue(o)
+			}
 			name := nameAttr(o.Name)
-			elem := "&element=" + printXMLValue(o)
-			cmd := "action=set&" + cmd0 + name + elem
+			cmd := "action=" + action + "&" + cmd0 + name + elem
 			result = append(result, cmd)
 		}
 	}

@@ -100,6 +100,7 @@ type panAddress struct {
 	IpNetmask string    `xml:"ip-netmask,omitempty"`
 	Unknown   OtherAttr `xml:",any"`
 	needed    bool
+	edit      bool
 }
 
 type panAddressGroup struct {
@@ -117,6 +118,7 @@ type panService struct {
 	Protocol panProtocol `xml:"protocol"`
 	Unknown  OtherAttr   `xml:",any"`
 	needed   bool
+	edit     bool
 }
 
 type panProtocol struct {
@@ -185,5 +187,13 @@ func printXMLValue(v interface{}) string {
 	i := bytes.Index(b, []byte(">"))
 	j := bytes.LastIndex(b, []byte("<"))
 	b = b[i+1 : j]
-	return url.QueryEscape(string(bytes.TrimSpace(b)))
+	return url.QueryEscape(string(b))
+}
+
+func printXML(v interface{}) string {
+	b, err := xml.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return url.QueryEscape(string(b))
 }

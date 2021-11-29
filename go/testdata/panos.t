@@ -438,6 +438,54 @@ action=edit&type=config&
 =END=
 
 ############################################################
+=TITLE=Detect group on device in second rule
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- {name: r2, src: [g0], dst: [NET_10.1.3.0_24], srv: [udp 123]}
+]]
+[[groups
+- {name: g0, members: [IP_10.1.1.20, IP_10.1.1.10]}
+]]
+[[identical]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- {name: r1, src: [g1], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
+- {name: r2, src: [g1], dst: [NET_10.1.3.0_24], srv: [udp 123]}
+]]
+[[groups
+- {name: g1, members: [IP_10.1.1.20]}
+]]
+[[identical]]
+=OUTPUT=
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g0']
+  /static/member[text()='IP_10.1.1.10']
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>g0</member></source>
+  <destination><member>NET_10.1.2.0_24</member></destination>
+  <service><member>tcp 80</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start><log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+action=move&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']&
+ where=before&dst=r2
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.10']
+=END=
+
+############################################################
 # Changed for tests below
 =TEMPL=identical
 [[addresses
@@ -1188,7 +1236,16 @@ action=delete&type=config&
 </service>
 [[postfix]]
 =OUTPUT=
-action
+action=edit&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='TCP 80']&
+ element=
+  <entry name="TCP 80">
+   <protocol>
+    <tcp><port>80</port></tcp>
+   </protocol>
+   <description>Hypertext Transfer Protocol (HTTP)</description>
+  </entry>
 =END=
 
 ############################################################
@@ -1272,6 +1329,9 @@ action=delete&type=config&
 action=delete&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r2']
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r5']
 action=set&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r2-1']&
@@ -1308,9 +1368,6 @@ action=move&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r3-1']&
  where=before&dst=r4
-action=delete&type=config&
- xpath=/config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r5']
 action=set&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r5-1']&

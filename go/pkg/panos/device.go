@@ -68,9 +68,7 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		doLog(logFH, string(body))
 
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf(
-				"Request failed with status code: %d and\nbody: %s\n",
-				resp.StatusCode, body)
+			return nil, fmt.Errorf("status code: %d", resp.StatusCode)
 		}
 		if err != nil {
 			return nil, err
@@ -112,9 +110,7 @@ func (s *state) deviceCommands(l []string) error {
 		doLog(logFH, string(body))
 
 		if resp.StatusCode != http.StatusOK {
-			return "", nil, fmt.Errorf(
-				"status code: %d and\nbody: %s\n",
-				resp.StatusCode, body)
+			return "", nil, fmt.Errorf("status code: %d", resp.StatusCode)
 		}
 		if err != nil {
 			return "", nil, err
@@ -174,7 +170,7 @@ func (s *state) deviceCommands(l []string) error {
 	for _, cmd := range l {
 		_, _, err := doCmd(cmd)
 		if err != nil {
-			return fmt.Errorf("Request %s failed with %v", cmd, err)
+			return fmt.Errorf("Command failed with %v", err)
 		}
 	}
 	if err := commit(); err != nil {
