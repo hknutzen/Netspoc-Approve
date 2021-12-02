@@ -20,6 +20,12 @@ type state struct {
 	logPath    string
 	urlPrefix  string
 	devUser    string
+	quiet      bool
+}
+
+type change struct {
+	vsys string
+	cmds []string
 }
 
 func Main() int {
@@ -35,7 +41,7 @@ func Main() int {
 	}
 
 	// Command line flags
-	//quiet := fs.BoolP("quiet", "q", false, "No info messages")
+	quiet := fs.BoolP("quiet", "q", false, "No info messages")
 	compare := fs.BoolP("compare", "C", false, "Compare only")
 	logDir := fs.StringP("logdir", "L", "", "Path for saving session logs")
 	//user := fs.StringP("user", "u", "", "Username for login to remote device")
@@ -50,6 +56,7 @@ func Main() int {
 
 	s := new(state)
 	s.config = device.LoadConfig()
+	s.quiet = *quiet
 
 	// Argument processing
 	args := fs.Args()
@@ -76,7 +83,7 @@ func Main() int {
 		}
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
 		return 1
 	}
 	return 0
@@ -103,31 +110,44 @@ func (s *state) approve(path string) error {
 	if err != nil {
 		return err
 	}
-	cmds, err := s.getCompare(conf1, path)
+	changed, err := s.getCompare(conf1, path)
 	if err != nil {
 		return err
 	}
-	return s.deviceCommands(cmds)
+	return s.deviceCommands(changed)
 }
 
 func (s *state) showCompare(conf1 *PanConfig, path string) error {
-	cmds, err := s.getCompare(conf1, path)
+	changes, err := s.getCompare(conf1, path)
 	if err != nil {
 		return err
 	}
-	for _, c := range cmds {
-		c, _ = url.QueryUnescape(c)
-		fmt.Println(c)
+	for _, chg := range changes {
+		if chg.cmds == nil {
+			s.info("comp: %s unchanged\n", chg.vsys)
+		} else {
+			s.info("comp: *** %s changed ***\n", chg.vsys)
+			for _, c := range chg.cmds {
+				c, _ = url.QueryUnescape(c)
+				fmt.Println(c)
+			}
+		}
 	}
 	return nil
 }
 
-func (s *state) getCompare(conf1 *PanConfig, path string) ([]string, error) {
+func (s *state) info(format string, args ...interface{}) {
+	if !s.quiet {
+		fmt.Fprintf(os.Stderr, format, args...)
+	}
+}
+
+func (s *state) getCompare(conf1 *PanConfig, path string) ([]change, error) {
 	conf2, err := loadSpoc(path)
 	if err != nil {
 		return nil, err
 	}
-	cmds, err := getChanges(conf1, conf2)
+	changes, err := getChanges(conf1, conf2)
 	if err != nil {
 		return nil, err
 	}
@@ -135,11 +155,11 @@ func (s *state) getCompare(conf1 *PanConfig, path string) ([]string, error) {
 	if err := s.devNameOK(conf1); err != nil {
 		return nil, err
 	}
-	return cmds, nil
+	return changes, nil
 }
 
-func getChanges(c1, c2 *PanConfig) ([]string, error) {
-	var cmds []string
+func getChanges(c1, c2 *PanConfig) ([]change, error) {
+	var changes []change
 	err := processVsysPairs(c1, c2, func(v1, v2 *panVsys) error {
 		if v1 == nil {
 			return fmt.Errorf(
@@ -155,10 +175,11 @@ func getChanges(c1, c2 *PanConfig) ([]string, error) {
 		if err != nil {
 			return fmt.Errorf("%v of vsys '%s'", err, v2.Name)
 		}
-		cmds = append(cmds, l...)
+
+		changes = append(changes, change{v2.Name, l})
 		return nil
 	})
-	return cmds, err
+	return changes, err
 }
 
 func loadSpoc(path string) (*PanConfig, error) {

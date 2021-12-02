@@ -963,7 +963,7 @@ action=move&type=config&
 ]]
 [[postfix]]
 =ERROR=
-Error: Must not use rule 'raw1' with multiple zones in From/To in raw
+ERROR>>> Must not use rule 'raw1' with multiple zones in From/To in raw
 =END=
 
 ############################################################
@@ -988,7 +988,7 @@ Error: Must not use rule 'raw1' with multiple zones in From/To in raw
 ]]
 [[postfix]]
 =ERROR=
-Error: Can't APPEND to unknown rule with From=z0, To=z2
+ERROR>>> Can't APPEND to unknown rule with From=z0, To=z2
 =END=
 
 ############################################################
@@ -1015,7 +1015,7 @@ Error: Can't APPEND to unknown rule with From=z0, To=z2
 ]]
 [[postfix]]
 =ERROR=
-Error: Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
+ERROR>>> Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
 =END=
 
 ############################################################

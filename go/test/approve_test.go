@@ -54,7 +54,7 @@ func runTest(t *testing.T, d *tstdata.Descr) {
 	os.Chdir(workDir)
 
 	// Initialize os.Args, add default options.
-	os.Args = []string{"PROGRAM"}
+	os.Args = []string{"PROGRAM", "-q"}
 
 	// Add more options.
 	if d.Options != "" {

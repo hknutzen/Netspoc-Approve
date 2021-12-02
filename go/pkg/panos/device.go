@@ -79,7 +79,7 @@ func (s *state) loadDevice(path string) (*PanConfig, error) {
 		"Devices unreachable: %s", strings.Join(nameList, ", "))
 }
 
-func (s *state) deviceCommands(l []string) error {
+func (s *state) deviceCommands(l []change) error {
 	logFH, err := s.getLogFH(".change")
 	if err != nil {
 		return err
@@ -158,10 +158,12 @@ func (s *state) deviceCommands(l []string) error {
 			}
 		}
 	}
-	for _, cmd := range l {
-		_, _, err := doCmd(cmd)
-		if err != nil {
-			return fmt.Errorf("Command failed with %v", err)
+	for _, chg := range l {
+		for _, cmd := range chg.cmds {
+			_, _, err := doCmd(cmd)
+			if err != nil {
+				return fmt.Errorf("Command failed with %v", err)
+			}
 		}
 	}
 	if err := commit(); err != nil {
