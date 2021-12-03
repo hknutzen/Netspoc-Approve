@@ -73,6 +73,7 @@ type panDevices struct {
 type panDevice struct {
 	Name     string     `xml:"name,attr"`
 	Hostname string     `xml:"deviceconfig>system>hostname"`
+	Banner   string     `xml:"deviceconfig>system>login-banner"`
 	Vsys     []*panVsys `xml:"vsys>entry"`
 }
 

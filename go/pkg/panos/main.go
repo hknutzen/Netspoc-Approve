@@ -310,7 +310,7 @@ func mergeRaw(c, r *PanConfig) error {
 			}
 			if idx == -1 {
 				return fmt.Errorf(
-					"Can't APPEND to unknown rule with From=%s, To=%s",
+					"Can't find rule with From=%s, To=%s to APPEND from raw",
 					z.from, z.to)
 			}
 			if last.Action == "drop" {

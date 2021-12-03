@@ -988,7 +988,7 @@ ERROR>>> Must not use rule 'raw1' with multiple zones in From/To in raw
 ]]
 [[postfix]]
 =ERROR=
-ERROR>>> Can't APPEND to unknown rule with From=z0, To=z2
+ERROR>>> Can't find rule with From=z0, To=z2 to APPEND from raw
 =END=
 
 ############################################################
