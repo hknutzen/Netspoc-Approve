@@ -1004,10 +1004,7 @@ sub postprocess_config {
     for my $entry ( values %{ $p->{HWIF} } ) {
         my $name = $entry->{IF_NAME} or next;
         my $intf = $p->{IF}->{$name} = { name => $name };
-#        if( my $address = $entry->{ADDRESS} ) {
-#            $intf->{BASE} = $address->{BASE};
-#            $intf->{MASK} = $address->{MASK};
-#        }
+        $intf->{ADDRESS} = $entry->{ADDRESS} || $entry->{ADDRESS6};
         $intf->{SHUTDOWN} = $entry->{SHUTDOWN};
     }
     delete $p->{HWIF};
@@ -1237,6 +1234,12 @@ sub postprocess_config {
         my $count = (ref $v eq 'ARRAY') ? @$v : keys %$v;
         info("Found $count $key") if $count;
     }
+}
+
+# Shadow method of superclass.
+# IP check not implemented for type ASA.
+sub check_device_IP {
+    my ($self, $name, $conf_intf, $spoc_intf) = @_;
 }
 
 ##############################################################################
