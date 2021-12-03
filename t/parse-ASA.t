@@ -233,6 +233,7 @@ $out = <<END;
 END
 
 test_run($title, 'ASA', $device, $in, $out);
+
 ############################################################
 $title = "Interface with and without IP address";
 ############################################################
@@ -252,6 +253,53 @@ $out = <<END;
 END
 
 test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Check Netspoc interfaces";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/0
+ nameif inside
+ ip address 10.1.1.0 255.255.255.0
+interface Ethernet0/1
+ nameif outside
+ ip address 10.1.1.0 255.255.255.0
+END
+
+$in = <<'END';
+interface Ethernet0/0
+ nameif inside
+END
+
+$out = <<END;
+WARNING>>> Interface 'outside' on device is not known by Netspoc
+END
+
+test_err($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Check device interfaces";
+############################################################
+
+$device = <<'END';
+interface Ethernet0/0
+ nameif inside
+ ip address 10.1.1.0 255.255.255.0
+END
+
+$in = <<'END';
+interface Ethernet0/0
+ nameif inside
+interface Ethernet0/1
+ nameif outside
+END
+
+$out = <<END;
+ERROR>>> Interface 'outside' from Netspoc not known on device
+END
+
+test_err($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Add sysopt";
