@@ -86,8 +86,8 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 	return a.Action == b.Action &&
 		stringsEq(a.From, b.From) &&
 		stringsEq(a.To, b.To) &&
-		ab.objectsEq(a.Source, b.Source) &&
-		ab.objectsEq(a.Destination, b.Destination) &&
+		ab.objectsTypeEq(a.Source, b.Source) &&
+		ab.objectsTypeEq(a.Destination, b.Destination) &&
 		ab.servicesEq(a.Service, b.Service) &&
 		stringsEq(a.Application, b.Application) &&
 		a.LogStart == b.LogStart &&
@@ -175,7 +175,7 @@ func stringsEq(a, b []string) bool {
 	return true
 }
 
-func (ab *rulesPair) objectsEq(a, b []string) bool {
+func (ab *rulesPair) objectsTypeEq(a, b []string) bool {
 	t1 := getObjListType(a, ab.a)
 	t2 := getObjListType(b, ab.b)
 	return t1 == t2 && t1 != unknownT
