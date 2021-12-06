@@ -79,6 +79,7 @@ type panDevice struct {
 
 type panVsys struct {
 	Name          string             `xml:"name,attr"`
+	DisplayName   string             `xml:"display-name"`
 	Rules         []*panRule         `xml:"rulebase>security>rules>entry"`
 	Addresses     []*panAddress      `xml:"address>entry"`
 	AddressGroups []*panAddressGroup `xml:"address-group>entry"`

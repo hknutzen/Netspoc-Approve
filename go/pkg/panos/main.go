@@ -102,7 +102,10 @@ func (s *state) compare(path string) error {
 	if err != nil {
 		return err
 	}
-	return s.showCompare(conf1, path)
+	if err := s.showCompare(conf1, path); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *state) approve(path string) error {
@@ -110,7 +113,7 @@ func (s *state) approve(path string) error {
 	if err != nil {
 		return err
 	}
-	changed, err := s.getCompare(conf1, path)
+	changed, err := s.getCompare(conf1, path, errT)
 	if err != nil {
 		return err
 	}
@@ -118,7 +121,7 @@ func (s *state) approve(path string) error {
 }
 
 func (s *state) showCompare(conf1 *PanConfig, path string) error {
-	changes, err := s.getCompare(conf1, path)
+	changes, err := s.getCompare(conf1, path, warnT)
 	if err != nil {
 		return err
 	}
@@ -142,31 +145,31 @@ func (s *state) info(format string, args ...interface{}) {
 	}
 }
 
-func (s *state) getCompare(conf1 *PanConfig, path string) ([]change, error) {
-	conf2, err := loadSpoc(path)
-	if err != nil {
-		return nil, err
-	}
-	changes, err := getChanges(conf1, conf2)
-	if err != nil {
-		return nil, err
-	}
-	// Check hostname only after config has been validated above.
-	if err := s.devNameOK(conf1); err != nil {
-		return nil, err
-	}
-	return changes, nil
-}
+type warnOrErr int
 
-func getChanges(c1, c2 *PanConfig) ([]change, error) {
+const (
+	errT = iota
+	warnT
+)
+
+func (s *state) getCompare(
+	c1 *PanConfig, path string, chk warnOrErr) ([]change, error) {
+
+	c2, err := loadSpoc(path)
+	if err != nil {
+		return nil, err
+	}
 	var changes []change
-	err := processVsysPairs(c1, c2, func(v1, v2 *panVsys) error {
+	err = processVsysPairs(c1, c2, func(v1, v2 *panVsys) error {
 		if v1 == nil {
 			return fmt.Errorf(
 				"Unknown name '%s' in VSYS of device configuration", v2.Name)
 		}
 		if v2 == nil {
 			return nil
+		}
+		if err := s.vsysOK(v1, chk); err != nil {
+			return err
 		}
 		device := c1.Devices.Entries[0].Name
 		devicePath := "/config/devices/entry" + nameAttr(device)
@@ -175,10 +178,13 @@ func getChanges(c1, c2 *PanConfig) ([]change, error) {
 		if err != nil {
 			return fmt.Errorf("%v of vsys '%s'", err, v2.Name)
 		}
-
 		changes = append(changes, change{v2.Name, l})
 		return nil
 	})
+	// Check hostname only after config has been validated above.
+	if err := s.devNameOK(c1, chk); err != nil {
+		return nil, err
+	}
 	return changes, err
 }
 
@@ -375,12 +381,30 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 	return nil
 }
 
-func (s *state) devNameOK(conf *PanConfig) error {
+func (s *state) devNameOK(conf *PanConfig, check warnOrErr) error {
 	if s.devName != "" {
 		name := conf.Devices.Entries[0].Hostname
 		if name != s.devName {
-			return fmt.Errorf("Wrong device name: %s, expected: %s",
+			err := fmt.Errorf("Wrong device name: %s, expected: %s",
 				name, s.devName)
+			if check == errT {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", err)
+		}
+	}
+	return nil
+}
+
+func (s *state) vsysOK(v *panVsys, check warnOrErr) error {
+	if s.devName != "" {
+		name := strings.ToLower(v.DisplayName)
+		if !strings.Contains(name, "netspoc") {
+			err := fmt.Errorf("Missing NetSPoC in name of %s", v.Name)
+			if check == errT {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", err)
 		}
 	}
 	return nil

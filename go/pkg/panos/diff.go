@@ -263,7 +263,7 @@ func (ab *rulesPair) markAddresses(l []string) error {
 			// is found.
 			g.needed = true
 			if err := ab.markAddresses(g.Members); err != nil {
-				return fmt.Errorf("%v of addressgroup %s", err, name)
+				return fmt.Errorf("%v of address-group %s", err, name)
 			}
 			continue
 		}
