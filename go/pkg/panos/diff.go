@@ -254,9 +254,6 @@ func (ab *rulesPair) markObjects(l []*panRule) error {
 
 func (ab *rulesPair) markAddresses(l []string) error {
 	for _, name := range l {
-		if name == "any" {
-			continue
-		}
 		if g := ab.b.groups[name]; g != nil {
 			// Preliminary mark group from Netspoc as needed.  Mark will
 			// be moved to group on device later if an equivalent group
@@ -269,8 +266,9 @@ func (ab *rulesPair) markAddresses(l []string) error {
 		}
 		aB := ab.b.addresses[name]
 		if aB == nil {
-			return fmt.Errorf("Referencing unknown object '%s' in Netspoc config",
-				name)
+			// Ignore "any" or address, address-group defined in <shared>
+			// and referenced from raw.
+			continue
 		}
 		if aA := ab.a.addresses[name]; aA != nil {
 			aA.needed = true
@@ -303,13 +301,11 @@ func unknownEq(a, b []AnyHolder) bool {
 
 func (ab *rulesPair) markServices(l []string) error {
 	for _, name := range l {
-		if name == "any" || name == "application-default" {
-			continue
-		}
 		sB := ab.b.services[name]
 		if sB == nil {
-			return fmt.Errorf("Referencing unknown service '%s' in Netspoc config",
-				name)
+			// Ignore "any", "application-default" or service,
+			// service-group defined in <shared> and referenced from raw.
+			continue
 		}
 		if sA := ab.a.services[name]; sA != nil {
 			sA.needed = true
