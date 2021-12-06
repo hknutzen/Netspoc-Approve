@@ -601,6 +601,112 @@ action=delete&type=config&
 =END=
 
 ############################################################
+=TITLE=Compare multiple groups in list
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- {name: r1, src: [g1, g2], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
+]]
+[[groups
+- name: g1
+  members: [IP_10.1.1.1, IP_10.1.1.2, IP_10.1.1.3]
+- name: g2
+  members: [IP_10.1.1.4, IP_10.1.1.5]
+]]
+[[identical]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- {name: r1, src: [g1, g2], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
+]]
+[[groups
+- name: g1
+  members: [IP_10.1.1.1, IP_10.1.1.2]
+- name: g2
+  members: [IP_10.1.1.3, IP_10.1.1.4, IP_10.1.1.5]
+]]
+[[identical]]
+=OUTPUT=
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g1']/static/
+  member[text()='IP_10.1.1.3']
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g2']/static&
+ element=<member>IP_10.1.1.3</member>
+=END=
+
+############################################################
+=TITLE=Compare netsted groups with swapped names
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- {name: r1, src: [g1], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
+]]
+[[groups
+- name: g1
+  members: [IP_10.1.1.1, IP_10.1.1.2, g2]
+- name: g2
+  members: [IP_10.1.1.4, IP_10.1.1.5]
+]]
+[[identical]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- {name: r1, src: [g2], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
+]]
+[[groups
+- name: g2
+  members: [IP_10.1.1.1, IP_10.1.1.2, g1]
+- name: g1
+  members: [IP_10.1.1.3, IP_10.1.1.4, IP_10.1.1.5]
+]]
+[[identical]]
+=OUTPUT=
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g2']/static&
+ element=<member>IP_10.1.1.3</member>
+=END=
+
+############################################################
+=TITLE=Recognize multiple groups in list as unchanged
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- {name: r1, src: [g1, IP_10.1.1.3, g2], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
+]]
+[[groups
+- name: g1
+  members: [IP_10.1.1.1, IP_10.1.1.2]
+- name: g2
+  members: [IP_10.1.1.4, IP_10.1.1.5]
+]]
+[[identical]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- {name: r1, src: [g1, g2], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
+]]
+[[groups
+- name: g1
+  members: [IP_10.1.1.1, IP_10.1.1.2]
+- name: g2
+  members: [IP_10.1.1.4, IP_10.1.1.5]
+]]
+[[identical]]
+=OUTPUT=
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
+  /source/member[text()='IP_10.1.1.3']
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.3']
+=END=
+
+############################################################
 =TITLE=Transfer elements to rule instead of deleting and inserting
 =DEVICE=
 [[prefix vsys2]]

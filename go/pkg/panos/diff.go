@@ -148,8 +148,8 @@ func (ab *rulesPair) diffRules(vsysPath string) []string {
 	}
 	for _, ins := range insert {
 		for _, ru := range ins.rules {
-			ab.adaptGroup(ru.Source)
-			ab.adaptGroup(ru.Destination)
+			ab.adaptGroups(ru.Source)
+			ab.adaptGroups(ru.Destination)
 			name := nameAttr(ru.Name)
 			elem := "&element=" + printXMLValue(ru)
 			cmd1 := "action=set&" + cmd0 + name + elem
@@ -178,7 +178,7 @@ func stringsEq(a, b []string) bool {
 func (ab *rulesPair) objectsTypeEq(a, b []string) bool {
 	t1 := getObjListType(a, ab.a)
 	t2 := getObjListType(b, ab.b)
-	return t1 == t2 && t1 != unknownT
+	return t1 == t2
 }
 
 func (ab *rulesPair) servicesEq(a, b []string) bool {
@@ -426,15 +426,26 @@ func (ab *rulesPair) removeUnneededObjects(vsysPath string) []string {
 }
 
 type addrListPair struct {
-	a []string
-	b []string
+	a     []string
+	b     []string
+	rPair *rulesPair
 }
 
 func (ab *addrListPair) LenA() int { return len(ab.a) }
 func (ab *addrListPair) LenB() int { return len(ab.b) }
 
 func (ab *addrListPair) Equal(ai, bi int) bool {
-	return ab.a[ai] == ab.b[bi]
+	a := ab.a[ai]
+	b := ab.b[bi]
+	// Always assume that addressgroups are equal.
+	if ab.rPair.a.groups[a] != nil {
+		return ab.rPair.b.groups[b] != nil
+	}
+	if gb := ab.rPair.b.groups[b]; gb != nil {
+		return false
+	}
+	// Addresses of same name are known to be equal.
+	return a == b
 }
 
 func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
@@ -442,8 +453,9 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 	groupPath := vsysPath + "/address-group/entry"
 	var result []string
 	cmd0 := "type=config&xpath="
-	hasEqualizedAddresses := func(la, lb []string, path string) bool {
-		ab := &addrListPair{a: la, b: lb}
+	var hasEqualizedGroups func(ga, gb *panAddressGroup) bool
+	hasEqualizedLists := func(la, lb []string, path string) bool {
+		ab := &addrListPair{a: la, b: lb, rPair: ab}
 		s := myers.Diff(nil, ab)
 		// Check if an incremental change is viable.
 		// Be
@@ -482,6 +494,19 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 			} else if r.IsInsert() {
 				object := &panMembers{Member: lb[r.LowB:r.HighB]}
 				insert += printXMLValue(object)
+			} else {
+				// Check that addressgroups are equal or can be made equal.
+				offset := r.LowB - r.LowA
+				for i := r.LowA; i < r.HighA; i++ {
+					adrA := la[i]
+					adrB := lb[i+offset]
+					if ga := ab.rPair.a.groups[adrA]; ga != nil {
+						gb := ab.rPair.b.groups[adrB]
+						if !hasEqualizedGroups(ga, gb) {
+							return false
+						}
+					}
+				}
 			}
 		}
 		if insert != "" {
@@ -491,9 +516,7 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 		}
 		return true
 	}
-	hasEqualizedGroups := func(la, lb []string) bool {
-		ga := ab.a.groups[la[0]]
-		gb := ab.b.groups[lb[0]]
+	hasEqualizedGroups = func(ga, gb *panAddressGroup) bool {
 		if gb.nameOnDevice != "" {
 			// Current group from netspoc is already available on device.
 			// No need to transfer the group.
@@ -513,7 +536,7 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 			return false
 		}
 		path := groupPath + nameAttr(ga.Name) + "/static"
-		if hasEqualizedAddresses(ga.Members, gb.Members, path) {
+		if hasEqualizedLists(ga.Members, gb.Members, path) {
 			ga.needed = true
 			gb.needed = false
 			gb.nameOnDevice = ga.Name
@@ -523,24 +546,11 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 	}
 	equalizeList := func(la, lb []string, where string) {
 		path := rulePath + "/" + where
-		t1 := getObjListType(la, ab.a)
-		t2 := getObjListType(lb, ab.b)
-		if t1 == t2 && t1 != unknownT {
-			switch t1 {
-			case anyT:
-				return
-			case groupT:
-				if hasEqualizedGroups(la, lb) {
-					return
-				}
-			case listT:
-				if hasEqualizedAddresses(la, lb, path) {
-					return
-				}
-			}
+		if hasEqualizedLists(la, lb, path) {
+			return
 		}
-		ab.adaptGroup(lb)
 		// Replace current members by new members.
+		ab.adaptGroups(lb)
 		object := &panMembers{Member: lb}
 		elem := "&element=" + printXMLValue(object)
 		cmd := "action=edit&" + cmd0 + path + elem
@@ -576,16 +586,17 @@ GROUP:
 	return ""
 }
 
-func (ab *rulesPair) adaptGroup(lb []string) {
-	if getObjListType(lb, ab.b) == groupT {
-		gb := ab.b.groups[lb[0]]
-		if name := gb.nameOnDevice; name != "" {
-			lb[0] = name
-		} else if name := ab.findGroupOnDevice(gb); name != "" {
-			lb[0] = name
-		} else {
-			// Name may have been changed to prevent name clashes.
-			lb[0] = gb.Name
+func (ab *rulesPair) adaptGroups(lb []string) {
+	for i, adr := range lb {
+		if gb := ab.b.groups[adr]; gb != nil {
+			if name := gb.nameOnDevice; name != "" {
+				lb[i] = name
+			} else if name := ab.findGroupOnDevice(gb); name != "" {
+				lb[i] = name
+			} else {
+				// Name may have been changed before, to prevent name clashes.
+				lb[i] = gb.Name
+			}
 		}
 	}
 }
