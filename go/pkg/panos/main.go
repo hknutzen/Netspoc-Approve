@@ -273,15 +273,8 @@ func mergeRaw(c, r *PanConfig) error {
 		v1.Services = append(v1.Services, v2.Services...)
 		// Add rules.
 		// Rules are prepended per default.
-		// Rules with attribute <APPEND> are appended,
-		// but before last "drop" rule with same From/To pair.
-		// Analyze From/To pairs.
+		// Rules with attribute <APPEND> are appended.
 		var top []*panRule
-		type zones struct {
-			from string
-			to   string
-		}
-		bot := make(map[zones][]*panRule)
 		for _, r := range v2.Rules {
 			re := regexp.MustCompile(`^r\d`)
 			if re.MatchString(r.Name) {
@@ -293,38 +286,10 @@ func mergeRaw(c, r *PanConfig) error {
 				top = append(top, r)
 			} else {
 				r.Append = nil
-				if len(r.From) != 1 || len(r.To) != 1 {
-					return fmt.Errorf(
-						"Must not use rule '%s' with multiple zones in From/To in raw",
-						r.Name)
-				}
-				z := zones{r.From[0], r.To[0]}
-				bot[z] = append(bot[z], r)
+				v1.Rules = append(v1.Rules, r)
 			}
 		}
 		v1.Rules = append(top, v1.Rules...)
-		for z, l := range bot {
-			var last *panRule
-			idx := -1
-			for i, r := range v1.Rules {
-				if len(r.From) == 1 && r.From[0] == z.from &&
-					len(r.To) == 1 && r.To[0] == z.to {
-
-					idx = i
-					last = r
-				}
-			}
-			if idx == -1 {
-				return fmt.Errorf(
-					"Can't find rule with From=%s, To=%s to APPEND from raw",
-					z.from, z.to)
-			}
-			if last.Action == "drop" {
-				v1.Rules = append(v1.Rules[:idx], append(l, v1.Rules[idx:]...)...)
-			} else {
-				v1.Rules = append(v1.Rules, l...)
-			}
-		}
 		return nil
 	})
 }

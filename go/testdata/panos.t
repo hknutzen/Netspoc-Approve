@@ -827,25 +827,11 @@ action=delete&type=config&
   dst: [NET_10.1.2.0_24]
   srv: [tcp 80]
 - name: r2
-  from: z1
-  to:   z2
-  action: drop
-  src: [any]
-  dst: [any]
-  srv: [any]
-- name: r3
   from: z2
   to:   z1
   src:  [NET_10.1.2.0_24]
   dst:  [IP_10.1.1.1]
   srv: [tcp 80]
-- name: r4
-  from: z2
-  to:   z1
-  action: drop
-  src: [any]
-  dst: [any]
-  srv: [any]
 ]]
 [[addresses
 - {name: IP_10.1.1.1, ip: 10.1.1.1/32}
@@ -863,7 +849,7 @@ action=delete&type=config&
   to:   z2
   src: [RANGE_10.1.1.3-7]
   dst: [NET_10.1.2.0_24]
-  srv: [tcp 81]
+  srv: [tcp 81 from shared]
 - name: raw-log1
   from: z1
   to:   z2
@@ -884,9 +870,6 @@ action=delete&type=config&
 <address>
 <entry name="RANGE_10.1.1.3-7"><ip-range>10.1.1.3-10.1.1.7</ip-range></entry>
 </address>
-[[services
-- {proto: tcp, port: 81}
-]]
 =END=
 
 ############################################################
@@ -909,10 +892,6 @@ action=set&type=config&
  element=<ip-range>10.1.1.3-10.1.1.7</ip-range>
 action=set&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 81']&
- element=<protocol><tcp><port>81</port></tcp></protocol>
-action=set&type=config&
- xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw1']&
  element=
   <action>allow</action>
@@ -920,7 +899,7 @@ action=set&type=config&
   <to><member>z2</member></to>
   <source><member>RANGE_10.1.1.3-7</member></source>
   <destination><member>NET_10.1.2.0_24</member></destination>
-  <service><member>tcp 81</member></service>
+  <service><member>tcp 81 from shared</member></service>
   <application><member>any</member></application>
   <log-start>yes</log-start>
   <log-end>yes</log-end>
@@ -944,10 +923,6 @@ action=set&type=config&
   <log-end>yes</log-end>
   <log-setting>TDC-Panorama</log-setting>
   <rule-type>interzone</rule-type>
-action=move&type=config&
- xpath=/config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw-log1']&
- where=before&dst=r2
 action=set&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw-log2']&
@@ -963,10 +938,6 @@ action=set&type=config&
   <log-end>yes</log-end>
   <log-setting>TDC-Panorama</log-setting>
   <rule-type>interzone</rule-type>
-action=move&type=config&
- xpath=/config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw-log2']&
- where=before&dst=r4
 =END=
 
 ############################################################
@@ -979,12 +950,18 @@ action=move&type=config&
   to:   z2
   src: [RANGE_10.1.1.3-7]
   dst: [NET_10.1.2.0_24]
-  srv: [tcp 81]
+  srv: [tcp 81 from shared]
 - name: r1
   from: z1
   to:   z2
   src: [IP_10.1.1.1]
   dst: [NET_10.1.2.0_24]
+  srv: [tcp 80]
+- name: r2
+  from: z2
+  to:   z1
+  src:  [NET_10.1.2.0_24]
+  dst:  [IP_10.1.1.1]
   srv: [tcp 80]
 - name: raw-log1
   from: z1
@@ -994,19 +971,6 @@ action=move&type=config&
   dst: [any]
   srv: [any]
   extra: "<log-setting>TDC-Panorama</log-setting>"
-- name: r2
-  from: z1
-  to:   z2
-  action: drop
-  src: [any]
-  dst: [any]
-  srv: [any]
-- name: r3
-  from: z2
-  to:   z1
-  src:  [NET_10.1.2.0_24]
-  dst:  [IP_10.1.1.1]
-  srv: [tcp 80]
 - name: raw-log2
   from: z2
   to:   z1
@@ -1015,13 +979,6 @@ action=move&type=config&
   dst: [any]
   srv: [any]
   extra: "<log-setting>TDC-Panorama</log-setting>"
-- name: r4
-  from: z2
-  to:   z1
-  action: drop
-  src: [any]
-  dst: [any]
-  srv: [any]
 ]]
 [[addresses
 - {name: IP_10.1.1.1, ip: 10.1.1.1/32}
@@ -1029,7 +986,6 @@ action=move&type=config&
 ]]
 [[services
 - {proto: tcp, port: 80}
-- {proto: tcp, port: 81}
 ]]
 <address>
  <entry name="RANGE_10.1.1.3-7">
@@ -1060,7 +1016,7 @@ action=move&type=config&
 [[prefix vsys2]]
 [[rules
 - name: raw1
-  from: "z0\"</member><member>\"z1"
+  from: "z0</member><member>z1"
   to: z2
   src: [any]
   dst: [NET_10.1.2.0_24]
@@ -1068,33 +1024,20 @@ action=move&type=config&
   extra: "<APPEND/>"
 ]]
 [[postfix]]
-=ERROR=
-ERROR>>> Must not use rule 'raw1' with multiple zones in From/To in raw
-=END=
-
-############################################################
-=TITLE=Append to unknown from/to pair from raw
-=DEVICE=
-[[identical]]
-[[postfix]]
-=NETSPOC=
--- router
-[[identical]]
-[[postfix]]
--- router.raw
-[[prefix vsys2]]
-[[rules
-- name: raw1
-  from: z0
-  to: z2
-  src: [any]
-  dst: [NET_10.1.2.0_24]
-  srv: [any]
-  extra: "<APPEND/>"
-]]
-[[postfix]]
-=ERROR=
-ERROR>>> Can't find rule with From=z0, To=z2 to APPEND from raw
+=OUTPUT=
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='raw1']&
+ element=
+  <action>allow</action>
+  <from><member>z0</member><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>any</member></source>
+  <destination><member>NET_10.1.2.0_24</member></destination>
+  <service><member>any</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start><log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
 =END=
 
 ############################################################
