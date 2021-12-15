@@ -44,6 +44,7 @@ my %type2class = (
     IOS     => 'Netspoc::Approve::IOS',
     ASA     => 'Netspoc::Approve::ASA',
     'NX-OS' => 'Netspoc::Approve::NX_OS',
+    'PAN-OS' => 'drc-pan-os',
 );
 
 ####################################################################
@@ -78,6 +79,7 @@ sub banner_msg {
 
 Getopt::Long::Configure("no_ignore_case");
 
+my @orig_args = @ARGV;
 my %opts;
 
 &GetOptions(
@@ -99,21 +101,50 @@ delete($opts{q}) and quiet();
 my $file1 = shift or usage();
 my $file2 = shift;
 @ARGV and usage();
+$file2 and keys %opts and usage;
 
 # Take basename of file as device name.
 (my $name = $file1) =~ s|^.*/||;
 
 # Get type and IP addresses from spoc file.
 my $spoc_file = $file2 || $file1;
-my ($type, $ip, $err) = Netspoc::Approve::Device->get_spoc_data($spoc_file);
+my ($type, $ip, $err) = Netspoc::Approve::Device::get_spoc_data($spoc_file);
 
 $type or abort("Can't get device type from $spoc_file");
 
-# Get class from type.
-my $class = $type2class{$type}
-  or abort("Can't find class for [ Model = $type ] from $spoc_file");
+# Enable logging.
+if (my $logfile = $opts{LOGFILE}) {
+    Netspoc::Approve::Device::logging($logfile);
+}
 
-my $job = $class->new(
+# Set lock if necessary.
+my $config;
+if (not $file2) {
+    $config = Netspoc::Approve::Load_Config::load();
+    Netspoc::Approve::Device::set_lock($name, $config->{lockfiledir});
+}
+
+# Get class or program name from type.
+my $class_or_prog = $type2class{$type}
+  or abort("Can't find definition for [ Model = $type ] from $spoc_file");
+
+# Exec external program and then terminate.
+if ($class_or_prog !~ /^Netspoc::Approve::/) {
+    my $prog = $class_or_prog;
+    unshift @orig_args, $prog;
+    system(@orig_args);
+    if ($? == -1) {
+        abort("Can't execute '$prog': $!");
+    }
+    elsif ($? & 127) {
+        abort("'$prog' died with signal: " . ($? & 127));
+    }
+    else {
+        exit ($? >> 8);
+    }
+}
+
+my $job = $class_or_prog->new(
     NAME   => $name,
     OPTS   => \%opts,
     IP     => shift(@$ip),
@@ -123,18 +154,12 @@ my $job = $class->new(
 # - without device's IP and password
 # - without calling Load_Config (so we can use compare_files for testing).
 if ($file2) {
-    keys %opts and usage;
     exit($job->compare_files($file1, $file2) ? 1 : 0)
 }
 
 $job->{USER} = delete $opts{u} || getpwuid($>);
 $job->{IP} or abort($err);
-$job->{CONFIG} = Netspoc::Approve::Load_Config::load();
-
-# Enable logging if configured.
-$job->logging();
-
-$job->lock();
+$job->{CONFIG} = $config;
 
 # Start compare / approve.
 banner_msg('START');
@@ -145,5 +170,3 @@ else {
     $job->approve($file1);
 }
 banner_msg('STOP');
-
-$job->unlock();

@@ -4,4 +4,6 @@ Netspoc-Approve*
 released/
 .tidyall.d
 cover_db
-
+go/test/coverage.out
+go/cmd/*/*
+!go/cmd/*/main.go
