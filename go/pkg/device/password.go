@@ -29,7 +29,7 @@ func (c *Config) GetAAAPassword(name string) (string, string, error) {
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if line == "" || line[0] == '#' {
 			continue
 		}
 		parts := strings.Fields(line)
