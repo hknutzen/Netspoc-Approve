@@ -13,12 +13,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Get dependencies
-        run: |
-          cpanm --notest Dist::Zilla::Plugin::Run::BeforeBuild
-          dzil authordeps --missing | cpanm --notest
-          cpanm --notest Code::TidyAll::Plugin::PerlCritic Perl::Critic
-          dzil listdeps --author --missing | cpanm --notest
-          cpanm -n Devel::Cover Devel::Cover::Report::Coveralls
+        run: >
+          cpanm -n
+          Expect IO::Tty NetAddr::IP::Util Regexp::IPv6
+          Devel::Cover Devel::Cover::Report::Coveralls
       - name: Calc coverage
         env:
           HARNESS_PERL_SWITCHES: -MDevel::Cover=-ignore,^x?t/,-blib,0
