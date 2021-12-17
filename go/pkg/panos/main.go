@@ -29,7 +29,6 @@ type change struct {
 }
 
 func Main() int {
-	fmt.Fprintf(os.Stderr, "Started main\n")
 	fs := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
 
 	// Setup custom usage function.
@@ -56,12 +55,11 @@ func Main() int {
 	}
 
 	s := new(state)
-	s.config = device.LoadConfig()
+	var err error
 	s.quiet = *quiet
 
 	// Argument processing
 	args := fs.Args()
-	var err error
 	switch len(args) {
 	case 0:
 		fallthrough
@@ -75,6 +73,11 @@ func Main() int {
 		}
 		err = s.compareFiles(args[0], args[1])
 	case 1:
+		s.config, err = device.LoadConfig()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
+			return 1
+		}
 		path := args[0]
 		s.setLogDir(*logDir, path)
 		if *compare {
