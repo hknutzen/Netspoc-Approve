@@ -12,6 +12,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17.x
+      - name: Calc coverage
+        run: >
+          go test -v
+          -coverpkg $(go list ../...|grep /pkg/|paste -sd,)
+          -covermode=count
+          -coverprofile=coverage.out
+        working-directory: go/test
+      - name: Convert coverage to lcov
+        uses: jandelgado/gcov2lcov-action@v1.0.8
+        with:
+          working-directory: go/test
       - name: Get dependencies
         run: >
           cpanm -n
@@ -25,18 +40,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cover -report Coveralls
-      - name: Install Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.17.x
-      - name: Calc coverage
-        run: >
-          go test
-          -coverpkg $(go list ../...|grep /pkg/|paste -sd,)
-          -covermode=count
-          -coverprofile=coverage.out
-        working-directory: go/test
-      - name: Convert coverage to lcov
-        uses: jandelgado/gcov2lcov-action@v1.0.8
-        with:
-          working-directory: go/test
