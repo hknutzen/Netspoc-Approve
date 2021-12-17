@@ -94,12 +94,13 @@ func runTest(t *testing.T, d *tstdata.Descr) {
 	t.Logf("Call main function")
 	var status int
 	var stdout string
-	stderr := capture.Capture(&os.Stderr, func() {
-		stdout = capture.Capture(&os.Stdout, func() {
-			t.Logf("Before CatchPanic")
-			status = capture.CatchPanic(panos.Main)
-		})
+	var stderr string
+	//stderr := capture.Capture(&os.Stderr, func() {
+	stdout = capture.Capture(&os.Stdout, func() {
+		t.Logf("Before CatchPanic")
+		status = capture.CatchPanic(panos.Main)
 	})
+	//})
 
 	// Check result.
 	if status == 0 {
