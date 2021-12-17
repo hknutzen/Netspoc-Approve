@@ -29,6 +29,7 @@ type change struct {
 }
 
 func Main() int {
+	fmt.Fprintf(os.Stderr, "Started main\n")
 	fs := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
 
 	// Setup custom usage function.
