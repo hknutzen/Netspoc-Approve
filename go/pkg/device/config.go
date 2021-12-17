@@ -2,6 +2,7 @@ package device
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -39,7 +40,7 @@ type Config struct {
 }
 
 // Use most specific config file; ignore others.
-func LoadConfig() *Config {
+func LoadConfig() (*Config, error) {
 	var data []byte
 	var file string
 	for _, p := range confPaths {
@@ -50,28 +51,30 @@ func LoadConfig() *Config {
 			break
 		}
 		if !errors.Is(err, fs.ErrNotExist) {
-			abort("Can't %v", err)
+			return nil, fmt.Errorf("Can't %v", err)
 		}
 	}
 	if data == nil {
-		abort("No config file found in\n %v", confPaths)
+		return nil, fmt.Errorf("No config file found in %v", confPaths)
 	}
 
 	var c Config
 	seen := make(map[string]bool)
 
-	insert := func(key, val string) {
-		getInt := func() int {
+	insert := func(key, val string) error {
+		getInt := func() (int, error) {
 			i, err := strconv.Atoi(val)
 			if err != nil {
-				abort("Expected integer value for '%s' in %s: %v", key, file, err)
-			}
-			if i < 0 {
-				abort("Expected positive integer for '%s' in %s: %v",
+				return i, fmt.Errorf("Expected integer value for '%s' in %s: %v",
 					key, file, err)
 			}
-			return i
+			if i < 0 {
+				return 0, fmt.Errorf(
+					"Expected positive integer for '%s' in %s: %v", key, file, err)
+			}
+			return i, nil
 		}
+		var err error
 		switch key {
 		case "netspocdir":
 			c.netspocDir = val
@@ -82,26 +85,23 @@ func LoadConfig() *Config {
 		case "statusdir":
 			c.statusDir = val
 		case "checkbanner":
-			re, err := regexp.Compile(val)
-			if err != nil {
-				abort("Invalid regexp in '%s' of %s: %v", key, file, err)
-			}
-			c.checkBanner = re
+			c.checkBanner, err = regexp.Compile(val)
 		case "aaa_credentials":
 			c.aaaCredentials = val
 		case "systemuser":
 			c.systemUser = val
 		case "timeout":
-			c.Timeout = getInt()
+			c.Timeout, err = getInt()
 		case "login_timeout":
-			c.LoginTimeout = getInt()
+			c.LoginTimeout, err = getInt()
 		case "keep_history":
-			c.keepHistory = getInt()
+			c.keepHistory, err = getInt()
 		case "compress_at":
-			c.compressAt = getInt()
+			c.compressAt, err = getInt()
 		default:
 			warn("Ignoring key '%s' in %s", key, file)
 		}
+		return err
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -120,19 +120,25 @@ func LoadConfig() *Config {
 			continue
 		}
 		seen[key] = true
-		insert(key, val)
+		if err := insert(key, val); err != nil {
+			return nil, err
+		}
 	}
 	for key, val := range defaultVals {
 		if !seen[key] {
-			insert(key, val)
+			if err := insert(key, val); err != nil {
+				return nil, err
+			}
 		}
 	}
-	check := func(k string) {
+	for _, k := range []string{"netspocdir", "lockfiledir"} {
 		if !seen[k] {
-			abort("Missing '%s' in %s", k, file)
+			return nil, fmt.Errorf("Missing '%s' in %s", k, file)
 		}
 	}
-	check("netspocdir")
-	check("lockfiledir")
-	return &c
+	return &c, nil
+}
+
+func warn(f string, l ...interface{}) {
+	fmt.Fprintf(os.Stderr, "WARNING>>> "+f+"\n", l...)
 }
