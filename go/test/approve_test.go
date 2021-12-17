@@ -48,7 +48,6 @@ func runTest(t *testing.T, d *tstdata.Descr) {
 
 	// Run each test inside a fresh working directory,
 	// where different subdirectories are created.
-	t.Logf("Fresh working directory")
 	workDir := t.TempDir()
 	prevDir, _ := os.Getwd()
 	defer func() { os.Chdir(prevDir) }()
@@ -64,7 +63,6 @@ func runTest(t *testing.T, d *tstdata.Descr) {
 	}
 
 	// Prepare device file.
-	t.Logf("Prepare device file")
 	deviceFile := "device"
 	if err := os.WriteFile(deviceFile, []byte(d.Device), 0644); err != nil {
 		t.Fatal(err)
@@ -91,16 +89,13 @@ func runTest(t *testing.T, d *tstdata.Descr) {
 	}
 
 	// Call main function.
-	t.Logf("Call main function")
 	var status int
 	var stdout string
-	var stderr string
-	//stderr := capture.Capture(&os.Stderr, func() {
-	stdout = capture.Capture(&os.Stdout, func() {
-		t.Logf("Before CatchPanic")
-		status = capture.CatchPanic(panos.Main)
+	stderr := capture.Capture(&os.Stderr, func() {
+		stdout = capture.Capture(&os.Stdout, func() {
+			status = capture.CatchPanic(panos.Main)
+		})
 	})
-	//})
 
 	// Check result.
 	if status == 0 {
