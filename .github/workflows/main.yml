@@ -40,10 +40,17 @@ jobs:
         run: cpanm -n https://github.com/hknutzen/coveralls-perl.git
       - name: Upload Perl coverage
         env:
-          COVERALLS_FLAG_NAME: Functional
+          COVERALLS_FLAG_NAME: Perl
           COVERALLS_PARALLEL: 1
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cover -report Coveralls
+      - name: Upload Go coverage
+        uses: coverallsapp/github-action@v1.1.2
+        with:
+          github-token: ${{ secrets.github_token }}
+          path-to-lcov: go/test/coverage.lcov
+          flag-name: Go
+          parallel: true
       - name: Coveralls Finished
         uses: coverallsapp/github-action@master
         with:
