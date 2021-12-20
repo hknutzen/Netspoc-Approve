@@ -185,7 +185,7 @@ system 'touch policydb/LOCK';
 
 # Let newpolicy.pl wait.
 sysopen my $wait_fh, 'do-wait', O_RDONLY | O_CREAT;
-flock($wait_fh, LOCK_EX | LOCK_NB);
+flock($wait_fh, LOCK_EX);
 my $fh1 = start_newpolicy();
 
 # Wait until compile.log has been created.
