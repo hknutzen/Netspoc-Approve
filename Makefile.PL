@@ -19,6 +19,7 @@ my %WriteMakefileArgs = (
     "bin/compare-all",
     "bin/compress-policies",
     "bin/delete-old-policies",
+    "bin/drc-pan-os",
     "bin/drc3.pl",
     "bin/get-netspoc-approve-conf",
     "bin/missing-approve",
@@ -55,7 +56,7 @@ my %WriteMakefileArgs = (
     "Time::HiRes" => 0,
     "lib" => 0
   },
-  "VERSION" => "2.022",
+  "VERSION" => "3.000",
   "test" => {
     "TESTS" => "t/*.t"
   }

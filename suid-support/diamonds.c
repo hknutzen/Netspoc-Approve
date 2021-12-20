@@ -8,8 +8,9 @@
 #include <unistd.h>
 
 char program[] = "/usr/local/bin/approve.pl";
+char *envp[] = { "PATH=/usr/local/bin:/usr/bin:/bin", 0 };
 
 int main( int argc, char *argv[])
 {
-    return execv(program, argv);
+  return execve(program, argv, envp);
 }

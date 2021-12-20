@@ -36,7 +36,7 @@ use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
 
-our $VERSION = '2.022'; # VERSION: inserted by DZP::OurPkgVersion
+# VERSION: inserted by DZP::OurPkgVersion
 
 ############################################################
 # --- constructor ---
@@ -131,7 +131,7 @@ sub get_user_password {
 # ! [ Model = IOS ]
 # ! [ IP = 10.1.13.80,10.1.14.77 ]
 sub get_spoc_data {
-    my ($self, $spocfile) = @_;
+    my ($spocfile) = @_;
     my $type;
     my @ip = ();
     my $fh;
@@ -1124,9 +1124,7 @@ sub approve {
 }
 
 sub logging {
-    my $self = shift;
-    my $logfile = $self->{OPTS}->{LOGFILE} or
-        return;
+    my ($logfile) = @_;
     my $dirname = dirname($logfile);
 
     # Create logdir
@@ -1152,32 +1150,23 @@ sub logging {
         or abort("STDERR redirect: Can't open $logfile: $!");
 }
 
-{
+# Set lock for exclusive approval
+# Store file handle in global var, so it isn't closed immediately.
+# File is closed automatically after program exit.
+my $lock_fh;
+sub set_lock {
+    my ($name, $lockdir) = @_;
+    my $lockfile = "$lockdir/$name";
+    my $file_exists = -f $lockfile;
+    open($lock_fh, '>', $lockfile)
+        or abort("Can't aquire lock file $lockfile: $!");
 
-    # A closure, because we need the lock in both functions.
-    my $lock_fh;
-
-    # Set lock for exclusive approval
-    sub lock {
-        my ($self) = @_;
-        my $name = $self->{NAME};
-        my $lockfile = "$self->{CONFIG}->{lockfiledir}/$name";
-        my $file_exists = -f $lockfile;
-        open($lock_fh, '>', $lockfile)
-          or abort("Can't aquire lock file $lockfile: $!");
-
-        # Make newly created lock file writable for other users.
-        $file_exists
-          or chmod(0666, $lockfile)
-          or abort("Can't chmod lockfile $lockfile: $!");
-        flock($lock_fh, LOCK_EX | LOCK_NB)
-          or abort($!, "Approve in progress for $name");
-    }
-
-    sub unlock {
-        my ($self) = @_;
-        close($lock_fh) or abort("Can't unlock lockfile: $!");
-    }
+    # Make newly created lock file writable for other users.
+    $file_exists
+        or chmod(0666, $lockfile)
+        or abort("Can't chmod lockfile $lockfile: $!");
+    flock($lock_fh, LOCK_EX | LOCK_NB)
+        or abort($!, "Approve in progress for $name");
 }
 
 1;

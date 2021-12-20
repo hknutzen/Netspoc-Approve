@@ -11,6 +11,7 @@ bin/approve.pl
 bin/compare-all
 bin/compress-policies
 bin/delete-old-policies
+bin/drc-pan-os
 bin/drc3.pl
 bin/get-netspoc-approve-conf
 bin/missing-approve
@@ -19,6 +20,20 @@ bin/newpolicy.pl
 bin/start-jobs
 dist.ini
 etc/netspoc-approve
+go/build.sh
+go/cmd/drc-pan-os/main.go
+go/go.mod
+go/go.sum
+go/pkg/device/config.go
+go/pkg/device/password.go
+go/pkg/panos/device.go
+go/pkg/panos/diff.go
+go/pkg/panos/main.go
+go/pkg/panos/parse.go
+go/test/approve_test.go
+go/test/capture/capture.go
+go/test/tstdata/testdata.go
+go/testdata/panos.t
 lib/Netspoc/Approve/ASA.pm
 lib/Netspoc/Approve/Cisco.pm
 lib/Netspoc/Approve/Cisco_Router.pm
@@ -31,7 +46,6 @@ lib/Netspoc/Approve/Load_Config.pm
 lib/Netspoc/Approve/NX_OS.pm
 lib/Netspoc/Approve/Parse_Cisco.pm
 lib/Netspoc/Approve/Status.pm
-patches/Expect.pm.patch
 suid-support/Makefile
 suid-support/README
 suid-support/diamonds.c
