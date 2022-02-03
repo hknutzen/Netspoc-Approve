@@ -31,13 +31,11 @@ jobs:
         run: >
           cpanm -n
           Expect IO::Tty NetAddr::IP::Util Regexp::IPv6
-          Devel::Cover
+          Devel::Cover Devel::Cover::Report::Coveralls
       - name: Calc Perl coverage
         env:
           HARNESS_PERL_SWITCHES: -MDevel::Cover=-ignore,^x?t/,-blib,0
         run: prove
-      - name: Use patched version of Devel::Cover::Report::Coveralls
-        run: cpanm -n https://github.com/hknutzen/coveralls-perl.git
       - name: Upload Perl coverage
         env:
           COVERALLS_FLAG_NAME: Perl
