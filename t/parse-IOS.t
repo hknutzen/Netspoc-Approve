@@ -757,15 +757,15 @@ END
 test_status($title, 'IOS', $device, $in, 0);
 
 ############################################################
-$title = "Handle ACL line with remark";
+$title = "Handle ACL line with remark and sequence number";
 ############################################################
 $device = <<'END';
 ip access-list extended inside
- remark Test1
- permit ip host 1.1.1.1 any
- permit ip host 2.2.2.2 any
- remark Test2
- permit ip host 4.4.4.4 any
+ 10 remark Test1
+ 10 permit ip host 1.1.1.1 any
+ 25 permit ip host 2.2.2.2 any
+ 30 remark Test2
+ 30 permit ip host 4.4.4.4 any
 interface Ethernet0/0
  ip access-group inside in
 END

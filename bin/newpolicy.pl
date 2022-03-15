@@ -182,9 +182,6 @@ if ($? == 0) {
 
     my $pfile = 'POLICY';
     my $exists = -e $pfile;
-    if ($exists) {
-        system('cvs', 'edit', $pfile) == 0 or log_abort("Aborted");
-    }
     open  my $policy_fh, '>', $pfile or log_abort("Can't open $pfile: $!");
     print $policy_fh "# $policy # Current policy, don't edit manually!\n";
     close $policy_fh;

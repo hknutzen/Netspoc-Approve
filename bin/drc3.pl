@@ -4,7 +4,7 @@
 # Approving device with netspoc configuration.
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2022 by Heinz Knutzen <heinz.knutzen@gmail.com>
 # (c) 2007 by Arne Spetzler
 #
 # This program is free software; you can redistribute it and/or modify
@@ -35,7 +35,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '3.000'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '3.001'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -131,8 +131,21 @@ my $class_or_prog = $type2class{$type}
 # Exec external program and then terminate.
 if ($class_or_prog !~ /^Netspoc::Approve::/) {
     my $prog = $class_or_prog;
-    unshift @orig_args, $prog;
-    system(@orig_args);
+    my @args = ($prog);
+    # Remove two parameters '--LOGFILE FILE'
+    my $file = 0;
+    for my $arg (@orig_args) {
+        if ($arg eq '--LOGFILE') {
+            $file = 1;
+            next;
+        }
+        if ($file) {
+            $file = 0;
+            next;
+        }
+        push @args, $arg;
+    }
+    system(@args);
     if ($? == -1) {
         abort("Can't execute '$prog': $!");
     }

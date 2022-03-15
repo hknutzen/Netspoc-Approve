@@ -12,4 +12,6 @@ USER=$(get-netspoc-approve-conf systemuser)
 # - CVSROOT
 # - LANG
 # - PATH (needs /usr/local/bin)
-exec sudo -u $USER /usr/local/bin/newpolicy.pl
+CMD=/usr/local/bin/newpolicy.pl
+[ $(id -un) = $USER ] || CMD="sudo -u $USER $CMD"
+exec $CMD

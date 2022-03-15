@@ -1,3 +1,8 @@
+3.001     2022-03-15 15:35:37+01:00 Europe/Berlin
+
+ - Ignore sequence numbers shown in ACL lines since IOS-XE 16.12.
+ - Command 'newpolicy' no longer runs 'cvs edit'.
+
 3.000     2021-12-20 14:16:55+01:00 Europe/Berlin
 
  - Added support for Palo-Alto devices.
