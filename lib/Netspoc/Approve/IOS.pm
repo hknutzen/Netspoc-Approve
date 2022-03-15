@@ -286,11 +286,20 @@ sub get_parse_info {
     };
 
     # Copy 'permit' entry and substitute 'permit' by 'deny';
-    my $entry = $result->{'ip access-list extended'}->{subcmd};
-    $entry = $entry->{deny} = { %{$entry->{permit}} };
+    my $subcmd = $result->{'ip access-list extended'}->{subcmd};
+    my $entry = $subcmd->{deny} = { %{$subcmd->{permit}} };
     $entry = $entry->{parse} = [ @{$entry->{parse}} ];
     $entry = $entry->[1] = { %{$entry->[1]} };
     $entry->{default} = 'deny';
+
+    # Sub commands of 'ip access-list extended' are shown with
+    # sequence number since IOS-XE 16.12.
+    # These are parsed and ignored.
+    for my $cmd (qw(permit deny remark)) {
+        my $entry = $subcmd->{"_skip $cmd"} = { %{$subcmd->{$cmd}} };
+        my $list = $entry->{parse} = [ @{$entry->{parse}} ];
+        splice(@$list, 1, 0, { parse => \&get_int, });
+    }
 
     $result;
 }
