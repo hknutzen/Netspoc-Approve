@@ -6,7 +6,7 @@ Remote configure Cisco ASA.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2022 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2011 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -913,8 +913,9 @@ sub get_parse_info {
                 # But declare it, because it has subcommands.
                 'webvpn' => { subcmd => {} },
 
-                # Handle separately for whitespace in name.
-                'anyconnect-custom perapp' => {
+                # anyconnect-custom perapp
+                # anyconnect-custom dynamic-split-exclude-domains
+                'anyconnect-custom _any' => {
                     store => ['ATTRIBUTES', '_cmd'],
                     parse => \&get_to_eol,
                 },
