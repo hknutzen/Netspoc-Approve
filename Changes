@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+3.002     2022-04-07 14:37:52+02:00 Europe/Berlin
+
+ - Added support for commands "anyconnect-custom xxxx"
+
 3.001     2022-03-15 15:35:37+01:00 Europe/Berlin
 
  - Ignore sequence numbers shown in ACL lines since IOS-XE 16.12.
