@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+3.003     2022-05-13 11:59:16+02:00 Europe/Berlin
+
+ - Added support for service-groups of Palo-Alto devices.
+
 3.002     2022-04-07 14:37:52+02:00 Europe/Berlin
 
  - Added support for commands "anyconnect-custom xxxx"
