@@ -42,6 +42,16 @@
 </address>
 =END=
 
+=TEMPL=service_groups
+<service-group>
+{{range .}}
+<entry name="{{.name}}"><members>
+{{range .members}}<member>{{.}}</member>{{end}}
+</members></entry>
+{{end}}
+</service-group>
+=END=
+
 =TEMPL=services
 <service>
 {{range .}}
@@ -1377,6 +1387,170 @@ action=edit&type=config&
    <protocol><tcp><port>443</port></tcp></protocol>
    <description>SSL</description>
   </entry>
+=END=
+
+############################################################
+=TITLE=Add service-group and its members
+=DEVICE=
+[[prefix vsys2]]
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [HTTP-u-HTTPS]
+]]
+[[services
+- {proto: tcp, port: 80}
+- {proto: tcp, port: 443}
+]]
+[[service_groups
+- {name: HTTP-u-HTTPS, members: [tcp 80, tcp 443]}
+]]
+[[postfix]]
+=OUTPUT=
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 80']&
+ element=<protocol><tcp><port>80</port></tcp></protocol>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 443']&
+ element=<protocol><tcp><port>443</port></tcp></protocol>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service-group/entry[@name='HTTP-u-HTTPS']/members&
+ element=<member>tcp 80</member><member>tcp 443</member>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>any</member></source>
+  <destination><member>any</member></destination>
+  <service><member>HTTP-u-HTTPS</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+=END=
+
+############################################################
+=TITLE=Delete service-group and unused members
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [HTTP-u-HTTPS]
+]]
+[[services
+- {proto: tcp, port: 80}
+- {proto: tcp, port: 443}
+]]
+[[service_groups
+- {name: HTTP-u-HTTPS, members: [tcp 80, tcp 443]}
+]]
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [tcp 80]
+]]
+[[services
+- {proto: tcp, port: 80}
+]]
+[[postfix]]
+=OUTPUT=
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1-1']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>any</member></source>
+  <destination><member>any</member></destination><service>
+  <member>tcp 80</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service-group/entry[@name='HTTP-u-HTTPS']
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 443']
+=END=
+
+############################################################
+=TITLE=Change members of service-group
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [test]
+]]
+[[services
+- {proto: tcp, port: 80}
+- {proto: tcp, port: 443}
+]]
+[[service_groups
+- {name: test, members: [tcp 80, tcp 443]}
+]]
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [test]
+]]
+[[services
+- {proto: tcp, port: 81}
+- {proto: tcp, port: 443}
+]]
+[[service_groups
+- {name: test, members: [tcp 81, tcp 443]}
+]]
+[[postfix]]
+=OUTPUT=
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 81']&
+ element=<protocol><tcp><port>81</port></tcp></protocol>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service-group/entry[@name='test']/members&
+ element=<member>tcp 81</member><member>tcp 443</member>
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 80']
 =END=
 
 ############################################################

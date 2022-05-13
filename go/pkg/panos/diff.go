@@ -25,6 +25,7 @@ type vsysInfo struct {
 	addresses map[string]*panAddress
 	groups    map[string]*panAddressGroup
 	services  map[string]*panService
+	sGroups   map[string]*panServiceGroup
 }
 
 type rulesPair struct {
@@ -39,6 +40,7 @@ func rulesPairFrom(a, b *panVsys) *rulesPair {
 			rules:     a.Rules,
 			addresses: addressMap(a),
 			groups:    groupMap(a),
+			sGroups:   sGroupMap(a),
 			services:  serviceMap(a),
 		},
 		vsysInfo{
@@ -46,6 +48,7 @@ func rulesPairFrom(a, b *panVsys) *rulesPair {
 			rules:     b.Rules,
 			addresses: addressMap(b),
 			groups:    groupMap(b),
+			sGroups:   sGroupMap(b),
 			services:  serviceMap(b),
 		},
 	}
@@ -70,6 +73,14 @@ func groupMap(v *panVsys) map[string]*panAddressGroup {
 func serviceMap(v *panVsys) map[string]*panService {
 	m := make(map[string]*panService)
 	for _, o := range v.Services {
+		m[o.Name] = o
+	}
+	return m
+}
+
+func sGroupMap(v *panVsys) map[string]*panServiceGroup {
+	m := make(map[string]*panServiceGroup)
+	for _, o := range v.ServiceGroups {
 		m[o.Name] = o
 	}
 	return m
@@ -187,8 +198,8 @@ func (ab *rulesPair) servicesEq(a, b []string) bool {
 		bName := b[i]
 		if aName == bName {
 			// any | application-default
-			// or two defined services with equal name
-			// and possibly different definitions.
+			// or two defined services or service-groups
+			// with equal name and possibly different definitions.
 			// In this case, definition will be edited later.
 			continue
 		}
@@ -286,6 +297,14 @@ func unknownEq(a, b []AnyHolder) bool {
 
 func (ab *rulesPair) markServices(l []string) {
 	for _, name := range l {
+		if g := ab.b.sGroups[name]; g != nil {
+			g.needed = true
+			ab.markServices(g.Members)
+			if sA := ab.a.sGroups[name]; sA != nil {
+				sA.needed = true
+			}
+			continue
+		}
 		sB := ab.b.services[name]
 		if sB == nil {
 			// Ignore "any", "application-default" or service,
@@ -370,6 +389,17 @@ func (ab *rulesPair) transferNeededObjects(vsysPath string) []string {
 			result = append(result, cmd)
 		}
 	}
+	sGroupPath := vsysPath + "/service-group/entry"
+	cmd0 = "type=config&xpath=" + sGroupPath
+	for _, o := range ab.b.vsys.ServiceGroups {
+		if o.needed {
+			name := nameAttr(o.Name)
+			object := &panMembers{Member: o.Members}
+			elem := "&element=" + printXMLValue(object)
+			cmd := "action=set&" + cmd0 + name + "/members" + elem
+			result = append(result, cmd)
+		}
+	}
 	return result
 }
 
@@ -391,6 +421,13 @@ func (ab *rulesPair) removeUnneededObjects(vsysPath string) []string {
 	addressPath := vsysPath + "/address/entry"
 	cmd0 = "type=config&xpath=" + addressPath
 	for _, o := range ab.a.vsys.Addresses {
+		if !o.needed {
+			delete(o.Name)
+		}
+	}
+	sGroupPath := vsysPath + "/service-group/entry"
+	cmd0 = "type=config&xpath=" + sGroupPath
+	for _, o := range ab.a.vsys.ServiceGroups {
 		if !o.needed {
 			delete(o.Name)
 		}
