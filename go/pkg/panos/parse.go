@@ -84,6 +84,7 @@ type panVsys struct {
 	Addresses     []*panAddress      `xml:"address>entry"`
 	AddressGroups []*panAddressGroup `xml:"address-group>entry"`
 	Services      []*panService      `xml:"service>entry"`
+	ServiceGroups []*panServiceGroup `xml:"service-group>entry"`
 }
 
 type panRule struct {
@@ -157,6 +158,15 @@ type panService struct {
 	Unknown  OtherAttr   `xml:",any"`
 	needed   bool
 	edit     bool
+}
+
+type panServiceGroup struct {
+	XMLName      xml.Name  `xml:"entry"`
+	Name         string    `xml:"name,attr"`
+	Members      []string  `xml:"members>member"`
+	Unknown      OtherAttr `xml:",any"`
+	needed       bool
+	nameOnDevice string
 }
 
 type panProtocol struct {
