@@ -10,3 +10,11 @@ PARALLEL=$(expr "$1" \| 40)
 for device in $(missing-approve) ; do
     echo diamonds approve --brief $device
 done | start-jobs -q $PARALLEL
+
+# Remember time of last successful run
+# for use in cronjob starting newpolicy and approve-all.
+DIR=$(get-netspoc-approve-conf lockfiledir)
+FILE=$DIR/approve-all.last
+touch $FILE
+# Make newly created file writable for other users.
+chmod -f a+w $FILE
