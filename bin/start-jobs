@@ -23,4 +23,4 @@ max=$1
 [ "$max" ] || usage
 
 xargs -d '\n' -n1 -r $verbose -P $max sh -c &&
-[ "$verbose" ] && echo '*Finished*' >/dev/stderr
+{ [ "$verbose" ] && echo '*Finished*' >/dev/stderr || true; }
