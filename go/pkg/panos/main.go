@@ -192,23 +192,45 @@ func (s *state) getCompare(
 	return changes, err
 }
 
-func loadSpoc(path string) (*PanConfig, error) {
-	conf, err := loadSpocFile(path)
+func getIPv6Path(p string) string {
+	dir := path.Dir(p)
+	base := path.Base(p)
+	return dir + "/ipv6/" + base
+}
+
+func loadSpoc(v4Path string) (*PanConfig, error) {
+	v6Path := getIPv6Path(v4Path)
+	conf4, err := loadSpocWithRaw(v4Path)
 	if err != nil {
 		return nil, err
 	}
-	rawPath := path + ".raw"
-	if _, err := os.Stat(rawPath); err == nil {
-		raw, err := loadSpocFile(rawPath)
-		if err != nil {
-			return nil, err
-		}
-		return conf, mergeRaw(conf, raw)
+	conf6, err := loadSpocWithRaw(v6Path)
+	if err != nil {
+		return nil, err
 	}
-	return conf, nil
+	return mergeSpoc(conf4, conf6), nil
+}
+
+func loadSpocWithRaw(pathName string) (*PanConfig, error) {
+	conf, err := loadSpocFile(pathName)
+	if err != nil {
+		return nil, err
+	}
+	rawPath := pathName + ".raw"
+	raw, err := loadSpocFile(rawPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkRulesFromRaw(raw); err != nil {
+		return nil, err
+	}
+	return mergeSpoc(conf, raw), nil
 }
 
 func loadSpocFile(path string) (*PanConfig, error) {
+	if _, err := os.Stat(path); err != nil {
+		return new(PanConfig), nil
+	}
 	data, err := os.ReadFile(path)
 	// Also handle saved config of device:
 	// - starting with http address and
@@ -259,69 +281,96 @@ func getHostnameIPList(path string) ([]string, []string, error) {
 	return nameList, ipList, nil
 }
 
-func mergeRaw(c, r *PanConfig) error {
-	return processVsysPairs(c, r, func(v1, v2 *panVsys) error {
-		// Add complete vsys from raw.
+// mergeSpoc merges two configurations read from Netspoc.
+// c2 is either read from a raw file or it is a IPv6 configuration.
+func mergeSpoc(c1, c2 *PanConfig) *PanConfig {
+	processVsysPairs(c1, c2, func(v1, v2 *panVsys) error {
+		// Create empty vsys in c1 to add complete vsys from c2 bewlow.
 		if v1 == nil {
-			d1 := c.Devices.Entries[0]
-			d1.Vsys = append(d1.Vsys, v2)
-			return nil
-		}
-		// Vsys isn't changed from raw.
-		if v2 == nil {
-			return nil
-		}
-		// Add elements of vsys from raw.
-		v1.Addresses = append(v1.Addresses, v2.Addresses...)
-		v1.AddressGroups = append(v1.AddressGroups, v2.AddressGroups...)
-		v1.Services = append(v1.Services, v2.Services...)
-		// Add rules.
-		// Rules are prepended per default.
-		// Rules with attribute <APPEND> are appended.
-		var top []*panRule
-		for _, r := range v2.Rules {
-			re := regexp.MustCompile(`^r\d`)
-			if re.MatchString(r.Name) {
-				return fmt.Errorf(
-					"Must not use rule name starting with 'r<NUM>' in raw: %s",
-					r.Name)
+			if c1 == nil || c1.Devices == nil {
+				c1 = &PanConfig{
+					Devices: &panDevices{
+						Entries: []*panDevice{&panDevice{}},
+					},
+				}
 			}
-			if r.Append == nil {
-				top = append(top, r)
-			} else {
-				r.Append = nil
-				v1.Rules = append(v1.Rules, r)
-			}
+			d1 := c1.Devices.Entries[0]
+			v1 = &panVsys{Name: v2.Name}
+			d1.Vsys = append(d1.Vsys, v1)
 		}
-		v1.Rules = append(top, v1.Rules...)
+		if v2 != nil {
+			// Add elements of vsys from raw/IPv6.
+			v1.Addresses = append(v1.Addresses, v2.Addresses...)
+			v1.AddressGroups = append(v1.AddressGroups, v2.AddressGroups...)
+			v1.Services = append(v1.Services, v2.Services...)
+			// Add rules.
+			// Rules are prepended per default.
+			// Rules with attribute <APPEND> are appended.
+			var top []*panRule
+			for _, r := range v2.Rules {
+				if r.Append == nil {
+					top = append(top, r)
+				} else {
+					r.Append = nil
+					v1.Rules = append(v1.Rules, r)
+				}
+			}
+			v1.Rules = append(top, v1.Rules...)
+		}
 		return nil
 	})
+	return c1
+}
+
+func checkRulesFromRaw(c *PanConfig) error {
+	if c == nil || c.Devices == nil {
+		return nil
+	}
+	re := regexp.MustCompile(`^r\d`)
+	for _, d := range c.Devices.Entries {
+		for _, v := range d.Vsys {
+			for _, r := range v.Rules {
+				if re.MatchString(r.Name) {
+					return fmt.Errorf(
+						"Must not use rule name starting with 'r<NUM>' in raw: %s",
+						r.Name)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
-	getDevVsysMap := func(c *PanConfig) (*panDevice, map[string]*panVsys, error) {
-		l := c.Devices.Entries
-		if len(l) != 1 {
-			return nil, nil, fmt.Errorf(
-				"Expected exactly one device entry in '%s' configuration", c.origin)
-		}
-		d := l[0]
-		m := make(map[string]*panVsys)
-		for i, v := range d.Vsys {
-			name := v.Name
-			if name == "" {
-				return nil, nil, fmt.Errorf(
-					"Missing name in %d. VSYS of '%s' configuration", i+1, c.origin)
+	getDevVsysMap :=
+		func(c *PanConfig) (*panDevice, map[string]*panVsys, error) {
+			if c == nil || c.Devices == nil {
+				return &panDevice{}, nil, nil
 			}
-			if _, ok := m[name]; ok {
+			l := c.Devices.Entries
+			if len(l) != 1 {
 				return nil, nil, fmt.Errorf(
-					"Duplicate name '%s' in VSYS of '%s' configuration",
-					c.origin, name)
+					"Expected exactly one device entry in '%s' configuration",
+					c.origin)
 			}
-			m[name] = v
+			d := l[0]
+			m := make(map[string]*panVsys)
+			for i, v := range d.Vsys {
+				name := v.Name
+				if name == "" {
+					return nil, nil, fmt.Errorf(
+						"Missing name in %d. VSYS of '%s' configuration",
+						i+1, c.origin)
+				}
+				if _, ok := m[name]; ok {
+					return nil, nil, fmt.Errorf(
+						"Duplicate name '%s' in VSYS of '%s' configuration",
+						c.origin, name)
+				}
+				m[name] = v
+			}
+			return d, m, nil
 		}
-		return d, m, nil
-	}
 	d1, m1, err := getDevVsysMap(c1)
 	if err != nil {
 		return err
