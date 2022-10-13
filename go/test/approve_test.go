@@ -1,10 +1,10 @@
 package approve_test
 
 import (
+	"github.com/google/go-cmp/cmp"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
 	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
 	"github.com/hknutzen/Netspoc-Approve/go/test/tstdata"
-	"gotest.tools/assert"
 	"os"
 	"path"
 	"regexp"
@@ -134,5 +134,7 @@ func runTest(t *testing.T, d *tstdata.Descr) {
 
 func countEq(t *testing.T, expected, got string) {
 	count++
-	assert.Equal(t, expected, got)
+	if d := cmp.Diff(expected, got); d != "" {
+		t.Error(d)
+	}
 }
