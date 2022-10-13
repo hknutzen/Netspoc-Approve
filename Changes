@@ -1,5 +1,11 @@
 {{$NEXT}}
 
+3.004     2022-10-13 16:14:32+02:00 Europe/Berlin
+
+ - Added support to merge IPv4 and IPv6 code for single VSYS of PAN-OS.
+ - Fixed exit status of script 'start-jobs' if run in non verbose mode.
+ - Script 'delete-old-policies' now also cleans up 'lockfiledir'.
+
 3.003     2022-05-13 11:59:16+02:00 Europe/Berlin
 
  - Added support for service-groups of Palo-Alto devices.
