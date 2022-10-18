@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
 func parseResponse(data []byte) (string, []byte, error) {
@@ -24,7 +26,18 @@ func parseResponse(data []byte) (string, []byte, error) {
 	return v.Msg, b, nil
 }
 
-func parseConfig(data []byte) (*PanConfig, error) {
+func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
+	if len(data) == 0 {
+		var v *PanConfig
+		return v, nil
+	}
+	// Also handle saved config of device:
+	// - starting with http address and
+	// - with config stored as <response><result><devices>...
+	if bytes.HasPrefix(data, []byte("http")) {
+		i := bytes.IndexByte(data, byte('\n'))
+		return parseResponseConfig(data[i+1:])
+	}
 	v := new(PanConfig)
 	err := xml.Unmarshal(data, v)
 	return v, err
