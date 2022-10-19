@@ -19,18 +19,13 @@ type State struct {
 }
 
 func (s *State) LoadDevice(
-	name, ip string,
+	name, ip, user, pass string,
 	client *http.Client,
 	logFH *os.File,
-	config *device.Config,
 ) (device.DeviceConfig, error) {
 
-	user, key, err := config.GetAAAPassword(name)
-	if err != nil {
-		return nil, err
-	}
 	s.devUser = user
-	prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
+	prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, pass)
 	s.urlPrefix = prefix
 	// Use "get", not "show", to get candidate configuration.
 	// Must not use active configuration, since candidate may have

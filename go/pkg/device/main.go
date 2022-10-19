@@ -17,7 +17,7 @@ import (
 )
 
 type RealDevice interface {
-	LoadDevice(string, string, *http.Client, *os.File, *Config) (DeviceConfig, error)
+	LoadDevice(n, i, u, p string, c *http.Client, l *os.File) (DeviceConfig, error)
 	ParseConfig(data []byte) (DeviceConfig, error)
 	GetChanges(c1, c2 DeviceConfig) ([]Change, []error, error)
 	ApplyCommands([]Change, *http.Client, *os.File) error
@@ -164,7 +164,11 @@ func (s *State) loadDevice(path string) (DeviceConfig, error) {
 	for i, name := range nameList {
 		s.devName = name
 		ip := ipList[i]
-		conf, err := s.LoadDevice(name, ip, client, logFH, s.config)
+		user, pass, err := s.config.GetAAAPassword(name)
+		if err != nil {
+			return nil, err
+		}
+		conf, err := s.LoadDevice(name, ip, user, pass, client, logFH)
 		if err != nil {
 			var urlErr *url.Error
 			if errors.As(err, &urlErr) {
