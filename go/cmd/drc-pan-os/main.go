@@ -8,5 +8,5 @@ import (
 )
 
 func main() {
-	os.Exit(device.Main(panos.State))
+	os.Exit(device.Main(&panos.State{}))
 }
