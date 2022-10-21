@@ -273,7 +273,7 @@ func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return merge(conf4, conf6), nil
+	return conf4.MergeSpoc(conf6), nil
 }
 
 func (s *state) loadSpocWithRaw(pathName string) (DeviceConfig, error) {
@@ -291,14 +291,7 @@ func (s *state) loadSpocWithRaw(pathName string) (DeviceConfig, error) {
 			return nil, err
 		}
 	}
-	return merge(conf, raw), nil
-}
-
-func merge(c1, c2 DeviceConfig) DeviceConfig {
-	if c1 == nil {
-		return c2
-	}
-	return c1.MergeSpoc(c2)
+	return conf.MergeSpoc(raw), nil
 }
 
 func (s *state) loadSpocFile(path string) (DeviceConfig, error) {
