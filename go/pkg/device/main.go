@@ -29,7 +29,7 @@ type DeviceConfig interface {
 	CheckRulesFromRaw() error
 }
 
-type State struct {
+type state struct {
 	RealDevice
 	config     *Config
 	httpClient *http.Client
@@ -70,7 +70,7 @@ func Main(device RealDevice) int {
 	}
 
 	var err error
-	s := &State{RealDevice: device}
+	s := &state{RealDevice: device}
 	s.quiet = *quiet
 
 	// Argument processing
@@ -108,7 +108,7 @@ func Main(device RealDevice) int {
 	return 0
 }
 
-func (s *State) compareFiles(path1, path2 string) error {
+func (s *state) compareFiles(path1, path2 string) error {
 	conf1, err := s.loadSpoc(path1)
 	if err != nil {
 		return err
@@ -116,7 +116,7 @@ func (s *State) compareFiles(path1, path2 string) error {
 	return s.showCompare(conf1, path2)
 }
 
-func (s *State) compare(path string) error {
+func (s *state) compare(path string) error {
 	conf1, err := s.loadDevice(path)
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func (s *State) compare(path string) error {
 	return nil
 }
 
-func (s *State) approve(path string) error {
+func (s *state) approve(path string) error {
 	conf1, err := s.loadDevice(path)
 	if err != nil {
 		return err
@@ -139,7 +139,7 @@ func (s *State) approve(path string) error {
 	return s.applyCommands(changed)
 }
 
-func (s *State) loadDevice(path string) (DeviceConfig, error) {
+func (s *state) loadDevice(path string) (DeviceConfig, error) {
 	nameList, ipList, err := GetHostnameIPList(path)
 	if err != nil {
 		return nil, err
@@ -184,7 +184,7 @@ func (s *State) loadDevice(path string) (DeviceConfig, error) {
 		"Devices unreachable: %s", strings.Join(nameList, ", "))
 }
 
-func (s *State) applyCommands(l []Change) error {
+func (s *state) applyCommands(l []Change) error {
 	logFH, err := s.getLogFH(".change")
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func (s *State) applyCommands(l []Change) error {
 	return s.ApplyCommands(l, client, logFH)
 }
 
-func (s *State) showCompare(conf1 DeviceConfig, path string) error {
+func (s *state) showCompare(conf1 DeviceConfig, path string) error {
 	changes, err := s.getCompare(conf1, path, warnT)
 	if err != nil {
 		return err
@@ -216,7 +216,7 @@ func (s *State) showCompare(conf1 DeviceConfig, path string) error {
 	return nil
 }
 
-func (s *State) info(format string, args ...interface{}) {
+func (s *state) info(format string, args ...interface{}) {
 	if !s.quiet {
 		fmt.Fprintf(os.Stderr, format, args...)
 	}
@@ -229,7 +229,7 @@ const (
 	warnT
 )
 
-func (s *State) getCompare(
+func (s *state) getCompare(
 	c1 DeviceConfig, path string, chk warnOrErr) ([]Change, error) {
 
 	c2, err := s.loadSpoc(path)
@@ -263,7 +263,7 @@ func (s *State) getCompare(
 	return changes, nil
 }
 
-func (s *State) loadSpoc(v4Path string) (DeviceConfig, error) {
+func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
 	v6Path := getIPv6Path(v4Path)
 	conf4, err := s.loadSpocWithRaw(v4Path)
 	if err != nil {
@@ -276,7 +276,7 @@ func (s *State) loadSpoc(v4Path string) (DeviceConfig, error) {
 	return merge(conf4, conf6), nil
 }
 
-func (s *State) loadSpocWithRaw(pathName string) (DeviceConfig, error) {
+func (s *state) loadSpocWithRaw(pathName string) (DeviceConfig, error) {
 	conf, err := s.loadSpocFile(pathName)
 	if err != nil {
 		return nil, err
@@ -301,7 +301,7 @@ func merge(c1, c2 DeviceConfig) DeviceConfig {
 	return c1.MergeSpoc(c2)
 }
 
-func (s *State) loadSpocFile(path string) (DeviceConfig, error) {
+func (s *state) loadSpocFile(path string) (DeviceConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("Can't %v", err)
@@ -351,13 +351,13 @@ func GetHostnameIPList(path string) ([]string, []string, error) {
 	return nameList, ipList, nil
 }
 
-func (s *State) setLogDir(logDir, file string) {
+func (s *state) setLogDir(logDir, file string) {
 	if logDir != "" {
 		s.logPath = path.Join(logDir, path.Base(file))
 	}
 }
 
-func (s *State) getLogFH(ext string) (*os.File, error) {
+func (s *state) getLogFH(ext string) (*os.File, error) {
 	if s.logPath == "" {
 		return nil, nil
 	}
