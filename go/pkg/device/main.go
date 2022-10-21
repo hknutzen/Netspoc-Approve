@@ -140,7 +140,7 @@ func (s *state) approve(path string) error {
 }
 
 func (s *state) loadDevice(path string) (DeviceConfig, error) {
-	nameList, ipList, err := GetHostnameIPList(path)
+	nameList, ipList, err := getHostnameIPList(path)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +320,7 @@ func getIPv6Path(p string) string {
 	return dir + "/ipv6/" + base
 }
 
-func GetHostnameIPList(path string) ([]string, []string, error) {
+func getHostnameIPList(path string) ([]string, []string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Can't %v", err)
