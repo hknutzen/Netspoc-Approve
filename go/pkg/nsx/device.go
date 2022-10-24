@@ -61,43 +61,66 @@ func (s *State) LoadDevice(
 	}
 
 	var rawConf rawConfig
-	var policyResult struct{ Results []struct{ Id string } }
-	err = json.Unmarshal(data, &policyResult)
+	var resultStruct struct{ Results []json.RawMessage }
+	var id struct{ Id string }
+	err = json.Unmarshal(data, &resultStruct)
 	if err != nil {
 		return nil, err
 	}
-	for _, result := range policyResult.Results {
+	for _, result := range resultStruct.Results {
 		//Ignore all policies not created by NetSpoc
-		if !strings.HasPrefix(result.Id, "NetSpoc") {
+		err = json.Unmarshal(result, &id)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(id.Id, "NetSpoc") {
 			continue
 		}
 		//DEBUG
-		fmt.Printf("%s\n", result.Id)
-		data, err := s.sendRequest("GET", uri+"/"+result.Id, nil)
+		fmt.Printf("%s\n", id.Id)
+		data, err := s.sendRequest("GET", uri+"/"+id.Id, nil)
 		if err != nil {
 			return nil, err
 		}
 		rawConf.Policies = append(rawConf.Policies, data)
 	}
 
-	var serviceResult struct{ Results []json.RawMessage }
 	uri = prefix + "policy/api/v1/infra/services"
 	device.DoLog(logFH, uri)
 	data, err = s.sendRequest("GET", uri, nil)
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal(data, &serviceResult)
-	for _, result := range serviceResult.Results {
-		var id struct{ Id string }
+	err = json.Unmarshal(data, &resultStruct)
+	for _, result := range resultStruct.Results {
 		err = json.Unmarshal(result, &id)
 		if err != nil {
 			return nil, err
 		}
+		//TODO: richtiges Prefix nutzen
 		if strings.HasPrefix(id.Id, "netspoc") {
 			//DEBUG
 			fmt.Printf("%s\n", id.Id)
 			rawConf.Services = append(rawConf.Services, result)
+		}
+	}
+
+	uri = prefix + "policy/api/v1/infra/domains/default/groups"
+	device.DoLog(logFH, uri)
+	data, err = s.sendRequest("GET", uri, nil)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(data, &resultStruct)
+	for _, result := range resultStruct.Results {
+		err = json.Unmarshal(result, &id)
+		if err != nil {
+			return nil, err
+		}
+		if strings.HasPrefix(id.Id, "Netspoc") {
+			//DEBUG
+			fmt.Printf("%s\n", id.Id)
+			rawConf.Groups = append(rawConf.Groups, result)
 		}
 	}
 
