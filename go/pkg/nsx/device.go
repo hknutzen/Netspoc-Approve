@@ -86,42 +86,15 @@ func (s *State) LoadDevice(
 	}
 
 	uri = prefix + "policy/api/v1/infra/services"
-	device.DoLog(logFH, uri)
-	data, err = s.sendRequest("GET", uri, nil)
+	rawConf.Services, err = s.getRawObjects(uri, logFH)
 	if err != nil {
 		return nil, err
-	}
-	err = json.Unmarshal(data, &resultStruct)
-	for _, result := range resultStruct.Results {
-		err = json.Unmarshal(result, &id)
-		if err != nil {
-			return nil, err
-		}
-		//TODO: richtiges Prefix nutzen
-		if strings.HasPrefix(id.Id, "netspoc") {
-			//DEBUG
-			fmt.Printf("%s\n", id.Id)
-			rawConf.Services = append(rawConf.Services, result)
-		}
 	}
 
 	uri = prefix + "policy/api/v1/infra/domains/default/groups"
-	device.DoLog(logFH, uri)
-	data, err = s.sendRequest("GET", uri, nil)
+	rawConf.Groups, err = s.getRawObjects(uri, logFH)
 	if err != nil {
 		return nil, err
-	}
-	err = json.Unmarshal(data, &resultStruct)
-	for _, result := range resultStruct.Results {
-		err = json.Unmarshal(result, &id)
-		if err != nil {
-			return nil, err
-		}
-		if strings.HasPrefix(id.Id, "Netspoc") {
-			//DEBUG
-			fmt.Printf("%s\n", id.Id)
-			rawConf.Groups = append(rawConf.Groups, result)
-		}
 	}
 
 	out, err := json.Marshal(rawConf)
@@ -132,6 +105,30 @@ func (s *State) LoadDevice(
 
 	return nil, fmt.Errorf("token: %s", s.token)
 	//return parseResponseConfig(body)
+}
+
+func (s *State) getRawObjects(uri string, logFH *os.File) ([]json.RawMessage, error) {
+	var resultStruct struct{ Results []json.RawMessage }
+	var id struct{ Id string }
+	var data []json.RawMessage
+	device.DoLog(logFH, uri)
+	out, err := s.sendRequest("GET", uri, nil)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(out, &resultStruct)
+	for _, result := range resultStruct.Results {
+		err = json.Unmarshal(result, &id)
+		if err != nil {
+			return nil, err
+		}
+		if strings.HasPrefix(id.Id, "Netspoc") {
+			//DEBUG
+			fmt.Printf("%s\n", id.Id)
+			data = append(data, result)
+		}
+	}
+	return data, nil
 }
 
 func (s *State) sendRequest(method string, url string, body io.Reader) ([]byte, error) {
