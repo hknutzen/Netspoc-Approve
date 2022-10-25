@@ -14,9 +14,8 @@ import (
 )
 
 type State struct {
-	urlPrefix string
-	token     string
-	client    *http.Client
+	token  string
+	client *http.Client
 }
 
 func (s *State) LoadDevice(
@@ -26,7 +25,7 @@ func (s *State) LoadDevice(
 ) (device.DeviceConfig, error) {
 
 	prefix := fmt.Sprintf("https://%s/", ip)
-	s.urlPrefix = prefix
+	device.DoLog(logFH, prefix)
 	s.client = client
 	jar, err := cookiejar.New(nil)
 	if err != nil {
@@ -37,7 +36,7 @@ func (s *State) LoadDevice(
 	uri := prefix + "api/session/create"
 	v := url.Values{}
 	v.Set("j_username", user)
-	v.Add("j_password", pass)
+	v.Set("j_password", pass)
 	resp, err := client.PostForm(uri, v)
 	if err != nil {
 		return nil, err
@@ -48,7 +47,6 @@ func (s *State) LoadDevice(
 	s.token = resp.Header.Get("x-xsrf-token")
 
 	uri = prefix + "policy/api/v1/infra/domains/default/gateway-policies"
-	device.DoLog(logFH, uri)
 	data, err := s.sendRequest("GET", uri, nil)
 	if err != nil {
 		return nil, err
@@ -61,24 +59,17 @@ func (s *State) LoadDevice(
 	}
 
 	var rawConf rawConfig
-	var resultStruct struct{ Results []json.RawMessage }
-	var id struct{ Id string }
+	var resultStruct struct{ Results []struct{ Id string } }
 	err = json.Unmarshal(data, &resultStruct)
 	if err != nil {
 		return nil, err
 	}
 	for _, result := range resultStruct.Results {
 		//Ignore all policies not created by NetSpoc
-		err = json.Unmarshal(result, &id)
-		if err != nil {
-			return nil, err
-		}
-		if !strings.HasPrefix(id.Id, "NetSpoc") {
+		if !strings.HasPrefix(result.Id, "NetSpoc") {
 			continue
 		}
-		//DEBUG
-		fmt.Printf("%s\n", id.Id)
-		data, err := s.sendRequest("GET", uri+"/"+id.Id, nil)
+		data, err := s.sendRequest("GET", uri+"/"+result.Id, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -86,13 +77,13 @@ func (s *State) LoadDevice(
 	}
 
 	uri = prefix + "policy/api/v1/infra/services"
-	rawConf.Services, err = s.getRawObjects(uri, logFH)
+	rawConf.Services, err = s.getRawJSON(uri, logFH)
 	if err != nil {
 		return nil, err
 	}
 
 	uri = prefix + "policy/api/v1/infra/domains/default/groups"
-	rawConf.Groups, err = s.getRawObjects(uri, logFH)
+	rawConf.Groups, err = s.getRawJSON(uri, logFH)
 	if err != nil {
 		return nil, err
 	}
@@ -103,28 +94,25 @@ func (s *State) LoadDevice(
 	}
 	device.DoLog(logFH, string(out))
 
-	return nil, fmt.Errorf("token: %s", s.token)
-	//return parseResponseConfig(body)
+	//return nil, fmt.Errorf("token: %s", s.token)
+	return s.ParseConfig(out)
 }
 
-func (s *State) getRawObjects(uri string, logFH *os.File) ([]json.RawMessage, error) {
-	var resultStruct struct{ Results []json.RawMessage }
+func (s *State) getRawJSON(uri string, logFH *os.File) ([]json.RawMessage, error) {
+	var results struct{ Results []json.RawMessage }
 	var id struct{ Id string }
 	var data []json.RawMessage
-	device.DoLog(logFH, uri)
 	out, err := s.sendRequest("GET", uri, nil)
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal(out, &resultStruct)
-	for _, result := range resultStruct.Results {
+	err = json.Unmarshal(out, &results)
+	for _, result := range results.Results {
 		err = json.Unmarshal(result, &id)
 		if err != nil {
 			return nil, err
 		}
 		if strings.HasPrefix(id.Id, "Netspoc") {
-			//DEBUG
-			fmt.Printf("%s\n", id.Id)
 			data = append(data, result)
 		}
 	}
@@ -149,7 +137,6 @@ func (s *State) sendRequest(method string, url string, body io.Reader) ([]byte, 
 
 }
 
-func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) { return nil, nil }
 func (s *State) GetChanges(c1, c2 device.DeviceConfig) ([]device.Change, []error, error) {
 	return nil, nil, nil
 }
