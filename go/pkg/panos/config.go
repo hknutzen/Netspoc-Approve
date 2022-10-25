@@ -107,8 +107,16 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 	return nil
 }
 
-func (c *PanConfig) GetDevName() string {
+func (c *PanConfig) getDevName() string {
 	return c.Devices.Entries[0].Hostname
+}
+
+func (c *PanConfig) CheckDeviceName(expected string) error {
+	name := c.getDevName()
+	if name != expected {
+		return fmt.Errorf("Wrong device name: %s, expected: %s", name, expected)
+	}
+	return nil
 }
 
 func (c *PanConfig) CheckRulesFromRaw() error {

@@ -25,7 +25,7 @@ type RealDevice interface {
 
 type DeviceConfig interface {
 	MergeSpoc(DeviceConfig) DeviceConfig
-	GetDevName() string
+	CheckDeviceName(string) error
 	CheckRulesFromRaw() error
 }
 
@@ -250,10 +250,7 @@ func (s *state) getCompare(
 	}
 	// Check hostname only after config has been validated in GetChanges.
 	if s.devName != "" {
-		name := c1.GetDevName()
-		if name != s.devName {
-			err := fmt.Errorf("Wrong device name: %s, expected: %s",
-				name, s.devName)
+		if err := c1.CheckDeviceName(s.devName); err != nil {
 			if chk == errT {
 				return nil, err
 			}
