@@ -57,7 +57,7 @@ func (s *State) GetChanges(
 
 	p1 := c1.(*PanConfig)
 	p2 := c2.(*PanConfig)
-	isRealDev := p1.GetDevName() != ""
+	isRealDev := p1.getDevName() != ""
 	var changes []device.Change
 	var warnings []error
 	err := processVsysPairs(p1, p2, func(v1, v2 *panVsys) error {
