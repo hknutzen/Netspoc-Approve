@@ -14,8 +14,22 @@ import (
 )
 
 type State struct {
-	token  string
-	client *http.Client
+	token   string
+	client  *http.Client
+	changes []change
+}
+type change struct {
+	url      string
+	postData []byte
+}
+
+func (s *State) HasChanges() bool {
+	return len(s.changes) != 0
+}
+
+func (s *State) ShowChanges() string {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (s *State) LoadDevice(
@@ -137,7 +151,7 @@ func (s *State) sendRequest(method string, url string, body io.Reader) ([]byte, 
 
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) ([]device.Change, []error, error) {
-	return nil, nil, nil
+func (s *State) GetChanges(c1, c2 device.DeviceConfig) ([]error, error) {
+	return nil, nil
 }
-func (s *State) ApplyCommands(c []device.Change, cl *http.Client, fh *os.File) error { return nil }
+func (s *State) ApplyCommands(cl *http.Client, fh *os.File) error { return nil }
