@@ -16,6 +16,12 @@ import (
 type State struct {
 	devUser   string
 	urlPrefix string
+	changes   []change
+}
+
+type change struct {
+	Vsys string
+	Cmds []string
 }
 
 func (s *State) LoadDevice(
@@ -53,12 +59,11 @@ func (s *State) LoadDevice(
 }
 
 func (s *State) GetChanges(
-	c1, c2 device.DeviceConfig) ([]device.Change, []error, error) {
+	c1, c2 device.DeviceConfig) ([]error, error) {
 
 	p1 := c1.(*PanConfig)
 	p2 := c2.(*PanConfig)
 	isRealDev := p1.getDevName() != ""
-	var changes []device.Change
 	var warnings []error
 	err := processVsysPairs(p1, p2, func(v1, v2 *panVsys) error {
 		if v1 == nil {
@@ -80,10 +85,10 @@ func (s *State) GetChanges(
 		if err != nil {
 			return fmt.Errorf("%v of vsys '%s'", err, v2.Name)
 		}
-		changes = append(changes, device.Change{v2.Name, l})
+		s.changes = append(s.changes, change{v2.Name, l})
 		return nil
 	})
-	return changes, warnings, err
+	return warnings, err
 }
 
 func vsysOK(v *panVsys) error {
@@ -94,9 +99,7 @@ func vsysOK(v *panVsys) error {
 	return nil
 }
 
-func (s *State) ApplyCommands(
-	l []device.Change, client *http.Client, logFH *os.File) error {
-
+func (s *State) ApplyCommands(client *http.Client, logFH *os.File) error {
 	doCmd := func(cmd string) (string, []byte, error) {
 		uri := s.urlPrefix + cmd
 		device.DoLog(logFH, cmd)
@@ -166,7 +169,7 @@ func (s *State) ApplyCommands(
 			}
 		}
 	}
-	for _, chg := range l {
+	for _, chg := range s.changes {
 		for _, cmd := range chg.Cmds {
 			_, _, err := doCmd(cmd)
 			if err != nil {
@@ -186,4 +189,19 @@ func nameAttr(n string) string {
 
 func textAttr(n string) string {
 	return "[text()='" + url.QueryEscape(n) + "']"
+}
+
+func (s *State) HasChanges() bool {
+	return len(s.changes) != 0
+}
+
+func (s *State) ShowChanges() string {
+	var collect strings.Builder
+	for _, chg := range s.changes {
+		for _, c := range chg.Cmds {
+			c, _ = url.QueryUnescape(c)
+			fmt.Fprintln(&collect, c)
+		}
+	}
+	return collect.String()
 }

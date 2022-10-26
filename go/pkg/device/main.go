@@ -19,8 +19,10 @@ import (
 type RealDevice interface {
 	LoadDevice(n, i, u, p string, c *http.Client, l *os.File) (DeviceConfig, error)
 	ParseConfig(data []byte) (DeviceConfig, error)
-	GetChanges(c1, c2 DeviceConfig) ([]Change, []error, error)
-	ApplyCommands([]Change, *http.Client, *os.File) error
+	GetChanges(c1, c2 DeviceConfig) ([]error, error)
+	ApplyCommands(*http.Client, *os.File) error
+	HasChanges() bool
+	ShowChanges() string
 }
 
 type DeviceConfig interface {
@@ -36,11 +38,6 @@ type state struct {
 	logPath    string
 	quiet      bool
 	devName    string
-}
-
-type Change struct {
-	Vsys string
-	Cmds []string
 }
 
 func Main(device RealDevice) int {
@@ -132,11 +129,11 @@ func (s *state) approve(path string) error {
 	if err != nil {
 		return err
 	}
-	changed, err := s.getCompare(conf1, path, errT)
+	err = s.getCompare(conf1, path, errT)
 	if err != nil {
 		return err
 	}
-	return s.applyCommands(changed)
+	return s.applyCommands()
 }
 
 func (s *state) loadDevice(path string) (DeviceConfig, error) {
@@ -184,34 +181,29 @@ func (s *state) loadDevice(path string) (DeviceConfig, error) {
 		"Devices unreachable: %s", strings.Join(nameList, ", "))
 }
 
-func (s *state) applyCommands(l []Change) error {
+func (s *state) applyCommands() error {
 	logFH, err := s.getLogFH(".change")
 	if err != nil {
 		return err
 	}
 	defer closeLogFH(logFH)
-	if len(l) == 0 {
+	if !s.HasChanges() {
 		DoLog(logFH, "No changes applied")
 	}
 	client := s.httpClient
-	return s.ApplyCommands(l, client, logFH)
+	return s.ApplyCommands(client, logFH)
 }
 
 func (s *state) showCompare(conf1 DeviceConfig, path string) error {
-	changes, err := s.getCompare(conf1, path, warnT)
+	err := s.getCompare(conf1, path, warnT)
 	if err != nil {
 		return err
 	}
-	for _, chg := range changes {
-		if chg.Cmds == nil {
-			s.info("comp: %s unchanged\n", chg.Vsys)
-		} else {
-			s.info("comp: *** %s changed ***\n", chg.Vsys)
-			for _, c := range chg.Cmds {
-				c, _ = url.QueryUnescape(c)
-				fmt.Println(c)
-			}
-		}
+	if !s.HasChanges() {
+		s.info("comp: device unchanged\n")
+	} else {
+		s.info("comp: *** device changed ***\n")
+		fmt.Print(s.ShowChanges())
 	}
 	return nil
 }
@@ -229,20 +221,18 @@ const (
 	warnT
 )
 
-func (s *state) getCompare(
-	c1 DeviceConfig, path string, chk warnOrErr) ([]Change, error) {
-
+func (s *state) getCompare(c1 DeviceConfig, path string, chk warnOrErr) error {
 	c2, err := s.loadSpoc(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	changes, warnings, err := s.GetChanges(c1, c2)
+	warnings, err := s.GetChanges(c1, c2)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if warnings != nil {
 		if chk == errT {
-			return nil, warnings[0]
+			return warnings[0]
 		}
 		for _, w := range warnings {
 			fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", w)
@@ -252,12 +242,12 @@ func (s *state) getCompare(
 	if s.devName != "" {
 		if err := c1.CheckDeviceName(s.devName); err != nil {
 			if chk == errT {
-				return nil, err
+				return err
 			}
 			fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", err)
 		}
 	}
-	return changes, nil
+	return nil
 }
 
 func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
