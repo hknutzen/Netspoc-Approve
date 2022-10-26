@@ -20,7 +20,6 @@ type State struct {
 }
 
 type change struct {
-	Vsys string
 	Cmds []string
 }
 
@@ -85,7 +84,7 @@ func (s *State) GetChanges(
 		if err != nil {
 			return fmt.Errorf("%v of vsys '%s'", err, v2.Name)
 		}
-		s.changes = append(s.changes, change{v2.Name, l})
+		s.changes = append(s.changes, change{l})
 		return nil
 	})
 	return warnings, err
