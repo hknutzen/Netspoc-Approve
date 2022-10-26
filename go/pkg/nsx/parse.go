@@ -63,12 +63,12 @@ type NsxConfig struct {
 }
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
-	var config NsxConfig
 	if len(data) == 0 {
 		var n *NsxConfig
 		return n, nil
 	}
-	err := json.Unmarshal(removeHeader(data), &config)
+	config := &NsxConfig{}
+	err := json.Unmarshal(removeHeader(data), config)
 	return config, err
 }
 
