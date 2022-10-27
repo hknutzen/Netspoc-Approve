@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
 	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
 	"github.com/hknutzen/Netspoc-Approve/go/test/tstdata"
@@ -38,6 +39,8 @@ func runTestFiles(t *testing.T) {
 			for _, descr := range l {
 				var realDev device.RealDevice
 				switch prefix {
+				case "nsx":
+					realDev = &nsx.State{}
 				case "panos":
 					realDev = &panos.State{}
 				default:
