@@ -28,8 +28,12 @@ func (s *State) HasChanges() bool {
 }
 
 func (s *State) ShowChanges() string {
-	//TODO implement me
-	panic("implement me")
+	var collect strings.Builder
+	for _, chg := range s.changes {
+		fmt.Fprintln(&collect, chg.url)
+		fmt.Fprintln(&collect, chg.postData)
+	}
+	return collect.String()
 }
 
 func (s *State) LoadDevice(
@@ -152,6 +156,14 @@ func (s *State) sendRequest(method string, url string, body io.Reader) ([]byte, 
 }
 
 func (s *State) GetChanges(c1, c2 device.DeviceConfig) ([]error, error) {
-	return nil, nil
+
+	p1 := c1.(*NsxConfig)
+	p2 := c2.(*NsxConfig)
+	l, err := diffConfig(p1, p2)
+	if err != nil {
+		return nil, err
+	}
+	s.changes = l
+	return nil, err
 }
 func (s *State) ApplyCommands(cl *http.Client, fh *os.File) error { return nil }

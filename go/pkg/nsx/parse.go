@@ -31,8 +31,10 @@ type nsxRule struct {
 }
 
 type nsxGroup struct {
-	Id         string
-	Expression []*nsxGroupExpression
+	Id           string
+	Expression   []*nsxGroupExpression
+	needed       bool
+	nameOnDevice string
 }
 
 type nsxGroupExpression struct {
@@ -43,6 +45,7 @@ type nsxGroupExpression struct {
 type nsxService struct {
 	Id             string
 	ServiceEntries []*nsxServiceEntry `json:"service_entries"`
+	needed         bool
 }
 
 type nsxServiceEntry struct {
