@@ -117,7 +117,44 @@
 =OUTPUT=
 PUT
 /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
-[[two_rules]]
+{"id":"Netspoc-v1",
+ "rules":[
+ {
+  "id":"r1",
+  "action":"ALLOW",
+  "sequence_number":20,
+  "source_groups":["10.1.1.10"],
+  "destination_groups":["10.1.2.30"],
+  "services":["/infra/services/Netspoc-tcp 80"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"OUT"
+ },{
+  "id":"r2",
+  "action":"ALLOW",
+  "sequence_number":20,
+  "source_groups":["10.1.1.10"],
+  "destination_groups":["10.1.2.40"],
+  "services":["/infra/services/Netspoc-udp 123"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"OUT"
+ },{
+  "id":"r3",
+  "action":"DROP",
+  "sequence_number":30,
+  "source_groups":["ANY"],
+  "destination_groups":["ANY"],
+  "services":["ANY"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"OUT"
+ },{
+  "id":"r4",
+  "action":"DROP",
+  "sequence_number":30,
+  "source_groups":["ANY"],
+  "destination_groups":["ANY"],
+  "services":["ANY"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"IN"}]}
 =END=
 
 ############################################################
@@ -127,8 +164,9 @@ PUT
 =NETSPOC=
 {}
 =OUTPUT=
-URL
-Data
+DELETE
+/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+
 =END=
 
 ############################################################
@@ -138,8 +176,9 @@ Data
 =NETSPOC=
 [[one_rule]]
 =OUTPUT=
-URL
-Data
+DELETE
+/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+
 =END=
 
 ############################################################
@@ -149,8 +188,16 @@ Data
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
-URL
-Data
+PUT
+/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+{"id":"r2",
+ "action":"ALLOW",
+ "sequence_number":20,
+ "source_groups":["10.1.1.10"],
+ "destination_groups":["10.1.2.40"],
+ "services":["/infra/services/Netspoc-udp 123"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT"}
 =END=
 
 ############################################################
