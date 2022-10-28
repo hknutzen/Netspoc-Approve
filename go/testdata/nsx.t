@@ -115,8 +115,9 @@
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
-URL
-Data
+PUT
+/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+[[two_rules]]
 =END=
 
 ############################################################

@@ -7,32 +7,32 @@ import (
 )
 
 type nsxPolicy struct {
-	Id    string
-	Rules []*nsxRule
+	Id    string     `json:"id"`
+	Rules []*nsxRule `json:"rules"`
 }
 
 type nsxRule struct {
-	Id                   string
-	Action               string
-	SequenceNumber       int      `json:"sequence_number"`
-	SourcesExcluded      bool     `json:"sources_excluded"`
-	DestinationsExcluded bool     `json:"destinations_excluded"`
-	SourceGroups         []string `json:"source_groups"`
-	DestinationGroups    []string `json:"destination_groups"`
-	Services             []string
+	Id                   string            `json:"id"`
+	Action               string            `json:"action"`
+	SequenceNumber       int               `json:"sequence_number"`
+	SourcesExcluded      bool              `json:"sources_excluded"`
+	DestinationsExcluded bool              `json:"destinations_excluded"`
+	SourceGroups         []string          `json:"source_groups"`
+	DestinationGroups    []string          `json:"destination_groups"`
+	Services             []string          `json:"services"`
 	ServiceEntries       []json.RawMessage `json:"service_entries"`
-	Profiles             []string
-	Scope                []string
-	Disabled             bool
-	Logged               bool
-	Direction            string
-	IPProtocol           string `json:"ip_protocol"`
-	Revision             int    `json:"_revision"`
+	Profiles             []string          `json:"profiles"`
+	Scope                []string          `json:"scope"`
+	Disabled             bool              `json:"disabled"`
+	Logged               bool              `json:"logged"`
+	Direction            string            `json:"direction"`
+	IPProtocol           string            `json:"ip_protocol"`
+	Revision             int               `json:"_revision"`
 }
 
 type nsxGroup struct {
-	Id           string
-	Expression   []*nsxGroupExpression
+	Id           string                `json:"id"`
+	Expression   []*nsxGroupExpression `json:"expression"`
 	needed       bool
 	nameOnDevice string
 }
@@ -43,7 +43,7 @@ type nsxGroupExpression struct {
 }
 
 type nsxService struct {
-	Id             string
+	Id             string             `json:"id"`
 	ServiceEntries []*nsxServiceEntry `json:"service_entries"`
 	needed         bool
 }

@@ -19,6 +19,7 @@ type State struct {
 	changes []change
 }
 type change struct {
+	method   string
 	url      string
 	postData []byte
 }
@@ -30,8 +31,9 @@ func (s *State) HasChanges() bool {
 func (s *State) ShowChanges() string {
 	var collect strings.Builder
 	for _, chg := range s.changes {
+		fmt.Fprintln(&collect, chg.method)
 		fmt.Fprintln(&collect, chg.url)
-		fmt.Fprintln(&collect, chg.postData)
+		fmt.Fprintln(&collect, string(chg.postData))
 	}
 	return collect.String()
 }
