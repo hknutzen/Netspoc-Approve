@@ -80,10 +80,7 @@ func (s *State) GetChanges(
 		dev := p1.Devices.Entries[0].Name
 		devPath := "/config/devices/entry" + nameAttr(dev)
 		xPath := devPath + "/vsys/entry" + nameAttr(v2.Name)
-		l, err := diffConfig(v1, v2, xPath)
-		if err != nil {
-			return fmt.Errorf("%v of vsys '%s'", err, v2.Name)
-		}
+		l := diffConfig(v1, v2, xPath)
 		s.changes = append(s.changes, change{l})
 		return nil
 	})

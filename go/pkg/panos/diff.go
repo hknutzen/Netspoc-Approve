@@ -2,11 +2,12 @@ package panos
 
 import (
 	"fmt"
-	"github.com/pkg/diff/myers"
 	"sort"
+
+	"github.com/pkg/diff/myers"
 )
 
-func diffConfig(a, b *panVsys, vsysPath string) ([]string, error) {
+func diffConfig(a, b *panVsys, vsysPath string) []string {
 	sortMembers(a)
 	sortMembers(b)
 	ab := rulesPairFrom(a, b)
@@ -16,7 +17,7 @@ func diffConfig(a, b *panVsys, vsysPath string) ([]string, error) {
 	ruleCmds := ab.diffRules(vsysPath)
 	result := append(ab.transferNeededObjects(vsysPath), ruleCmds...)
 	result = append(result, ab.removeUnneededObjects(vsysPath)...)
-	return result, nil
+	return result
 }
 
 type vsysInfo struct {
