@@ -4,14 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/pkg/diff/myers"
 )
 
 type rulesPair struct {
-	a      []*nsxRule
-	b      []*nsxRule
+	a      *nsxInfo
+	b      *nsxInfo
 	policy *nsxPolicy
+}
+
+type nsxInfo struct {
+	rules  []*nsxRule
+	groups map[string]*nsxGroup
 }
 
 func diffConfig(a, b *NsxConfig) ([]change, error) {
@@ -25,22 +31,30 @@ func diffConfig(a, b *NsxConfig) ([]change, error) {
 		}
 	var changes []change
 	m := getPolicyMap(b)
+	sortGroups(a.Groups)
+	sortGroups(b.Groups)
 	for _, p1 := range a.Policies {
 		p2 := m[p1.Id]
-		l := diffPolicies(p1, p2)
+		l := diffPolicies(p1, p2, a.Groups, b.Groups)
 		changes = append(changes, l...)
 	}
 	m = getPolicyMap(a)
 	for _, p2 := range b.Policies {
 		if m[p2.Id] == nil {
-			l := diffPolicies(nil, p2)
+			l := diffPolicies(nil, p2, a.Groups, b.Groups)
 			changes = append(changes, l...)
 		}
 	}
 	return changes, nil
 }
 
-func diffPolicies(a, b *nsxPolicy) []change {
+func sortGroups(groups []*nsxGroup) {
+	for _, group := range groups {
+		sort.Strings(group.Expression[0].IPAddresses)
+	}
+}
+
+func diffPolicies(a, b *nsxPolicy, ga, gb []*nsxGroup) []change {
 	if a == nil {
 		return createPolicy(b)
 	}
@@ -54,7 +68,9 @@ func diffPolicies(a, b *nsxPolicy) []change {
 	bStart := 0
 	var aEnd, bEnd int
 	var chgs []change
-	ab := &rulesPair{policy: a}
+	ab := &rulesPair{policy: a, a: &nsxInfo{}, b: &nsxInfo{}}
+	ab.a.groups = groupMap(ga)
+	ab.b.groups = groupMap(gb)
 	for aStart < len(a.Rules) {
 		r1 := a.Rules[aStart]
 		dir := r1.Direction
@@ -75,18 +91,26 @@ func diffPolicies(a, b *nsxPolicy) []change {
 			}
 			bEnd++
 		}
-		ab.a = a.Rules[aStart:aEnd]
-		ab.b = b.Rules[bStart:bEnd]
+		ab.a.rules = a.Rules[aStart:aEnd]
+		ab.b.rules = b.Rules[bStart:bEnd]
 		chgs = append(chgs, ab.diffRules()...)
 		aStart = aEnd
 		bStart = bEnd
 	}
 	if bStart < len(b.Rules) {
 		ab.a = nil
-		ab.b = b.Rules[bStart:]
+		ab.b.rules = b.Rules[bStart:]
 		chgs = append(chgs, ab.diffRules()...)
 	}
 	return chgs
+}
+
+func groupMap(g []*nsxGroup) map[string]*nsxGroup {
+	m := make(map[string]*nsxGroup)
+	for _, o := range g {
+		m[o.Id] = o
+	}
+	return m
 }
 
 func createPolicy(a *nsxPolicy) []change {
@@ -100,17 +124,24 @@ func deletePolicy(a *nsxPolicy) []change {
 	return []change{{"DELETE", url, nil}}
 }
 
-func (ab *rulesPair) LenA() int { return len(ab.a) }
-func (ab *rulesPair) LenB() int { return len(ab.b) }
+func (ab *rulesPair) LenA() int { return len(ab.a.rules) }
+func (ab *rulesPair) LenB() int { return len(ab.b.rules) }
 
 func (ab *rulesPair) Equal(ai, bi int) bool {
-	a := ab.a[ai]
-	b := ab.b[bi]
+	a := ab.a.rules[ai]
+	b := ab.b.rules[bi]
+
+	objEqual := func(a, b string) bool {
+		if strings.HasPrefix(a, "/infra/domains/default/groups/") {
+			return strings.HasPrefix(b, "/infra/domains/default/groups/")
+		}
+		return a == b
+	}
+
 	return a.Action == b.Action &&
 		a.Services[0] == b.Services[0] &&
-		//TODO check for contents of named groups
-		a.SourceGroups[0] == b.SourceGroups[0] &&
-		a.DestinationGroups[0] == b.DestinationGroups[0]
+		objEqual(a.SourceGroups[0], b.SourceGroups[0]) &&
+		objEqual(a.DestinationGroups[0], b.DestinationGroups[0])
 }
 
 func (ab *rulesPair) diffRules() []change {
@@ -118,7 +149,7 @@ func (ab *rulesPair) diffRules() []change {
 	b := ab.b
 	s := myers.Diff(nil, ab)
 	var result []change
-	delete :=
+	del :=
 		func(l []*nsxRule) {
 			for _, ru := range l {
 				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
@@ -126,7 +157,7 @@ func (ab *rulesPair) diffRules() []change {
 				result = append(result, change{"DELETE", url, nil})
 			}
 		}
-	insert :=
+	ins :=
 		func(l []*nsxRule) {
 			for _, ru := range l {
 				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
@@ -138,12 +169,58 @@ func (ab *rulesPair) diffRules() []change {
 		}
 	for _, r := range s.Ranges {
 		if r.IsDelete() {
-			delete(a[r.LowA:r.HighA])
+			del(a.rules[r.LowA:r.HighA])
 		} else if r.IsInsert() {
-			insert(b[r.LowB:r.HighB])
-		} //else: IsEqual
+			ins(b.rules[r.LowB:r.HighB])
+		} else {
+			for i, ra := range a.rules[r.LowA:r.HighA] {
+				rb := b.rules[r.LowB+i]
+				ab.equalize(ra, rb)
+			}
+		}
 	}
 	return result
+}
+
+func getGroup(s string, m map[string]*nsxGroup) *nsxGroup {
+	if g := strings.TrimPrefix(s, "/infra/domains/default/groups/"); g != s {
+		return m[g]
+	}
+	return nil
+}
+
+type groupPair struct {
+	a *nsxGroup
+	b *nsxGroup
+}
+
+func (g groupPair) LenA() int {
+	return len(g.a.Expression[0].IPAddresses)
+}
+
+func (g groupPair) LenB() int {
+	return len(g.b.Expression[0].IPAddresses)
+}
+
+func (g groupPair) Equal(ai, bi int) bool {
+	return g.a.Expression[0].IPAddresses[ai] == g.b.Expression[0].IPAddresses[bi]
+}
+
+func (ab *rulesPair) equalize(ra, rb *nsxRule) {
+	equalizeGroup := func(ga, gb *nsxGroup) {
+		gab := &groupPair{
+			ga, gb,
+		}
+		myers.Diff(nil, gab)
+	}
+	if ga := getGroup(ra.SourceGroups[0], ab.a.groups); ga != nil {
+		gb := getGroup(rb.SourceGroups[0], ab.b.groups)
+		equalizeGroup(ga, gb)
+	}
+	if ga := getGroup(ra.DestinationGroups[0], ab.a.groups); ga != nil {
+		gb := getGroup(rb.DestinationGroups[0], ab.b.groups)
+		equalizeGroup(ga, gb)
+	}
 }
 
 func sortRules(l []*nsxRule) {
@@ -176,9 +253,9 @@ func genUniqRuleNames(a, b []*nsxRule) {
 			continue
 		}
 		for i := 1; ; i++ {
-			new := fmt.Sprintf("%s-%d", id, i)
-			if !aIds[new] {
-				ru.Id = new
+			newId := fmt.Sprintf("%s-%d", id, i)
+			if !aIds[newId] {
+				ru.Id = newId
 				break
 			}
 		}
