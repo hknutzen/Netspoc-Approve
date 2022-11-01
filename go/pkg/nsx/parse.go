@@ -13,7 +13,7 @@ type nsxPolicy struct {
 }
 
 type nsxRule struct {
-	Id                   string            `json:"id"`
+	Id                   string            `json:"id,omitempty"`
 	Action               string            `json:"action"`
 	SequenceNumber       int               `json:"sequence_number"`
 	SourcesExcluded      bool              `json:"sources_excluded,omitempty"`

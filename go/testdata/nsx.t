@@ -190,7 +190,7 @@ DELETE
 =OUTPUT=
 PUT
 /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
-{"id":"r2",
+{
  "action":"ALLOW",
  "sequence_number":20,
  "source_groups":["10.1.1.10"],
@@ -210,7 +210,7 @@ PUT
 =OUTPUT=
 PUT
 /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
-{"id":"r2-1",
+{
  "action":"ALLOW",
  "sequence_number":20,
  "source_groups":["10.1.1.10"],

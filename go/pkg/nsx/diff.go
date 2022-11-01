@@ -3,8 +3,9 @@ package nsx
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/diff/myers"
 	"sort"
+
+	"github.com/pkg/diff/myers"
 )
 
 type rulesPair struct {
@@ -130,6 +131,7 @@ func (ab *rulesPair) diffRules() []change {
 			for _, ru := range l {
 				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
 					ab.policy.Id, ru.Id)
+				ru.Id = "" // Don't send Id twice.
 				postData, _ := json.Marshal(ru)
 				result = append(result, change{"PUT", url, postData})
 			}
