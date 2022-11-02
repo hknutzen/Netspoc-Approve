@@ -1,6 +1,7 @@
 package nsx
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,20 +23,6 @@ type change struct {
 	method   string
 	url      string
 	postData []byte
-}
-
-func (s *State) HasChanges() bool {
-	return len(s.changes) != 0
-}
-
-func (s *State) ShowChanges() string {
-	var collect strings.Builder
-	for _, chg := range s.changes {
-		fmt.Fprintln(&collect, chg.method)
-		fmt.Fprintln(&collect, chg.url)
-		fmt.Fprintln(&collect, string(chg.postData))
-	}
-	return collect.String()
 }
 
 func (s *State) LoadDevice(
@@ -168,4 +155,29 @@ func (s *State) GetChanges(c1, c2 device.DeviceConfig) ([]error, error) {
 	s.changes = l
 	return nil, err
 }
-func (s *State) ApplyCommands(cl *http.Client, fh *os.File) error { return nil }
+
+func (s *State) HasChanges() bool {
+	return len(s.changes) != 0
+}
+
+func (s *State) ShowChanges() string {
+	var collect strings.Builder
+	for _, chg := range s.changes {
+		fmt.Fprintf(&collect, "%s %s\n", chg.method, chg.url)
+		fmt.Fprintln(&collect, string(chg.postData))
+	}
+	return collect.String()
+}
+
+func (s *State) ApplyCommands(cl *http.Client, logFh *os.File) error {
+	for _, c := range s.changes {
+		device.DoLog(logFh, fmt.Sprintf("%s %s\n", c.method, c.url))
+		device.DoLog(logFh, string(c.postData))
+		resp, err := s.sendRequest(c.method, c.url, bytes.NewReader(c.postData))
+		device.DoLog(logFh, string(resp))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

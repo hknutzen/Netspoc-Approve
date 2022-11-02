@@ -39,12 +39,13 @@ type nsxGroup struct {
 }
 
 type nsxGroupExpression struct {
+	Id            string   `json:"id"`
 	RessourceType string   `json:"ressource_type"`
 	IPAddresses   []string `json:"ip_addresses"`
 }
 
 type nsxService struct {
-	Id             string             `json:"id"`
+	Id             string             `json:"id,omitempty"`
 	ServiceEntries []*nsxServiceEntry `json:"service_entries"`
 	needed         bool
 }

@@ -27,6 +27,7 @@
  "id": "Netspoc-{{.id}}",
  "expression": [
   {
+   "id": "Test-ID-E1",
    "resource_type": "IPAddressExpression",
    "ip_addresses": [
     "{{.ip}}"
@@ -115,8 +116,7 @@
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
-PUT
-/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 {"id":"Netspoc-v1",
  "rules":[
  {
@@ -164,8 +164,7 @@ PUT
 =NETSPOC=
 {}
 =OUTPUT=
-DELETE
-/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 
 =END=
 
@@ -176,8 +175,7 @@ DELETE
 =NETSPOC=
 [[one_rule]]
 =OUTPUT=
-DELETE
-/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 
 =END=
 
@@ -188,8 +186,7 @@ DELETE
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
-PUT
-/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 {
  "action":"ALLOW",
  "sequence_number":20,
@@ -208,8 +205,7 @@ PUT
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
-PUT
-/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
 {
  "action":"ALLOW",
  "sequence_number":20,
@@ -271,11 +267,9 @@ srv: 'tcp 80","/infra/services/Netspoc-udp 123'
 =SUBST=|"/infra/services/Netspoc-tcp 80",||
 =SUBST=/g0/g2/
 =OUTPUT=
-DELETE
-/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
 
-PUT
-/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
 {
  "action":"ALLOW",
  "sequence_number":20,
@@ -293,8 +287,10 @@ PUT
 =SUBST=|"10.1.1.10",||
 =NETSPOC=[[group_rule]]
 =OUTPUT=
-/url
-DATA
+POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/Test-ID-E1?action=add
+{
+ "ip_addresses":["10.1.1.10"]
+ }
 =END=
 
 ############################################################
@@ -303,6 +299,8 @@ DATA
 =NETSPOC=[[group_rule]]
 =SUBST=|"10.1.1.10",||
 =OUTPUT=
-/url
-DATA
+POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/Test-ID-E1?action=remove
+{
+ "ip_addresses":["10.1.1.10"]
+ }
 =END=

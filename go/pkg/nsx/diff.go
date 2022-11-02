@@ -175,7 +175,7 @@ func (ab *rulesPair) diffRules() []change {
 		} else {
 			for i, ra := range a.rules[r.LowA:r.HighA] {
 				rb := b.rules[r.LowB+i]
-				ab.equalize(ra, rb)
+				result = append(result, ab.equalizeGroups(ra, rb)...)
 			}
 		}
 	}
@@ -206,21 +206,44 @@ func (g groupPair) Equal(ai, bi int) bool {
 	return g.a.Expression[0].IPAddresses[ai] == g.b.Expression[0].IPAddresses[bi]
 }
 
-func (ab *rulesPair) equalize(ra, rb *nsxRule) {
-	equalizeGroup := func(ga, gb *nsxGroup) {
+func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
+	var result []change
+	equalize := func(ga, gb *nsxGroup) {
 		gab := &groupPair{
 			ga, gb,
 		}
-		myers.Diff(nil, gab)
+		var toAdd, toRemove []string
+		s := myers.Diff(nil, gab)
+		for _, r := range s.Ranges {
+			if r.IsDelete() {
+				toRemove = append(toRemove, ga.Expression[0].IPAddresses[r.LowA:r.HighA]...)
+			} else if r.IsInsert() {
+				toAdd = append(toAdd, gb.Expression[0].IPAddresses[r.LowB:r.HighB]...)
+			}
+		}
+		addRequest := func(action string, addresses []string) {
+			if addresses != nil {
+				var data struct {
+					IpAddresses []string `json:"ip_addresses"`
+				}
+				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/groups/%s/ip-address-expressions/%s?action=%s", ga.Id, ga.Expression[0].Id, action)
+				data.IpAddresses = addresses
+				postData, _ := json.Marshal(data)
+				result = append(result, change{"POST", url, postData})
+			}
+		}
+		addRequest("remove", toRemove)
+		addRequest("add", toAdd)
 	}
 	if ga := getGroup(ra.SourceGroups[0], ab.a.groups); ga != nil {
 		gb := getGroup(rb.SourceGroups[0], ab.b.groups)
-		equalizeGroup(ga, gb)
+		equalize(ga, gb)
 	}
 	if ga := getGroup(ra.DestinationGroups[0], ab.a.groups); ga != nil {
 		gb := getGroup(rb.DestinationGroups[0], ab.b.groups)
-		equalizeGroup(ga, gb)
+		equalize(ga, gb)
 	}
+	return result
 }
 
 func sortRules(l []*nsxRule) {
