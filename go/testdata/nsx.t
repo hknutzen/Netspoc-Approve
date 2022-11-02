@@ -271,8 +271,20 @@ srv: 'tcp 80","/infra/services/Netspoc-udp 123'
 =SUBST=|"/infra/services/Netspoc-tcp 80",||
 =SUBST=/g0/g2/
 =OUTPUT=
-/url
-DATA
+DELETE
+/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
+
+PUT
+/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
+{
+ "action":"ALLOW",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/Netspoc-g2"],
+ "destination_groups":["/infra/domains/default/groups/Netspoc-g1"],
+ "services":["/infra/services/Netspoc-udp 123"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT"
+ }
 =END=
 
 ############################################################
