@@ -72,8 +72,8 @@ func (s *State) LoadDevice(
 		return nil, err
 	}
 	for _, result := range resultStruct.Results {
-		//Ignore all policies not created by NetSpoc
-		if !strings.HasPrefix(result.Id, "NetSpoc") {
+		// Ignore all policies not created by Netspoc.
+		if !strings.HasPrefix(result.Id, "Netspoc") {
 			continue
 		}
 		data, err := s.sendRequest("GET", uri+"/"+result.Id, nil)
