@@ -133,11 +133,11 @@ func (s *State) sendRequest(method string, url string, body io.Reader) ([]byte, 
 	}
 	req.Header.Set("x-xsrf-token", s.token)
 	resp, err := s.client.Do(req)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status code: %d, %s", resp.StatusCode, url)
-	}
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status code: %d, %s", resp.StatusCode, url)
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
