@@ -142,6 +142,7 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		msg := fmt.Sprintf("status code: %d, %s", resp.StatusCode, path)
 		if body, _ := io.ReadAll(resp.Body); len(body) != 0 {
@@ -149,7 +150,6 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 		}
 		return nil, errors.New(msg)
 	}
-	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
 
 }
