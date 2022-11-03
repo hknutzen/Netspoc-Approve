@@ -307,9 +307,8 @@ func getHostnameIPList(path string) ([]string, []string, error) {
 	}
 	reName := regexp.MustCompile(`\[ BEGIN (.+) \]`)
 	reIP := regexp.MustCompile(`\[ IP = (.+) \]`)
-	header := data[:1000]
 	find := func(re *regexp.Regexp) string {
-		if l := re.FindSubmatch(header); l != nil {
+		if l := re.FindSubmatch(data); l != nil {
 			return string(l[1])
 		}
 		return ""
