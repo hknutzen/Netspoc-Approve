@@ -3,6 +3,7 @@ package nsx
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -134,12 +135,19 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 		return nil, err
 	}
 	req.Header.Set("x-xsrf-token", s.token)
+	if body != nil {
+		req.Header.Set("content-type", "application/json")
+	}
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status code: %d, %s", resp.StatusCode, path)
+		msg := fmt.Sprintf("status code: %d, %s", resp.StatusCode, path)
+		if body, _ := io.ReadAll(resp.Body); len(body) != 0 {
+			msg += "\n" + string(body)
+		}
+		return nil, errors.New(msg)
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
