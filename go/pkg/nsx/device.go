@@ -15,8 +15,9 @@ import (
 )
 
 type State struct {
-	token   string
 	client  *http.Client
+	prefix  string
+	token   string
 	changes []change
 }
 type change struct {
@@ -31,16 +32,17 @@ func (s *State) LoadDevice(
 	logFH *os.File,
 ) (device.DeviceConfig, error) {
 
-	prefix := fmt.Sprintf("https://%s/", ip)
+	prefix := fmt.Sprintf("https://%s", ip)
 	device.DoLog(logFH, prefix)
 	s.client = client
+	s.prefix = prefix
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
 	}
 	client.Jar = jar
 
-	uri := prefix + "api/session/create"
+	uri := prefix + "/api/session/create"
 	v := url.Values{}
 	v.Set("j_username", user)
 	v.Set("j_password", pass)
@@ -53,8 +55,8 @@ func (s *State) LoadDevice(
 	}
 	s.token = resp.Header.Get("x-xsrf-token")
 
-	uri = prefix + "policy/api/v1/infra/domains/default/gateway-policies"
-	data, err := s.sendRequest("GET", uri, nil)
+	path := "/policy/api/v1/infra/domains/default/gateway-policies"
+	data, err := s.sendRequest("GET", path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -76,21 +78,21 @@ func (s *State) LoadDevice(
 		if !strings.HasPrefix(result.Id, "Netspoc") {
 			continue
 		}
-		data, err := s.sendRequest("GET", uri+"/"+result.Id, nil)
+		data, err := s.sendRequest("GET", path+"/"+result.Id, nil)
 		if err != nil {
 			return nil, err
 		}
 		rawConf.Policies = append(rawConf.Policies, data)
 	}
 
-	uri = prefix + "policy/api/v1/infra/services"
-	rawConf.Services, err = s.getRawJSON(uri, logFH)
+	path = "/policy/api/v1/infra/services"
+	rawConf.Services, err = s.getRawJSON(path, logFH)
 	if err != nil {
 		return nil, err
 	}
 
-	uri = prefix + "policy/api/v1/infra/domains/default/groups"
-	rawConf.Groups, err = s.getRawJSON(uri, logFH)
+	path = "/policy/api/v1/infra/domains/default/groups"
+	rawConf.Groups, err = s.getRawJSON(path, logFH)
 	if err != nil {
 		return nil, err
 	}
@@ -105,11 +107,11 @@ func (s *State) LoadDevice(
 	return s.ParseConfig(out)
 }
 
-func (s *State) getRawJSON(uri string, logFH *os.File) ([]json.RawMessage, error) {
+func (s *State) getRawJSON(path string, logFH *os.File) ([]json.RawMessage, error) {
 	var results struct{ Results []json.RawMessage }
 	var id struct{ Id string }
 	var data []json.RawMessage
-	out, err := s.sendRequest("GET", uri, nil)
+	out, err := s.sendRequest("GET", path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +128,8 @@ func (s *State) getRawJSON(uri string, logFH *os.File) ([]json.RawMessage, error
 	return data, nil
 }
 
-func (s *State) sendRequest(method string, url string, body io.Reader) ([]byte, error) {
-	req, err := http.NewRequest(method, url, body)
+func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte, error) {
+	req, err := http.NewRequest(method, s.prefix+path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +139,7 @@ func (s *State) sendRequest(method string, url string, body io.Reader) ([]byte, 
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status code: %d, %s", resp.StatusCode, url)
+		return nil, fmt.Errorf("status code: %d, %s", resp.StatusCode, path)
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
