@@ -51,14 +51,46 @@ type nsxService struct {
 }
 
 type nsxServiceEntry struct {
+	DisplayName      string   `json:"display_name"`
 	ResourceType     string   `json:"resource_type"`
 	L4Protocol       string   `json:"l4_protocol"`
-	SourcePorts      []string `json:"source_ports"`
-	DestinationPorts []string `json:"destination_ports"`
+	SourcePorts      []string `json:"source_ports,omitempty"`
+	DestinationPorts []string `json:"destination_ports,omitempty"`
 	ICMPProtocol     string   `json:"protocol"`
 	ICMPType         int      `json:"icmp_type"`
 	ICMPCode         int      `json:"icmp_code"`
 	ProtocolNumber   int      `json:"protocol_number"`
+}
+
+type jsonMap map[string]interface{}
+
+func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
+	var result jsonMap
+	switch e.ResourceType {
+	case "IpProtocolServiceEntry":
+		result = jsonMap{
+			"display_name":    e.DisplayName,
+			"resource_type":   e.ResourceType,
+			"protocol_number": e.ProtocolNumber,
+		}
+	case "L4PortSetServiceEntry":
+		result = jsonMap{
+			"display_name":      e.DisplayName,
+			"resource_type":     e.ResourceType,
+			"l4_protocol":       e.L4Protocol,
+			"source_ports":      e.SourcePorts,
+			"destination_ports": e.DestinationPorts,
+		}
+	case "IcmpTypeServiceEntry":
+		result = jsonMap{
+			"display_name":  e.DisplayName,
+			"resource_type": e.ResourceType,
+			"icmp_type":     e.ICMPType,
+			"icmp_code":     e.ICMPCode,
+		}
+
+	}
+	return json.Marshal(result)
 }
 
 type NsxConfig struct {

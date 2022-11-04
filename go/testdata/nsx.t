@@ -40,6 +40,7 @@
  "id": "Netspoc-tcp {{.}}",
  "service_entries": [
   {
+   "display_name": "Netspoc tcp {{.}}",
    "resource_type": "L4PortSetServiceEntry",
    "l4_protocol": "TCP",
    "destination_ports": [ "{{.}}" ]
@@ -51,6 +52,7 @@
  "id": "Netspoc-udp {{.}}",
  "service_entries": [
   {
+  "display_name": "Netspoc udp {{.}}",
    "resource_type": "L4PortSetServiceEntry",
    "l4_protocol": "UDP",
    "destination_ports": [ "{{.}}" ]
@@ -116,6 +118,24 @@
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
+PUT /policy/api/v1/infra/services/Netspoc-tcp 80
+{"service_entries":[
+ {
+  "destination_ports":["80"],
+  "display_name":"Netspoc tcp 80",
+  "l4_protocol":"TCP",
+  "resource_type":"L4PortSetServiceEntry",
+  "source_ports":null
+ }]}
+PUT /policy/api/v1/infra/services/Netspoc-udp 123
+{"service_entries":[
+ {
+  "destination_ports":["123"],
+  "display_name":"Netspoc udp 123",
+  "l4_protocol":"UDP",
+  "resource_type":"L4PortSetServiceEntry",
+  "source_ports":null
+ }]}
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 {"id":"Netspoc-v1",
  "rules":[
@@ -186,6 +206,15 @@ DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
+PUT /policy/api/v1/infra/services/Netspoc-udp 123
+{"service_entries":[
+ {
+  "destination_ports":["123"],
+  "display_name":"Netspoc udp 123",
+  "l4_protocol":"UDP",
+  "resource_type":"L4PortSetServiceEntry",
+  "source_ports":null
+ }]}
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 {
  "action":"ALLOW",
@@ -205,6 +234,15 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
+PUT /policy/api/v1/infra/services/Netspoc-udp 123
+{"service_entries":[
+ {
+  "destination_ports":["123"],
+  "display_name":"Netspoc udp 123",
+  "l4_protocol":"UDP",
+  "resource_type":"L4PortSetServiceEntry",
+  "source_ports":null
+ }]}
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
 {
  "action":"ALLOW",

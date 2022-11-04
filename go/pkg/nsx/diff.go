@@ -1,6 +1,7 @@
 package nsx
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -16,11 +17,36 @@ type rulesPair struct {
 }
 
 type nsxInfo struct {
-	rules  []*nsxRule
-	groups map[string]*nsxGroup
+	rules    []*nsxRule
+	groups   map[string]*nsxGroup
+	services map[string]*nsxService
 }
 
 func diffConfig(a, b *NsxConfig) ([]change, error) {
+	sortGroups(a.Groups)
+	sortGroups(b.Groups)
+
+	var changes []change
+	addNewServices :=
+		func() {
+			m := serviceMap(a.Services)
+			for _, sb := range b.Services {
+				if sa := m[sb.Id]; sa != nil {
+					sa.needed = true
+					ja, _ := json.Marshal(sa)
+					jb, _ := json.Marshal(sb)
+					if bytes.Compare(ja, jb) == 0 {
+						continue
+					}
+				}
+				url := "/policy/api/v1/infra/services/" + sb.Id
+				sb.Id = "" // Don't send Id twice.
+				postData, _ := json.Marshal(sb)
+				changes = append(changes, change{"PUT", url, postData})
+			}
+		}
+	addNewServices()
+
 	getPolicyMap :=
 		func(c *NsxConfig) map[string]*nsxPolicy {
 			m := make(map[string]*nsxPolicy)
@@ -29,10 +55,7 @@ func diffConfig(a, b *NsxConfig) ([]change, error) {
 			}
 			return m
 		}
-	var changes []change
 	m := getPolicyMap(b)
-	sortGroups(a.Groups)
-	sortGroups(b.Groups)
 	for _, p1 := range a.Policies {
 		p2 := m[p1.Id]
 		l := diffPolicies(p1, p2, a.Groups, b.Groups)
@@ -45,6 +68,8 @@ func diffConfig(a, b *NsxConfig) ([]change, error) {
 			changes = append(changes, l...)
 		}
 	}
+
+	//TODO: removeUnusedServices()
 	return changes, nil
 }
 
@@ -108,6 +133,14 @@ func diffPolicies(a, b *nsxPolicy, ga, gb []*nsxGroup) []change {
 func groupMap(g []*nsxGroup) map[string]*nsxGroup {
 	m := make(map[string]*nsxGroup)
 	for _, o := range g {
+		m[o.Id] = o
+	}
+	return m
+}
+
+func serviceMap(s []*nsxService) map[string]*nsxService {
+	m := make(map[string]*nsxService)
+	for _, o := range s {
 		m[o.Id] = o
 	}
 	return m
