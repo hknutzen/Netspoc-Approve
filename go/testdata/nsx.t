@@ -37,7 +37,7 @@
 }
 =TEMPL=tcp
 {
- "id": "Netspoc-tcp {{.}}",
+ "id": "Netspoc-tcp_{{.}}",
  "service_entries": [
   {
    "display_name": "Netspoc tcp {{.}}",
@@ -49,7 +49,7 @@
 }
 =TEMPL=udp
 {
- "id": "Netspoc-udp {{.}}",
+ "id": "Netspoc-udp_{{.}}",
  "service_entries": [
   {
   "display_name": "Netspoc udp {{.}}",
@@ -67,8 +67,8 @@
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: "tcp 80" }]],
-[[allow { id: r2, src: 10.1.1.10, dst: 10.1.2.40, srv: "udp 123" }]],
+[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: "tcp_80" }]],
+[[allow { id: r2, src: 10.1.1.10, dst: 10.1.2.40, srv: "udp_123" }]],
 [[drop  { id: r3 }]],
 [[drop  { id: r4, dir: IN }]]
    ]
@@ -86,7 +86,7 @@
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: "tcp 80" }]],
+[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: "tcp_80" }]],
 [[drop  { id: r3 }]],
 [[drop  { id: r4, dir: IN }]]
    ]
@@ -118,7 +118,7 @@
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
-PUT /policy/api/v1/infra/services/Netspoc-tcp 80
+PUT /policy/api/v1/infra/services/Netspoc-tcp_80
 {"service_entries":[
  {
   "destination_ports":["80"],
@@ -127,7 +127,7 @@ PUT /policy/api/v1/infra/services/Netspoc-tcp 80
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":null
  }]}
-PUT /policy/api/v1/infra/services/Netspoc-udp 123
+PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[
  {
   "destination_ports":["123"],
@@ -145,7 +145,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
   "sequence_number":20,
   "source_groups":["10.1.1.10"],
   "destination_groups":["10.1.2.30"],
-  "services":["/infra/services/Netspoc-tcp 80"],
+  "services":["/infra/services/Netspoc-tcp_80"],
   "scope":["/infra/tier-0s/v1"],
   "direction":"OUT"
  },{
@@ -154,7 +154,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
   "sequence_number":20,
   "source_groups":["10.1.1.10"],
   "destination_groups":["10.1.2.40"],
-  "services":["/infra/services/Netspoc-udp 123"],
+  "services":["/infra/services/Netspoc-udp_123"],
   "scope":["/infra/tier-0s/v1"],
   "direction":"OUT"
  },{
@@ -206,7 +206,7 @@ DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
-PUT /policy/api/v1/infra/services/Netspoc-udp 123
+PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[
  {
   "destination_ports":["123"],
@@ -221,7 +221,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
  "sequence_number":20,
  "source_groups":["10.1.1.10"],
  "destination_groups":["10.1.2.40"],
- "services":["/infra/services/Netspoc-udp 123"],
+ "services":["/infra/services/Netspoc-udp_123"],
  "scope":["/infra/tier-0s/v1"],
  "direction":"OUT"}
 =END=
@@ -234,7 +234,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 =NETSPOC=
 [[two_rules]]
 =OUTPUT=
-PUT /policy/api/v1/infra/services/Netspoc-udp 123
+PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[
  {
   "destination_ports":["123"],
@@ -249,7 +249,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
  "sequence_number":20,
  "source_groups":["10.1.1.10"],
  "destination_groups":["10.1.2.40"],
- "services":["/infra/services/Netspoc-udp 123"],
+ "services":["/infra/services/Netspoc-udp_123"],
  "scope":["/infra/tier-0s/v1"],
  "direction":"OUT"}
 =END=
@@ -270,7 +270,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
 id: r1
 src: /infra/domains/default/groups/Netspoc-g0
 dst: /infra/domains/default/groups/Netspoc-g1
-srv: 'tcp 80","/infra/services/Netspoc-udp 123'
+srv: 'tcp_80","/infra/services/Netspoc-udp_123'
 ]],
 [[drop  { id: r2 }]],
 [[drop  { id: r3, dir: IN }]]
@@ -300,9 +300,9 @@ srv: 'tcp 80","/infra/services/Netspoc-udp 123'
 ############################################################
 =TITLE=Change service of rule
 =DEVICE=[[group_rule]]
-=SUBST=|,"/infra/services/Netspoc-udp 123"||
+=SUBST=|,"/infra/services/Netspoc-udp_123"||
 =NETSPOC=[[group_rule]]
-=SUBST=|"/infra/services/Netspoc-tcp 80",||
+=SUBST=|"/infra/services/Netspoc-tcp_80",||
 =SUBST=/g0/g2/
 =OUTPUT=
 DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
@@ -313,7 +313,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
  "sequence_number":20,
  "source_groups":["/infra/domains/default/groups/Netspoc-g2"],
  "destination_groups":["/infra/domains/default/groups/Netspoc-g1"],
- "services":["/infra/services/Netspoc-udp 123"],
+ "services":["/infra/services/Netspoc-udp_123"],
  "scope":["/infra/tier-0s/v1"],
  "direction":"OUT"
  }
