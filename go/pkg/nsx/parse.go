@@ -32,16 +32,16 @@ type nsxRule struct {
 }
 
 type nsxGroup struct {
-	Id           string                `json:"id"`
+	Id           string                `json:"id,omitempty"`
 	Expression   []*nsxGroupExpression `json:"expression"`
 	needed       bool
 	nameOnDevice string
 }
 
 type nsxGroupExpression struct {
-	Id            string   `json:"id"`
-	RessourceType string   `json:"ressource_type"`
-	IPAddresses   []string `json:"ip_addresses"`
+	Id           string   `json:"id"`
+	ResourceType string   `json:"resource_type"`
+	IPAddresses  []string `json:"ip_addresses"`
 }
 
 type nsxService struct {

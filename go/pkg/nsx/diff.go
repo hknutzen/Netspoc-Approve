@@ -86,8 +86,6 @@ func diffPolicies(a, b *nsxPolicy, ga, gb []*nsxGroup) []change {
 	if b == nil {
 		return deletePolicy(a)
 	}
-	sortRules(a.Rules)
-	sortRules(b.Rules)
 	genUniqRuleNames(a.Rules, b.Rules)
 	aStart := 0
 	bStart := 0
@@ -96,6 +94,8 @@ func diffPolicies(a, b *nsxPolicy, ga, gb []*nsxGroup) []change {
 	ab := &rulesPair{policy: a, a: &nsxInfo{}, b: &nsxInfo{}}
 	ab.a.groups = groupMap(ga)
 	ab.b.groups = groupMap(gb)
+	sortRules(a.Rules, ab.a.groups)
+	sortRules(b.Rules, ab.b.groups)
 	for aStart < len(a.Rules) {
 		r1 := a.Rules[aStart]
 		dir := r1.Direction
@@ -146,6 +146,7 @@ func serviceMap(s []*nsxService) map[string]*nsxService {
 	return m
 }
 
+// TODO: als lokale Funktion?
 func createPolicy(a *nsxPolicy) []change {
 	url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s", a.Id)
 	postData, _ := json.Marshal(a)
@@ -193,6 +194,12 @@ func (ab *rulesPair) diffRules() []change {
 	ins :=
 		func(l []*nsxRule) {
 			for _, ru := range l {
+				if g := getGroup(ru.SourceGroups[0], b.groups); g != nil {
+					result = append(result, addGroup(g)...)
+				}
+				if g := getGroup(ru.DestinationGroups[0], b.groups); g != nil {
+					result = append(result, addGroup(g)...)
+				}
 				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
 					ab.policy.Id, ru.Id)
 				ru.Id = "" // Don't send Id twice.
@@ -222,6 +229,17 @@ func getGroup(s string, m map[string]*nsxGroup) *nsxGroup {
 	return nil
 }
 
+func addGroup(g *nsxGroup) []change {
+	if g.nameOnDevice != "" {
+		return nil
+	}
+	url := "/policy/api/v1/infra/domains/default/groups/" + g.Id
+	g.nameOnDevice = g.Id
+	g.Id = ""
+	postData, _ := json.Marshal(g)
+	return []change{{"PUT", url, postData}}
+}
+
 type groupPair struct {
 	a *nsxGroup
 	b *nsxGroup
@@ -242,6 +260,11 @@ func (g groupPair) Equal(ai, bi int) bool {
 func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 	var result []change
 	equalize := func(ga, gb *nsxGroup) {
+		if ga.needed {
+			result = append(result, addGroup(gb)...)
+			return
+		}
+		ga.needed = true
 		gab := &groupPair{
 			ga, gb,
 		}
@@ -259,7 +282,8 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 				var data struct {
 					IpAddresses []string `json:"ip_addresses"`
 				}
-				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/groups/%s/ip-address-expressions/%s?action=%s", ga.Id, ga.Expression[0].Id, action)
+				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/groups/%s/ip-address-expressions/%s?action=%s",
+					ga.Id, ga.Expression[0].Id, action)
 				data.IpAddresses = addresses
 				postData, _ := json.Marshal(data)
 				result = append(result, change{"POST", url, postData})
@@ -279,21 +303,42 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 	return result
 }
 
-func sortRules(l []*nsxRule) {
+func sortRules(l []*nsxRule, m map[string]*nsxGroup) {
+	elementLess := func(ei, ej string) bool {
+		gi := getGroup(ei, m)
+		gj := getGroup(ej, m)
+		if gi != nil {
+			if gj != nil {
+				return gi.Expression[0].IPAddresses[0] < gj.Expression[0].IPAddresses[0]
+			}
+			return true
+		}
+		if gj != nil {
+			return false
+		}
+		return ei < ej
+	}
 	sort.Slice(l, func(i, j int) bool {
-		return l[i].Direction < l[j].Direction ||
-			l[i].Direction == l[j].Direction &&
-				(l[i].SequenceNumber < l[j].SequenceNumber ||
-					l[i].SequenceNumber == l[j].SequenceNumber &&
-						(l[i].Action < l[j].Action ||
-							l[i].Action == l[j].Action &&
-								//Assume length of all following is only 1
-								(l[i].Services[0] < l[j].Services[0] ||
-									l[i].Services[0] == l[j].Services[0] &&
-										(l[i].SourceGroups[0] < l[j].SourceGroups[0] ||
-											l[i].SourceGroups[0] == l[j].SourceGroups[0] &&
-												(l[i].DestinationGroups[0] < l[j].DestinationGroups[0] ||
-													l[i].DestinationGroups[0] == l[j].DestinationGroups[0])))))
+		if l[i].Direction != l[j].Direction {
+			return l[i].Direction < l[j].Direction
+		}
+		if l[i].SequenceNumber != l[j].SequenceNumber {
+			return l[i].SequenceNumber < l[j].SequenceNumber
+		}
+		if l[i].Action != l[j].Action {
+			return l[i].Action < l[j].Action
+		}
+		//Assume length of all following is only 1
+		if l[i].Services[0] != l[j].Services[0] {
+			return l[i].Services[0] < l[j].Services[0]
+		}
+		if l[i].SourceGroups[0] != l[j].SourceGroups[0] {
+			return elementLess(l[i].SourceGroups[0], l[j].SourceGroups[0])
+		}
+		if l[i].DestinationGroups[0] != l[j].DestinationGroups[0] {
+			return elementLess(l[i].DestinationGroups[0], l[j].DestinationGroups[0])
+		}
+		return false
 	})
 }
 

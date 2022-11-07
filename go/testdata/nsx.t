@@ -27,7 +27,7 @@
  "id": "Netspoc-{{.id}}",
  "expression": [
   {
-   "id": "Test-ID-E1",
+   "id": "id",
    "resource_type": "IPAddressExpression",
    "ip_addresses": [
     "{{.ip}}"
@@ -67,8 +67,8 @@
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: "tcp_80" }]],
-[[allow { id: r2, src: 10.1.1.10, dst: 10.1.2.40, srv: "udp_123" }]],
+[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }]],
+[[allow { id: r2, src: 10.1.1.10, dst: 10.1.2.40, srv: udp_123 }]],
 [[drop  { id: r3 }]],
 [[drop  { id: r4, dir: IN }]]
    ]
@@ -86,7 +86,7 @@
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: "tcp_80" }]],
+[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }]],
 [[drop  { id: r3 }]],
 [[drop  { id: r4, dir: IN }]]
    ]
@@ -325,7 +325,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
 =SUBST=|"10.1.1.10",||
 =NETSPOC=[[group_rule]]
 =OUTPUT=
-POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/Test-ID-E1?action=add
+POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/id?action=add
 {
  "ip_addresses":["10.1.1.10"]
  }
@@ -337,8 +337,104 @@ POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressio
 =NETSPOC=[[group_rule]]
 =SUBST=|"10.1.1.10",||
 =OUTPUT=
-POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/Test-ID-E1?action=remove
+POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/id?action=remove
 {
  "ip_addresses":["10.1.1.10"]
  }
+=END=
+
+############################################################
+=TITLE=Replace element in Group
+=DEVICE=[[group_rule]]
+=NETSPOC=[[group_rule]]
+=SUBST=|"10.1.1.10",|"10.1.1.30",|
+=OUTPUT=
+POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/id?action=remove
+{
+ "ip_addresses":["10.1.1.10"]
+ }
+POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/id?action=add
+{
+ "ip_addresses":["10.1.1.30"]
+ }
+=END=
+
+############################################################
+=TITLE=Replace single group with multiple
+=DEVICE=
+{
+ "groups": [
+[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]]
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+[[allow
+id: r1
+src: /infra/domains/default/groups/Netspoc-g0
+dst: 10.2.1.10
+srv: tcp_80
+]],
+[[allow
+id: r2
+src: /infra/domains/default/groups/Netspoc-g0
+dst: 10.2.1.20
+srv: tcp_80
+]],
+[[drop  { id: r3 }]],
+[[drop  { id: r4, dir: IN }]]
+   ]
+  }
+ ],
+ "services": [
+[[tcp 80]]
+ ]
+}
+=NETSPOC=
+{
+ "groups": [
+[[group { id: g0, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }]],
+[[group { id: g1, ip: '10.1.1.10","10.1.1.20","10.1.1.40' }]]
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+[[allow
+id: r1
+src: /infra/domains/default/groups/Netspoc-g0
+dst: 10.2.1.10
+srv: tcp_80
+]],
+[[allow
+id: r2
+src: /infra/domains/default/groups/Netspoc-g1
+dst: 10.2.1.20
+srv: tcp_80
+]],
+[[drop  { id: r3 }]],
+[[drop  { id: r4, dir: IN }]]
+   ]
+  }
+ ],
+ "services": [
+[[tcp 80]]
+ ]
+}
+=OUTPUT=
+POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/id?action=add
+{"ip_addresses":["10.1.1.30"]}
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
+{
+ "expression":[{
+ "id":"id",
+ "resource_type":"IPAddressExpression",
+ "ip_addresses":["10.1.1.10","10.1.1.20","10.1.1.40"]
+ }]
+ }
+
+Modify second rule on device
 =END=
