@@ -311,7 +311,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
 {
  "action":"ALLOW",
  "sequence_number":20,
- "source_groups":["/infra/domains/default/groups/Netspoc-g2"],
+ "source_groups":["/infra/domains/default/groups/Netspoc-g0"],
  "destination_groups":["/infra/domains/default/groups/Netspoc-g1"],
  "services":["/infra/services/Netspoc-udp_123"],
  "scope":["/infra/tier-0s/v1"],
@@ -360,7 +360,7 @@ POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressio
 =END=
 
 ############################################################
-=TITLE=Replace single group with multiple
+=TITLE=Replace one group by two different groups
 =DEVICE=
 {
  "groups": [

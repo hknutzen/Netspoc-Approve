@@ -193,13 +193,21 @@ func (ab *rulesPair) diffRules() []change {
 		}
 	ins :=
 		func(l []*nsxRule) {
+			adaptGroup :=
+				func(l []string) {
+					if g := getGroup(l[0], b.groups); g != nil {
+						if g.nameOnDevice != "" {
+							l[0] = "/infra/domains/default/groups/" + g.nameOnDevice
+						} else if n := findGroupOnDevice(g, a.groups); n != "" {
+							l[0] = "/infra/domains/default/groups/" + n
+						} else {
+							result = append(result, addGroup(g)...)
+						}
+					}
+				}
 			for _, ru := range l {
-				if g := getGroup(ru.SourceGroups[0], b.groups); g != nil {
-					result = append(result, addGroup(g)...)
-				}
-				if g := getGroup(ru.DestinationGroups[0], b.groups); g != nil {
-					result = append(result, addGroup(g)...)
-				}
+				adaptGroup(ru.SourceGroups)
+				adaptGroup(ru.DestinationGroups)
 				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
 					ab.policy.Id, ru.Id)
 				ru.Id = "" // Don't send Id twice.
@@ -238,6 +246,26 @@ func addGroup(g *nsxGroup) []change {
 	g.Id = ""
 	postData, _ := json.Marshal(g)
 	return []change{{"PUT", url, postData}}
+}
+
+func findGroupOnDevice(gb *nsxGroup, ma map[string]*nsxGroup) string {
+	bAddr := gb.Expression[0].IPAddresses
+GROUP:
+	for _, ga := range ma {
+		aAddr := ga.Expression[0].IPAddresses
+		if len(aAddr) != len(bAddr) {
+			continue
+		}
+		for i, n := range bAddr {
+			if n != aAddr[i] {
+				continue GROUP
+			}
+		}
+		ga.needed = true
+		gb.nameOnDevice = ga.Id
+		return ga.Id
+	}
+	return ""
 }
 
 type groupPair struct {
@@ -294,10 +322,12 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 	}
 	if ga := getGroup(ra.SourceGroups[0], ab.a.groups); ga != nil {
 		gb := getGroup(rb.SourceGroups[0], ab.b.groups)
+		//TODO: Regel anpassen/übertragen
 		equalize(ga, gb)
 	}
 	if ga := getGroup(ra.DestinationGroups[0], ab.a.groups); ga != nil {
 		gb := getGroup(rb.DestinationGroups[0], ab.b.groups)
+		//TODO: Regel anpassen/übertragen
 		equalize(ga, gb)
 	}
 	return result
