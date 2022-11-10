@@ -30,6 +30,7 @@ func diffConfig(a, b *NsxConfig) ([]change, error) {
 	addNewServices :=
 		func() {
 			m := serviceMap(a.Services)
+			method := "PUT"
 			for _, sb := range b.Services {
 				if sa := m[sb.Id]; sa != nil {
 					sa.needed = true
@@ -38,11 +39,12 @@ func diffConfig(a, b *NsxConfig) ([]change, error) {
 					if bytes.Compare(ja, jb) == 0 {
 						continue
 					}
+					method = "PATCH"
 				}
 				url := "/policy/api/v1/infra/services/" + sb.Id
 				sb.Id = "" // Don't send Id twice.
 				postData, _ := json.Marshal(sb)
-				changes = append(changes, change{"PUT", url, postData})
+				changes = append(changes, change{method, url, postData})
 			}
 		}
 	addNewServices()
@@ -55,21 +57,31 @@ func diffConfig(a, b *NsxConfig) ([]change, error) {
 			}
 			return m
 		}
-	m := getPolicyMap(b)
+	pm := getPolicyMap(b)
 	for _, p1 := range a.Policies {
-		p2 := m[p1.Id]
+		p2 := pm[p1.Id]
 		l := diffPolicies(p1, p2, a.Groups, b.Groups)
 		changes = append(changes, l...)
 	}
-	m = getPolicyMap(a)
+	pm = getPolicyMap(a)
 	for _, p2 := range b.Policies {
-		if m[p2.Id] == nil {
+		if pm[p2.Id] == nil {
 			l := diffPolicies(nil, p2, a.Groups, b.Groups)
 			changes = append(changes, l...)
 		}
 	}
 
-	//TODO: removeUnusedServices()
+	removeUnusedServices :=
+		func() {
+			for _, sa := range a.Services {
+				if !sa.needed {
+					url := "/policy/api/v1/infra/services/" + sa.Id
+					changes = append(changes, change{"DELETE", url, nil})
+				}
+			}
+		}
+
+	removeUnusedServices()
 	return changes, nil
 }
 
@@ -80,17 +92,27 @@ func sortGroups(groups []*nsxGroup) {
 }
 
 func diffPolicies(a, b *nsxPolicy, ga, gb []*nsxGroup) []change {
-	if a == nil {
-		return createPolicy(b)
-	}
 	if b == nil {
 		return deletePolicy(a)
+	}
+	var chgs []change
+	//TODO: Regeln nicht einzeln anlegen, wenn policy neu angelegt wird.
+	createPolicy :=
+		func() {
+			cp := *b
+			cp.Rules = nil
+			url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s", cp.Id)
+			postData, _ := json.Marshal(&cp)
+			a = &cp
+			chgs = append(chgs, change{"PUT", url, postData})
+		}
+	if a == nil {
+		createPolicy()
 	}
 	genUniqRuleNames(a.Rules, b.Rules)
 	aStart := 0
 	bStart := 0
 	var aEnd, bEnd int
-	var chgs []change
 	ab := &rulesPair{policy: a, a: &nsxInfo{}, b: &nsxInfo{}}
 	ab.a.groups = groupMap(ga)
 	ab.b.groups = groupMap(gb)
@@ -123,10 +145,11 @@ func diffPolicies(a, b *nsxPolicy, ga, gb []*nsxGroup) []change {
 		bStart = bEnd
 	}
 	if bStart < len(b.Rules) {
-		ab.a = nil
+		ab.a.rules = nil
 		ab.b.rules = b.Rules[bStart:]
 		chgs = append(chgs, ab.diffRules()...)
 	}
+	chgs = append(chgs, ab.removeUnusedGroups()...)
 	return chgs
 }
 
@@ -144,13 +167,6 @@ func serviceMap(s []*nsxService) map[string]*nsxService {
 		m[o.Id] = o
 	}
 	return m
-}
-
-// TODO: als lokale Funktion?
-func createPolicy(a *nsxPolicy) []change {
-	url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s", a.Id)
-	postData, _ := json.Marshal(a)
-	return []change{{"PUT", url, postData}}
 }
 
 func deletePolicy(a *nsxPolicy) []change {
@@ -195,24 +211,22 @@ func (ab *rulesPair) diffRules() []change {
 		func(l []*nsxRule) {
 			adaptGroup :=
 				func(l []string) {
-					if g := getGroup(l[0], b.groups); g != nil {
-						if g.nameOnDevice != "" {
-							l[0] = "/infra/domains/default/groups/" + g.nameOnDevice
-						} else if n := findGroupOnDevice(g, a.groups); n != "" {
-							l[0] = "/infra/domains/default/groups/" + n
+					if gb := getGroup(l[0], b.groups); gb != nil {
+						if gb.nameOnDevice != "" {
+							l[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
+						} else if ga := findGroupOnDevice(gb, a.groups); ga != nil {
+							ga.needed = true
+							gb.nameOnDevice = ga.Id
+							l[0] = "/infra/domains/default/groups/" + ga.Id
 						} else {
-							result = append(result, addGroup(g)...)
+							result = append(result, addGroup(gb)...)
 						}
 					}
 				}
 			for _, ru := range l {
 				adaptGroup(ru.SourceGroups)
 				adaptGroup(ru.DestinationGroups)
-				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
-					ab.policy.Id, ru.Id)
-				ru.Id = "" // Don't send Id twice.
-				postData, _ := json.Marshal(ru)
-				result = append(result, change{"PUT", url, postData})
+				result = append(result, ab.writeRule(ru))
 			}
 		}
 	for _, r := range s.Ranges {
@@ -228,6 +242,14 @@ func (ab *rulesPair) diffRules() []change {
 		}
 	}
 	return result
+}
+
+func (ab *rulesPair) writeRule(r *nsxRule) change {
+	url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
+		ab.policy.Id, r.Id)
+	r.Id = "" // Don't send Id twice.
+	postData, _ := json.Marshal(r)
+	return change{"PUT", url, postData}
 }
 
 func getGroup(s string, m map[string]*nsxGroup) *nsxGroup {
@@ -248,7 +270,7 @@ func addGroup(g *nsxGroup) []change {
 	return []change{{"PUT", url, postData}}
 }
 
-func findGroupOnDevice(gb *nsxGroup, ma map[string]*nsxGroup) string {
+func findGroupOnDevice(gb *nsxGroup, ma map[string]*nsxGroup) *nsxGroup {
 	bAddr := gb.Expression[0].IPAddresses
 GROUP:
 	for _, ga := range ma {
@@ -261,11 +283,9 @@ GROUP:
 				continue GROUP
 			}
 		}
-		ga.needed = true
-		gb.nameOnDevice = ga.Id
-		return ga.Id
+		return ga
 	}
-	return ""
+	return nil
 }
 
 type groupPair struct {
@@ -287,12 +307,25 @@ func (g groupPair) Equal(ai, bi int) bool {
 
 func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 	var result []change
-	equalize := func(ga, gb *nsxGroup) {
-		if ga.needed {
-			result = append(result, addGroup(gb)...)
+	var changedRuleA bool
+	equalize := func(la, lb []string) {
+		ga := getGroup(la[0], ab.a.groups)
+		if ga == nil {
+			return
+		}
+		gb := getGroup(lb[0], ab.b.groups)
+		// Don't change ga on device but adapt rule to name of group to be transferred to
+		// device or already found on device.
+		if ga.needed || gb.nameOnDevice != "" {
+			if gb.nameOnDevice == "" {
+				result = append(result, addGroup(gb)...)
+			}
+			la[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
+			changedRuleA = true
 			return
 		}
 		ga.needed = true
+		gb.nameOnDevice = ga.Id
 		gab := &groupPair{
 			ga, gb,
 		}
@@ -305,7 +338,7 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 				toAdd = append(toAdd, gb.Expression[0].IPAddresses[r.LowB:r.HighB]...)
 			}
 		}
-		addRequest := func(action string, addresses []string) {
+		addChange := func(action string, addresses []string) {
 			if addresses != nil {
 				var data struct {
 					IpAddresses []string `json:"ip_addresses"`
@@ -317,18 +350,25 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 				result = append(result, change{"POST", url, postData})
 			}
 		}
-		addRequest("remove", toRemove)
-		addRequest("add", toAdd)
+		addChange("remove", toRemove)
+		addChange("add", toAdd)
 	}
-	if ga := getGroup(ra.SourceGroups[0], ab.a.groups); ga != nil {
-		gb := getGroup(rb.SourceGroups[0], ab.b.groups)
-		//TODO: Regel anpassen/übertragen
-		equalize(ga, gb)
+
+	equalize(ra.SourceGroups, rb.SourceGroups)
+	equalize(ra.DestinationGroups, rb.DestinationGroups)
+	if changedRuleA {
+		result = append(result, ab.writeRule(ra))
 	}
-	if ga := getGroup(ra.DestinationGroups[0], ab.a.groups); ga != nil {
-		gb := getGroup(rb.DestinationGroups[0], ab.b.groups)
-		//TODO: Regel anpassen/übertragen
-		equalize(ga, gb)
+	return result
+}
+
+func (ab *rulesPair) removeUnusedGroups() []change {
+	var result []change
+	for _, ga := range ab.a.groups {
+		if !ga.needed {
+			url := "/policy/api/v1/infra/domains/default/groups/" + ga.Id
+			result = append(result, change{"DELETE", url, nil})
+		}
 	}
 	return result
 }
