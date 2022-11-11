@@ -275,6 +275,10 @@ func findGroupOnDevice(gb *nsxGroup, ma map[string]*nsxGroup) *nsxGroup {
 GROUP:
 	for _, ga := range ma {
 		aAddr := ga.Expression[0].IPAddresses
+		// Check if group already referenced by other group.
+		if ga.needed {
+			continue
+		}
 		if len(aAddr) != len(bAddr) {
 			continue
 		}
