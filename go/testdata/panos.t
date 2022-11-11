@@ -551,6 +551,52 @@ action=delete&type=config&
 =END=
 
 ############################################################
+=TITLE=Must not find already used group on device
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- {name: r1, src: [g0], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
+]]
+[[groups
+- {name: g0, members: [IP_10.1.1.10, IP_10.1.1.20]}
+]]
+[[identical]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- {name: r1, src: [g1], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
+- {name: r2, src: [g2], dst: [NET_10.1.3.0_24], srv: [udp 123]}
+]]
+[[groups
+- {name: g1, members: [IP_10.1.1.10, IP_10.1.1.20, NET_10.1.3.0_24]}
+- {name: g2, members: [IP_10.1.1.10, IP_10.1.1.20]}
+]]
+[[identical]]
+=OUTPUT=
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g2']/static&
+ element=<member>IP_10.1.1.10</member><member>IP_10.1.1.20</member>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g0']/static&
+  element=<member>NET_10.1.3.0_24</member>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r2']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>g2</member></source>
+  <destination><member>NET_10.1.3.0_24</member></destination>
+  <service><member>udp 123</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start><log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+=END=
+
+############################################################
 # Changed for tests below
 =TEMPL=identical
 [[addresses
