@@ -587,6 +587,13 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 func (ab *rulesPair) findGroupOnDevice(gb *panAddressGroup) string {
 GROUP:
 	for _, ga := range ab.a.vsys.AddressGroups {
+		// Group ga was already changed to elements of group gb from Netspoc or
+		// it is equal to group gb from Netspoc.
+		// In both cases gb.nameOnDevice is already linked to some ga
+		// and will never be searched again.
+		if ga.needed {
+			continue
+		}
 		if len(ga.Members) != len(gb.Members) {
 			continue
 		}
