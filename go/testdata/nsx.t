@@ -484,3 +484,76 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
 DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
 
 =END=
+
+############################################################
+=TITLE=Must not find already used group on device
+=DEVICE=
+{
+ "groups": [
+[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]]
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+[[allow
+id: r1
+src: /infra/domains/default/groups/Netspoc-g0
+dst: 10.1.2.10
+srv: tcp_80
+]]
+   ]
+  }
+ ],
+ "services": [ [[tcp 80]] ]
+}
+=NETSPOC=
+{
+ "groups": [
+[[group { id: g1, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }]],
+[[group { id: g2, ip: '10.1.1.10","10.1.1.20' }]]
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+[[allow
+id: r1
+src: /infra/domains/default/groups/Netspoc-g1
+dst: 10.1.2.10
+srv: tcp_80
+]],
+[[allow
+id: r2
+src: /infra/domains/default/groups/Netspoc-g2
+dst: 10.1.2.12
+srv: tcp_80
+]]
+   ]
+  }
+ ],
+ "services": [ [[tcp 80]] ]
+}
+=OUTPUT=
+POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/id?action=add
+{"ip_addresses":["10.1.1.30"]}
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g2
+{
+ "expression":[{
+ "id":"id",
+ "resource_type":"IPAddressExpression",
+ "ip_addresses":["10.1.1.10","10.1.1.20"]
+ }]
+ }
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+{
+ "action":"ALLOW",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/Netspoc-g2"],
+ "destination_groups":["10.1.2.12"],
+ "services":["/infra/services/Netspoc-tcp_80"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT"}
+=END=
