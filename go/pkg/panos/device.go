@@ -2,6 +2,7 @@ package panos
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,14 +24,40 @@ type change struct {
 	Cmds []string
 }
 
+func getAPIKey(ip, user, pass string, client *http.Client) (string, error) {
+	uri := fmt.Sprintf("https://%s/api/?type=keygen&user=%s&password=%s",
+		ip, user, pass)
+	resp, err := client.Get(uri)
+	if err != nil {
+		return "", err
+	}
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		msg := fmt.Sprintf("API key status code: %d", resp.StatusCode)
+		if len(body) != 0 {
+			msg += "\n" + string(body)
+		}
+		return "", errors.New(msg)
+	}
+	if err != nil {
+		return "", err
+	}
+	return parseAPIKey(body)
+}
+
 func (s *State) LoadDevice(
 	name, ip, user, pass string,
 	client *http.Client,
 	logFH *os.File,
 ) (device.DeviceConfig, error) {
 
+	key, err := getAPIKey(ip, user, pass, client)
+	if err != nil {
+		return nil, err
+	}
+	prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
 	s.devUser = user
-	prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, pass)
 	s.urlPrefix = prefix
 	// Use "get", not "show", to get candidate configuration.
 	// Must not use active configuration, since candidate may have
@@ -49,7 +76,11 @@ func (s *State) LoadDevice(
 	device.DoLog(logFH, string(body))
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status code: %d", resp.StatusCode)
+		msg := fmt.Sprintf("status code: %d", resp.StatusCode)
+		if len(body) != 0 {
+			msg += "\n" + string(body)
+		}
+		return nil, errors.New(msg)
 	}
 	if err != nil {
 		return nil, err
