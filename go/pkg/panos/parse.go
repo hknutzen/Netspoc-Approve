@@ -10,6 +10,16 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
+func parseAPIKey(body []byte) (string, error) {
+	_, data, err := parseResponse(body)
+	if err != nil {
+		return "", err
+	}
+	k := new(panKey)
+	err = xml.Unmarshal(data, k)
+	return k.Key, err
+}
+
 func parseResponse(data []byte) (string, []byte, error) {
 	v := new(PanResponse)
 	err := xml.Unmarshal(data, v)
@@ -17,7 +27,7 @@ func parseResponse(data []byte) (string, []byte, error) {
 		return "", nil, fmt.Errorf("Parsing response: %v", err)
 	}
 	if v.Status != "success" {
-		return "", nil, fmt.Errorf("%s", string(data))
+		return "", nil, fmt.Errorf("No success: %s", v.Msg)
 	}
 	var b []byte
 	if r := v.Result; r != nil {
@@ -66,6 +76,10 @@ type PanResponse struct {
 type panResult struct {
 	XMLName xml.Name
 	XML     []byte `xml:",innerxml"`
+}
+
+type panKey struct {
+	Key string `xml:"key"`
 }
 
 type PanResultDevices struct {
