@@ -100,7 +100,6 @@
 =DEVICE=[[input]]
 =SUBST=|<member>udp 123</member>||
 =NETSPOC=[[input]]
-=SUBST=|<member>tcp 80</member>||
 =SUBST=/g0/g2/
 =OUTPUT=
 action=delete&type=config&
@@ -120,15 +119,11 @@ action=set&type=config&
    <member>NET_10.1.2.0_24</member>
    <member>NET_10.1.3.0_24</member>
   </destination>
-  <service><member>udp 123</member></service>
+  <service><member>tcp 80</member><member>udp 123</member></service>
   <application><member>any</member></application>
   <log-start>yes</log-start>
   <log-end>yes</log-end>
   <rule-type>interzone</rule-type>
-action=delete&type=config&
- xpath=
-  /config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/service/entry[@name='tcp 80']
 =END=
 
 ############################################################
@@ -193,6 +188,55 @@ action=delete&type=config&
  xpath=
   /config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/address/entry[@name='NET_10.1.2.0_24']
+=END=
+
+############################################################
+=TITLE=Detect changed application
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to: z2
+  src: [any]
+  dst: [NET_10.1.2.0_24]
+  srv: [any]
+  extra: "<application><member>xyz</member></application>"
+]]
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to: z2
+  src: [any]
+  dst: [NET_10.1.2.0_24]
+  srv: [any]
+  extra: "<application><member>abc</member><member>xyz</member></application>"
+]]
+[[postfix]]
+=OUTPUT=
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1-1']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>any</member></source>
+  <destination><member>NET_10.1.2.0_24</member></destination>
+  <service><member>any</member></service>
+  <application>
+   <member>any</member>
+   <member>abc</member><member>xyz</member>
+  </application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
 =END=
 
 ############################################################
@@ -448,7 +492,7 @@ action=edit&type=config&
 =END=
 
 ############################################################
-=TITLE=Detect group on device in second rule
+=TITLE=Detect group on device
 =DEVICE=
 [[prefix vsys2]]
 [[rules
@@ -512,19 +556,15 @@ action=delete&type=config&
 [[prefix vsys2]]
 [[rules
 - {name: r1, src: [g1], dst: [NET_10.1.2.0_24], srv: [tcp 80]}
-- {name: r2, src: [g0], dst: [NET_10.1.3.0_24], srv: [any]}
 ]]
 [[groups
-- {name: g0, members: [IP_10.1.1.10]}
 - {name: g1, members: [IP_10.1.1.20]}
 ]]
 [[identical]]
 =OUTPUT=
-action=edit&type=config&
+action=delete&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']
-  /destination&
- element=<destination><member>NET_10.1.3.0_24</member></destination>
 action=delete&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r2']
@@ -541,10 +581,15 @@ action=set&type=config&
   <application><member>any</member></application>
   <log-start>yes</log-start><log-end>yes</log-end>
   <rule-type>interzone</rule-type>
-action=move&type=config&
+action=delete&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
-  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1-1']&
- where=before&dst=r1
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='g0']
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='IP_10.1.1.10']
+action=delete&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='NET_10.1.3.0_24']
 action=delete&type=config&
  xpath=/config/devices/entry[@name='localhost.localdomain']
   /vsys/entry[@name='vsys2']/service/entry[@name='udp 123']
