@@ -557,3 +557,79 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
  "scope":["/infra/tier-0s/v1"],
  "direction":"OUT"}
 =END=
+
+
+############################################################
+=TITLE=Must prevent name clash with group on device
+=DEVICE=
+{
+ "groups": [
+[[group { id: g2, ip: '10.1.1.10","10.1.1.20' }]]
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+[[allow
+id: r1
+src: /infra/domains/default/groups/Netspoc-g2
+dst: 10.1.2.10
+srv: tcp_80
+]]
+   ]
+  }
+ ],
+ "services": [ [[tcp 80]] ]
+}
+=NETSPOC=
+{
+ "groups": [
+[[group { id: g1, ip: '10.1.1.10","10.1.1.20' }]],
+[[group { id: g2, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }]]
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+[[allow
+id: r1
+src: /infra/domains/default/groups/Netspoc-g1
+dst: 10.1.2.10
+srv: tcp_80
+]],
+[[allow
+id: r2
+src: /infra/domains/default/groups/Netspoc-g2
+dst: 10.1.2.10
+srv: tcp_90
+]]
+   ]
+  }
+ ],
+ "services": [ [[tcp 80]],[[tcp 90]] ]
+}
+=OUTPUT=
+PUT /policy/api/v1/infra/services/Netspoc-tcp_90
+{"service_entries":[
+ {"destination_ports":["90"],
+  "display_name":"Netspoc tcp 90",
+  "l4_protocol":"TCP",
+  "resource_type":"L4PortSetServiceEntry",
+  "source_ports":null
+ }]}
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g2
+{"expression":[
+ {"id":"id",
+  "resource_type":"IPAddressExpression",
+  "ip_addresses":["10.1.1.10","10.1.1.20","10.1.1.30"]
+ }]}
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+{"action":"ALLOW",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/Netspoc-g2-1"],
+ "destination_groups":["10.1.2.10"],
+ "services":["/infra/services/Netspoc-tcp_90"],
+ "scope":["/infra/tier-0s/v1"],"direction":"OUT"}
+=END=
