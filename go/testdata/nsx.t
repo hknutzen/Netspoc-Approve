@@ -619,7 +619,7 @@ PUT /policy/api/v1/infra/services/Netspoc-tcp_90
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":null
  }]}
-PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g2
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g2-1
 {"expression":[
  {"id":"id",
   "resource_type":"IPAddressExpression",
