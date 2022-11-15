@@ -17,9 +17,8 @@ type rulesPair struct {
 }
 
 type nsxInfo struct {
-	rules    []*nsxRule
-	groups   map[string]*nsxGroup
-	services map[string]*nsxService
+	rules  []*nsxRule
+	groups map[string]*nsxGroup
 }
 
 func diffConfig(a, b *NsxConfig) ([]change, error) {
@@ -57,16 +56,20 @@ func diffConfig(a, b *NsxConfig) ([]change, error) {
 			}
 			return m
 		}
+	ab := &rulesPair{policy: nil, a: &nsxInfo{}, b: &nsxInfo{}}
+	ab.a.groups = groupMap(a.Groups)
+	ab.b.groups = groupMap(b.Groups)
+	genUniqGroupNames(ab.a.groups, b.Groups)
 	pm := getPolicyMap(b)
 	for _, p1 := range a.Policies {
 		p2 := pm[p1.Id]
-		l := diffPolicies(p1, p2, a.Groups, b.Groups)
+		l := diffPolicies(p1, p2, ab)
 		changes = append(changes, l...)
 	}
 	pm = getPolicyMap(a)
 	for _, p2 := range b.Policies {
 		if pm[p2.Id] == nil {
-			l := diffPolicies(nil, p2, a.Groups, b.Groups)
+			l := diffPolicies(nil, p2, ab)
 			changes = append(changes, l...)
 		}
 	}
@@ -91,13 +94,10 @@ func sortGroups(groups []*nsxGroup) {
 	}
 }
 
-func diffPolicies(a, b *nsxPolicy, ga, gb []*nsxGroup) []change {
+func diffPolicies(a, b *nsxPolicy, ab *rulesPair) []change {
 	if b == nil {
 		return deletePolicy(a)
 	}
-	ab := &rulesPair{policy: a, a: &nsxInfo{}, b: &nsxInfo{}}
-	ab.a.groups = groupMap(ga)
-	ab.b.groups = groupMap(gb)
 	var chgs []change
 	createPolicy :=
 		func() {
@@ -114,6 +114,7 @@ func diffPolicies(a, b *nsxPolicy, ga, gb []*nsxGroup) []change {
 		createPolicy()
 		return chgs
 	}
+	ab.policy = a
 	genUniqRuleNames(a.Rules, b.Rules)
 	aStart := 0
 	bStart := 0
@@ -232,15 +233,17 @@ func (ab *rulesPair) diffRules() []change {
 	return result
 }
 
-func (ab *rulesPair) adaptGroup(l []string) []change {
-	if gb := getGroup(l[0], ab.b.groups); gb != nil {
+func (ab *rulesPair) adaptGroup(lb []string) []change {
+	if gb := getGroup(lb[0], ab.b.groups); gb != nil {
 		if gb.nameOnDevice != "" {
-			l[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
+			lb[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
 		} else if ga := findGroupOnDevice(gb, ab.a.groups); ga != nil {
 			ga.needed = true
 			gb.nameOnDevice = ga.Id
-			l[0] = "/infra/domains/default/groups/" + ga.Id
+			lb[0] = "/infra/domains/default/groups/" + ga.Id
 		} else {
+			// Name may have been changed before, to prevent name clashes.
+			lb[0] = "/infra/domains/default/groups/" + gb.Id
 			return addGroup(gb)
 		}
 	}
@@ -323,7 +326,8 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 		gb := getGroup(lb[0], ab.b.groups)
 		// Don't change ga on device but adapt rule to name of group to be transferred to
 		// device or already found on device.
-		if ga.needed || gb.nameOnDevice != "" {
+		if ga.needed ||
+			gb.nameOnDevice != "" {
 			if gb.nameOnDevice == "" {
 				result = append(result, addGroup(gb)...)
 			}
@@ -434,6 +438,23 @@ func genUniqRuleNames(a, b []*nsxRule) {
 			newId := fmt.Sprintf("%s-%d", id, i)
 			if !aIds[newId] {
 				ru.Id = newId
+				break
+			}
+		}
+	}
+}
+
+// Rename groups in b such that names are unique in respect to groups in a.
+func genUniqGroupNames(a map[string]*nsxGroup, b []*nsxGroup) {
+	for _, g := range b {
+		id := g.Id
+		if a[id] == nil {
+			continue
+		}
+		for i := 1; ; i++ {
+			newId := fmt.Sprintf("%s-%d", id, i)
+			if a[newId] == nil {
+				g.Id = newId
 				break
 			}
 		}
