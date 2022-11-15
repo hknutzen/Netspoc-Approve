@@ -306,8 +306,31 @@ PUT /policy/api/v1/infra/services/Netspoc-tcp_80
 {"service_entries":[{"destination_ports":["80"],"display_name":"Netspoc tcp 80","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":null}]}
 PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[{"destination_ports":["123"],"display_name":"Netspoc udp 123","l4_protocol":"UDP","resource_type":"L4PortSetServiceEntry","source_ports":null}]}
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g0
+{"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.1.10","10.1.1.20"]}]}
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
+{"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.2.30","10.1.2.40"]}]}
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 {"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g0"],"destination_groups":["/infra/domains/default/groups/Netspoc-g1"],"services":["/infra/services/Netspoc-tcp_80","/infra/services/Netspoc-udp_123"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r2","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r3","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"IN"}]}
+=END=
+
+############################################################
+=TITLE=Reuse existing service and group when creating new policy
+=DEVICE=
+{
+ "groups": [
+[[group { id: g8, ip: '10.1.1.10","10.1.1.20' }]],
+[[group { id: g9, ip: '10.1.2.30","10.1.2.40' }]]
+ ],
+ "services": [
+[[tcp 80]],
+[[udp 123]]
+ ]
+}
+=NETSPOC=[[group_rule]]
+=OUTPUT=
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+{"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g8"],"destination_groups":["/infra/domains/default/groups/Netspoc-g9"],"services":["/infra/services/Netspoc-tcp_80","/infra/services/Netspoc-udp_123"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r2","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r3","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"IN"}]}
 =END=
 
 ############################################################

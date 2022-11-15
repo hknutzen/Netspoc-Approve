@@ -95,27 +95,29 @@ func diffPolicies(a, b *nsxPolicy, ga, gb []*nsxGroup) []change {
 	if b == nil {
 		return deletePolicy(a)
 	}
+	ab := &rulesPair{policy: a, a: &nsxInfo{}, b: &nsxInfo{}}
+	ab.a.groups = groupMap(ga)
+	ab.b.groups = groupMap(gb)
 	var chgs []change
-	//TODO: Regeln nicht einzeln anlegen, wenn policy neu angelegt wird.
 	createPolicy :=
 		func() {
-			cp := *b
-			cp.Rules = nil
-			url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s", cp.Id)
-			postData, _ := json.Marshal(&cp)
-			a = &cp
+			for _, ru := range b.Rules {
+				chgs = append(chgs, ab.adaptGroup(ru.SourceGroups)...)
+				chgs = append(chgs, ab.adaptGroup(ru.DestinationGroups)...)
+			}
+			url := fmt.Sprintf(
+				"/policy/api/v1/infra/domains/default/gateway-policies/%s", b.Id)
+			postData, _ := json.Marshal(b)
 			chgs = append(chgs, change{"PUT", url, postData})
 		}
 	if a == nil {
 		createPolicy()
+		return chgs
 	}
 	genUniqRuleNames(a.Rules, b.Rules)
 	aStart := 0
 	bStart := 0
 	var aEnd, bEnd int
-	ab := &rulesPair{policy: a, a: &nsxInfo{}, b: &nsxInfo{}}
-	ab.a.groups = groupMap(ga)
-	ab.b.groups = groupMap(gb)
 	sortRules(a.Rules, ab.a.groups)
 	sortRules(b.Rules, ab.b.groups)
 	for aStart < len(a.Rules) {
@@ -209,23 +211,9 @@ func (ab *rulesPair) diffRules() []change {
 		}
 	ins :=
 		func(l []*nsxRule) {
-			adaptGroup :=
-				func(l []string) {
-					if gb := getGroup(l[0], b.groups); gb != nil {
-						if gb.nameOnDevice != "" {
-							l[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
-						} else if ga := findGroupOnDevice(gb, a.groups); ga != nil {
-							ga.needed = true
-							gb.nameOnDevice = ga.Id
-							l[0] = "/infra/domains/default/groups/" + ga.Id
-						} else {
-							result = append(result, addGroup(gb)...)
-						}
-					}
-				}
 			for _, ru := range l {
-				adaptGroup(ru.SourceGroups)
-				adaptGroup(ru.DestinationGroups)
+				result = append(result, ab.adaptGroup(ru.SourceGroups)...)
+				result = append(result, ab.adaptGroup(ru.DestinationGroups)...)
 				result = append(result, ab.writeRule(ru))
 			}
 		}
@@ -242,6 +230,21 @@ func (ab *rulesPair) diffRules() []change {
 		}
 	}
 	return result
+}
+
+func (ab *rulesPair) adaptGroup(l []string) []change {
+	if gb := getGroup(l[0], ab.b.groups); gb != nil {
+		if gb.nameOnDevice != "" {
+			l[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
+		} else if ga := findGroupOnDevice(gb, ab.a.groups); ga != nil {
+			ga.needed = true
+			gb.nameOnDevice = ga.Id
+			l[0] = "/infra/domains/default/groups/" + ga.Id
+		} else {
+			return addGroup(gb)
+		}
+	}
+	return nil
 }
 
 func (ab *rulesPair) writeRule(r *nsxRule) change {
