@@ -116,42 +116,11 @@ func diffPolicies(a, b *nsxPolicy, ab *rulesPair) []change {
 	}
 	ab.policy = a
 	genUniqRuleNames(a.Rules, b.Rules)
-	aStart := 0
-	bStart := 0
-	var aEnd, bEnd int
 	sortRules(a.Rules, ab.a.groups)
 	sortRules(b.Rules, ab.b.groups)
-	for aStart < len(a.Rules) {
-		r1 := a.Rules[aStart]
-		dir := r1.Direction
-		seq := r1.SequenceNumber
-		// Preliminary assume that all rules have equal values for dir and seq.
-		aEnd = len(a.Rules)
-		for i, r2 := range a.Rules[aStart+1:] {
-			if r2.Direction != dir || r2.SequenceNumber != seq {
-				aEnd = i + aStart + 1
-				break
-			}
-		}
-		// Assume there is no matching rule in b.
-		bEnd = bStart
-		for _, r2 := range b.Rules[bStart:] {
-			if r2.Direction != dir || r2.SequenceNumber != seq {
-				break
-			}
-			bEnd++
-		}
-		ab.a.rules = a.Rules[aStart:aEnd]
-		ab.b.rules = b.Rules[bStart:bEnd]
-		chgs = append(chgs, ab.diffRules()...)
-		aStart = aEnd
-		bStart = bEnd
-	}
-	if bStart < len(b.Rules) {
-		ab.a.rules = nil
-		ab.b.rules = b.Rules[bStart:]
-		chgs = append(chgs, ab.diffRules()...)
-	}
+	ab.a.rules = a.Rules
+	ab.b.rules = b.Rules
+	chgs = append(chgs, ab.diffRules()...)
 	chgs = append(chgs, ab.removeUnusedGroups()...)
 	return chgs
 }
@@ -192,7 +161,9 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		return a == b
 	}
 
-	return a.Action == b.Action &&
+	return a.Direction == b.Direction &&
+		a.SequenceNumber == b.SequenceNumber &&
+		a.Action == b.Action &&
 		a.Services[0] == b.Services[0] &&
 		objEqual(a.SourceGroups[0], b.SourceGroups[0]) &&
 		objEqual(a.DestinationGroups[0], b.DestinationGroups[0])

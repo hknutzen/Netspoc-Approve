@@ -656,3 +656,58 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
  "services":["/infra/services/Netspoc-tcp_90"],
  "scope":["/infra/tier-0s/v1"],"direction":"OUT"}
 =END=
+
+############################################################
+=TITLE=Prevent name clash of rule from raw
+=NETSPOC=
+-- router.raw
+{
+ "policies": [
+  {
+   "rules": [
+[[allow { id: r3-2-1}]]
+   ]
+  }
+ ]
+}
+=ERROR=
+ERROR>>> Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
+=END=
+
+############################################################
+=TITLE=Merge rule of raw policy into rule of netspoc policy
+=DEVICE=
+[[one_rule]]
+=NETSPOC=
+-- router
+[[one_rule]]
+-- router.raw
+{
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+{
+ "resource_type": "Rule",
+ "id": "raw2",
+ "scope": [ "/infra/tier-0s/v1" ],
+ "direction": "OUT",
+ "sequence_number": 25,
+ "action": "DROP",
+ "source_groups": [ "ANY" ],
+ "destination_groups": [ "ANY" ],
+ "services": [ "ANY" ],
+ "logged": true
+}
+   ]
+  }
+ ],
+ "services": [
+[[tcp 80]]
+ ]
+}
+=OUTPUT=
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
+{"action":"DROP","sequence_number":25,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"logged":true,"direction":"OUT"}
+=END=
