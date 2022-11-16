@@ -184,6 +184,7 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 	a := ab.a.rules[ai]
 	b := ab.b.rules[bi]
 
+	//TODO: hier auch auf log und andere attribute prüfen
 	objEqual := func(a, b string) bool {
 		if strings.HasPrefix(a, "/infra/domains/default/groups/") {
 			return strings.HasPrefix(b, "/infra/domains/default/groups/")
