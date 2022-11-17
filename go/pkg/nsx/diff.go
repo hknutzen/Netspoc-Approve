@@ -21,7 +21,7 @@ type nsxInfo struct {
 	groups map[string]*nsxGroup
 }
 
-func diffConfig(a, b *NsxConfig) ([]change, error) {
+func diffConfig(a, b *NsxConfig) []change {
 	sortGroups(a.Groups)
 	sortGroups(b.Groups)
 
@@ -85,7 +85,7 @@ func diffConfig(a, b *NsxConfig) ([]change, error) {
 		}
 
 	removeUnusedServices()
-	return changes, nil
+	return changes
 }
 
 func sortGroups(groups []*nsxGroup) {
@@ -153,7 +153,7 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 	a := ab.a.rules[ai]
 	b := ab.b.rules[bi]
 
-	//TODO: hier auch auf log und andere attribute prüfen
+	// TODO: hier auch auf log und andere attribute prüfen
 	objEqual := func(a, b string) bool {
 		if strings.HasPrefix(a, "/infra/domains/default/groups/") {
 			return strings.HasPrefix(b, "/infra/domains/default/groups/")

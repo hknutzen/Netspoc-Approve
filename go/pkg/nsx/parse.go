@@ -3,6 +3,7 @@ package nsx
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
@@ -106,10 +107,27 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 	}
 	config := &NsxConfig{}
 	err := json.Unmarshal(removeHeader(data), config)
+	if err != nil {
+		return nil, err
+	}
+	err = checkConfigValidity(config)
 	return config, err
 }
 
+func checkConfigValidity(c *NsxConfig) error {
+	for _, p := range c.Policies {
+		for _, r := range p.Rules {
+			if len(r.SourceGroups) != 1 || len(r.DestinationGroups) != 1 || len(r.Services) != 1 {
+				return fmt.Errorf(
+					"Expecting exactly one element in source/destination/service of rule %s", r.Id)
+			}
+		}
+	}
+	return nil
+}
+
 func removeHeader(data []byte) []byte {
+	// When comparing log/*.config file, remove URL.
 	if bytes.HasPrefix(data, []byte("http")) {
 		i := bytes.IndexByte(data, byte('\n'))
 		return data[i+1:]

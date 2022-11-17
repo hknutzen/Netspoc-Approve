@@ -276,7 +276,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
 id: r1
 src: /infra/domains/default/groups/Netspoc-g0
 dst: /infra/domains/default/groups/Netspoc-g1
-srv: 'tcp_80","/infra/services/Netspoc-udp_123'
+srv: tcp_80
 ]],
 [[drop  { id: r2 }]],
 [[drop  { id: r3, dir: IN }]]
@@ -311,7 +311,7 @@ PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g0
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
 {"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.2.30","10.1.2.40"]}]}
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
-{"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g0"],"destination_groups":["/infra/domains/default/groups/Netspoc-g1"],"services":["/infra/services/Netspoc-tcp_80","/infra/services/Netspoc-udp_123"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r2","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r3","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"IN"}]}
+{"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g0"],"destination_groups":["/infra/domains/default/groups/Netspoc-g1"],"services":["/infra/services/Netspoc-tcp_80"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r2","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r3","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"IN"}]}
 =END=
 
 ############################################################
@@ -330,7 +330,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 =NETSPOC=[[group_rule]]
 =OUTPUT=
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
-{"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g8"],"destination_groups":["/infra/domains/default/groups/Netspoc-g9"],"services":["/infra/services/Netspoc-tcp_80","/infra/services/Netspoc-udp_123"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r2","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r3","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"IN"}]}
+{"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g8"],"destination_groups":["/infra/domains/default/groups/Netspoc-g9"],"services":["/infra/services/Netspoc-tcp_80"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r2","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r3","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"IN"}]}
 =END=
 
 ############################################################
@@ -343,9 +343,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 ############################################################
 =TITLE=Change service of rule
 =DEVICE=[[group_rule]]
-=SUBST=|,"/infra/services/Netspoc-udp_123"||
 =NETSPOC=[[group_rule]]
-=SUBST=|"/infra/services/Netspoc-tcp_80",||
+=SUBST=|/Netspoc-tcp_80"|/Netspoc-udp_123"|
 =SUBST=/g0/g2/
 =OUTPUT=
 DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
@@ -501,7 +500,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
  "sequence_number":20,
  "source_groups":["/infra/domains/default/groups/Netspoc-g0"],
  "destination_groups":["10.2.1.20"],
- "services":["/infra/services/Netspoc-tcp_80","/infra/services/Netspoc-udp_123"],
+ "services":["/infra/services/Netspoc-tcp_80"],
  "scope":["/infra/tier-0s/v1"],
  "direction":"OUT"}
 DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
@@ -711,3 +710,41 @@ ERROR>>> Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
 {"action":"DROP","sequence_number":25,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"logged":true,"direction":"OUT"}
 =END=
+
+############################################################
+=TITLE=Invalid service length from netspoc
+=NETSPOC=
+[[one_rule]]
+=SUBST=|/Netspoc-tcp_80"|/Netspoc-tcp_80","/infra/services/Netspoc-udp_123"|
+=ERROR=
+ERROR>>> Can't parse code/router: Expecting exactly one element in source/destination/service of rule r1
+=END=
+
+############################################################
+=TITLE=Invalid sourcegroup length from device
+=DEVICE=
+[[one_rule]]
+=SUBST=|10.1.1.10"|10.1.1.10","10.1.1.11"|
+=NETSPOC=
+[[one_rule]]
+=ERROR=
+ERROR>>> Can't parse device: Expecting exactly one element in source/destination/service of rule r1
+=END=
+
+############################################################
+=TITLE=Invalid JSON from netspoc
+=NETSPOC=
+{invalid
+=ERROR=
+ERROR>>> Can't parse code/router: invalid character 'i' looking for beginning of object key string
+=END=
+
+############################################################
+=TITLE=Remove header from files
+=DEVICE=
+http://device.ipaddress/url
+[[one_rule]]
+=NETSPOC=
+Generated by Netspoc devel
+[[one_rule]]
+=OUTPUT=NONE

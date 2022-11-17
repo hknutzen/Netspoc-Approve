@@ -104,8 +104,11 @@ func (s *State) LoadDevice(
 	}
 	device.DoLog(logFH, string(out))
 
-	//return nil, fmt.Errorf("token: %s", s.token)
-	return s.ParseConfig(out)
+	config, err := s.ParseConfig(out)
+	if err != nil {
+		err = fmt.Errorf("While reading device: %v", err)
+	}
+	return config, err
 }
 
 func (s *State) getRawJSON(path string, logFH *os.File) ([]json.RawMessage, error) {
@@ -155,15 +158,10 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 }
 
 func (s *State) GetChanges(c1, c2 device.DeviceConfig) ([]error, error) {
-
 	p1 := c1.(*NsxConfig)
 	p2 := c2.(*NsxConfig)
-	l, err := diffConfig(p1, p2)
-	if err != nil {
-		return nil, err
-	}
-	s.changes = l
-	return nil, err
+	s.changes = diffConfig(p1, p2)
+	return nil, nil
 }
 
 func (s *State) HasChanges() bool {
