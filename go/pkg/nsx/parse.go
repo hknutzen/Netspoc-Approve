@@ -14,22 +14,22 @@ type nsxPolicy struct {
 }
 
 type nsxRule struct {
-	Id                   string            `json:"id,omitempty"`
-	Action               string            `json:"action"`
-	SequenceNumber       int               `json:"sequence_number"`
-	SourcesExcluded      bool              `json:"sources_excluded,omitempty"`
-	DestinationsExcluded bool              `json:"destinations_excluded,omitempty"`
-	SourceGroups         []string          `json:"source_groups"`
-	DestinationGroups    []string          `json:"destination_groups"`
-	Services             []string          `json:"services"`
-	ServiceEntries       []json.RawMessage `json:"service_entries,omitempty"`
-	Profiles             []string          `json:"profiles,omitempty"`
-	Scope                []string          `json:"scope"`
-	Disabled             bool              `json:"disabled,omitempty"`
-	Logged               bool              `json:"logged,omitempty"`
-	Direction            string            `json:"direction"`
-	IPProtocol           string            `json:"ip_protocol,omitempty"`
-	Revision             int               `json:"_revision,omitempty"`
+	Id                   string          `json:"id,omitempty"`
+	Action               string          `json:"action"`
+	SequenceNumber       int             `json:"sequence_number"`
+	SourcesExcluded      bool            `json:"sources_excluded,omitempty"`
+	DestinationsExcluded bool            `json:"destinations_excluded,omitempty"`
+	SourceGroups         []string        `json:"source_groups"`
+	DestinationGroups    []string        `json:"destination_groups"`
+	Services             []string        `json:"services"`
+	ServiceEntries       json.RawMessage `json:"service_entries,omitempty"`
+	Profiles             []string        `json:"profiles,omitempty"`
+	Scope                []string        `json:"scope"`
+	Disabled             bool            `json:"disabled,omitempty"`
+	Logged               bool            `json:"logged,omitempty"`
+	Direction            string          `json:"direction"`
+	IPProtocol           string          `json:"ip_protocol,omitempty"`
+	Revision             int             `json:"_revision,omitempty"`
 }
 
 type nsxGroup struct {

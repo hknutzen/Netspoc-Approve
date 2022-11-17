@@ -153,20 +153,38 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 	a := ab.a.rules[ai]
 	b := ab.b.rules[bi]
 
-	// TODO: hier auch auf log und andere attribute prüfen
 	objEqual := func(a, b string) bool {
 		if strings.HasPrefix(a, "/infra/domains/default/groups/") {
 			return strings.HasPrefix(b, "/infra/domains/default/groups/")
 		}
 		return a == b
 	}
+	stringsEq := func(a, b []string) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i, s := range a {
+			if s != b[i] {
+				return false
+			}
+		}
+		return true
+	}
 
 	return a.Direction == b.Direction &&
 		a.SequenceNumber == b.SequenceNumber &&
 		a.Action == b.Action &&
+		a.Logged == b.Logged &&
+		a.Disabled == b.Disabled &&
+		a.DestinationsExcluded == b.DestinationsExcluded &&
+		a.SourcesExcluded == b.SourcesExcluded &&
+		bytes.Compare(a.ServiceEntries, b.ServiceEntries) == 0 &&
+		stringsEq(a.Profiles, b.Profiles) &&
+		stringsEq(a.Scope, b.Scope) &&
 		a.Services[0] == b.Services[0] &&
 		objEqual(a.SourceGroups[0], b.SourceGroups[0]) &&
 		objEqual(a.DestinationGroups[0], b.DestinationGroups[0])
+	// TODO: IPProtocol (v4 & v6) separat prüfen
 }
 
 func (ab *rulesPair) diffRules() []change {
