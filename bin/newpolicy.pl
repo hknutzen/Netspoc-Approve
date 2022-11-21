@@ -122,7 +122,7 @@ system('cvs', '-Q', '-f', 'checkout', '-d', 'src', $module) == 0 or
 
 # Read current policy name from POLICY file.
 my $fcount = 0;
-my $policy_file = "$psrc/$module/POLICY";
+my $policy_file = "$psrc/POLICY";
 if (open(my $policy_fh, '<', $policy_file)) {
     my $line = <$policy_fh>;
     close($policy_fh);
