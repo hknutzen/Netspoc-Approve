@@ -315,6 +315,26 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 =END=
 
 ############################################################
+=TITLE=Remove rule with group from device
+=DEVICE=
+[[group_rule]]
+=NETSPOC=
+{}
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+
+DELETE /policy/api/v1/infra/services/Netspoc-tcp_80
+
+DELETE /policy/api/v1/infra/services/Netspoc-udp_123
+
+DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
+
+DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
+
+=END=
+
+
+############################################################
 =TITLE=Reuse existing service and group when creating new policy
 =DEVICE=
 {

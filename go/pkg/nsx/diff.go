@@ -26,36 +26,34 @@ func diffConfig(a, b *NsxConfig) []change {
 	sortGroups(b.Groups)
 
 	var changes []change
-	addNewServices :=
-		func() {
-			m := serviceMap(a.Services)
-			method := "PUT"
-			for _, sb := range b.Services {
-				if sa := m[sb.Id]; sa != nil {
-					sa.needed = true
-					ja, _ := json.Marshal(sa)
-					jb, _ := json.Marshal(sb)
-					if bytes.Compare(ja, jb) == 0 {
-						continue
-					}
-					method = "PATCH"
+	addNewServices := func() {
+		m := serviceMap(a.Services)
+		method := "PUT"
+		for _, sb := range b.Services {
+			if sa := m[sb.Id]; sa != nil {
+				sa.needed = true
+				ja, _ := json.Marshal(sa)
+				jb, _ := json.Marshal(sb)
+				if bytes.Compare(ja, jb) == 0 {
+					continue
 				}
-				url := "/policy/api/v1/infra/services/" + sb.Id
-				sb.Id = "" // Don't send Id twice.
-				postData, _ := json.Marshal(sb)
-				changes = append(changes, change{method, url, postData})
+				method = "PATCH"
 			}
+			url := "/policy/api/v1/infra/services/" + sb.Id
+			sb.Id = "" // Don't send Id twice.
+			postData, _ := json.Marshal(sb)
+			changes = append(changes, change{method, url, postData})
 		}
+	}
 	addNewServices()
 
-	getPolicyMap :=
-		func(c *NsxConfig) map[string]*nsxPolicy {
-			m := make(map[string]*nsxPolicy)
-			for _, p := range c.Policies {
-				m[p.Id] = p
-			}
-			return m
+	getPolicyMap := func(c *NsxConfig) map[string]*nsxPolicy {
+		m := make(map[string]*nsxPolicy)
+		for _, p := range c.Policies {
+			m[p.Id] = p
 		}
+		return m
+	}
 	ab := &rulesPair{policy: nil, a: &nsxInfo{}, b: &nsxInfo{}}
 	ab.a.groups = groupMap(a.Groups)
 	ab.b.groups = groupMap(b.Groups)
@@ -74,17 +72,26 @@ func diffConfig(a, b *NsxConfig) []change {
 		}
 	}
 
-	removeUnusedServices :=
-		func() {
-			for _, sa := range a.Services {
-				if !sa.needed {
-					url := "/policy/api/v1/infra/services/" + sa.Id
-					changes = append(changes, change{"DELETE", url, nil})
-				}
+	removeUnusedServices := func() {
+		for _, sa := range a.Services {
+			if !sa.needed {
+				url := "/policy/api/v1/infra/services/" + sa.Id
+				changes = append(changes, change{"DELETE", url, nil})
 			}
 		}
+	}
+
+	removeUnusedGroups := func() {
+		for _, ga := range ab.a.groups {
+			if !ga.needed {
+				url := "/policy/api/v1/infra/domains/default/groups/" + ga.Id
+				changes = append(changes, change{"DELETE", url, nil})
+			}
+		}
+	}
 
 	removeUnusedServices()
+	removeUnusedGroups()
 	return changes
 }
 
@@ -99,17 +106,16 @@ func diffPolicies(a, b *nsxPolicy, ab *rulesPair) []change {
 		return deletePolicy(a)
 	}
 	var chgs []change
-	createPolicy :=
-		func() {
-			for _, ru := range b.Rules {
-				chgs = append(chgs, ab.adaptGroup(ru.SourceGroups)...)
-				chgs = append(chgs, ab.adaptGroup(ru.DestinationGroups)...)
-			}
-			url := fmt.Sprintf(
-				"/policy/api/v1/infra/domains/default/gateway-policies/%s", b.Id)
-			postData, _ := json.Marshal(b)
-			chgs = append(chgs, change{"PUT", url, postData})
+	createPolicy := func() {
+		for _, ru := range b.Rules {
+			chgs = append(chgs, ab.adaptGroup(ru.SourceGroups)...)
+			chgs = append(chgs, ab.adaptGroup(ru.DestinationGroups)...)
 		}
+		url := fmt.Sprintf(
+			"/policy/api/v1/infra/domains/default/gateway-policies/%s", b.Id)
+		postData, _ := json.Marshal(b)
+		chgs = append(chgs, change{"PUT", url, postData})
+	}
 	if a == nil {
 		createPolicy()
 		return chgs
@@ -121,7 +127,6 @@ func diffPolicies(a, b *nsxPolicy, ab *rulesPair) []change {
 	ab.a.rules = a.Rules
 	ab.b.rules = b.Rules
 	chgs = append(chgs, ab.diffRules()...)
-	chgs = append(chgs, ab.removeUnusedGroups()...)
 	return chgs
 }
 
@@ -192,22 +197,20 @@ func (ab *rulesPair) diffRules() []change {
 	b := ab.b
 	s := myers.Diff(nil, ab)
 	var result []change
-	del :=
-		func(l []*nsxRule) {
-			for _, ru := range l {
-				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
-					ab.policy.Id, ru.Id)
-				result = append(result, change{"DELETE", url, nil})
-			}
+	del := func(l []*nsxRule) {
+		for _, ru := range l {
+			url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
+				ab.policy.Id, ru.Id)
+			result = append(result, change{"DELETE", url, nil})
 		}
-	ins :=
-		func(l []*nsxRule) {
-			for _, ru := range l {
-				result = append(result, ab.adaptGroup(ru.SourceGroups)...)
-				result = append(result, ab.adaptGroup(ru.DestinationGroups)...)
-				result = append(result, ab.writeRule(ru))
-			}
+	}
+	ins := func(l []*nsxRule) {
+		for _, ru := range l {
+			result = append(result, ab.adaptGroup(ru.SourceGroups)...)
+			result = append(result, ab.adaptGroup(ru.DestinationGroups)...)
+			result = append(result, ab.writeRule(ru))
 		}
+	}
 	for _, r := range s.Ranges {
 		if r.IsDelete() {
 			del(a.rules[r.LowA:r.HighA])
@@ -359,17 +362,6 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 	equalize(ra.DestinationGroups, rb.DestinationGroups)
 	if changedRuleA {
 		result = append(result, ab.writeRule(ra))
-	}
-	return result
-}
-
-func (ab *rulesPair) removeUnusedGroups() []change {
-	var result []change
-	for _, ga := range ab.a.groups {
-		if !ga.needed {
-			url := "/policy/api/v1/infra/domains/default/groups/" + ga.Id
-			result = append(result, change{"DELETE", url, nil})
-		}
 	}
 	return result
 }

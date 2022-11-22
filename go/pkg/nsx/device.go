@@ -147,7 +147,7 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		msg := fmt.Sprintf("status code: %d, %s", resp.StatusCode, path)
+		msg := fmt.Sprintf("status code: %d, method: %s, uri: %s", resp.StatusCode, method, path)
 		if body, _ := io.ReadAll(resp.Body); len(body) != 0 {
 			msg += "\n" + string(body)
 		}
