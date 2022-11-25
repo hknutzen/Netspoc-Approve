@@ -497,7 +497,7 @@ PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
  "ip_addresses":["10.1.1.10","10.1.1.20","10.1.1.40"]
  }]
  }
-PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+PATCH /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 {"action":"ALLOW",
  "sequence_number":20,
  "source_groups":["/infra/domains/default/groups/Netspoc-g1"],

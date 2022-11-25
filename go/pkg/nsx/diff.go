@@ -317,6 +317,11 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 			return
 		}
 		gb := getGroup(lb[0], ab.b.groups)
+		// No need to change name of group in rule from ga to gb
+		// if gb is known to have values of ga.
+		if gb.nameOnDevice == ga.Id {
+			return
+		}
 		// Don't change ga on device but adapt rule to name of group to be transferred to
 		// device or already found on device.
 		if ga.needed ||
@@ -324,12 +329,8 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 			if gb.nameOnDevice == "" {
 				result = append(result, addGroup(gb)...)
 			}
-			// No need to change name of group in rule from ga to gb
-			// if gb is known to have values of ga.
-			if gb.nameOnDevice != ga.Id {
-				la[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
-				changedRuleA = true
-			}
+			la[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
+			changedRuleA = true
 			return
 		}
 		ga.needed = true
