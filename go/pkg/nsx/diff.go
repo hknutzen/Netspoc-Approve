@@ -208,7 +208,7 @@ func (ab *rulesPair) diffRules() []change {
 		for _, ru := range l {
 			result = append(result, ab.adaptGroup(ru.SourceGroups)...)
 			result = append(result, ab.adaptGroup(ru.DestinationGroups)...)
-			result = append(result, ab.writeRule(ru))
+			result = append(result, ab.writeRule("PUT", ru))
 		}
 	}
 	for _, r := range s.Ranges {
@@ -243,12 +243,12 @@ func (ab *rulesPair) adaptGroup(lb []string) []change {
 	return nil
 }
 
-func (ab *rulesPair) writeRule(r *nsxRule) change {
+func (ab *rulesPair) writeRule(method string, r *nsxRule) change {
 	url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
 		ab.policy.Id, r.Id)
 	r.Id = "" // Don't send Id twice.
 	postData, _ := json.Marshal(r)
-	return change{"PUT", url, postData}
+	return change{method, url, postData}
 }
 
 func getGroup(s string, m map[string]*nsxGroup) *nsxGroup {
@@ -324,8 +324,12 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 			if gb.nameOnDevice == "" {
 				result = append(result, addGroup(gb)...)
 			}
-			la[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
-			changedRuleA = true
+			// No need to change name of group in rule from ga to gb
+			// if gb is known to have values of ga.
+			if gb.nameOnDevice != ga.Id {
+				la[0] = "/infra/domains/default/groups/" + gb.nameOnDevice
+				changedRuleA = true
+			}
 			return
 		}
 		ga.needed = true
@@ -361,7 +365,7 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 	equalize(ra.SourceGroups, rb.SourceGroups)
 	equalize(ra.DestinationGroups, rb.DestinationGroups)
 	if changedRuleA {
-		result = append(result, ab.writeRule(ra))
+		result = append(result, ab.writeRule("PATCH", ra))
 	}
 	return result
 }
