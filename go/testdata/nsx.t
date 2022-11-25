@@ -40,7 +40,7 @@
  "id": "Netspoc-tcp_{{.}}",
  "service_entries": [
   {
-   "display_name": "Netspoc tcp {{.}}",
+   "id": "Netspoc tcp {{.}}",
    "resource_type": "L4PortSetServiceEntry",
    "l4_protocol": "TCP",
    "destination_ports": [ "{{.}}" ]
@@ -52,7 +52,7 @@
  "id": "Netspoc-udp_{{.}}",
  "service_entries": [
   {
-  "display_name": "Netspoc udp {{.}}",
+  "id": "Netspoc udp {{.}}",
    "resource_type": "L4PortSetServiceEntry",
    "l4_protocol": "UDP",
    "destination_ports": [ "{{.}}" ]
@@ -122,7 +122,7 @@ PUT /policy/api/v1/infra/services/Netspoc-tcp_80
 {"service_entries":[
  {
   "destination_ports":["80"],
-  "display_name":"Netspoc tcp 80",
+  "id":"Netspoc tcp 80",
   "l4_protocol":"TCP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":null
@@ -131,7 +131,7 @@ PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[
  {
   "destination_ports":["123"],
-  "display_name":"Netspoc udp 123",
+  "id":"Netspoc udp 123",
   "l4_protocol":"UDP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":null
@@ -216,7 +216,7 @@ PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[
  {
   "destination_ports":["123"],
-  "display_name":"Netspoc udp 123",
+  "id":"Netspoc udp 123",
   "l4_protocol":"UDP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":null
@@ -244,7 +244,7 @@ PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[
  {
   "destination_ports":["123"],
-  "display_name":"Netspoc udp 123",
+  "id":"Netspoc udp 123",
   "l4_protocol":"UDP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":null
@@ -303,9 +303,9 @@ srv: tcp_80
 =NETSPOC=[[group_rule]]
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_80
-{"service_entries":[{"destination_ports":["80"],"display_name":"Netspoc tcp 80","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":null}]}
+{"service_entries":[{"destination_ports":["80"],"id":"Netspoc tcp 80","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":null}]}
 PUT /policy/api/v1/infra/services/Netspoc-udp_123
-{"service_entries":[{"destination_ports":["123"],"display_name":"Netspoc udp 123","l4_protocol":"UDP","resource_type":"L4PortSetServiceEntry","source_ports":null}]}
+{"service_entries":[{"destination_ports":["123"],"id":"Netspoc udp 123","l4_protocol":"UDP","resource_type":"L4PortSetServiceEntry","source_ports":null}]}
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g0
 {"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.1.10","10.1.1.20"]}]}
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
@@ -656,7 +656,7 @@ srv: tcp_90
 PUT /policy/api/v1/infra/services/Netspoc-tcp_90
 {"service_entries":[
  {"destination_ports":["90"],
-  "display_name":"Netspoc tcp 90",
+  "id":"Netspoc tcp 90",
   "l4_protocol":"TCP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":null

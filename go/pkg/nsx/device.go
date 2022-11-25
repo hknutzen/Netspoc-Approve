@@ -80,6 +80,7 @@ func (s *State) LoadDevice(
 			continue
 		}
 		data, err := s.sendRequest("GET", path+"/"+result.Id, nil)
+		//data, err := s.getRawJSON(path+"/"+result.Id, logFH)
 		if err != nil {
 			return nil, err
 		}
@@ -112,21 +113,31 @@ func (s *State) LoadDevice(
 }
 
 func (s *State) getRawJSON(path string, logFH *os.File) ([]json.RawMessage, error) {
-	var results struct{ Results []json.RawMessage }
-	var id struct{ Id string }
 	var data []json.RawMessage
-	out, err := s.sendRequest("GET", path, nil)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(out, &results)
-	for _, result := range results.Results {
-		err = json.Unmarshal(result, &id)
+	var cursor string
+	for {
+		var results struct {
+			Cursor  string
+			Results []json.RawMessage
+		}
+		var id struct{ Id string }
+		out, err := s.sendRequest("GET", path+"?cursor="+cursor, nil)
 		if err != nil {
 			return nil, err
 		}
-		if strings.HasPrefix(id.Id, "Netspoc") {
-			data = append(data, result)
+		err = json.Unmarshal(out, &results)
+		for _, result := range results.Results {
+			err = json.Unmarshal(result, &id)
+			if err != nil {
+				return nil, err
+			}
+			if strings.HasPrefix(id.Id, "Netspoc") {
+				data = append(data, result)
+			}
+		}
+		cursor = results.Cursor
+		if cursor == "" {
+			break
 		}
 	}
 	return data, nil
@@ -179,13 +190,13 @@ func (s *State) ShowChanges() string {
 
 func (s *State) ApplyCommands(cl *http.Client, logFh *os.File) error {
 	for _, c := range s.changes {
-		device.DoLog(logFh, fmt.Sprintf("%s %s\n", c.method, c.url))
-		device.DoLog(logFh, string(c.postData))
+		device.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
+		device.DoLog(logFh, "DATA: "+string(c.postData))
 		resp, err := s.sendRequest(c.method, c.url, bytes.NewReader(c.postData))
-		device.DoLog(logFh, string(resp))
 		if err != nil {
 			return err
 		}
+		device.DoLog(logFh, "RESP: "+string(resp))
 	}
 	return nil
 }

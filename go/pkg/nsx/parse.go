@@ -52,7 +52,7 @@ type nsxService struct {
 }
 
 type nsxServiceEntry struct {
-	DisplayName      string   `json:"display_name"`
+	Id               string   `json:"id"`
 	ResourceType     string   `json:"resource_type"`
 	L4Protocol       string   `json:"l4_protocol"`
 	SourcePorts      []string `json:"source_ports,omitempty"`
@@ -70,13 +70,13 @@ func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
 	switch e.ResourceType {
 	case "IpProtocolServiceEntry":
 		result = jsonMap{
-			"display_name":    e.DisplayName,
+			"id":              e.Id,
 			"resource_type":   e.ResourceType,
 			"protocol_number": e.ProtocolNumber,
 		}
 	case "L4PortSetServiceEntry":
 		result = jsonMap{
-			"display_name":      e.DisplayName,
+			"id":                e.Id,
 			"resource_type":     e.ResourceType,
 			"l4_protocol":       e.L4Protocol,
 			"source_ports":      e.SourcePorts,
@@ -84,7 +84,7 @@ func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
 		}
 	case "IcmpTypeServiceEntry":
 		result = jsonMap{
-			"display_name":  e.DisplayName,
+			"id":            e.Id,
 			"resource_type": e.ResourceType,
 			"icmp_type":     e.ICMPType,
 			"icmp_code":     e.ICMPCode,
@@ -121,6 +121,11 @@ func checkConfigValidity(c *NsxConfig) error {
 				return fmt.Errorf(
 					"Expecting exactly one element in source/destination/service of rule %s", r.Id)
 			}
+		}
+	}
+	for _, g := range c.Groups {
+		if len(g.Expression) != 1 {
+			return fmt.Errorf("Expecting exactly one expression in group %s", g.Id)
 		}
 	}
 	return nil

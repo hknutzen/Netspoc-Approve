@@ -28,13 +28,13 @@ func diffConfig(a, b *NsxConfig) []change {
 	var changes []change
 	addNewServices := func() {
 		m := serviceMap(a.Services)
-		method := "PUT"
 		for _, sb := range b.Services {
+			method := "PUT"
 			if sa := m[sb.Id]; sa != nil {
 				sa.needed = true
 				ja, _ := json.Marshal(sa)
 				jb, _ := json.Marshal(sb)
-				if bytes.Compare(ja, jb) == 0 {
+				if bytes.Equal(ja, jb) {
 					continue
 				}
 				method = "PATCH"
@@ -183,7 +183,7 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		a.Disabled == b.Disabled &&
 		a.DestinationsExcluded == b.DestinationsExcluded &&
 		a.SourcesExcluded == b.SourcesExcluded &&
-		bytes.Compare(a.ServiceEntries, b.ServiceEntries) == 0 &&
+		bytes.Equal(a.ServiceEntries, b.ServiceEntries) &&
 		stringsEq(a.Profiles, b.Profiles) &&
 		stringsEq(a.Scope, b.Scope) &&
 		a.Services[0] == b.Services[0] &&
