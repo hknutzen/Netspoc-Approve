@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/pkg/diff/myers"
+	"golang.org/x/exp/slices"
 )
 
 type rulesPair struct {
@@ -164,17 +165,6 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		}
 		return a == b
 	}
-	stringsEq := func(a, b []string) bool {
-		if len(a) != len(b) {
-			return false
-		}
-		for i, s := range a {
-			if s != b[i] {
-				return false
-			}
-		}
-		return true
-	}
 
 	return a.Direction == b.Direction &&
 		a.SequenceNumber == b.SequenceNumber &&
@@ -184,8 +174,8 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		a.DestinationsExcluded == b.DestinationsExcluded &&
 		a.SourcesExcluded == b.SourcesExcluded &&
 		bytes.Equal(a.ServiceEntries, b.ServiceEntries) &&
-		stringsEq(a.Profiles, b.Profiles) &&
-		stringsEq(a.Scope, b.Scope) &&
+		slices.Equal(a.Profiles, b.Profiles) &&
+		slices.Equal(a.Scope, b.Scope) &&
 		a.Services[0] == b.Services[0] &&
 		objEqual(a.SourceGroups[0], b.SourceGroups[0]) &&
 		objEqual(a.DestinationGroups[0], b.DestinationGroups[0])
@@ -259,9 +249,6 @@ func getGroup(s string, m map[string]*nsxGroup) *nsxGroup {
 }
 
 func addGroup(g *nsxGroup) []change {
-	if g.nameOnDevice != "" {
-		return nil
-	}
 	url := "/policy/api/v1/infra/domains/default/groups/" + g.Id
 	g.nameOnDevice = g.Id
 	g.Id = ""
