@@ -319,7 +319,35 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 ############################################################
 =TITLE=Remove rule with group from device
 =DEVICE=
-[[group_rule]]
+{
+ "groups": [
+[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]],
+[[group { id: g1, ip: '10.1.2.30","10.1.2.40' }]],
+[[group { id: g2, ip: '10.1.3.30","10.1.3.40' }]],
+[[group { id: g3, ip: '10.1.4.30","10.1.4.40' }]],
+[[group { id: g4, ip: '10.1.5.30","10.1.5.40' }]]
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+[[allow
+id: r1
+src: /infra/domains/default/groups/Netspoc-g0
+dst: /infra/domains/default/groups/Netspoc-g1
+srv: tcp_80
+]],
+[[drop  { id: r2 }]],
+[[drop  { id: r3, dir: IN }]]
+   ]
+  }
+ ],
+ "services": [
+[[tcp 80]],
+[[udp 123]]
+ ]
+}
 =NETSPOC=
 {}
 =OUTPUT=
@@ -332,6 +360,12 @@ DELETE /policy/api/v1/infra/services/Netspoc-udp_123
 DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
 
 DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
+
+DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g2
+
+DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g3
+
+DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g4
 
 =END=
 

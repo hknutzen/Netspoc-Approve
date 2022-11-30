@@ -83,7 +83,7 @@ func diffConfig(a, b *NsxConfig) []change {
 	}
 
 	removeUnusedGroups := func() {
-		for _, ga := range ab.a.groups {
+		for _, ga := range a.Groups {
 			if !ga.needed {
 				url := "/policy/api/v1/infra/domains/default/groups/" + ga.Id
 				changes = append(changes, change{"DELETE", url, nil})
