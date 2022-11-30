@@ -390,10 +390,8 @@ func sortRules(l []*nsxRule, m map[string]*nsxGroup) {
 		if l[i].SourceGroups[0] != l[j].SourceGroups[0] {
 			return elementLess(l[i].SourceGroups[0], l[j].SourceGroups[0])
 		}
-		if l[i].DestinationGroups[0] != l[j].DestinationGroups[0] {
-			return elementLess(l[i].DestinationGroups[0], l[j].DestinationGroups[0])
-		}
-		return false
+		return elementLess(l[i].DestinationGroups[0], l[j].DestinationGroups[0])
+		// TODO Attribute prüfen: logged disabled dst/srcExcluded serviceEntries profiles scope ipprotocol
 	})
 }
 

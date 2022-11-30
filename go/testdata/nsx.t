@@ -820,13 +820,15 @@ PATCH /policy/api/v1/infra/services/Netspoc-tcp_80
 
 ############################################################
 =TITLE=Two vs one rules
-=TODO=
 =DEVICE=
 [[two_rules]]
 =NETSPOC=
 [[one_rule]]
 =OUTPUT=
 DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+
+DELETE /policy/api/v1/infra/services/Netspoc-udp_123
+
 =END=
 
 ############################################################
@@ -1029,4 +1031,84 @@ DELETE /policy/api/v1/infra/services/Netspoc-tcp_80
 
 DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
 
+=END=
+
+############################################################
+=TITLE=Use same group in two different rules
+=DEVICE=
+[[group_rule]]
+=NETSPOC=
+{
+ "groups": [
+[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]],
+[[group { id: g1, ip: '10.1.2.30","10.1.2.40' }]]
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+[[allow
+id: r0
+src: /infra/domains/default/groups/Netspoc-g0
+dst: /infra/domains/default/groups/Netspoc-g1
+srv: tcp_81
+]],
+[[allow
+id: r1
+src: /infra/domains/default/groups/Netspoc-g0
+dst: /infra/domains/default/groups/Netspoc-g1
+srv: tcp_80
+]],
+[[drop  { id: r2 }]],
+[[drop  { id: r3, dir: IN }]]
+   ]
+  }
+ ],
+ "services": [
+[[tcp 80]],
+[[udp 123]]
+ ]
+}
+=OUTPUT=
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r0
+{"action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g0"],"destination_groups":["/infra/domains/default/groups/Netspoc-g1"],"services":["/infra/services/Netspoc-tcp_81"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}
+=END=
+
+############################################################
+=TITLE=Rule with different action but same sequence_number
+=DEVICE=
+[[one_rule]]
+=NETSPOC=
+{
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }]],
+{
+ "resource_type": "Rule",
+ "id": "r3",
+ "scope": [ "/infra/tier-0s/v1" ],
+ "direction": "OUT",
+ "sequence_number": 20,
+ "action": "DROP",
+ "source_groups": [ "ANY" ],
+ "destination_groups": [ "ANY" ],
+ "services": [ "ANY" ]
+},
+[[drop  { id: r4, dir: IN }]]
+   ]
+  }
+ ],
+ "services": [
+[[tcp 80]]
+ ]
+}
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r3
+
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r3-1
+{"action":"DROP","sequence_number":20,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}
 =END=
