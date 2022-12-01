@@ -174,12 +174,12 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		a.DestinationsExcluded == b.DestinationsExcluded &&
 		a.SourcesExcluded == b.SourcesExcluded &&
 		bytes.Equal(a.ServiceEntries, b.ServiceEntries) &&
+		a.IPProtocol == b.IPProtocol &&
 		slices.Equal(a.Profiles, b.Profiles) &&
 		slices.Equal(a.Scope, b.Scope) &&
 		a.Services[0] == b.Services[0] &&
 		objEqual(a.SourceGroups[0], b.SourceGroups[0]) &&
 		objEqual(a.DestinationGroups[0], b.DestinationGroups[0])
-	// TODO: IPProtocol (v4 & v6) separat prüfen
 }
 
 func (ab *rulesPair) diffRules() []change {
@@ -373,17 +373,7 @@ func sortRules(l []*nsxRule, m map[string]*nsxGroup) {
 		}
 		return ei < ej
 	}
-	sliceLess := func(si, sj []string) bool {
-		if len(si) < len(sj) {
-			return true
-		}
-		for i, ei := range si {
-			if strings.Compare(ei, sj[i]) == -1 {
-				return true
-			}
-		}
-		return false
-	}
+
 	sort.Slice(l, func(i, j int) bool {
 		if l[i].Direction != l[j].Direction {
 			return l[i].Direction < l[j].Direction
@@ -407,19 +397,16 @@ func sortRules(l []*nsxRule, m map[string]*nsxGroup) {
 			return l[i].SourcesExcluded
 		}
 		if !bytes.Equal(l[i].ServiceEntries, l[j].ServiceEntries) {
-			// TODO: überlegen welches kleiner ist
+			return bytes.Compare(l[i].ServiceEntries, l[j].ServiceEntries) == -1
 		}
 		if l[i].IPProtocol != l[j].IPProtocol {
-			if strings.Compare(l[i].IPProtocol, l[j].IPProtocol) == -1 {
-				return true
-			}
-			return false
+			return strings.Compare(l[i].IPProtocol, l[j].IPProtocol) == -1
 		}
 		if !slices.Equal(l[i].Profiles, l[j].Profiles) {
-			return sliceLess(l[i].Profiles, l[j].Profiles)
+			return slices.Compare(l[i].Profiles, l[j].Profiles) == -1
 		}
 		if !slices.Equal(l[i].Scope, l[j].Scope) {
-			return sliceLess(l[i].Scope, l[j].Scope)
+			return slices.Compare(l[i].Scope, l[j].Scope) == -1
 		}
 		//Assume length of all following is only 1
 		if l[i].Services[0] != l[j].Services[0] {
