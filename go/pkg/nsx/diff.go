@@ -373,6 +373,17 @@ func sortRules(l []*nsxRule, m map[string]*nsxGroup) {
 		}
 		return ei < ej
 	}
+	sliceLess := func(si, sj []string) bool {
+		if len(si) < len(sj) {
+			return true
+		}
+		for i, ei := range si {
+			if strings.Compare(ei, sj[i]) == -1 {
+				return true
+			}
+		}
+		return false
+	}
 	sort.Slice(l, func(i, j int) bool {
 		if l[i].Direction != l[j].Direction {
 			return l[i].Direction < l[j].Direction
@@ -383,6 +394,33 @@ func sortRules(l []*nsxRule, m map[string]*nsxGroup) {
 		if l[i].Action != l[j].Action {
 			return l[i].Action < l[j].Action
 		}
+		if l[i].Logged != l[j].Logged {
+			return l[i].Logged
+		}
+		if l[i].Disabled != l[j].Disabled {
+			return l[i].Disabled
+		}
+		if l[i].DestinationsExcluded != l[j].DestinationsExcluded {
+			return l[i].DestinationsExcluded
+		}
+		if l[i].SourcesExcluded != l[j].SourcesExcluded {
+			return l[i].SourcesExcluded
+		}
+		if !bytes.Equal(l[i].ServiceEntries, l[j].ServiceEntries) {
+			// TODO: überlegen welches kleiner ist
+		}
+		if l[i].IPProtocol != l[j].IPProtocol {
+			if strings.Compare(l[i].IPProtocol, l[j].IPProtocol) == -1 {
+				return true
+			}
+			return false
+		}
+		if !slices.Equal(l[i].Profiles, l[j].Profiles) {
+			return sliceLess(l[i].Profiles, l[j].Profiles)
+		}
+		if !slices.Equal(l[i].Scope, l[j].Scope) {
+			return sliceLess(l[i].Scope, l[j].Scope)
+		}
 		//Assume length of all following is only 1
 		if l[i].Services[0] != l[j].Services[0] {
 			return l[i].Services[0] < l[j].Services[0]
@@ -391,7 +429,6 @@ func sortRules(l []*nsxRule, m map[string]*nsxGroup) {
 			return elementLess(l[i].SourceGroups[0], l[j].SourceGroups[0])
 		}
 		return elementLess(l[i].DestinationGroups[0], l[j].DestinationGroups[0])
-		// TODO Attribute prüfen: logged disabled dst/srcExcluded serviceEntries profiles scope ipprotocol
 	})
 }
 
