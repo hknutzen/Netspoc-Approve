@@ -6,7 +6,19 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
+
+func parseAPIKey(body []byte) (string, error) {
+	_, data, err := parseResponse(body)
+	if err != nil {
+		return "", err
+	}
+	k := new(panKey)
+	err = xml.Unmarshal(data, k)
+	return k.Key, err
+}
 
 func parseResponse(data []byte) (string, []byte, error) {
 	v := new(PanResponse)
@@ -15,7 +27,7 @@ func parseResponse(data []byte) (string, []byte, error) {
 		return "", nil, fmt.Errorf("Parsing response: %v", err)
 	}
 	if v.Status != "success" {
-		return "", nil, fmt.Errorf("%s", string(data))
+		return "", nil, fmt.Errorf("No success: %s", v.Msg)
 	}
 	var b []byte
 	if r := v.Result; r != nil {
@@ -24,7 +36,18 @@ func parseResponse(data []byte) (string, []byte, error) {
 	return v.Msg, b, nil
 }
 
-func parseConfig(data []byte) (*PanConfig, error) {
+func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
+	if len(data) == 0 {
+		var v *PanConfig
+		return v, nil
+	}
+	// Also handle saved config of device:
+	// - starting with http address and
+	// - with config stored as <response><result><devices>...
+	if bytes.HasPrefix(data, []byte("http")) {
+		i := bytes.IndexByte(data, byte('\n'))
+		return parseResponseConfig(data[i+1:])
+	}
 	v := new(PanConfig)
 	err := xml.Unmarshal(data, v)
 	return v, err
@@ -53,6 +76,10 @@ type PanResponse struct {
 type panResult struct {
 	XMLName xml.Name
 	XML     []byte `xml:",innerxml"`
+}
+
+type panKey struct {
+	Key string `xml:"key"`
 }
 
 type PanResultDevices struct {

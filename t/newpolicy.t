@@ -12,7 +12,7 @@ use Time::HiRes qw(usleep);
 use Test::More;
 use Test::Differences;
 
-# Don't run this test on travis-ci, where netspoc isn't installed
+# Don't run this test on CI server, where netspoc isn't installed.
 if (system('which netspoc >/dev/null') != 0) {
     plan skip_all => 'Program "netspoc" not available';
 }
@@ -263,6 +263,21 @@ $fh1 = start_newpolicy();
 check_newpolicy($fh1, <<'END', 'Up to date again');
 Processing current changeset
 Updated current policy to 'p3'
+END
+
+change_netspoc(<<'END');
+-- topology
+network:n1 = { ip = 10.1.1.0/24; }  # Changed
+END
+# Remove link in policydb and check if policy number is restored from
+# file src/POLICY.
+system 'rm policydb/current';
+
+$fh1 = start_newpolicy();
+
+check_newpolicy($fh1, <<'END', 'Up to date again');
+Processing current changeset
+Updated current policy to 'p4'
 END
 
 ############################################################

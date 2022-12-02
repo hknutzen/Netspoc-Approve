@@ -25,10 +25,11 @@ go/cmd/drc-pan-os/main.go
 go/go.mod
 go/go.sum
 go/pkg/device/config.go
+go/pkg/device/main.go
 go/pkg/device/password.go
+go/pkg/panos/config.go
 go/pkg/panos/device.go
 go/pkg/panos/diff.go
-go/pkg/panos/main.go
 go/pkg/panos/parse.go
 go/test/approve_test.go
 go/test/capture/capture.go

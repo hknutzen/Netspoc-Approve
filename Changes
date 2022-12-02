@@ -1,3 +1,17 @@
+3.005     2022-12-02 11:33:42+01:00 Europe/Berlin
+
+ - No longer use fixed API key when accessing a PAN-OS device.
+   Now the password has to be stored in file .aaa_credentials.
+   Username and password are used to request a new API key on each run.
+   The PAN-OS device should be configured to automatically delete
+   unused API keys after some time.
+ - Fixed reusing of groups for PAN-OS.
+   If a group on device was changed to match new elements from Netspoc,
+   the same group was used, where the original elements were needed.
+ - Fixed command 'newpolicy.pl' to use previous POLICY file if server
+   was set up freshly.
+ - Changed package structure to enable support for other device types.
+
 3.004     2022-10-13 16:14:32+02:00 Europe/Berlin
 
  - Added support to merge IPv4 and IPv6 code for single VSYS of PAN-OS.

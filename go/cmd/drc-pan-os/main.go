@@ -1,10 +1,12 @@
 package main
 
 import (
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
 	"os"
+
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
 )
 
 func main() {
-	os.Exit(panos.Main())
+	os.Exit(device.Main(&panos.State{}))
 }

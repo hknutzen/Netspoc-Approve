@@ -1,15 +1,18 @@
 package approve_test
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
-	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
-	"github.com/hknutzen/Netspoc-Approve/go/test/tstdata"
+	"fmt"
 	"os"
 	"path"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
+	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
+	"github.com/hknutzen/Netspoc-Approve/go/test/tstdata"
 )
 
 var count int
@@ -25,22 +28,32 @@ func runTestFiles(t *testing.T) {
 	dataFiles := tstdata.GetFiles("../testdata")
 	for _, file := range dataFiles {
 		file := file // capture range variable
-		t.Run(path.Base(file), func(t *testing.T) {
+		base := path.Base(file)
+		prefix, _, _ := strings.Cut(strings.TrimSuffix(base, ".t"), "_")
+		t.Run(base, func(t *testing.T) {
 			l, err := tstdata.ParseFile(file)
 			if err != nil {
 				t.Fatal(err)
 			}
 			for _, descr := range l {
+				var realDev device.RealDevice
+				switch prefix {
+				case "panos":
+					realDev = &panos.State{}
+				default:
+					t.Fatal(fmt.Errorf("Unexpected test file %s with prefix '%s'",
+						base, prefix))
+				}
 				descr := descr // capture range variable
 				t.Run(descr.Title, func(t *testing.T) {
-					runTest(t, descr)
+					runTest(t, descr, realDev)
 				})
 			}
 		})
 	}
 }
 
-func runTest(t *testing.T, d *tstdata.Descr) {
+func runTest(t *testing.T, d *tstdata.Descr, realDev device.RealDevice) {
 
 	if d.Todo {
 		t.Skip("skipping TODO test")
@@ -93,7 +106,9 @@ func runTest(t *testing.T, d *tstdata.Descr) {
 	var stdout string
 	stderr := capture.Capture(&os.Stderr, func() {
 		stdout = capture.Capture(&os.Stdout, func() {
-			status = capture.CatchPanic(panos.Main)
+			status = capture.CatchPanic(func() int {
+				return device.Main(realDev)
+			})
 		})
 	})
 
