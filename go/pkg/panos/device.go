@@ -25,8 +25,17 @@ type change struct {
 }
 
 func getAPIKey(ip, user, pass string, client *http.Client) (string, error) {
-	uri := fmt.Sprintf("https://%s/api/?type=keygen&user=%s&password=%s",
-		ip, user, pass)
+	base, err := url.Parse("https://" + string(ip))
+	if err != nil {
+		return "", err
+	}
+	base.Path += "api"
+	params := url.Values{}
+	params.Add("type", "keygen")
+	params.Add("user", user)
+	params.Add("password", pass)
+	base.RawQuery = params.Encode()
+	uri := base.String()
 	resp, err := client.Get(uri)
 	if err != nil {
 		return "", err
