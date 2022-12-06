@@ -1,4 +1,11 @@
 =TEMPL=allow
+{{define "group" -}}
+{{if and . (eq "g" (slice . 0 1)) -}}
+/infra/domains/default/groups/Netspoc-{{.}}
+{{- else -}}
+{{.}}
+{{- end -}}
+{{- end}}
 {
  "resource_type": "Rule",
  "id": "{{.id}}",
@@ -6,8 +13,8 @@
  "direction": "OUT",
  "sequence_number": 20,
  "action": "ALLOW",
- "source_groups": [ "{{.src}}" ],
- "destination_groups": [ "{{.dst}}" ],
+ "source_groups": [ "{{template "group" .src}}" ],
+ "destination_groups": [ "{{template "group" .dst}}" ],
  "services": [ "/infra/services/Netspoc-{{.srv}}" ]
 }
 =TEMPL=drop
@@ -274,12 +281,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g0
-dst: /infra/domains/default/groups/Netspoc-g1
-srv: tcp_80
-]],
+[[allow { id: r1, src: g0, dst: g1,srv: tcp_80}]],
 [[drop  { id: r2 }]],
 [[drop  { id: r3, dir: IN }]]
    ]
@@ -332,12 +334,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g0
-dst: /infra/domains/default/groups/Netspoc-g1
-srv: tcp_80
-]],
+[[allow { id: r1, src: g0, dst: g1, srv: tcp_80}]],
 [[drop  { id: r2 }]],
 [[drop  { id: r3, dir: IN }]]
    ]
@@ -469,18 +466,8 @@ POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressio
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g0
-dst: 10.2.1.10
-srv: tcp_80
-]],
-[[allow
-id: r2
-src: /infra/domains/default/groups/Netspoc-g0
-dst: 10.2.1.20
-srv: tcp_80
-]],
+[[allow { id: r1, src: g0, dst: 10.2.1.10, srv: tcp_80 }]],
+[[allow { id: r2, src: g0, dst: 10.2.1.20, srv: tcp_80 }]],
 [[drop  { id: r3 }]],
 [[drop  { id: r4, dir: IN }]]
    ]
@@ -501,18 +488,8 @@ srv: tcp_80
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g0
-dst: 10.2.1.10
-srv: tcp_80
-]],
-[[allow
-id: r2
-src: /infra/domains/default/groups/Netspoc-g1
-dst: 10.2.1.20
-srv: tcp_80
-]],
+[[allow { id: r1, src: g0, dst: 10.2.1.10, srv: tcp_80 }]],
+[[allow { id: r2, src: g1, dst: 10.2.1.20, srv: tcp_80 }]],
 [[drop  { id: r3 }]],
 [[drop  { id: r4, dir: IN }]]
    ]
@@ -575,12 +552,7 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g0
-dst: 10.1.2.10
-srv: tcp_80
-]]
+[[allow { id: r1, src: g0, dst: 10.1.2.10, srv: tcp_80 }]]
    ]
   }
  ],
@@ -597,18 +569,8 @@ srv: tcp_80
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g1
-dst: 10.1.2.10
-srv: tcp_80
-]],
-[[allow
-id: r2
-src: /infra/domains/default/groups/Netspoc-g2
-dst: 10.1.2.12
-srv: tcp_80
-]]
+[[allow { id: r1, src: g1, dst: 10.1.2.10, srv: tcp_80 }]],
+[[allow { id: r2, src: g2, dst: 10.1.2.12, srv: tcp_80 }]]
    ]
   }
  ],
@@ -649,12 +611,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g2
-dst: 10.1.2.10
-srv: tcp_80
-]]
+[[allow { id: r1, src: g2, dst: 10.1.2.10, srv: tcp_80 }]]
    ]
   }
  ],
@@ -671,18 +628,8 @@ srv: tcp_80
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g1
-dst: 10.1.2.10
-srv: tcp_80
-]],
-[[allow
-id: r2
-src: /infra/domains/default/groups/Netspoc-g2
-dst: 10.1.2.10
-srv: tcp_90
-]]
+[[allow { id: r1, src: g1, dst: 10.1.2.10, srv: tcp_80 }]],
+[[allow { id: r2, src: g2, dst: 10.1.2.10, srv: tcp_90 }]]
    ]
   }
  ],
@@ -845,18 +792,8 @@ DELETE /policy/api/v1/infra/services/Netspoc-udp_123
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g0
-dst: /infra/domains/default/groups/Netspoc-g1
-srv: tcp_80
-]],
-[[allow
-id: r4
-src: /infra/domains/default/groups/Netspoc-g0
-dst: /infra/domains/default/groups/Netspoc-g2
-srv: udp_123
-]],
+[[allow { id: r1, src: g0, dst: g1, srv: tcp_80 }]],
+[[allow { id: r4, src: g0, dst: g2, srv: udp_123 }]],
 [[drop  { id: r2 }]],
 [[drop  { id: r3, dir: IN }]]
    ]
@@ -878,18 +815,8 @@ srv: udp_123
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g0
-dst: /infra/domains/default/groups/Netspoc-g1
-srv: tcp_80
-]],
-[[allow
-id: r4
-src: /infra/domains/default/groups/Netspoc-g0
-dst: /infra/domains/default/groups/Netspoc-g1
-srv: udp_123
-]],
+[[allow { id: r1, src: g0, dst: g1, srv: tcp_80 }]],
+[[allow { id: r4, src: g0, dst: g1, srv: udp_123 }]],
 [[drop  { id: r2 }]],
 [[drop  { id: r3, dir: IN }]]
    ]
@@ -922,12 +849,7 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g2
      "id": "Netspoc-v1",
      "resource_type": "GatewayPolicy",
      "rules": [
-  [[allow
-  id: r1
-  src: /infra/domains/default/groups/Netspoc-g0
-  dst: 10.1.1.1
-  srv: tcp_80
-  ]]
+[[allow { id: r1, src: g0, dst: 10.1.1.1, srv: tcp_80 }]]
      ]
   }
  ]
@@ -945,12 +867,7 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g2
     "id": "Netspoc-v1",
     "resource_type": "GatewayPolicy",
     "rules": [
- [[allow
- id: r1
- src: /infra/domains/default/groups/Netspoc-g8
- dst: 10.1.1.1
- srv: tcp_81
- ]]
+[[allow { id: r1, src: g8, dst: 10.1.1.1, srv: tcp_81 }]]
     ]
    }
   ]
@@ -985,12 +902,7 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
      "id": "Netspoc-v1",
      "resource_type": "GatewayPolicy",
      "rules": [
-  [[allow
-  id: r1
-  src: /infra/domains/default/groups/Netspoc-g0
-  dst: 10.1.1.1
-  srv: tcp_80
-  ]]
+[[allow { id: r1, src: g0, dst: 10.1.1.1, srv: tcp_80 }]]
      ]
   }
  ]
@@ -1008,12 +920,7 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
     "id": "Netspoc-v1",
     "resource_type": "GatewayPolicy",
     "rules": [
- [[allow
- id: r1
- src: /infra/domains/default/groups/Netspoc-g8
- dst: 10.1.1.1
- srv: tcp_81
- ]]
+[[allow { id: r1, src: g8, dst: 10.1.1.1, srv: tcp_81 }]]
     ]
    }
   ]
@@ -1048,18 +955,8 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow
-id: r0
-src: /infra/domains/default/groups/Netspoc-g0
-dst: /infra/domains/default/groups/Netspoc-g1
-srv: tcp_81
-]],
-[[allow
-id: r1
-src: /infra/domains/default/groups/Netspoc-g0
-dst: /infra/domains/default/groups/Netspoc-g1
-srv: tcp_80
-]],
+[[allow { id: r0, src: g0, dst: g1, srv: tcp_81 }]],
+[[allow { id: r1, src: g0, dst: g1, srv: tcp_80 }]],
 [[drop  { id: r2 }]],
 [[drop  { id: r3, dir: IN }]]
    ]
