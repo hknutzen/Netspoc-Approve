@@ -270,6 +270,19 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
 =END=
 
 ############################################################
+=TITLE=Delete one rule
+=DEVICE=
+[[two_rules]]
+=NETSPOC=
+[[one_rule]]
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+
+DELETE /policy/api/v1/infra/services/Netspoc-udp_123
+
+=END=
+
+############################################################
 =TEMPL=group_rule
 {
  "groups": [
@@ -281,15 +294,14 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow { id: r1, src: g0, dst: g1,srv: tcp_80}]],
+[[allow { id: r1, src: g0, dst: g1, srv: tcp_80 }]],
 [[drop  { id: r2 }]],
 [[drop  { id: r3, dir: IN }]]
    ]
   }
  ],
  "services": [
-[[tcp 80]],
-[[udp 123]]
+[[tcp 80]]
  ]
 }
 =END=
@@ -308,8 +320,6 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_80
 {"service_entries":[{"destination_ports":["80"],"id":"Netspoc tcp 80","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
-PUT /policy/api/v1/infra/services/Netspoc-udp_123
-{"service_entries":[{"destination_ports":["123"],"id":"Netspoc udp 123","l4_protocol":"UDP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g0
 {"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.1.10","10.1.1.20"]}]}
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
@@ -376,8 +386,7 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g4
 [[group { id: g9, ip: '10.1.2.30","10.1.2.40' }]]
  ],
  "services": [
-[[tcp 80]],
-[[udp 123]]
+[[tcp 80]]
  ]
 }
 =NETSPOC=[[group_rule]]
@@ -766,19 +775,6 @@ PATCH /policy/api/v1/infra/services/Netspoc-tcp_80
 =END=
 
 ############################################################
-=TITLE=Two vs one rules
-=DEVICE=
-[[two_rules]]
-=NETSPOC=
-[[one_rule]]
-=OUTPUT=
-DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
-
-DELETE /policy/api/v1/infra/services/Netspoc-udp_123
-
-=END=
-
-############################################################
 =TITLE=Two identical groups on device
 =DEVICE=
 {
@@ -964,12 +960,27 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
  ],
  "services": [
 [[tcp 80]],
-[[udp 123]]
+[[tcp 81]]
  ]
 }
 =OUTPUT=
+PUT /policy/api/v1/infra/services/Netspoc-tcp_81
+{
+ "service_entries":[{
+  "destination_ports":["81"],
+  "id":"Netspoc tcp 81",
+  "l4_protocol":"TCP",
+  "resource_type":"L4PortSetServiceEntry",
+  "source_ports":[]}]}
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r0
-{"action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g0"],"destination_groups":["/infra/domains/default/groups/Netspoc-g1"],"services":["/infra/services/Netspoc-tcp_81"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}
+{
+ "action":"ALLOW",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/Netspoc-g0"],
+ "destination_groups":["/infra/domains/default/groups/Netspoc-g1"],
+ "services":["/infra/services/Netspoc-tcp_81"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT"}
 =END=
 
 ############################################################
