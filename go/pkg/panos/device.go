@@ -121,7 +121,9 @@ func (s *State) GetChanges(
 		devPath := "/config/devices/entry" + nameAttr(dev)
 		xPath := devPath + "/vsys/entry" + nameAttr(v2.Name)
 		l := diffConfig(v1, v2, xPath)
-		s.changes = append(s.changes, change{l})
+		if len(l) != 0 {
+			s.changes = append(s.changes, change{l})
+		}
 		return nil
 	})
 	return warnings, err
