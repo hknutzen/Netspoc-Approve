@@ -86,6 +86,9 @@
 =TITLE=No differences
 =DEVICE=[[input]]
 =NETSPOC=[[input]]
+=OPTIONS=--quiet=0
+=WARNING=
+comp: device unchanged
 =OUTPUT=NONE
 
 ############################################################
@@ -139,6 +142,9 @@ action=set&type=config&
   /static&
  element=
   <member>IP_10.1.1.10</member>
+=OPTIONS=--quiet=0
+=WARNING=
+comp: *** device changed ***
 =END=
 
 ############################################################
