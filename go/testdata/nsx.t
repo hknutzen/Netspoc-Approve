@@ -1,35 +1,18 @@
-=TEMPL=allow
+=TEMPL=config
 {{define "group" -}}
-{{if and . (eq "g" (slice . 0 1)) -}}
-/infra/domains/default/groups/Netspoc-{{.}}
-{{- else -}}
-{{.}}
-{{- end -}}
+ {{if not . -}}
+  ANY
+ {{- else if eq 'g' (index . 0) -}}
+  /infra/domains/default/groups/Netspoc-{{.}}
+ {{- else -}}
+  {{.}}
+ {{- end -}}
 {{- end}}
 {
- "resource_type": "Rule",
- "id": "{{.id}}",
- "scope": [ "/infra/tier-0s/v1" ],
- "direction": "OUT",
- "sequence_number": 20,
- "action": "ALLOW",
- "source_groups": [ "{{template "group" .src}}" ],
- "destination_groups": [ "{{template "group" .dst}}" ],
- "services": [ "/infra/services/Netspoc-{{.srv}}" ]
-}
-=TEMPL=drop
-{
- "resource_type": "Rule",
- "id": "{{.id}}",
- "scope": [ "/infra/tier-0s/v1" ],
- "direction": {{or .dir "OUT" | printf "%q"}},
- "sequence_number": 30,
- "action": "DROP",
- "source_groups": [ "ANY" ],
- "destination_groups": [ "ANY" ],
- "services": [ "ANY" ]
-}
-=TEMPL=group
+ "groups": [
+{{$first := true}}
+{{range .groups}}
+{{if $first}}{{$first = false}}{{else}},{{end}}
 {
  "id": "Netspoc-{{.id}}",
  "expression": [
@@ -42,69 +25,89 @@
   }
  ]
 }
-=TEMPL=tcp
-{
- "id": "Netspoc-tcp_{{.}}",
- "service_entries": [
-  {
-   "id": "Netspoc tcp {{.}}",
-   "resource_type": "L4PortSetServiceEntry",
-   "l4_protocol": "TCP",
-   "destination_ports": [ "{{.}}" ],
-   "source_ports": []
-  }
- ]
-}
-=TEMPL=udp
-{
- "id": "Netspoc-udp_{{.}}",
- "service_entries": [
-  {
-  "id": "Netspoc udp {{.}}",
-   "resource_type": "L4PortSetServiceEntry",
-   "l4_protocol": "UDP",
-   "destination_ports": [ "{{.}}" ],
-   "source_ports": []
-  }
- ]
-}
-=END=
-=TEMPL=two_rules
-{
+{{end}}
+ ],
+{{if .rules}}
  "policies": [
   {
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }]],
-[[allow { id: r2, src: 10.1.1.10, dst: 10.1.2.40, srv: udp_123 }]],
-[[drop  { id: r3 }]],
-[[drop  { id: r4, dir: IN }]]
+{{$first := true}}
+{{range .rules}}
+{{if $first}}{{$first = false}}{{else}},{{end}}
+{
+ "resource_type": "Rule",
+ "id": "{{.id}}",
+ {{with .logged}}"logged": {{.}},{{end}}
+ "scope": [ "/infra/tier-0s/v1" ],
+ "direction": "{{or .dir "OUT"}}",
+ "sequence_number": {{or .seq 20}},
+ "action": "{{or .act "ALLOW"}}",
+ "source_groups": [ "{{template "group" .src}}" ],
+ "destination_groups": [ "{{template "group" .dst}}" ],
+ "services": [ "{{with .srv}}/infra/services/Netspoc-{{.}}{{else}}ANY{{end}}" ]
+}
+{{end}}
    ]
   }
  ],
+{{end}}
  "services": [
-[[tcp 80]],
-[[udp 123]]
+{{$first := true}}
+{{range .services}}
+{{$port := index . 1}}
+{{$proto := index . 0}}
+{{$PROTO := "TCP"}}
+{{if eq $proto "udp"}}{{$PROTO = "UDP"}}{{end}}
+{{if $first}}{{$first = false}}{{else}},{{end}}
+{
+ "id": "Netspoc-{{$proto}}_{{$port}}",
+ "service_entries": [
+  {
+   "id": "id",
+   "resource_type": "L4PortSetServiceEntry",
+   "l4_protocol": "{{$PROTO}}",
+   "destination_ports": [ "{{$port}}" ],
+   "source_ports": []
+  }
+ ]
+}
+{{end}}
  ]
 }
 =TEMPL=one_rule
-{
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }]],
-[[drop  { id: r3 }]],
-[[drop  { id: r4, dir: IN }]]
-   ]
-  }
- ],
- "services": [
-[[tcp 80]]
- ]
-}
+[[config
+rules:
+- { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }
+- { id: r3, act: DROP, seq: 30 }
+- { id: r4, act: DROP, seq: 30, dir: IN }
+services:
+- [tcp, 80]
+]]
+=TEMPL=two_rules
+[[config
+rules:
+- { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }
+- { id: r2, src: 10.1.1.10, dst: 10.1.2.40, srv: udp_123 }
+- { id: r3, act: DROP, seq: 30 }
+- { id: r4, act: DROP, seq: 30, dir: IN }
+services:
+- [ tcp, 80 ]
+- [ udp, 123 ]
+]]
+=TEMPL=group_rule
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.2.30","10.1.2.40' }
+rules:
+- { id: r1, src: g0, dst: g1, srv: tcp_80 }
+- { id: r2, act: DROP, seq: 30 }
+- { id: r3, act: DROP, seq: 30, dir: IN }
+services:
+- [tcp, 80]
+]]
 =END=
 
 ############################################################
@@ -131,7 +134,7 @@ PUT /policy/api/v1/infra/services/Netspoc-tcp_80
 {"service_entries":[
  {
   "destination_ports":["80"],
-  "id":"Netspoc tcp 80",
+  "id":"id",
   "l4_protocol":"TCP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":[]
@@ -140,7 +143,7 @@ PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[
  {
   "destination_ports":["123"],
-  "id":"Netspoc udp 123",
+  "id":"id",
   "l4_protocol":"UDP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":[]
@@ -225,7 +228,7 @@ PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[
  {
   "destination_ports":["123"],
-  "id":"Netspoc udp 123",
+  "id":"id",
   "l4_protocol":"UDP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":[]
@@ -253,7 +256,7 @@ PUT /policy/api/v1/infra/services/Netspoc-udp_123
 {"service_entries":[
  {
   "destination_ports":["123"],
-  "id":"Netspoc udp 123",
+  "id":"id",
   "l4_protocol":"UDP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":[]
@@ -270,43 +273,6 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
 =END=
 
 ############################################################
-=TITLE=Delete one rule
-=DEVICE=
-[[two_rules]]
-=NETSPOC=
-[[one_rule]]
-=OUTPUT=
-DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
-
-DELETE /policy/api/v1/infra/services/Netspoc-udp_123
-
-=END=
-
-############################################################
-=TEMPL=group_rule
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]],
-[[group { id: g1, ip: '10.1.2.30","10.1.2.40' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g0, dst: g1, srv: tcp_80 }]],
-[[drop  { id: r2 }]],
-[[drop  { id: r3, dir: IN }]]
-   ]
-  }
- ],
- "services": [
-[[tcp 80]]
- ]
-}
-=END=
-
-############################################################
 =TITLE=No differences with groups
 =DEVICE=[[group_rule]]
 =NETSPOC=[[group_rule]]
@@ -319,7 +285,7 @@ DELETE /policy/api/v1/infra/services/Netspoc-udp_123
 =NETSPOC=[[group_rule]]
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_80
-{"service_entries":[{"destination_ports":["80"],"id":"Netspoc tcp 80","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
+{"service_entries":[{"destination_ports":["80"],"id":"id","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g0
 {"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.1.10","10.1.1.20"]}]}
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
@@ -329,32 +295,21 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 =END=
 
 ############################################################
-=TITLE=Remove rule with group from device
+=TITLE=Remove rule with groups from device
 =DEVICE=
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]],
-[[group { id: g1, ip: '10.1.2.30","10.1.2.40' }]],
-[[group { id: g2, ip: '10.1.3.30","10.1.3.40' }]],
-[[group { id: g3, ip: '10.1.4.30","10.1.4.40' }]],
-[[group { id: g4, ip: '10.1.5.30","10.1.5.40' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g0, dst: g1, srv: tcp_80}]],
-[[drop  { id: r2 }]],
-[[drop  { id: r3, dir: IN }]]
-   ]
-  }
- ],
- "services": [
-[[tcp 80]],
-[[udp 123]]
- ]
-}
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.2.30","10.1.2.40' }
+- { id: g2, ip: '10.1.3.30","10.1.3.40' }
+- { id: g3, ip: '10.1.4.30","10.1.4.40' }
+- { id: g4, ip: '10.1.5.30","10.1.5.40' }
+rules:
+- { id: r1, src: g0, dst: g1, srv: tcp_80}
+services:
+- [tcp, 80]
+- [udp, 123]
+]]
 =NETSPOC=
 {}
 =OUTPUT=
@@ -380,19 +335,26 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g4
 ############################################################
 =TITLE=Reuse existing service and group when creating new policy
 =DEVICE=
-{
- "groups": [
-[[group { id: g8, ip: '10.1.1.10","10.1.1.20' }]],
-[[group { id: g9, ip: '10.1.2.30","10.1.2.40' }]]
- ],
- "services": [
-[[tcp 80]]
- ]
-}
-=NETSPOC=[[group_rule]]
+[[config
+groups:
+- { id: g8, ip: '10.1.1.10","10.1.1.20' }
+- { id: g9, ip: '10.1.2.30","10.1.2.40' }
+services:
+- [tcp, 80]
+]]
+=NETSPOC=
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.2.30","10.1.2.40' }
+rules:
+- { id: r1, src: g0, dst: g1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
 =OUTPUT=
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
-{"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g8"],"destination_groups":["/infra/domains/default/groups/Netspoc-g9"],"services":["/infra/services/Netspoc-tcp_80"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r2","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r3","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"IN"}]}
+{"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g8"],"destination_groups":["/infra/domains/default/groups/Netspoc-g9"],"services":["/infra/services/Netspoc-tcp_80"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}]}
 =END=
 
 ############################################################
@@ -466,48 +428,26 @@ POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressio
 ############################################################
 =TITLE=Replace one group by two different groups
 =DEVICE=
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g0, dst: 10.2.1.10, srv: tcp_80 }]],
-[[allow { id: r2, src: g0, dst: 10.2.1.20, srv: tcp_80 }]],
-[[drop  { id: r3 }]],
-[[drop  { id: r4, dir: IN }]]
-   ]
-  }
- ],
- "services": [
-[[tcp 80]]
- ]
-}
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+rules:
+- { id: r1, src: g0, dst: 10.2.1.10, srv: tcp_80 }
+- { id: r2, src: g0, dst: 10.2.1.20, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
 =NETSPOC=
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }]],
-[[group { id: g1, ip: '10.1.1.10","10.1.1.20","10.1.1.40' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g0, dst: 10.2.1.10, srv: tcp_80 }]],
-[[allow { id: r2, src: g1, dst: 10.2.1.20, srv: tcp_80 }]],
-[[drop  { id: r3 }]],
-[[drop  { id: r4, dir: IN }]]
-   ]
-  }
- ],
- "services": [
-[[tcp 80]]
- ]
-}
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }
+- { id: g1, ip: '10.1.1.10","10.1.1.20","10.1.1.40' }
+rules:
+- { id: r1, src: g0, dst: 10.2.1.10, srv: tcp_80 }
+- { id: r2, src: g1, dst: 10.2.1.20, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
 =OUTPUT=
 POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/id?action=add
 {"ip_addresses":["10.1.1.30"]}
@@ -552,39 +492,25 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
 ############################################################
 =TITLE=Must not find already used group on device
 =DEVICE=
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g0, dst: 10.1.2.10, srv: tcp_80 }]]
-   ]
-  }
- ],
- "services": [ [[tcp 80]] ]
-}
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+rules:
+- { id: r1, src: g0, dst: 10.1.2.10, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
 =NETSPOC=
-{
- "groups": [
-[[group { id: g1, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }]],
-[[group { id: g2, ip: '10.1.1.10","10.1.1.20' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g1, dst: 10.1.2.10, srv: tcp_80 }]],
-[[allow { id: r2, src: g2, dst: 10.1.2.12, srv: tcp_80 }]]
-   ]
-  }
- ],
- "services": [ [[tcp 80]] ]
-}
+[[config
+groups:
+- { id: g1, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }
+- { id: g2, ip: '10.1.1.10","10.1.1.20' }
+rules:
+- { id: r1, src: g1, dst: 10.1.2.10, srv: tcp_80 }
+- { id: r2, src: g2, dst: 10.1.2.12, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
 =OUTPUT=
 POST /policy/api/v1/infra/domains/default/groups/Netspoc-g0/ip-address-expressions/id?action=add
 {"ip_addresses":["10.1.1.30"]}
@@ -611,44 +537,31 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 ############################################################
 =TITLE=Must prevent name clash with group on device
 =DEVICE=
-{
- "groups": [
-[[group { id: g2, ip: '10.1.1.10","10.1.1.20' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g2, dst: 10.1.2.10, srv: tcp_80 }]]
-   ]
-  }
- ],
- "services": [ [[tcp 80]] ]
-}
+[[config
+groups:
+- { id: g2, ip: '10.1.1.10","10.1.1.20' }
+rules:
+- { id: r1, src: g2, dst: 10.1.2.10, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
 =NETSPOC=
-{
- "groups": [
-[[group { id: g1, ip: '10.1.1.10","10.1.1.20' }]],
-[[group { id: g2, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g1, dst: 10.1.2.10, srv: tcp_80 }]],
-[[allow { id: r2, src: g2, dst: 10.1.2.10, srv: tcp_90 }]]
-   ]
-  }
- ],
- "services": [ [[tcp 80]],[[tcp 90]] ]
-}
+[[config
+groups:
+- { id: g1, ip: '10.1.1.10","10.1.1.20' }
+- { id: g2, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }
+rules:
+- { id: r1, src: g1, dst: 10.1.2.10, srv: tcp_80 }
+- { id: r2, src: g2, dst: 10.1.2.10, srv: tcp_90 }
+services:
+- [tcp, 80]
+- [tcp, 90]
+]]
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_90
 {"service_entries":[
  {"destination_ports":["90"],
-  "id":"Netspoc tcp 90",
+  "id":"id",
   "l4_protocol":"TCP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":[]
@@ -672,15 +585,10 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 =TITLE=Prevent name clash of rule from raw
 =NETSPOC=
 -- router.raw
-{
- "policies": [
-  {
-   "rules": [
-[[allow { id: r3-2-1}]]
-   ]
-  }
- ]
-}
+[[config
+rules:
+- { id: r3-2-1}
+]]
 =ERROR=
 ERROR>>> Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
 =END=
@@ -693,34 +601,22 @@ ERROR>>> Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
 -- router
 [[one_rule]]
 -- router.raw
-{
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-{
- "resource_type": "Rule",
- "id": "raw2",
- "scope": [ "/infra/tier-0s/v1" ],
- "direction": "OUT",
- "sequence_number": 25,
- "action": "DROP",
- "source_groups": [ "ANY" ],
- "destination_groups": [ "ANY" ],
- "services": [ "ANY" ],
- "logged": true
-}
-   ]
-  }
- ],
- "services": [
-[[tcp 80]]
- ]
-}
+[[config
+rules:
+- { id: raw2, act: DROP, seq: 25, logged: true }
+services:
+- [tcp, 80]
+]]
 =OUTPUT=
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
-{"action":"DROP","sequence_number":25,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"logged":true,"direction":"OUT"}
+{"action":"DROP",
+ "sequence_number":25,
+ "source_groups":["ANY"],
+ "destination_groups":["ANY"],
+ "services":["ANY"],
+ "scope":["/infra/tier-0s/v1"],
+ "logged":true,
+ "direction":"OUT"}
 =END=
 
 ############################################################
@@ -771,58 +667,36 @@ Generated by Netspoc devel
 [[one_rule]]
 =OUTPUT=
 PATCH /policy/api/v1/infra/services/Netspoc-tcp_80
-{"service_entries":[{"destination_ports":["80"],"id":"Netspoc tcp 80","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
+{"service_entries":[{"destination_ports":["80"],"id":"id","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
 =END=
 
 ############################################################
 =TITLE=Two identical groups on device
 =DEVICE=
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]],
-[[group { id: g1, ip: '10.1.2.30","10.1.2.40' }]],
-[[group { id: g2, ip: '10.1.2.30","10.1.2.40' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g0, dst: g1, srv: tcp_80 }]],
-[[allow { id: r4, src: g0, dst: g2, srv: udp_123 }]],
-[[drop  { id: r2 }]],
-[[drop  { id: r3, dir: IN }]]
-   ]
-  }
- ],
- "services": [
-[[tcp 80]],
-[[udp 123]]
- ]
-}
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.2.30","10.1.2.40' }
+- { id: g2, ip: '10.1.2.30","10.1.2.40' }
+rules:
+- { id: r1, src: g0, dst: g1, srv: tcp_80 }
+- { id: r4, src: g0, dst: g2, srv: udp_123 }
+services:
+- [tcp, 80]
+- [udp, 123]
+]]
 =NETSPOC=
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]],
-[[group { id: g1, ip: '10.1.2.30","10.1.2.40' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: g0, dst: g1, srv: tcp_80 }]],
-[[allow { id: r4, src: g0, dst: g1, srv: udp_123 }]],
-[[drop  { id: r2 }]],
-[[drop  { id: r3, dir: IN }]]
-   ]
-  }
- ],
- "services": [
-[[tcp 80]],
-[[udp 123]]
- ]
-}
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.2.30","10.1.2.40' }
+rules:
+- { id: r1, src: g0, dst: g1, srv: tcp_80 }
+- { id: r4, src: g0, dst: g1, srv: udp_123 }
+services:
+- [tcp, 80]
+- [udp, 123]
+]]
 =OUTPUT=
 PATCH /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r4
 {"action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g0"],"destination_groups":["/infra/domains/default/groups/Netspoc-g1"],"services":["/infra/services/Netspoc-udp_123"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}
@@ -833,44 +707,26 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g2
 ############################################################
 =TITLE=Two groups different length
 =DEVICE=
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }]]
- ],
- "services": [
-[[tcp 80]]
- ],
- "policies": [
- {
-     "id": "Netspoc-v1",
-     "resource_type": "GatewayPolicy",
-     "rules": [
-[[allow { id: r1, src: g0, dst: 10.1.1.1, srv: tcp_80 }]]
-     ]
-  }
- ]
-}
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20","10.1.1.30' }
+services:
+- [tcp, 80]
+rules:
+- { id: r1, src: g0, dst: 10.1.1.1, srv: tcp_80 }
+]]
 =NETSPOC=
-{
- "groups": [
-[[group { id: g8, ip: '10.1.1.10","10.1.1.20' }]]
- ],
- "services": [
-[[tcp 81]]
- ],
- "policies": [
-   {
-    "id": "Netspoc-v1",
-    "resource_type": "GatewayPolicy",
-    "rules": [
-[[allow { id: r1, src: g8, dst: 10.1.1.1, srv: tcp_81 }]]
-    ]
-   }
-  ]
-}
+[[config
+groups:
+- { id: g8, ip: '10.1.1.10","10.1.1.20' }
+services:
+- [tcp, 81]
+rules:
+- { id: r1, src: g8, dst: 10.1.1.1, srv: tcp_81 }
+]]
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_81
-{"service_entries":[{"destination_ports":["81"],"id":"Netspoc tcp 81","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
+{"service_entries":[{"destination_ports":["81"],"id":"id","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
 DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
 
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g8
@@ -886,44 +742,26 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
 ############################################################
 =TITLE=Two groups different element
 =DEVICE=
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.21' }]]
- ],
- "services": [
-[[tcp 80]]
- ],
- "policies": [
- {
-     "id": "Netspoc-v1",
-     "resource_type": "GatewayPolicy",
-     "rules": [
-[[allow { id: r1, src: g0, dst: 10.1.1.1, srv: tcp_80 }]]
-     ]
-  }
- ]
-}
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.21' }
+services:
+- [tcp, 80]
+rules:
+- { id: r1, src: g0, dst: 10.1.1.1, srv: tcp_80 }
+]]
 =NETSPOC=
-{
- "groups": [
-[[group { id: g8, ip: '10.1.1.10","10.1.1.20' }]]
- ],
- "services": [
-[[tcp 81]]
- ],
- "policies": [
-   {
-    "id": "Netspoc-v1",
-    "resource_type": "GatewayPolicy",
-    "rules": [
-[[allow { id: r1, src: g8, dst: 10.1.1.1, srv: tcp_81 }]]
-    ]
-   }
-  ]
-}
+[[config
+groups:
+- { id: g8, ip: '10.1.1.10","10.1.1.20' }
+services:
+- [tcp, 81]
+rules:
+- { id: r1, src: g8, dst: 10.1.1.1, srv: tcp_81 }
+]]
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_81
-{"service_entries":[{"destination_ports":["81"],"id":"Netspoc tcp 81","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
+{"service_entries":[{"destination_ports":["81"],"id":"id","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
 DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
 
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g8
@@ -939,36 +777,33 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
 ############################################################
 =TITLE=Use same group in two different rules
 =DEVICE=
-[[group_rule]]
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.2.30","10.1.2.40' }
+rules:
+- { id: r1, src: g0, dst: g1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
 =NETSPOC=
-{
- "groups": [
-[[group { id: g0, ip: '10.1.1.10","10.1.1.20' }]],
-[[group { id: g1, ip: '10.1.2.30","10.1.2.40' }]]
- ],
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r0, src: g0, dst: g1, srv: tcp_81 }]],
-[[allow { id: r1, src: g0, dst: g1, srv: tcp_80 }]],
-[[drop  { id: r2 }]],
-[[drop  { id: r3, dir: IN }]]
-   ]
-  }
- ],
- "services": [
-[[tcp 80]],
-[[tcp 81]]
- ]
-}
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.2.30","10.1.2.40' }
+rules:
+- { id: r0, src: g0, dst: g1, srv: tcp_81 }
+- { id: r1, src: g0, dst: g1, srv: tcp_80 }
+services:
+- [tcp, 80]
+- [tcp, 81]
+]]
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_81
 {
  "service_entries":[{
   "destination_ports":["81"],
-  "id":"Netspoc tcp 81",
+  "id":"id",
   "l4_protocol":"TCP",
   "resource_type":"L4PortSetServiceEntry",
   "source_ports":[]}]}
@@ -986,37 +821,23 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r0
 ############################################################
 =TITLE=Rule with different action but same sequence_number
 =DEVICE=
-[[one_rule]]
+[[config
+rules:
+- { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }
+- { id: r3, act: DROP, seq: 30 }
+services:
+- [tcp, 80]
+]]
 =NETSPOC=
-{
- "policies": [
-  {
-   "id": "Netspoc-v1",
-   "resource_type": "GatewayPolicy",
-   "rules": [
-[[allow { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }]],
-{
- "resource_type": "Rule",
- "id": "r3",
- "scope": [ "/infra/tier-0s/v1" ],
- "direction": "OUT",
- "sequence_number": 20,
- "action": "DROP",
- "source_groups": [ "ANY" ],
- "destination_groups": [ "ANY" ],
- "services": [ "ANY" ]
-},
-[[drop  { id: r4, dir: IN }]]
-   ]
-  }
- ],
- "services": [
-[[tcp 80]]
- ]
-}
+[[config
+rules:
+- { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }
+- { id: r2, act: DROP }
+- { id: r3, act: DROP, seq: 30 }
+services:
+- [tcp, 80]
+]]
 =OUTPUT=
-DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r3
-
-PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r3-1
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
 {"action":"DROP","sequence_number":20,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}
 =END=
