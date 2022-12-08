@@ -656,6 +656,33 @@ POST /policy/api/v1/infra/domains/default/groups/Netspoc-g1/ip-address-expressio
 =END=
 
 ############################################################
+=TITLE=Patch elements of group instead of deleting many elements
+=DEVICE=
+[[config
+groups:
+- { id: g1, ip: '10.1.1.1","10.1.1.2","10.1.1.3","10.1.1.4","10.1.1.5' }
+rules:
+- { id: r1, src: 10.1.2.0/24, dst: g1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=NETSPOC=
+[[config
+groups:
+- { id: g1, ip: '10.1.1.1","10.1.1.2' }
+rules:
+- { id: r1, src: 10.1.2.0/24, dst: g1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=OUTPUT=
+PATCH /policy/api/v1/infra/domains/default/groups/Netspoc-g1/ip-address-expressions/id
+{
+ "resource_type":"IPAddressExpression",
+ "ip_addresses":["10.1.1.1","10.1.1.2"]}
+=END=
+
+############################################################
 =TITLE=Must prevent name clash with group on device
 =DEVICE=
 [[config
