@@ -548,6 +548,44 @@ DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
 =END=
 
 ############################################################
+=TITLE=Find right group on device
+=DEVICE=
+[[config
+groups:
+- { id: g0, ip: 10.1.1.10 }
+- { id: g1, ip: 10.1.1.20 }
+rules:
+- { id: r1, src: g0, dst: 10.1.2.0/24 }
+- { id: r2, src: g1, dst: 10.1.3.0/24, srv: udp_123 }
+services:
+- [tcp, 80]
+- [udp, 123]
+]]
+=NETSPOC=
+[[config
+groups:
+- { id: g0, ip: 10.1.1.20 }
+- { id: g1, ip: 10.1.1.10 }
+rules:
+- { id: r1, src: g1, dst: 10.1.2.0/24, srv: tcp_80 }
+- { id: r2, src: g0, dst: 10.1.3.0/24 }
+services:
+- [tcp, 80]
+]]
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
+
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
+
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
+{"action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g0"],"destination_groups":["10.1.2.0/24"],"services":["/infra/services/Netspoc-tcp_80"],"scope":["/infra/tier-0s/v1"],"direction":"OUT","ip_protocol":"IPV4"}
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
+{"action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g1"],"destination_groups":["10.1.3.0/24"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT","ip_protocol":"IPV4"}
+DELETE /policy/api/v1/infra/services/Netspoc-udp_123
+
+=END=
+
+############################################################
 =TITLE=Must not find already used group on device
 =DEVICE=
 [[config
@@ -592,6 +630,30 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
  "ip_protocol":"IPV4"}
 =END=
 
+############################################################
+=TITLE=Add new elements to group in one go
+=DEVICE=
+[[config
+groups:
+- { id: g1, ip: 10.1.1.20 }
+rules:
+- { id: r1, src: g1, dst: 10.1.2.0/24, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=NETSPOC=
+[[config
+groups:
+- { id: g1, ip: '10.1.1.10","10.1.1.20","10.1.3.0/24' }
+rules:
+- { id: r1, src: g1, dst: 10.1.2.0/24, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=OUTPUT=
+POST /policy/api/v1/infra/domains/default/groups/Netspoc-g1/ip-address-expressions/id?action=add
+{"ip_addresses":["10.1.1.10","10.1.3.0/24"]}
+=END=
 
 ############################################################
 =TITLE=Must prevent name clash with group on device
