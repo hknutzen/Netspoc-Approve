@@ -58,8 +58,7 @@
 {{range .services}}
 {{$port := index . 1}}
 {{$proto := index . 0}}
-{{$PROTO := "TCP"}}
-{{if eq $proto "udp"}}{{$PROTO = "UDP"}}{{end}}
+{{$PROTO := or (and (eq $proto "udp") "UDP") "TCP"}}
 {{if $first}}{{$first = false}}{{else}},{{end}}
 {
  "id": "Netspoc-{{$proto}}_{{$port}}",
