@@ -42,6 +42,7 @@
  {{with .logged}}"logged": {{.}},{{end}}
  "scope": [ "/infra/tier-0s/v1" ],
  "direction": "{{or .dir "OUT"}}",
+ "ip_protocol": "{{or .proto "IPV4"}}",
  "sequence_number": {{or .seq 20}},
  "action": "{{or .act "ALLOW"}}",
  "source_groups": [ "{{template "group" .src}}" ],
@@ -158,7 +159,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
   "destination_groups":["10.1.2.30"],
   "services":["/infra/services/Netspoc-tcp_80"],
   "scope":["/infra/tier-0s/v1"],
-  "direction":"OUT"
+  "direction":"OUT",
+  "ip_protocol":"IPV4"
  },{
   "id":"r2",
   "action":"ALLOW",
@@ -167,7 +169,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
   "destination_groups":["10.1.2.40"],
   "services":["/infra/services/Netspoc-udp_123"],
   "scope":["/infra/tier-0s/v1"],
-  "direction":"OUT"
+  "direction":"OUT",
+  "ip_protocol":"IPV4"
  },{
   "id":"r3",
   "action":"DROP",
@@ -176,7 +179,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
   "destination_groups":["ANY"],
   "services":["ANY"],
   "scope":["/infra/tier-0s/v1"],
-  "direction":"OUT"
+  "direction":"OUT",
+  "ip_protocol":"IPV4"
  },{
   "id":"r4",
   "action":"DROP",
@@ -185,7 +189,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
   "destination_groups":["ANY"],
   "services":["ANY"],
   "scope":["/infra/tier-0s/v1"],
-  "direction":"IN"}]}
+  "direction":"IN",
+  "ip_protocol":"IPV4"}]}
 =END=
 
 ############################################################
@@ -240,7 +245,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
  "destination_groups":["10.1.2.40"],
  "services":["/infra/services/Netspoc-udp_123"],
  "scope":["/infra/tier-0s/v1"],
- "direction":"OUT"}
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 =END=
 
 ############################################################
@@ -268,7 +274,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
  "destination_groups":["10.1.2.40"],
  "services":["/infra/services/Netspoc-udp_123"],
  "scope":["/infra/tier-0s/v1"],
- "direction":"OUT"}
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 =END=
 
 ############################################################
@@ -284,13 +291,52 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2-1
 =NETSPOC=[[group_rule]]
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_80
-{"service_entries":[{"destination_ports":["80"],"id":"id","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
+{"service_entries":[{
+  "destination_ports":["80"],
+  "id":"id",
+  "l4_protocol":"TCP",
+  "resource_type":"L4PortSetServiceEntry",
+  "source_ports":[]}]}
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g0
-{"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.1.10","10.1.1.20"]}]}
+{"expression":[{"id":"id",
+ "resource_type":"IPAddressExpression",
+ "ip_addresses":["10.1.1.10","10.1.1.20"]}]}
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
-{"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.2.30","10.1.2.40"]}]}
+{"expression":[{"id":"id",
+ "resource_type":"IPAddressExpression",
+ "ip_addresses":["10.1.2.30","10.1.2.40"]}]}
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
-{"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g0"],"destination_groups":["/infra/domains/default/groups/Netspoc-g1"],"services":["/infra/services/Netspoc-tcp_80"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r2","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"},{"id":"r3","action":"DROP","sequence_number":30,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"IN"}]}
+{"id":"Netspoc-v1",
+ "rules":[{
+  "id":"r1",
+  "action":"ALLOW",
+  "sequence_number":20,
+  "source_groups":["/infra/domains/default/groups/Netspoc-g0"],
+  "destination_groups":["/infra/domains/default/groups/Netspoc-g1"],
+  "services":["/infra/services/Netspoc-tcp_80"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"OUT",
+  "ip_protocol":"IPV4"
+  },{
+  "id":"r2",
+  "action":"DROP",
+  "sequence_number":30,
+  "source_groups":["ANY"],
+  "destination_groups":["ANY"],
+  "services":["ANY"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"OUT",
+  "ip_protocol":"IPV4"
+  },{
+  "id":"r3",
+  "action":"DROP",
+  "sequence_number":30,
+  "source_groups":["ANY"],
+  "destination_groups":["ANY"],
+  "services":["ANY"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"IN",
+  "ip_protocol":"IPV4"}]}
 =END=
 
 ############################################################
@@ -353,7 +399,17 @@ services:
 ]]
 =OUTPUT=
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
-{"id":"Netspoc-v1","rules":[{"id":"r1","action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g8"],"destination_groups":["/infra/domains/default/groups/Netspoc-g9"],"services":["/infra/services/Netspoc-tcp_80"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}]}
+{"id":"Netspoc-v1",
+ "rules":[{
+  "id":"r1",
+  "action":"ALLOW",
+  "sequence_number":20,
+  "source_groups":["/infra/domains/default/groups/Netspoc-g8"],
+  "destination_groups":["/infra/domains/default/groups/Netspoc-g9"],
+  "services":["/infra/services/Netspoc-tcp_80"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"OUT",
+  "ip_protocol":"IPV4"}]}
 =END=
 
 ############################################################
@@ -380,7 +436,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
  "destination_groups":["/infra/domains/default/groups/Netspoc-g1"],
  "services":["/infra/services/Netspoc-udp_123"],
  "scope":["/infra/tier-0s/v1"],
- "direction":"OUT"
+ "direction":"OUT",
+ "ip_protocol":"IPV4"
  }
 =END=
 
@@ -465,7 +522,8 @@ PATCH /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
  "destination_groups":["10.2.1.20"],
  "services":["/infra/services/Netspoc-tcp_80"],
  "scope":["/infra/tier-0s/v1"],
- "direction":"OUT"}
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 =END=
 
 ############################################################
@@ -483,7 +541,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
  "destination_groups":["10.2.1.20"],
  "services":["/infra/services/Netspoc-tcp_80"],
  "scope":["/infra/tier-0s/v1"],
- "direction":"OUT"}
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
 
 =END=
@@ -529,7 +588,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
  "destination_groups":["10.1.2.12"],
  "services":["/infra/services/Netspoc-tcp_80"],
  "scope":["/infra/tier-0s/v1"],
- "direction":"OUT"}
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 =END=
 
 
@@ -577,7 +637,9 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
  "source_groups":["/infra/domains/default/groups/Netspoc-g2-1"],
  "destination_groups":["10.1.2.10"],
  "services":["/infra/services/Netspoc-tcp_90"],
- "scope":["/infra/tier-0s/v1"],"direction":"OUT"}
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 =END=
 
 ############################################################
@@ -615,7 +677,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
  "services":["ANY"],
  "scope":["/infra/tier-0s/v1"],
  "logged":true,
- "direction":"OUT"}
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 =END=
 
 ############################################################
@@ -698,7 +761,14 @@ services:
 ]]
 =OUTPUT=
 PATCH /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r4
-{"action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g0"],"destination_groups":["/infra/domains/default/groups/Netspoc-g1"],"services":["/infra/services/Netspoc-udp_123"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}
+{"action":"ALLOW",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/Netspoc-g0"],
+ "destination_groups":["/infra/domains/default/groups/Netspoc-g1"],
+ "services":["/infra/services/Netspoc-udp_123"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g2
 
 =END=
@@ -725,13 +795,25 @@ rules:
 ]]
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_81
-{"service_entries":[{"destination_ports":["81"],"id":"id","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
+{"service_entries":[{"
+ destination_ports":["81"],
+ "id":"id",
+ "l4_protocol":"TCP",
+ "resource_type":"L4PortSetServiceEntry",
+ "source_ports":[]}]}
 DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
 
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g8
 {"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.1.10","10.1.1.20"]}]}
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
-{"action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g8"],"destination_groups":["10.1.1.1"],"services":["/infra/services/Netspoc-tcp_81"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}
+{"action":"ALLOW",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/Netspoc-g8"],
+ "destination_groups":["10.1.1.1"],
+ "services":["/infra/services/Netspoc-tcp_81"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 DELETE /policy/api/v1/infra/services/Netspoc-tcp_80
 
 DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
@@ -760,13 +842,28 @@ rules:
 ]]
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-tcp_81
-{"service_entries":[{"destination_ports":["81"],"id":"id","l4_protocol":"TCP","resource_type":"L4PortSetServiceEntry","source_ports":[]}]}
+{"service_entries":[{
+ "destination_ports":["81"],
+ "id":"id",
+ "l4_protocol":"TCP",
+ "resource_type":"L4PortSetServiceEntry",
+ "source_ports":[]}]}
 DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1
 
 PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g8
-{"expression":[{"id":"id","resource_type":"IPAddressExpression","ip_addresses":["10.1.1.10","10.1.1.20"]}]}
+{"expression":[{
+ "id":"id",
+ "resource_type":"IPAddressExpression",
+ "ip_addresses":["10.1.1.10","10.1.1.20"]}]}
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r1-1
-{"action":"ALLOW","sequence_number":20,"source_groups":["/infra/domains/default/groups/Netspoc-g8"],"destination_groups":["10.1.1.1"],"services":["/infra/services/Netspoc-tcp_81"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}
+{"action":"ALLOW",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/Netspoc-g8"],
+ "destination_groups":["10.1.1.1"],
+ "services":["/infra/services/Netspoc-tcp_81"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 DELETE /policy/api/v1/infra/services/Netspoc-tcp_80
 
 DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g0
@@ -814,7 +911,8 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r0
  "destination_groups":["/infra/domains/default/groups/Netspoc-g1"],
  "services":["/infra/services/Netspoc-tcp_81"],
  "scope":["/infra/tier-0s/v1"],
- "direction":"OUT"}
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 =END=
 
 ############################################################
@@ -838,5 +936,12 @@ services:
 ]]
 =OUTPUT=
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
-{"action":"DROP","sequence_number":20,"source_groups":["ANY"],"destination_groups":["ANY"],"services":["ANY"],"scope":["/infra/tier-0s/v1"],"direction":"OUT"}
+{"action":"DROP",
+ "sequence_number":20,
+ "source_groups":["ANY"],
+ "destination_groups":["ANY"],
+ "services":["ANY"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
 =END=
