@@ -2,7 +2,7 @@
 {{define "group" -}}
  {{if not . -}}
   ANY
- {{- else if eq 'g' (index . 0) -}}
+ {{- else if or (eq 'g' (index . 0)) (eq 'v' (index . 0)) -}}
   /infra/domains/default/groups/Netspoc-{{.}}
  {{- else -}}
   {{.}}
@@ -944,4 +944,69 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/r2
  "scope":["/infra/tier-0s/v1"],
  "direction":"OUT",
  "ip_protocol":"IPV4"}
+=END=
+
+############################################################
+=TITLE=Merge IPv4 and IPv6
+=DEVICE=
+{}
+=NETSPOC=
+-- router
+[[config
+groups:
+- { id: g0, ip: '10.1.1.20","10.1.1.10' }
+services:
+- [ tcp, 80 ]
+rules:
+- { id: r1, src: g0, dst: 10.1.2.0/24, srv: tcp_80 }
+]]
+-- ipv6/router
+[[config
+groups:
+- { id: v6g0, ip: '::a01:10a","::a01:114' }
+services:
+- [ tcp, 80 ]
+rules:
+- { id: v6r1, src: v6g0, dst: '::a01:200_120', srv: tcp_80, proto: IPV6 }
+]]
+=OUTPUT=
+PUT /policy/api/v1/infra/services/Netspoc-tcp_80
+{"service_entries":[{
+ "destination_ports":["80"],
+ "id":"id",
+ "l4_protocol":"TCP",
+ "resource_type":"L4PortSetServiceEntry",
+ "source_ports":[]}]}
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g0
+{"expression":[{
+ "id":"id",
+ "resource_type":"IPAddressExpression",
+ "ip_addresses":["10.1.1.10","10.1.1.20"]}]}
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-v6g0
+{"expression":[{
+ "id":"id",
+ "resource_type":"IPAddressExpression",
+ "ip_addresses":["::a01:10a","::a01:114"]}]}
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+{"id":"Netspoc-v1",
+ "rules":[{
+  "id":"r1",
+  "action":"ALLOW",
+  "sequence_number":20,
+  "source_groups":["/infra/domains/default/groups/Netspoc-g0"],
+  "destination_groups":["10.1.2.0/24"],
+  "services":["/infra/services/Netspoc-tcp_80"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"OUT",
+  "ip_protocol":"IPV4"
+  },{
+  "id":"v6r1",
+  "action":"ALLOW",
+  "sequence_number":20,
+  "source_groups":["/infra/domains/default/groups/Netspoc-v6g0"],
+  "destination_groups":["::a01:200_120"],
+  "services":["/infra/services/Netspoc-tcp_80"],
+  "scope":["/infra/tier-0s/v1"],
+  "direction":"OUT",
+  "ip_protocol":"IPV6"}]}
 =END=
