@@ -826,8 +826,6 @@ PATCH /policy/api/v1/infra/services/Netspoc-tcp_80
 =TITLE=Change ICMP code and protocol version
 =DEVICE=
 [[config
-rules:
-- { id: r1, src: g0, dst: g1, srv: icmp_8 }
 services:
 - '{
  "id": "Netspoc-icmp_8",
@@ -843,8 +841,6 @@ services:
 ]]
 =NETSPOC=
 [[config
-rules:
-- { id: r1, src: g0, dst: g1, srv: icmp_8 }
 services:
 - '{
  "id": "Netspoc-icmp_8",
@@ -867,6 +863,44 @@ PATCH /policy/api/v1/infra/services/Netspoc-icmp_8
  "id":"id",
  "protocol":"ICMPv4",
  "resource_type":"IcmpTypeServiceEntry"}]}
+=END=
+
+############################################################
+=TITLE=Change IP protocol
+=DEVICE=
+[[config
+services:
+- '{
+ "id": "Netspoc-proto_52",
+ "service_entries": [
+  {
+   "id": "id",
+   "resource_type": "IpProtocolServiceEntry",
+   "protocol_number": 54
+  }
+ ]
+}'
+]]
+=NETSPOC=
+[[config
+services:
+- '{
+ "id": "Netspoc-proto_52",
+ "service_entries": [
+  {
+   "id": "id",
+   "resource_type": "IpProtocolServiceEntry",
+   "protocol_number": 52
+  }
+ ]
+}'
+]]
+=OUTPUT=
+PATCH /policy/api/v1/infra/services/Netspoc-proto_52
+{"service_entries":[{
+ "id":"id",
+ "protocol_number":52,
+ "resource_type":"IpProtocolServiceEntry"}]}
 =END=
 
 ############################################################
