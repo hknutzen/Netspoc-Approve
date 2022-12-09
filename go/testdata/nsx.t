@@ -823,7 +823,7 @@ PATCH /policy/api/v1/infra/services/Netspoc-tcp_80
 =END=
 
 ############################################################
-=TITLE=Change ICMP code
+=TITLE=Change ICMP code and protocol version
 =DEVICE=
 [[config
 rules:
