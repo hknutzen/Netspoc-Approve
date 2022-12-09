@@ -58,8 +58,8 @@ type nsxServiceEntry struct {
 	SourcePorts      []string `json:"source_ports,omitempty"`
 	DestinationPorts []string `json:"destination_ports,omitempty"`
 	ICMPProtocol     string   `json:"protocol"`
-	ICMPType         int      `json:"icmp_type"`
-	ICMPCode         int      `json:"icmp_code"`
+	ICMPType         *int     `json:"icmp_type,omitempty"`
+	ICMPCode         *int     `json:"icmp_code,omitempty"`
 	ProtocolNumber   int      `json:"protocol_number"`
 }
 
