@@ -86,6 +86,7 @@ func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
 		result = jsonMap{
 			"id":            e.Id,
 			"resource_type": e.ResourceType,
+			"protocol":      e.ICMPProtocol,
 			"icmp_type":     e.ICMPType,
 			"icmp_code":     e.ICMPCode,
 		}
