@@ -859,7 +859,7 @@ services:
 =OUTPUT=NONE
 
 ############################################################
-=TITLE=Change ICMP code and protocol version
+=TITLE=Change ICMP code
 =DEVICE=
 [[config
 services:
@@ -869,7 +869,7 @@ services:
   {
    "id": "id",
    "resource_type": "IcmpTypeServiceEntry",
-   "protocol": "ICMPv6",
+   "protocol": "ICMPv4",
    "icmp_type": 8
   }
  ]
@@ -895,6 +895,47 @@ services:
 PATCH /policy/api/v1/infra/services/Netspoc-icmp_8
 {"service_entries":[{
  "icmp_code":0,
+ "icmp_type":8,
+ "id":"id",
+ "protocol":"ICMPv4",
+ "resource_type":"IcmpTypeServiceEntry"}]}
+=END=
+
+############################################################
+=TITLE=Change ICMP protocol version
+=DEVICE=
+[[config
+services:
+- '{
+ "id": "Netspoc-icmp_8",
+ "service_entries": [
+  {
+   "id": "id",
+   "resource_type": "IcmpTypeServiceEntry",
+   "protocol": "ICMPv6",
+   "icmp_type": 8
+  }
+ ]
+}'
+]]
+=NETSPOC=
+[[config
+services:
+- '{
+ "id": "Netspoc-icmp_8",
+ "service_entries": [
+  {
+   "id": "id",
+   "resource_type": "IcmpTypeServiceEntry",
+   "protocol": "ICMPv4",
+   "icmp_type": 8
+  }
+ ]
+}'
+]]
+=OUTPUT=
+PATCH /policy/api/v1/infra/services/Netspoc-icmp_8
+{"service_entries":[{
  "icmp_type":8,
  "id":"id",
  "protocol":"ICMPv4",
