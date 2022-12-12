@@ -823,6 +823,42 @@ PATCH /policy/api/v1/infra/services/Netspoc-tcp_80
 =END=
 
 ############################################################
+=TITLE=Equal ICMP type and code
+=DEVICE=
+[[config
+services:
+- '{
+ "id": "Netspoc-icmp_8",
+ "service_entries": [
+  {
+   "id": "id",
+   "resource_type": "IcmpTypeServiceEntry",
+   "protocol": "ICMPv4",
+   "icmp_type": 8,
+   "icmp_code": 0
+  }
+ ]
+}'
+]]
+=NETSPOC=
+[[config
+services:
+- '{
+ "id": "Netspoc-icmp_8",
+ "service_entries": [
+  {
+   "id": "id",
+   "resource_type": "IcmpTypeServiceEntry",
+   "protocol": "ICMPv4",
+   "icmp_type": 8,
+   "icmp_code": 0
+  }
+ ]
+}'
+]]
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Change ICMP code and protocol version
 =DEVICE=
 [[config
