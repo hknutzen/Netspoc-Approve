@@ -28,10 +28,16 @@ func diffConfig(a, b *NsxConfig) []change {
 
 	var changes []change
 	addNewServices := func() {
-		m := serviceMap(a.Services)
+		ma := serviceMap(a.Services)
+		// To ignore duplicate defined services from IPv4 and IPv6 input
+		mb := make(map[string]bool)
 		for _, sb := range b.Services {
+			if mb[sb.Id] {
+				continue
+			}
+			mb[sb.Id] = true
 			method := "PUT"
-			if sa := m[sb.Id]; sa != nil {
+			if sa := ma[sb.Id]; sa != nil {
 				sa.needed = true
 				ja, _ := json.Marshal(sa)
 				jb, _ := json.Marshal(sb)
