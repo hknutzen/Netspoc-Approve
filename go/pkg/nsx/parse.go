@@ -40,7 +40,7 @@ type nsxGroup struct {
 }
 
 type nsxGroupExpression struct {
-	Id           string   `json:"id"`
+	Id           string   `json:"id,omitempty"`
 	ResourceType string   `json:"resource_type"`
 	IPAddresses  []string `json:"ip_addresses"`
 }

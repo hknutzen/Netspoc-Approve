@@ -352,8 +352,29 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 				result = append(result, change{"POST", url, postData})
 			}
 		}
-		addChange("remove", toRemove)
-		addChange("add", toAdd)
+		// Check if an incremental change is viable.
+		// Be
+		// - D the number of deleted elements
+		// - I the number of inserted elements
+		// - O the old number of elements
+		// - N the new number of elements
+		// N = O - D + I
+		// If number to delete exeeds number of remaining elements send complete list instead
+		d := len(toRemove)
+		i := len(toAdd)
+		o := len(ga.Expression[0].IPAddresses)
+		n := o - d + i
+		if n < d {
+			url := fmt.Sprintf("/policy/api/v1/infra/domains/default/groups/%s/ip-address-expressions/%s",
+				ga.Id, ga.Expression[0].Id)
+			gb.Expression[0].Id = ""
+			postData, _ := json.Marshal(gb.Expression[0])
+			result = append(result, change{"PATCH", url, postData})
+
+		} else {
+			addChange("remove", toRemove)
+			addChange("add", toAdd)
+		}
 	}
 
 	equalize(ra.SourceGroups, rb.SourceGroups)
