@@ -55,11 +55,11 @@ type nsxServiceEntry struct {
 	Id               string   `json:"id"`
 	ResourceType     string   `json:"resource_type"`
 	L4Protocol       string   `json:"l4_protocol"`
-	SourcePorts      []string `json:"source_ports,omitempty"`
-	DestinationPorts []string `json:"destination_ports,omitempty"`
+	SourcePorts      []string `json:"source_ports"`
+	DestinationPorts []string `json:"destination_ports"`
 	ICMPProtocol     string   `json:"protocol"`
-	ICMPType         *int     `json:"icmp_type,omitempty"`
-	ICMPCode         *int     `json:"icmp_code,omitempty"`
+	ICMPType         *int     `json:"icmp_type"`
+	ICMPCode         *int     `json:"icmp_code"`
 	ProtocolNumber   int      `json:"protocol_number"`
 }
 
@@ -87,8 +87,12 @@ func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
 			"id":            e.Id,
 			"resource_type": e.ResourceType,
 			"protocol":      e.ICMPProtocol,
-			"icmp_type":     e.ICMPType,
-			"icmp_code":     e.ICMPCode,
+		}
+		if e.ICMPType != nil {
+			result["icmp_type"] = *e.ICMPType
+		}
+		if e.ICMPCode != nil {
+			result["icmp_code"] = *e.ICMPCode
 		}
 
 	}
