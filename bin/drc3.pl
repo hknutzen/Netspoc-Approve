@@ -45,6 +45,7 @@ my %type2class = (
     ASA     => 'Netspoc::Approve::ASA',
     'NX-OS' => 'Netspoc::Approve::NX_OS',
     'PAN-OS' => 'drc-pan-os',
+    'NSX'    => 'drc-nsx',
 );
 
 ####################################################################
