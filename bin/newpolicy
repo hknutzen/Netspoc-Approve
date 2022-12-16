@@ -1,0 +1,133 @@
+#!/bin/bash
+# newpolicy -- Wrapper script for newpolicy.pl or for suid-newpolicy
+#
+# This script allows multiple users to request a run of newpolicy.pl.
+# It handles parallel calls from multiple users.
+# It starts only a single process of newpolicy.pl,
+# but shows output of running processes to multiple users.
+#
+# https://github.com/hknutzen/Netspoc-Approve
+# (c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+PROG=suid-newpolicy
+POLICYDB=$(get-netspoc-approve-conf netspocdir)
+LOCK=$POLICYDB/LOCK
+CURRENT=$POLICYDB/current
+NEXT=$POLICYDB/next
+LOG=$NEXT/compile.log
+
+# Exists if compile failed and compile.log may be outdated.
+FAILED=$POLICYDB/failed
+
+msg   () { echo $@ >&2; }
+abort () { echo $@ >&2; exit 1; }
+
+[ -n "$(type $PROG)" ] || abort "Can't find command '$PROG'"
+
+# true  (0): all changes from repository have already been processed
+# false (1): SRC isn't up to date
+uptodate () {
+    [ -d $SRC ] || return 1
+
+    # Must use relative pathname for suid-cvs.
+    # Check stdout for changed files.
+    # Check stderr for removed files and for new directories.
+    # Ignore '.cvsrc' to not accidently activate option '-P'.
+    # Ok, if nothing is found.
+    [ -z "$(cd $SRC && cvs -n -q -f update 2>&1)" ]
+}
+
+# Show compile.log as long the file is locked.
+# Ignore error messages, if $LOG already was move from 'next' to 'current'.
+show_log_background () {
+    tail -n 1 -f $LOG 2>/dev/null &
+    TAIL_PID=$!
+    trap 'kill $TAIL_PID' EXIT
+    # If LOCK becomes available, we know that writing has finished.
+    flock -s $LOCK -c true 2>/dev/null
+    # Wait until all lines are read.
+    sleep 0.1
+    kill $TAIL_PID 2>/dev/null &&
+        wait $TAIL_PID 2>/dev/null
+    trap EXIT
+}
+
+wait_log_available () {
+    while ! [ $LOG -nt $FAILED ] ; do sleep 0.1 ; done
+    return
+}
+
+wait_log_short () {
+    [ $LOG -nt $FAILED ] && return 0
+    sleep 0.1
+    [ $LOG -nt $FAILED ] && return 0
+    return 1
+}
+
+# Filehandle "9" is set below at end of this if-clause.
+# Try to get shared lock.
+# Other instances of this script are allowed to get the lock,
+# but newpolicy.pl isn't.
+if flock -n -s 9 ; then
+
+    # We got the lock.
+    # newpolicy.pl isn't running.
+    POLICY=$(basename $(readlink $CURRENT || echo 'unknown'))
+    SRC=$POLICYDB/$POLICY/src
+    if uptodate ; then
+
+        # No pending changes in repository.
+        msg "Newest changeset is already available as current $POLICY"
+        exit
+    fi
+else
+
+    # newpolicy.pl is already running
+    SRC=$POLICYDB/next/src
+    if ! [ -d $SRC/CVS ] || uptodate ; then
+        msg "Newest changeset is currently processed"
+        wait_log_available
+        show_log_background
+        exit
+    else
+        msg "Waiting for current process to be finished"
+
+        # newpolicy.pl is running
+        # Handle three cases:
+        # 1. newpolicy.pl has just been started,
+        #    but compile.log was not just yet created.
+        # 2. newpolicy.pl is running and compile.log is available
+        # 3. newpolicy.pl is almost finished and compile.log is no longer
+        #    available as next/compile.log
+        if wait_log_short ; then
+            show_log_background
+            msg "---"
+        fi
+    fi
+fi 9<$LOCK
+
+# Start newpolicy.pl in background.
+# - Process must not be terminated if this script is killed.
+# - Output must only be shown as long this script is running.
+msg "Processing current changeset"
+$PROG </dev/null >/dev/null 2>&1 &
+
+# Show logs of newpolicy.pl, which was either startet freshly or
+# has just been started by some other process.
+wait_log_available
+show_log_background

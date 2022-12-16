@@ -1,0 +1,54 @@
+# Configuration file for netspoc-approve
+# Install in one of these locations:
+# - /etc/netspoc-approve
+# - /usr/local/etc/netspoc-approve
+# - ~/.netspoc-approve
+# Only the most specific file is used.
+# Syntax: key = value
+
+# Directory, where generated device configuration is searched.
+# The directory is assumed to have this content
+# - current, a symbilc link to a subdirectory named pnnnn
+# - pnnnn, a subdirectory
+# - pnnnn/code, contains one file for each device
+netspocdir  = /home/diamonds/netspoc
+
+# Directory where lockfiles are created which prevent
+# concurrent access to a device.
+lockfiledir = /home/diamonds/lock
+
+# Optional
+
+# A string or regular expression.
+# The banner of a Cisco device is checked if it contains such a substring.
+# This is used to enable or lock the use of Netspoc-Approve
+# for a specific device.
+checkbanner = NetSPoC
+
+# If approve is run by this user,
+# read the password from file given in aaa_credentials
+systemuser  = diamonds
+
+# Password file for systemuser.
+# Found credentials are used to automatically login via ssh.
+aaa_credentials = /home/diamonds/.aaa_credentials
+
+# Create a status file for each approved or compared device.
+# Format:
+statusdir   = /home/diamonds/status
+
+# Create a log file for each approved or compared device.
+historydir  = /home/diamonds/history
+
+# Timeout in seconds during established session
+#timeout = 500
+
+# Timeout in seconds when establishing new session to device.
+#login_timeout = 10
+
+# Delete policy directories in netspocdir, historydir, statusdir
+# after this many days.
+# keep_history = 365
+
+# Compress files in netspocdir after this many days.
+# compress_at = 4
