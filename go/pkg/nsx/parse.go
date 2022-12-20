@@ -68,7 +68,7 @@ type jsonMap map[string]interface{}
 func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
 	var result jsonMap
 	switch e.ResourceType {
-	case "IpProtocolServiceEntry":
+	case "IPProtocolServiceEntry":
 		result = jsonMap{
 			"id":              e.Id,
 			"resource_type":   e.ResourceType,
@@ -82,7 +82,7 @@ func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
 			"source_ports":      e.SourcePorts,
 			"destination_ports": e.DestinationPorts,
 		}
-	case "IcmpTypeServiceEntry":
+	case "ICMPTypeServiceEntry":
 		result = jsonMap{
 			"id":            e.Id,
 			"resource_type": e.ResourceType,
