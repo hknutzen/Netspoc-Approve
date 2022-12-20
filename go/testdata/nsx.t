@@ -832,7 +832,7 @@ services:
  "service_entries": [
   {
    "id": "id",
-   "resource_type": "IcmpTypeServiceEntry",
+   "resource_type": "ICMPTypeServiceEntry",
    "protocol": "ICMPv4",
    "icmp_type": 8,
    "icmp_code": 0
@@ -848,7 +848,7 @@ services:
  "service_entries": [
   {
    "id": "id",
-   "resource_type": "IcmpTypeServiceEntry",
+   "resource_type": "ICMPTypeServiceEntry",
    "protocol": "ICMPv4",
    "icmp_type": 8,
    "icmp_code": 0
@@ -868,7 +868,7 @@ services:
  "service_entries": [
   {
    "id": "id",
-   "resource_type": "IcmpTypeServiceEntry",
+   "resource_type": "ICMPTypeServiceEntry",
    "protocol": "ICMPv4",
    "icmp_type": 8
   }
@@ -883,7 +883,7 @@ services:
  "service_entries": [
   {
    "id": "id",
-   "resource_type": "IcmpTypeServiceEntry",
+   "resource_type": "ICMPTypeServiceEntry",
    "protocol": "ICMPv4",
    "icmp_type": 8,
    "icmp_code": 0
@@ -898,7 +898,7 @@ PATCH /policy/api/v1/infra/services/Netspoc-icmp_8
  "icmp_type":8,
  "id":"id",
  "protocol":"ICMPv4",
- "resource_type":"IcmpTypeServiceEntry"}]}
+ "resource_type":"ICMPTypeServiceEntry"}]}
 =END=
 
 ############################################################
@@ -911,7 +911,7 @@ services:
  "service_entries": [
   {
    "id": "id",
-   "resource_type": "IcmpTypeServiceEntry",
+   "resource_type": "ICMPTypeServiceEntry",
    "protocol": "ICMPv6",
    "icmp_type": 8
   }
@@ -926,7 +926,7 @@ services:
  "service_entries": [
   {
    "id": "id",
-   "resource_type": "IcmpTypeServiceEntry",
+   "resource_type": "ICMPTypeServiceEntry",
    "protocol": "ICMPv4",
    "icmp_type": 8
   }
@@ -939,7 +939,7 @@ PATCH /policy/api/v1/infra/services/Netspoc-icmp_8
  "icmp_type":8,
  "id":"id",
  "protocol":"ICMPv4",
- "resource_type":"IcmpTypeServiceEntry"}]}
+ "resource_type":"ICMPTypeServiceEntry"}]}
 =END=
 
 ############################################################
@@ -952,7 +952,7 @@ services:
  "service_entries": [
   {
    "id": "id",
-   "resource_type": "IpProtocolServiceEntry",
+   "resource_type": "IPProtocolServiceEntry",
    "protocol_number": 54
   }
  ]
@@ -966,7 +966,7 @@ services:
  "service_entries": [
   {
    "id": "id",
-   "resource_type": "IpProtocolServiceEntry",
+   "resource_type": "IPProtocolServiceEntry",
    "protocol_number": 52
   }
  ]
@@ -977,7 +977,7 @@ PATCH /policy/api/v1/infra/services/Netspoc-proto_52
 {"service_entries":[{
  "id":"id",
  "protocol_number":52,
- "resource_type":"IpProtocolServiceEntry"}]}
+ "resource_type":"IPProtocolServiceEntry"}]}
 =END=
 
 ############################################################
@@ -1257,4 +1257,28 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
   "scope":["/infra/tier-0s/v1"],
   "direction":"OUT",
   "ip_protocol":"IPV6"}]}
+=END=
+
+############################################################
+=TITLE=Add ICMP Service
+=DEVICE=
+{}
+=NETSPOC=
+{
+ "services": [
+  {
+   "id": "Netspoc-icmp",
+   "service_entries": [
+    {
+     "id": "id",
+     "protocol": "ICMPv4",
+     "resource_type": "ICMPTypeServiceEntry"
+    }
+   ]
+  }
+  ]
+}
+=OUTPUT=
+PUT /policy/api/v1/infra/services/Netspoc-icmp
+{"service_entries":[{"id":"id","protocol":"ICMPv4","resource_type":"ICMPTypeServiceEntry"}]}
 =END=
