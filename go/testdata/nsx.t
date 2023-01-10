@@ -40,6 +40,8 @@
  "resource_type": "Rule",
  "id": "{{.id}}",
  {{with .logged}}"logged": {{.}},{{end}}
+ {{with .disabled}}"disabled": {{.}},{{end}}
+ {{with .tag}}"tag": "{{.}}",{{end}}
  "scope": [ "/infra/tier-0s/v1" ],
  "direction": "{{or .dir "OUT"}}",
  "ip_protocol": "{{or .proto "IPV4"}}",
@@ -754,7 +756,7 @@ ERROR>>> Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
 -- router.raw
 [[config
 rules:
-- { id: raw2, act: DROP, seq: 25, logged: true }
+- { id: raw2, act: DROP, seq: 25, logged: true, tag: "testtag", disabled: true }
 services:
 - [tcp, 80]
 ]]
@@ -766,7 +768,9 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
  "destination_groups":["ANY"],
  "services":["ANY"],
  "scope":["/infra/tier-0s/v1"],
+ "disabled":true,
  "logged":true,
+ "tag":"testtag",
  "direction":"OUT",
  "ip_protocol":"IPV4"}
 =END=

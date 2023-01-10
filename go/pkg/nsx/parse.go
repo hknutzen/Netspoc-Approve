@@ -26,6 +26,7 @@ type nsxRule struct {
 	Scope                []string        `json:"scope"`
 	Disabled             bool            `json:"disabled,omitempty"`
 	Logged               bool            `json:"logged,omitempty"`
+	Tag                  string          `json:"tag,omitempty"`
 	Direction            string          `json:"direction"`
 	IPProtocol           string          `json:"ip_protocol,omitempty"`
 	Revision             int             `json:"_revision,omitempty"`

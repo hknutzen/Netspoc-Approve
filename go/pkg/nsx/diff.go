@@ -176,6 +176,7 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		a.SequenceNumber == b.SequenceNumber &&
 		a.Action == b.Action &&
 		a.Logged == b.Logged &&
+		a.Tag == b.Tag &&
 		a.Disabled == b.Disabled &&
 		a.DestinationsExcluded == b.DestinationsExcluded &&
 		a.SourcesExcluded == b.SourcesExcluded &&
@@ -413,6 +414,9 @@ func sortRules(l []*nsxRule, m map[string]*nsxGroup) {
 		}
 		if l[i].Logged != l[j].Logged {
 			return l[i].Logged
+		}
+		if l[i].Tag != l[j].Tag {
+			return l[i].Tag < l[j].Tag
 		}
 		if l[i].Disabled != l[j].Disabled {
 			return l[i].Disabled
