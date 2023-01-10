@@ -42,6 +42,7 @@
  {{with .logged}}"logged": {{.}},{{end}}
  {{with .disabled}}"disabled": {{.}},{{end}}
  {{with .tag}}"tag": "{{.}}",{{end}}
+ {{with .unknownattribute}}"unknownattribute": "{{.}}",{{end}}
  "scope": [ "/infra/tier-0s/v1" ],
  "direction": "{{or .dir "OUT"}}",
  "ip_protocol": "{{or .proto "IPV4"}}",
@@ -771,6 +772,32 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
  "disabled":true,
  "logged":true,
  "tag":"testtag",
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
+=END=
+
+############################################################
+=TITLE=Ignore unknown attribute
+=DEVICE=
+[[one_rule]]
+=NETSPOC=
+-- router
+[[one_rule]]
+-- router.raw
+[[config
+rules:
+- { id: raw, unknownattribute: "testattribute"}
+services:
+- [tcp, 80]
+]]
+=OUTPUT=
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
+{"action":"ALLOW",
+ "sequence_number":20,
+ "source_groups":["ANY"],
+ "destination_groups":["ANY"],
+ "services":["ANY"],
+ "scope":["/infra/tier-0s/v1"],
  "direction":"OUT",
  "ip_protocol":"IPV4"}
 =END=
