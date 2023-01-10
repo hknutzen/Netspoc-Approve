@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
@@ -137,14 +136,19 @@ func checkConfigValidity(c *NsxConfig) error {
 }
 
 func removeHeader(data []byte) []byte {
-	// When comparing log/*.config file, remove URL.
-	if bytes.HasPrefix(data, []byte("http")) {
-		i := bytes.IndexByte(data, byte('\n'))
-		return data[i+1:]
-	}
 	if bytes.HasPrefix(data, []byte("Generated")) {
 		i := bytes.IndexByte(data, byte('{'))
 		return data[i:]
 	}
-	return data
+	for {
+		if bytes.HasPrefix(data, []byte("#")) {
+			i := bytes.IndexByte(data, byte('\n'))
+			if i == -1 {
+				return data[len(data):]
+			}
+			data = data[i+1:]
+		} else {
+			return data
+		}
+	}
 }

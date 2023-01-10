@@ -34,7 +34,7 @@ func (s *State) LoadDevice(
 ) (device.DeviceConfig, error) {
 
 	prefix := fmt.Sprintf("https://%s", ip)
-	device.DoLog(logFH, prefix)
+	device.DoLog(logFH, "#"+prefix)
 	s.client = client
 	s.prefix = prefix
 	jar, err := cookiejar.New(nil)
