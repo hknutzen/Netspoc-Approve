@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+3.010     2023-01-11 11:24:17+01:00 Europe/Berlin
+
+ - NSX: Support attribute "tag" in rules for logging purpose.
+
 3.009     2022-12-20 13:53:26+01:00 Europe/Berlin
 
  - Fixed NSX: ICMPTypeServiceEntry and IPProtocolServiceEntry
