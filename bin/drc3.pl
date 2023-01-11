@@ -35,7 +35,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '3.007'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '3.010'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -45,6 +45,7 @@ my %type2class = (
     ASA     => 'Netspoc::Approve::ASA',
     'NX-OS' => 'Netspoc::Approve::NX_OS',
     'PAN-OS' => 'drc-pan-os',
+    'NSX'    => 'drc-nsx',
 );
 
 ####################################################################

@@ -1,3 +1,15 @@
+3.010     2023-01-11 11:24:17+01:00 Europe/Berlin
+
+ - NSX: Support attribute "tag" in rules for logging purpose.
+
+3.009     2022-12-20 13:53:26+01:00 Europe/Berlin
+
+ - Fixed NSX: ICMPTypeServiceEntry and IPProtocolServiceEntry
+
+3.008     2022-12-16 11:27:11+01:00 Europe/Berlin
+
+ - Added support for NSX Tier 0 & Tier 1 gateways
+
 3.007     2022-12-06 13:18:46+01:00 Europe/Berlin
 
  - Fix PAN-OS: No longer show 'device changed' on unchanged device.
