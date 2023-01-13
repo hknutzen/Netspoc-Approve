@@ -188,12 +188,11 @@ type panService struct {
 }
 
 type panServiceGroup struct {
-	XMLName      xml.Name  `xml:"entry"`
-	Name         string    `xml:"name,attr"`
-	Members      []string  `xml:"members>member"`
-	Unknown      OtherAttr `xml:",any"`
-	needed       bool
-	nameOnDevice string
+	XMLName xml.Name  `xml:"entry"`
+	Name    string    `xml:"name,attr"`
+	Members []string  `xml:"members>member"`
+	Unknown OtherAttr `xml:",any"`
+	needed  bool
 }
 
 type panProtocol struct {

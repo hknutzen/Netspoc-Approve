@@ -1399,6 +1399,46 @@ action=delete&type=config&
 =END=
 
 ############################################################
+=TITLE=Recognize service-group as unchanged
+=DEVICE=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [test]
+]]
+[[services
+- {proto: tcp, port: 80}
+- {proto: tcp, port: 443}
+]]
+[[service_groups
+- {name: test, members: [tcp 80, tcp 443]}
+]]
+[[postfix]]
+=NETSPOC=
+[[prefix vsys2]]
+[[rules
+- name: r1
+  from: z1
+  to:   z2
+  src: [any]
+  dst: [any]
+  srv: [test]
+]]
+[[services
+- {proto: tcp, port: 80}
+- {proto: tcp, port: 443}
+]]
+[[service_groups
+- {name: test, members: [tcp 80, tcp 443]}
+]]
+[[postfix]]
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Edit address definition
 =DEVICE=
 [[prefix vsys2]]
