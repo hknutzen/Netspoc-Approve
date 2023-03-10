@@ -190,7 +190,7 @@ func (s *State) ShowChanges() string {
 	return collect.String()
 }
 
-func (s *State) ApplyCommands(cl *http.Client, logFh *os.File) error {
+func (s *State) ApplyCommands(logFh *os.File) error {
 	for _, c := range s.changes {
 		device.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
 		device.DoLog(logFh, "DATA: "+string(c.postData))

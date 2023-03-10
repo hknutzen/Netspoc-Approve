@@ -20,7 +20,7 @@ type RealDevice interface {
 	LoadDevice(n, i, u, p string, c *http.Client, l *os.File) (DeviceConfig, error)
 	ParseConfig(data []byte) (DeviceConfig, error)
 	GetChanges(c1, c2 DeviceConfig) ([]error, error)
-	ApplyCommands(*http.Client, *os.File) error
+	ApplyCommands(*os.File) error
 	HasChanges() bool
 	ShowChanges() string
 }
@@ -33,11 +33,10 @@ type DeviceConfig interface {
 
 type state struct {
 	RealDevice
-	config     *Config
-	httpClient *http.Client
-	logPath    string
-	quiet      bool
-	devName    string
+	config  *Config
+	logPath string
+	quiet   bool
+	devName string
 }
 
 func Main(device RealDevice) int {
@@ -157,7 +156,6 @@ func (s *state) loadDevice(path string) (DeviceConfig, error) {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
-	s.httpClient = client
 	for i, name := range nameList {
 		s.devName = name
 		ip := ipList[i]
@@ -190,8 +188,7 @@ func (s *state) applyCommands() error {
 	if !s.HasChanges() {
 		DoLog(logFH, "No changes applied")
 	}
-	client := s.httpClient
-	return s.ApplyCommands(client, logFH)
+	return s.ApplyCommands(logFH)
 }
 
 func (s *state) showCompare(conf1 DeviceConfig, path string) error {

@@ -15,6 +15,7 @@ import (
 )
 
 type State struct {
+	client    *http.Client
 	devUser   string
 	urlPrefix string
 	changes   []change
@@ -66,6 +67,7 @@ func (s *State) LoadDevice(
 		return nil, err
 	}
 	prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
+	s.client = client
 	s.devUser = user
 	s.urlPrefix = prefix
 	// Use "get", not "show", to get candidate configuration.
@@ -137,11 +139,11 @@ func vsysOK(v *panVsys) error {
 	return nil
 }
 
-func (s *State) ApplyCommands(client *http.Client, logFH *os.File) error {
+func (s *State) ApplyCommands(logFH *os.File) error {
 	doCmd := func(cmd string) (string, []byte, error) {
 		uri := s.urlPrefix + cmd
 		device.DoLog(logFH, cmd)
-		resp, err := client.Get(uri)
+		resp, err := s.client.Get(uri)
 		if err != nil {
 			return "", nil, err
 		}
