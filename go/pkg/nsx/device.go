@@ -29,12 +29,13 @@ type change struct {
 
 func (s *State) LoadDevice(
 	name, ip, user, pass string,
-	client *http.Client,
+	cfg *device.Config,
 	logFH *os.File,
 ) (device.DeviceConfig, error) {
 
 	prefix := fmt.Sprintf("https://%s", ip)
 	device.DoLog(logFH, "#"+prefix)
+	client := device.GetHTTPClient(cfg)
 	s.client = client
 	s.prefix = prefix
 	jar, err := cookiejar.New(nil)

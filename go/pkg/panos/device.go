@@ -58,10 +58,11 @@ func getAPIKey(ip, user, pass string, client *http.Client) (string, error) {
 
 func (s *State) LoadDevice(
 	name, ip, user, pass string,
-	client *http.Client,
+	cfg *device.Config,
 	logFH *os.File,
 ) (device.DeviceConfig, error) {
 
+	client := device.GetHTTPClient(cfg)
 	key, err := getAPIKey(ip, user, pass, client)
 	if err != nil {
 		return nil, err

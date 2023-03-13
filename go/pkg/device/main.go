@@ -17,7 +17,7 @@ import (
 )
 
 type RealDevice interface {
-	LoadDevice(n, i, u, p string, c *http.Client, l *os.File) (DeviceConfig, error)
+	LoadDevice(n, i, u, p string, c *Config, l *os.File) (DeviceConfig, error)
 	ParseConfig(data []byte) (DeviceConfig, error)
 	GetChanges(c1, c2 DeviceConfig) ([]error, error)
 	ApplyCommands(*os.File) error
@@ -145,17 +145,6 @@ func (s *state) loadDevice(path string) (DeviceConfig, error) {
 		return nil, err
 	}
 	defer closeLogFH(logFH)
-	var client = &http.Client{
-		Timeout: time.Duration(s.config.Timeout) * time.Second,
-		Transport: &http.Transport{
-			Dial: (&net.Dialer{
-				// Set low connection timeout, so we can better switch to
-				// backup device.
-				Timeout: time.Duration(s.config.LoginTimeout) * time.Second,
-			}).Dial,
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
 	for i, name := range nameList {
 		s.devName = name
 		ip := ipList[i]
@@ -163,7 +152,7 @@ func (s *state) loadDevice(path string) (DeviceConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		conf, err := s.LoadDevice(name, ip, user, pass, client, logFH)
+		conf, err := s.LoadDevice(name, ip, user, pass, s.config, logFH)
 		if err != nil {
 			var urlErr *url.Error
 			if errors.As(err, &urlErr) {
@@ -358,5 +347,19 @@ func DoLog(fh *os.File, t string) {
 			t, _ = url.QueryUnescape(t)
 		}
 		fmt.Fprintln(fh, t)
+	}
+}
+
+func GetHTTPClient(cfg *Config) *http.Client {
+	return &http.Client{
+		Timeout: time.Duration(cfg.Timeout) * time.Second,
+		Transport: &http.Transport{
+			Dial: (&net.Dialer{
+				// Set low connection timeout, so we can better switch to
+				// backup device.
+				Timeout: time.Duration(cfg.LoginTimeout) * time.Second,
+			}).Dial,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
 	}
 }
