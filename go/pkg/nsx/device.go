@@ -80,7 +80,6 @@ func (s *State) LoadDevice(
 			continue
 		}
 		data, err := s.sendRequest("GET", path+"/"+result.Id, nil)
-		//data, err := s.getRawJSON(path+"/"+result.Id, logFH)
 		if err != nil {
 			return nil, err
 		}
@@ -126,6 +125,9 @@ func (s *State) getRawJSON(path string, logFH *os.File) ([]json.RawMessage, erro
 			return nil, err
 		}
 		err = json.Unmarshal(out, &results)
+		if err != nil {
+			return nil, err
+		}
 		for _, result := range results.Results {
 			err = json.Unmarshal(result, &id)
 			if err != nil {
