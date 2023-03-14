@@ -17,7 +17,7 @@ import (
 )
 
 type RealDevice interface {
-	LoadDevice(n, i, u, p string, c *Config, l *os.File) (DeviceConfig, error)
+	LoadDevice(path string, c *Config, l *os.File) (DeviceConfig, error)
 	ParseConfig(data []byte) (DeviceConfig, error)
 	GetChanges(c1, c2 DeviceConfig) ([]error, error)
 	ApplyCommands(*os.File) error
@@ -27,7 +27,8 @@ type RealDevice interface {
 
 type DeviceConfig interface {
 	MergeSpoc(DeviceConfig) DeviceConfig
-	CheckDeviceName(string) error
+	SetExpectedDeviceName(string)
+	CheckDeviceName() error
 	CheckRulesFromRaw() error
 }
 
@@ -36,7 +37,6 @@ type state struct {
 	config  *Config
 	logPath string
 	quiet   bool
-	devName string
 }
 
 func Main(device RealDevice) int {
@@ -136,36 +136,12 @@ func (s *state) approve(path string) error {
 }
 
 func (s *state) loadDevice(path string) (DeviceConfig, error) {
-	nameList, ipList, err := getHostnameIPList(path)
-	if err != nil {
-		return nil, err
-	}
 	logFH, err := s.getLogFH(".config")
 	if err != nil {
 		return nil, err
 	}
 	defer closeLogFH(logFH)
-	for i, name := range nameList {
-		s.devName = name
-		ip := ipList[i]
-		user, pass, err := s.config.GetAAAPassword(name)
-		if err != nil {
-			return nil, err
-		}
-		conf, err := s.LoadDevice(name, ip, user, pass, s.config, logFH)
-		if err != nil {
-			var urlErr *url.Error
-			if errors.As(err, &urlErr) {
-				if urlErr.Timeout() {
-					continue
-				}
-			}
-			return nil, err
-		}
-		return conf, nil
-	}
-	return nil, fmt.Errorf(
-		"Devices unreachable: %s", strings.Join(nameList, ", "))
+	return s.LoadDevice(path, s.config, logFH)
 }
 
 func (s *state) applyCommands() error {
@@ -225,13 +201,11 @@ func (s *state) getCompare(c1 DeviceConfig, path string, chk warnOrErr) error {
 		}
 	}
 	// Check hostname only after config has been validated in GetChanges.
-	if s.devName != "" {
-		if err := c1.CheckDeviceName(s.devName); err != nil {
-			if chk == errT {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", err)
+	if err := c1.CheckDeviceName(); err != nil {
+		if chk == errT {
+			return err
 		}
+		fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", err)
 	}
 	return nil
 }
@@ -362,4 +336,38 @@ func GetHTTPClient(cfg *Config) *http.Client {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
+}
+
+func TryReachableHTTPLoad(
+	path string,
+	cfg *Config,
+	logFH *os.File,
+	load func(name, ip, user, pass string, logFH *os.File) (DeviceConfig, error),
+) (DeviceConfig, error) {
+
+	nameList, ipList, err := getHostnameIPList(path)
+	if err != nil {
+		return nil, err
+	}
+	for i, name := range nameList {
+		ip := ipList[i]
+		user, pass, err := cfg.GetAAAPassword(name)
+		if err != nil {
+			return nil, err
+		}
+		conf, err := load(name, ip, user, pass, logFH)
+		if err != nil {
+			var urlErr *url.Error
+			if errors.As(err, &urlErr) {
+				if urlErr.Timeout() {
+					continue
+				}
+			}
+			return nil, err
+		}
+		conf.SetExpectedDeviceName(name)
+		return conf, nil
+	}
+	return nil, fmt.Errorf(
+		"Devices unreachable: %s", strings.Join(nameList, ", "))
 }

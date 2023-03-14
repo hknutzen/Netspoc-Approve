@@ -2,8 +2,9 @@ package nsx
 
 import (
 	"fmt"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"regexp"
+
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
 func (n1 *NsxConfig) MergeSpoc(c2 device.DeviceConfig) device.DeviceConfig {
@@ -27,9 +28,8 @@ POLICY:
 	return n1
 }
 
-func (n *NsxConfig) CheckDeviceName(name string) error {
-	return nil
-}
+func (c *NsxConfig) SetExpectedDeviceName(name string) {}
+func (n *NsxConfig) CheckDeviceName() error            { return nil }
 
 func (n *NsxConfig) CheckRulesFromRaw() error {
 	if n == nil || n.Policies == nil {

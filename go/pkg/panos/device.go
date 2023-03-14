@@ -56,48 +56,50 @@ func getAPIKey(ip, user, pass string, client *http.Client) (string, error) {
 	return parseAPIKey(body)
 }
 
-func (s *State) LoadDevice(
-	name, ip, user, pass string,
-	cfg *device.Config,
-	logFH *os.File,
-) (device.DeviceConfig, error) {
+func (s *State) LoadDevice(path string, cfg *device.Config, logFH *os.File) (
+	device.DeviceConfig, error) {
 
-	client := device.GetHTTPClient(cfg)
-	key, err := getAPIKey(ip, user, pass, client)
-	if err != nil {
-		return nil, err
-	}
-	prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
-	s.client = client
-	s.devUser = user
-	s.urlPrefix = prefix
-	// Use "get", not "show", to get candidate configuration.
-	// Must not use active configuration, since candidate may have
-	// been changed already by other user or by interrupted previous
-	// run of this program.
-	// Don't request full "config", but only "devices" part, since
-	// config contains very large predefined application data.
-	uri := prefix + "type=config&action=get&xpath=/config/devices"
-	device.DoLog(logFH, uri)
-	resp, err := client.Get(uri)
-	if err != nil {
-		return nil, err
-	}
-	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	device.DoLog(logFH, string(body))
+	return device.TryReachableHTTPLoad(path, cfg, logFH,
+		func(name, ip, user, pass string, logFH *os.File) (
+			device.DeviceConfig, error) {
 
-	if resp.StatusCode != http.StatusOK {
-		msg := fmt.Sprintf("status code: %d", resp.StatusCode)
-		if len(body) != 0 {
-			msg += "\n" + string(body)
-		}
-		return nil, errors.New(msg)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return parseResponseConfig(body)
+			client := device.GetHTTPClient(cfg)
+			key, err := getAPIKey(ip, user, pass, client)
+			if err != nil {
+				return nil, err
+			}
+			prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
+			s.client = client
+			s.devUser = user
+			s.urlPrefix = prefix
+			// Use "get", not "show", to get candidate configuration.
+			// Must not use active configuration, since candidate may have
+			// been changed already by other user or by interrupted previous
+			// run of this program.
+			// Don't request full "config", but only "devices" part, since
+			// config contains very large predefined application data.
+			uri := prefix + "type=config&action=get&xpath=/config/devices"
+			device.DoLog(logFH, uri)
+			resp, err := client.Get(uri)
+			if err != nil {
+				return nil, err
+			}
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			device.DoLog(logFH, string(body))
+
+			if resp.StatusCode != http.StatusOK {
+				msg := fmt.Sprintf("status code: %d", resp.StatusCode)
+				if len(body) != 0 {
+					msg += "\n" + string(body)
+				}
+				return nil, errors.New(msg)
+			}
+			if err != nil {
+				return nil, err
+			}
+			return parseResponseConfig(body)
+		})
 }
 
 func (s *State) GetChanges(

@@ -87,9 +87,10 @@ type PanResultDevices struct {
 }
 
 type PanConfig struct {
-	XMLName xml.Name    `xml:"config"`
-	Devices *panDevices `xml:"devices"`
-	origin  string
+	XMLName      xml.Name    `xml:"config"`
+	Devices      *panDevices `xml:"devices"`
+	expectedName string
+	origin       string
 }
 
 type panDevices struct {
