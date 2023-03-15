@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,7 +26,55 @@ type change struct {
 	Cmds []string
 }
 
-func getAPIKey(ip, user, pass string, client *http.Client) (string, error) {
+func (s *State) LoadDevice(
+	path string, cfg *device.Config, logLogin, logConfig *os.File) (
+	device.DeviceConfig, error) {
+
+	devName := ""
+	err := device.TryReachableHTTPLogin(path, cfg,
+		func(name, ip, user, pass string) error {
+			s.client = device.GetHTTPClient(cfg)
+			s.devUser = user
+			key, err := s.getAPIKey(ip, user, pass, logLogin)
+			if err != nil {
+				return err
+			}
+			prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
+			s.urlPrefix = prefix
+			if !s.checkHA(logLogin) {
+				return device.NotActiveError
+			}
+			devName = name
+			return nil
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	// Use "get", not "show", to get candidate configuration.
+	// Must not use active configuration, since candidate may have
+	// been changed already by other user or by interrupted previous
+	// run of this program.
+	// Don't request full "config", but only "devices" part, since
+	// config contains very large predefined application data.
+	uri := s.urlPrefix + "type=config&action=get&xpath=/config/devices"
+	device.DoLog(logConfig, uri)
+	body, err := s.httpGet(uri)
+	device.DoLog(logConfig, string(body))
+	if err != nil {
+		return nil, err
+	}
+	config, err := parseResponseConfig(body)
+	if err != nil {
+		err = fmt.Errorf("While reading device: %v", err)
+	}
+	config.SetExpectedDeviceName(devName)
+	return config, err
+}
+
+func (s *State) getAPIKey(ip, user, pass string, logFH *os.File) (
+	string, error) {
+
 	base, err := url.Parse("https://" + string(ip))
 	if err != nil {
 		return "", err
@@ -34,72 +83,75 @@ func getAPIKey(ip, user, pass string, client *http.Client) (string, error) {
 	params := url.Values{}
 	params.Add("type", "keygen")
 	params.Add("user", user)
+	// Fake password is logged.
+	params.Add("password", "***")
+	base.RawQuery = params.Encode()
+	loggedURI := base.String()
+	device.DoLog(logFH, loggedURI)
+	// Real password is sent to device.
 	params.Add("password", pass)
 	base.RawQuery = params.Encode()
 	uri := base.String()
-	resp, err := client.Get(uri)
+	body, err := s.httpGet(uri)
+	keyRE := regexp.MustCompile(`<key>.*</key>`)
+	loggedBody := keyRE.ReplaceAllLiteralString(string(body), "<key>***</key>")
+	device.DoLog(logFH, loggedBody)
 	if err != nil {
-		return "", err
-	}
-	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		msg := fmt.Sprintf("API key status code: %d", resp.StatusCode)
-		if len(body) != 0 {
-			msg += "\n" + string(body)
-		}
-		return "", errors.New(msg)
-	}
-	if err != nil {
-		return "", err
+		return "", fmt.Errorf("API key %w", err)
 	}
 	return parseAPIKey(body)
 }
 
-func (s *State) LoadDevice(path string, cfg *device.Config, logFH *os.File) (
-	device.DeviceConfig, error) {
-
-	return device.TryReachableHTTPLoad(path, cfg, logFH,
-		func(name, ip, user, pass string, logFH *os.File) (
-			device.DeviceConfig, error) {
-
-			client := device.GetHTTPClient(cfg)
-			key, err := getAPIKey(ip, user, pass, client)
-			if err != nil {
-				return nil, err
-			}
-			prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
-			s.client = client
-			s.devUser = user
-			s.urlPrefix = prefix
-			// Use "get", not "show", to get candidate configuration.
-			// Must not use active configuration, since candidate may have
-			// been changed already by other user or by interrupted previous
-			// run of this program.
-			// Don't request full "config", but only "devices" part, since
-			// config contains very large predefined application data.
-			uri := prefix + "type=config&action=get&xpath=/config/devices"
-			device.DoLog(logFH, uri)
-			resp, err := client.Get(uri)
-			if err != nil {
-				return nil, err
-			}
-			body, err := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			device.DoLog(logFH, string(body))
-
-			if resp.StatusCode != http.StatusOK {
-				msg := fmt.Sprintf("status code: %d", resp.StatusCode)
-				if len(body) != 0 {
-					msg += "\n" + string(body)
-				}
-				return nil, errors.New(msg)
-			}
-			if err != nil {
-				return nil, err
-			}
-			return parseResponseConfig(body)
-		})
+// Check if high-availability is enabled and device is in <state>
+// - "active" for <mode>Active-Passive</mode>
+// - "active-primary" for <mode>Active-Active</mode>
+/*
+// <response status="success">
+//	 <result>
+//	  <enabled>yes</enabled>
+//	  <group>
+//	   <mode>Active-Passive</mode>
+//	   <local-info>
+//	    <state>active</state>
+//	   </local-info>
+//	  </group>
+//	 </result>
+// </response>
+*/
+// Result is true if HA not enabled or if enabled and active.
+func (s *State) checkHA(logFH *os.File) bool {
+	uri := s.urlPrefix + "type=op&" +
+		"cmd=<show><high-availability><state/></high-availability></show>"
+	device.DoLog(logFH, uri)
+	body, err := s.httpGet(uri)
+	device.DoLog(logFH, string(body))
+	if err != nil {
+		return false
+	}
+	_, data, err := parseResponse(body)
+	if err != nil {
+		return false
+	}
+	type haState struct {
+		Enabled string `xml:"enabled"`
+		Mode    string `xml:"group>mode"`
+		State   string `xml:"group>local-info>state"`
+	}
+	ha := new(haState)
+	err = xml.Unmarshal(data, ha)
+	if err != nil {
+		return false
+	}
+	if ha.Enabled != "yes" {
+		return true
+	}
+	switch ha.Mode {
+	case "Active-Passive":
+		return ha.State == "active"
+	case "Active-Active":
+		return ha.State == "active-primary"
+	}
+	return false
 }
 
 func (s *State) GetChanges(
@@ -146,17 +198,8 @@ func (s *State) ApplyCommands(logFH *os.File) error {
 	doCmd := func(cmd string) (string, []byte, error) {
 		uri := s.urlPrefix + cmd
 		device.DoLog(logFH, cmd)
-		resp, err := s.client.Get(uri)
-		if err != nil {
-			return "", nil, err
-		}
-		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		body, err := s.httpGet(uri)
 		device.DoLog(logFH, string(body))
-
-		if resp.StatusCode != http.StatusOK {
-			return "", nil, fmt.Errorf("status code: %d", resp.StatusCode)
-		}
 		if err != nil {
 			return "", nil, err
 		}
@@ -224,6 +267,23 @@ func (s *State) ApplyCommands(logFH *os.File) error {
 		return fmt.Errorf("Commit failed: %v", err)
 	}
 	return nil
+}
+
+func (s *State) httpGet(uri string) ([]byte, error) {
+	resp, err := s.client.Get(uri)
+	if err != nil {
+		return nil, err
+	}
+	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		msg := fmt.Sprintf("status code: %d", resp.StatusCode)
+		if len(body) != 0 {
+			msg += "\n" + string(body)
+		}
+		return body, errors.New(msg)
+	}
+	return body, err
 }
 
 func nameAttr(n string) string {

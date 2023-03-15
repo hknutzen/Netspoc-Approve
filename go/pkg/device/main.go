@@ -17,7 +17,7 @@ import (
 )
 
 type RealDevice interface {
-	LoadDevice(path string, c *Config, l *os.File) (DeviceConfig, error)
+	LoadDevice(path string, c *Config, l1, l2 *os.File) (DeviceConfig, error)
 	ParseConfig(data []byte) (DeviceConfig, error)
 	GetChanges(c1, c2 DeviceConfig) ([]error, error)
 	ApplyCommands(*os.File) error
@@ -136,12 +136,17 @@ func (s *state) approve(path string) error {
 }
 
 func (s *state) loadDevice(path string) (DeviceConfig, error) {
-	logFH, err := s.getLogFH(".config")
+	logConfig, err := s.getLogFH(".config")
 	if err != nil {
 		return nil, err
 	}
-	defer closeLogFH(logFH)
-	return s.LoadDevice(path, s.config, logFH)
+	defer closeLogFH(logConfig)
+	logLogin, err := s.getLogFH(".login")
+	if err != nil {
+		return nil, err
+	}
+	defer closeLogFH(logLogin)
+	return s.LoadDevice(path, s.config, logLogin, logConfig)
 }
 
 func (s *state) applyCommands() error {
@@ -338,36 +343,37 @@ func GetHTTPClient(cfg *Config) *http.Client {
 	}
 }
 
-func TryReachableHTTPLoad(
+var NotActiveError = errors.New("device is not active")
+
+func TryReachableHTTPLogin(
 	path string,
 	cfg *Config,
-	logFH *os.File,
-	load func(name, ip, user, pass string, logFH *os.File) (DeviceConfig, error),
-) (DeviceConfig, error) {
+	login func(name, ip, user, pass string) error,
+) error {
 
 	nameList, ipList, err := getHostnameIPList(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for i, name := range nameList {
 		ip := ipList[i]
 		user, pass, err := cfg.GetAAAPassword(name)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		conf, err := load(name, ip, user, pass, logFH)
-		if err != nil {
+		if err := login(name, ip, user, pass); err != nil {
 			var urlErr *url.Error
 			if errors.As(err, &urlErr) {
 				if urlErr.Timeout() {
 					continue
 				}
+			} else if errors.Is(err, NotActiveError) {
+				continue
 			}
-			return nil, err
+			return err
 		}
-		conf.SetExpectedDeviceName(name)
-		return conf, nil
+		return nil
 	}
-	return nil, fmt.Errorf(
+	return fmt.Errorf(
 		"Devices unreachable: %s", strings.Join(nameList, ", "))
 }

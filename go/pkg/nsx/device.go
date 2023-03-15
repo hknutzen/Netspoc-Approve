@@ -27,94 +27,102 @@ type change struct {
 	postData []byte
 }
 
-func (s *State) LoadDevice(path string, cfg *device.Config, logFH *os.File) (
+func (s *State) LoadDevice(
+	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
-	return device.TryReachableHTTPLoad(path, cfg, logFH,
-		func(name, ip, user, pass string, logFH *os.File) (
-			device.DeviceConfig, error) {
-
-			prefix := fmt.Sprintf("https://%s", ip)
-			device.DoLog(logFH, "#"+prefix)
-			client := device.GetHTTPClient(cfg)
-			s.client = client
-			s.prefix = prefix
+	devName := ""
+	err := device.TryReachableHTTPLogin(spocFile, cfg,
+		func(name, ip, user, pass string) error {
+			s.prefix = fmt.Sprintf("https://%s", ip)
+			s.client = device.GetHTTPClient(cfg)
 			jar, err := cookiejar.New(nil)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			client.Jar = jar
+			s.client.Jar = jar
 
-			uri := prefix + "/api/session/create"
+			uri := s.prefix + "/api/session/create"
+			device.DoLog(logLogin, "POST "+uri)
 			v := url.Values{}
 			v.Set("j_username", user)
+			v.Set("j_password", "***")
+			device.DoLog(logLogin, v.Encode())
 			v.Set("j_password", pass)
-			resp, err := client.PostForm(uri, v)
+			resp, err := s.client.PostForm(uri, v)
+			device.DoLog(logLogin, resp.Status)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if resp.StatusCode != http.StatusOK {
-				return nil, fmt.Errorf("status code: %d", resp.StatusCode)
+				return fmt.Errorf("status code: %d", resp.StatusCode)
 			}
 			s.token = resp.Header.Get("x-xsrf-token")
-
-			path := "/policy/api/v1/infra/domains/default/gateway-policies"
-			data, err := s.sendRequest("GET", path, nil)
-			if err != nil {
-				return nil, err
-			}
-
-			type rawConfig struct {
-				Groups   []json.RawMessage
-				Services []json.RawMessage
-				Policies []json.RawMessage
-			}
-
-			var rawConf rawConfig
-			var resultStruct struct{ Results []struct{ Id string } }
-			err = json.Unmarshal(data, &resultStruct)
-			if err != nil {
-				return nil, err
-			}
-			for _, result := range resultStruct.Results {
-				// Ignore all policies not created by Netspoc.
-				if !strings.HasPrefix(result.Id, "Netspoc") {
-					continue
-				}
-				data, err := s.sendRequest("GET", path+"/"+result.Id, nil)
-				if err != nil {
-					return nil, err
-				}
-				rawConf.Policies = append(rawConf.Policies, data)
-			}
-
-			path = "/policy/api/v1/infra/services"
-			rawConf.Services, err = s.getRawJSON(path, logFH)
-			if err != nil {
-				return nil, err
-			}
-
-			path = "/policy/api/v1/infra/domains/default/groups"
-			rawConf.Groups, err = s.getRawJSON(path, logFH)
-			if err != nil {
-				return nil, err
-			}
-
-			out, err := json.Marshal(rawConf)
-			if err != nil {
-				return nil, err
-			}
-			device.DoLog(logFH, string(out))
-
-			config, err := s.ParseConfig(out)
-			if err != nil {
-				err = fmt.Errorf("While reading device: %v", err)
-			}
-			return config, err
+			devName = name
+			return nil
 		})
+	if err != nil {
+		return nil, err
+	}
+
+	device.DoLog(logConfig, "#"+s.prefix)
+	path := "/policy/api/v1/infra/domains/default/gateway-policies"
+	data, err := s.sendRequest("GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	type rawConfig struct {
+		Groups   []json.RawMessage
+		Services []json.RawMessage
+		Policies []json.RawMessage
+	}
+
+	var rawConf rawConfig
+	var resultStruct struct{ Results []struct{ Id string } }
+	err = json.Unmarshal(data, &resultStruct)
+	if err != nil {
+		return nil, err
+	}
+	for _, result := range resultStruct.Results {
+		// Ignore all policies not created by Netspoc.
+		if !strings.HasPrefix(result.Id, "Netspoc") {
+			continue
+		}
+		data, err := s.sendRequest("GET", path+"/"+result.Id, nil)
+		if err != nil {
+			return nil, err
+		}
+		rawConf.Policies = append(rawConf.Policies, data)
+	}
+
+	path = "/policy/api/v1/infra/services"
+	rawConf.Services, err = s.getRawJSON(path)
+	if err != nil {
+		return nil, err
+	}
+
+	path = "/policy/api/v1/infra/domains/default/groups"
+	rawConf.Groups, err = s.getRawJSON(path)
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := json.Marshal(rawConf)
+	if err != nil {
+		return nil, err
+	}
+	device.DoLog(logConfig, string(out))
+
+	config, err := s.ParseConfig(out)
+	if err != nil {
+		err = fmt.Errorf("While reading device: %v", err)
+	}
+	config.SetExpectedDeviceName(devName)
+	return config, err
 }
 
-func (s *State) getRawJSON(path string, logFH *os.File) ([]json.RawMessage, error) {
+func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
 	var data []json.RawMessage
 	var cursor string
 	for {
