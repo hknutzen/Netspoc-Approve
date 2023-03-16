@@ -202,7 +202,7 @@ func (s *state) getCompare(c1 DeviceConfig, path string, chk warnOrErr) error {
 			return warnings[0]
 		}
 		for _, w := range warnings {
-			fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", w)
+			warning("%v", w)
 		}
 	}
 	// Check hostname only after config has been validated in GetChanges.
@@ -210,7 +210,7 @@ func (s *state) getCompare(c1 DeviceConfig, path string, chk warnOrErr) error {
 		if chk == errT {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", err)
+		warning("%v", err)
 	}
 	return nil
 }
@@ -315,17 +315,12 @@ func closeLogFH(fh *os.File) {
 	}
 }
 
-var apiRE = regexp.MustCompile(`^(.*[?&]key=).*?(&.*)$`)
-
-func DoLog(fh *os.File, t string) {
+func DoLog(fh *os.File, s string) {
 	if fh != nil {
-		if strings.HasPrefix(t, "http") {
-			t = apiRE.ReplaceAllString(t, "$1***$2")
-			t, _ = url.QueryUnescape(t)
-		} else if strings.HasPrefix(t, "action=") {
-			t, _ = url.QueryUnescape(t)
+		if strings.HasPrefix(s, "http") || strings.HasPrefix(s, "action=") {
+			s, _ = url.QueryUnescape(s)
 		}
-		fmt.Fprintln(fh, t)
+		fmt.Fprintln(fh, s)
 	}
 }
 
@@ -342,8 +337,6 @@ func GetHTTPClient(cfg *Config) *http.Client {
 		},
 	}
 }
-
-var NotActiveError = errors.New("device is not active")
 
 func TryReachableHTTPLogin(
 	path string,
@@ -362,18 +355,15 @@ func TryReachableHTTPLogin(
 			return err
 		}
 		if err := login(name, ip, user, pass); err != nil {
-			var urlErr *url.Error
-			if errors.As(err, &urlErr) {
-				if urlErr.Timeout() {
-					continue
-				}
-			} else if errors.Is(err, NotActiveError) {
-				continue
-			}
-			return err
+			warning("%v", err)
+			continue
 		}
 		return nil
 	}
 	return fmt.Errorf(
 		"Devices unreachable: %s", strings.Join(nameList, ", "))
+}
+
+func warning(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "WARNING>>> "+format+"\n", args...)
 }

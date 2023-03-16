@@ -42,7 +42,7 @@ func (s *State) LoadDevice(
 			prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
 			s.urlPrefix = prefix
 			if !s.checkHA(logLogin) {
-				return device.NotActiveError
+				return fmt.Errorf("not in active state: %s (%s)", ip, name)
 			}
 			devName = name
 			return nil
@@ -57,10 +57,8 @@ func (s *State) LoadDevice(
 	// run of this program.
 	// Don't request full "config", but only "devices" part, since
 	// config contains very large predefined application data.
-	uri := s.urlPrefix + "type=config&action=get&xpath=/config/devices"
-	device.DoLog(logConfig, uri)
-	body, err := s.httpGet(uri)
-	device.DoLog(logConfig, string(body))
+	uri := "type=config&action=get&xpath=/config/devices"
+	body, err := s.httpPrefixGetLog(uri, logConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -81,23 +79,22 @@ func (s *State) getAPIKey(ip, user, pass string, logFH *os.File) (
 	}
 	base.Path += "api"
 	params := url.Values{}
-	params.Add("type", "keygen")
-	params.Add("user", user)
-	// Fake password is logged.
-	params.Add("password", "***")
-	base.RawQuery = params.Encode()
-	loggedURI := base.String()
-	device.DoLog(logFH, loggedURI)
-	// Real password is sent to device.
-	params.Add("password", pass)
+	params.Set("type", "keygen")
+	params.Set("user", user)
+	params.Set("password", pass)
 	base.RawQuery = params.Encode()
 	uri := base.String()
+	passRE := regexp.MustCompile(`(password=).*?(&|$)`)
+	loggedURI := passRE.ReplaceAllString(uri, "${1}xxx$2")
+	device.DoLog(logFH, loggedURI)
 	body, err := s.httpGet(uri)
 	keyRE := regexp.MustCompile(`<key>.*</key>`)
-	loggedBody := keyRE.ReplaceAllLiteralString(string(body), "<key>***</key>")
+	loggedBody := keyRE.ReplaceAllString(string(body), "<key>xxx</key>")
 	device.DoLog(logFH, loggedBody)
 	if err != nil {
-		return "", fmt.Errorf("API key %w", err)
+		msg := err.Error()
+		msg = passRE.ReplaceAllString(msg, "${1}xxx$2")
+		return "", fmt.Errorf("API key %s", msg)
 	}
 	return parseAPIKey(body)
 }
@@ -120,11 +117,9 @@ func (s *State) getAPIKey(ip, user, pass string, logFH *os.File) (
 */
 // Result is true if HA not enabled or if enabled and active.
 func (s *State) checkHA(logFH *os.File) bool {
-	uri := s.urlPrefix + "type=op&" +
-		"cmd=<show><high-availability><state/></high-availability></show>"
-	device.DoLog(logFH, uri)
-	body, err := s.httpGet(uri)
-	device.DoLog(logFH, string(body))
+	uri :=
+		"type=op&cmd=<show><high-availability><state/></high-availability></show>"
+	body, err := s.httpPrefixGetLog(uri, logFH)
 	if err != nil {
 		return false
 	}
@@ -196,10 +191,7 @@ func vsysOK(v *panVsys) error {
 
 func (s *State) ApplyCommands(logFH *os.File) error {
 	doCmd := func(cmd string) (string, []byte, error) {
-		uri := s.urlPrefix + cmd
-		device.DoLog(logFH, cmd)
-		body, err := s.httpGet(uri)
-		device.DoLog(logFH, string(body))
+		body, err := s.httpPrefixGetLog(cmd, logFH)
 		if err != nil {
 			return "", nil, err
 		}
@@ -267,6 +259,17 @@ func (s *State) ApplyCommands(logFH *os.File) error {
 		return fmt.Errorf("Commit failed: %v", err)
 	}
 	return nil
+}
+
+var apiRE = regexp.MustCompile(`[?]key=.*?&`)
+
+func (s *State) httpPrefixGetLog(uri string, logFH *os.File) ([]byte, error) {
+	uri = s.urlPrefix + uri
+	loggedURI := apiRE.ReplaceAllString(uri, "?key=xxx&")
+	device.DoLog(logFH, loggedURI)
+	body, err := s.httpGet(uri)
+	device.DoLog(logFH, string(body))
+	return body, err
 }
 
 func (s *State) httpGet(uri string) ([]byte, error) {
