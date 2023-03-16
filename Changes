@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+3.011     2023-03-16 13:40:13+01:00 Europe/Berlin
+
  - PAN-OS: Check high availability state before approving a device.
    If HA is enabled, device is only touched if state is
    - "active"         for mode "Active-Passive"
