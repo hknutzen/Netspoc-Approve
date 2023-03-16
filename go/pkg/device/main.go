@@ -265,7 +265,7 @@ func getIPv6Path(p string) string {
 	return dir + "/ipv6/" + base
 }
 
-func getHostnameIPList(path string) ([]string, []string, error) {
+func getRawHostnameIP(path string) ([]string, []string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Can't %v", err)
@@ -288,6 +288,22 @@ func getHostnameIPList(path string) ([]string, []string, error) {
 	}
 	ipList := strings.Split(ips, ", ")
 	nameList := strings.Split(names, ", ")
+	return nameList, ipList, nil
+}
+
+func GetHostnameIP(path string) (string, string, error) {
+	nameList, ipList, err := getRawHostnameIP(path)
+	if err != nil {
+		return "", "", err
+	}
+	return nameList[0], ipList[0], nil
+}
+
+func getHostnameIPList(path string) ([]string, []string, error) {
+	nameList, ipList, err := getRawHostnameIP(path)
+	if err != nil {
+		return nil, nil, err
+	}
 	if len(nameList) != len(ipList) {
 		return nil, nil, fmt.Errorf(
 			"Number of device names and IP addresses don't match in %s", path)
