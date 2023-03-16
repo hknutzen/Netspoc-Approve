@@ -1,5 +1,12 @@
 {{$NEXT}}
 
+ - PAN-OS: Check high availability state before approving a device.
+   If HA is enabled, device is only touched if state is
+   - "active"         for mode "Active-Passive"
+   - "active-primary" for mode "Active-Active"
+ - NSX, PAN-OS: Sent and received packets for login are logged to
+   file DEVICENAME.login .
+
 3.010     2023-01-11 11:24:17+01:00 Europe/Berlin
 
  - NSX: Support attribute "tag" in rules for logging purpose.
