@@ -46,7 +46,7 @@ func (s *State) LoadDevice(
 			device.DoLog(logLogin, "POST "+uri)
 			v := url.Values{}
 			v.Set("j_username", user)
-			v.Set("j_password", "***")
+			v.Set("j_password", "xxx")
 			device.DoLog(logLogin, v.Encode())
 			v.Set("j_password", pass)
 			resp, err := s.client.PostForm(uri, v)
