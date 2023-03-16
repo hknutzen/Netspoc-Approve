@@ -1,0 +1,13 @@
+1. Install this module in the usual Perl fashion:
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+2. Create a configuration file.
+   An example file is provived in etc/ directory of the
+   distribution archive.
+
+
+Copyright (c) 2012 by Heinz Knutzen. All rights reserved.
+

@@ -1,0 +1,19 @@
+README for SUID support
+
+approve.pl writes log, history and status files
+to different directories.
+If approve.pl is called by different users,
+each user needs to have write access to these directories.
+
+For auditing it may be required, that no user can alter
+any previously written log/history/status entries.
+
+To achieve this,
+- Create a dedicated user <X>, which owns netspocdir, statusdir and historydir.
+- You need a wrapper script "diamonds" which calls approve.pl
+  with the effective user ID of <X>.
+- Create "diamonds" by these commands:
+    make
+    cp diamonds /usr/local/bin
+    chown <X>: /usr/local/bin/diamonds
+    chmod ug+s /usr/local/bin/diamonds
