@@ -116,10 +116,10 @@ func (s *State) LoadDevice(
 
 	config, err := s.ParseConfig(out)
 	if err != nil {
-		err = fmt.Errorf("While reading device: %v", err)
+		return nil, fmt.Errorf("While reading device: %v", err)
 	}
 	config.SetExpectedDeviceName(devName)
-	return config, err
+	return config, nil
 }
 
 func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
