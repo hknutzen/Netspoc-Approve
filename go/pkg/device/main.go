@@ -23,6 +23,7 @@ type RealDevice interface {
 	ApplyCommands(*os.File) error
 	HasChanges() bool
 	ShowChanges() string
+	CloseConnection()
 }
 
 type DeviceConfig interface {
@@ -101,6 +102,7 @@ func Main(device RealDevice) int {
 		fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
 		return 1
 	}
+	s.CloseConnection()
 	return 0
 }
 
@@ -380,6 +382,15 @@ func TryReachableHTTPLogin(
 		"Devices unreachable: %s", strings.Join(nameList, ", "))
 }
 
+func Info(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
+}
+
 func warning(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "WARNING>>> "+format+"\n", args...)
+}
+
+func Abort(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "Error>>> "+format+"\n", args...)
+	os.Exit(1)
 }

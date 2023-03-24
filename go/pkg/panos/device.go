@@ -311,3 +311,5 @@ func (s *State) ShowChanges() string {
 	}
 	return collect.String()
 }
+
+func (s *State) CloseConnection() {}

@@ -213,3 +213,5 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 	}
 	return nil
 }
+
+func (s *State) CloseConnection() {}
