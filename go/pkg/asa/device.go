@@ -74,7 +74,7 @@ func (s *State) loginEnable(pass string) {
 	// Use this prompt because of performance impact of standard prompt.
 	match = conn.IssueCmd("", `#[ ]?`)
 	i := strings.LastIndex(match, "\r\n")
-	conn.Prompt = match[i:]
+	conn.SetStdPrompt(match[i:])
 }
 
 func (s *State) setTerminal() {

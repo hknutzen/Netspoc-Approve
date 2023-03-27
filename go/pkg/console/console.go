@@ -2,111 +2,87 @@ package console
 
 import (
 	"os"
-	"os/exec"
+	"regexp"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/Netflix/go-expect"
+	expect "github.com/google/goexpect"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
 type Conn struct {
-	con          *expect.Console
-	Prompt       string
+	con          *expect.GExpect
+	prompt       string
+	promptRE     *regexp.Regexp
+	Timeout      time.Duration
 	ShortTimeout time.Duration
-	cmd          *exec.Cmd
-	log          *logWriter
-}
-
-type logWriter struct {
-	fh *os.File
-}
-
-func (w *logWriter) Write(p []byte) (n int, err error) {
-	if fh := w.fh; fh != nil {
-		return w.fh.Write(p)
-	}
-	return len(p), nil
+	log          *os.File
 }
 
 func ConnectSSH(user, ip string, cfg *device.Config, logFH *os.File) (
 	*Conn, error) {
 
-	log := &logWriter{fh: logFH}
-	con, err := expect.NewConsole(
-		expect.WithStdout(log),
-		expect.WithDefaultTimeout(time.Duration(cfg.Timeout)*time.Second),
-	)
-	if err != nil {
-		return nil, err
-	}
-	cmd := exec.Command("ssh", "-l", user, ip)
-	cmd.Stdin = con.Tty()
-	cmd.Stdout = con.Tty()
-	cmd.Stderr = con.Tty()
-	// New process needs to be the process leader and control of a tty
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid:  true,
-		Setctty: true,
-	}
-	err = cmd.Start()
+	short := time.Duration(cfg.LoginTimeout) * time.Second
+	con, _, err := expect.SpawnWithArgs([]string{"ssh", "-l", user, ip}, short,
+		expect.PartialMatch(true))
 	if err != nil {
 		return nil, err
 	}
 	return &Conn{
 		con:          con,
-		cmd:          cmd,
-		log:          log,
-		ShortTimeout: time.Duration(cfg.LoginTimeout) * time.Second,
+		log:          logFH,
+		Timeout:      time.Duration(cfg.Timeout) * time.Second,
+		ShortTimeout: short,
 	}, nil
 }
 
 func (c *Conn) SetLogFH(fh *os.File) {
-	c.log.fh = fh
+	c.log = fh
+}
+
+func (c *Conn) logString(s string) {
+	if fh := c.log; fh != nil {
+		fh.Write([]byte(s))
+	}
 }
 
 func (c *Conn) Close() {
 	c.SetLogFH(nil)
 	c.con.Send("exit\n")
-	c.cmd.Wait()
-	c.con.Close()
 }
 
-func (c *Conn) ShortWait(re string) string {
-	out, err := c.con.Expect(
-		expect.RegexpPattern(re),
-		expect.WithTimeout(c.ShortTimeout))
+func (c *Conn) expectLog(re *regexp.Regexp, t time.Duration) string {
+	out, _, err := c.con.Expect(re, t)
+	c.logString(out)
 	if err != nil {
 		device.Abort("while waiting for %s: %v", re, err)
 	}
 	return out
 }
 
+func (c *Conn) ShortWait(re string) string {
+	return c.expectLog(regexp.MustCompile(re), c.ShortTimeout)
+}
+
 func (c *Conn) IssueCmd(cmd, re string) string {
 	c.con.Send(cmd + "\n")
-	out, err := c.con.Expect(expect.RegexpPattern(re))
-	if err != nil {
-		device.Abort("%v", err)
-	}
-	return out
+	return c.expectLog(regexp.MustCompile(re), c.Timeout)
 }
 
 func (c *Conn) SendCmd(cmd string) {
 	c.con.Send(cmd + "\n")
-	_, err := c.con.Expect(expect.String(c.Prompt))
-	if err != nil {
-		device.Abort("%v", err)
-	}
+	c.expectLog(c.promptRE, c.Timeout)
 }
 
 func (c *Conn) GetCmdOutput(cmd string) string {
 	cmd += "\n"
 	c.con.Send(cmd)
-	out, err := c.con.Expect(expect.String(c.Prompt))
-	if err != nil {
-		device.Abort("%v", err)
-	}
+	out := c.expectLog(c.promptRE, c.Timeout)
 	out = strings.TrimPrefix(out, cmd)
-	return strings.TrimSuffix(out, c.Prompt)
+	return strings.TrimSuffix(out, c.prompt)
+}
+
+func (c *Conn) SetStdPrompt(p string) {
+	c.prompt = p
+	c.promptRE = regexp.MustCompile(regexp.QuoteMeta(p))
 }
