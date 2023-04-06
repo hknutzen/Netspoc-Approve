@@ -97,12 +97,12 @@ func Main(device RealDevice) int {
 		} else {
 			err = s.approve(path)
 		}
+		s.CloseConnection()
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
 		return 1
 	}
-	s.CloseConnection()
 	return 0
 }
 
