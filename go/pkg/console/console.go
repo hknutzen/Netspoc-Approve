@@ -47,8 +47,10 @@ func (c *Conn) logString(s string) {
 }
 
 func (c *Conn) Close() {
-	c.SetLogFH(nil)
-	c.con.Send("exit\n")
+	if c.con != nil {
+		c.SetLogFH(nil)
+		c.con.Send("exit\n")
+	}
 }
 
 func (c *Conn) expectLog(re *regexp.Regexp, t time.Duration) string {
