@@ -10,7 +10,8 @@ import (
 )
 
 type ASAConfig struct {
-	cmds []*cmd
+	// prefix -> name -> commands with same prefix and name
+	lookup map[string]map[string][]*cmd
 }
 
 type cmdType struct {
@@ -39,10 +40,9 @@ type cmd struct {
 // This prefix may be referenced in other commands as $<prefix>.
 // If multiple words are used as prefix, space is replaced by underscore.
 var cmdInfo = `
-# * may reference object-group, will be analyzed later.
-access-list $NAME remark *
-access-list $NAME deny *
-access-list $NAME permit *
+# * may reference object-group, will be marked later.
+access-list $NAME standard *
+access-list $NAME extended *
 object-group network $NAME
  network-object *
  group-object *
@@ -87,6 +87,7 @@ ldap_attribute-map $NAME
 
 # Is anchor if $NAME is IP address
 tunnel-group $NAME type *
+tunnel-group $NAME general-attributes
  default-group-policy $group-policy
  authentication-server-group $aaa-server
  *
@@ -100,7 +101,7 @@ tunnel-group $NAME webvpn-attributes
  *
 
 # Anchors
-access-group $access-list global # invalid
+access-group $access-list global
 access-group $access-list in *
 access-group $access-list out *
 crypto_map $NAME $SEQ match address $access-list
@@ -131,8 +132,9 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		var n *ASAConfig
 		return n, nil
 	}
+	lookup := make(map[string]map[string][]*cmd)
+	config := &ASAConfig{lookup: lookup}
 	var prev *cmd
-	var cmds []*cmd
 	for len(data) > 0 {
 		first, rest, _ := bytes.Cut(data, []byte("\n"))
 		data = rest
@@ -149,35 +151,36 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 				continue
 			}
 			words := strings.Split(line, " ")
-			if cmd := matchCmd("", words, prev.typ.sub); cmd != nil {
-				prev.sub = append(prev.sub, cmd)
+			if c := matchCmd("", words, prev.typ.sub); c != nil {
+				prev.sub = append(prev.sub, c)
 			}
 			continue
 		}
 		// Handle toplevel command.
-		cmd := lookupCmd(line)
-		prev = cmd
-		if cmd != nil {
-			cmds = append(cmds, cmd)
+		c := lookupCmd(line)
+		prev = c
+		if c != nil {
+			p := c.typ.prefix
+			m := lookup[p]
+			if m == nil {
+				m = make(map[string][]*cmd)
+				lookup[p] = m
+			}
+			m[c.name] = append(m[c.name], c)
 		}
 	}
-	config := &ASAConfig{cmds: cmds}
 	return config, nil
 }
 
-func match(descr *cmdType, args []string) {
-
-}
-
 func init() {
-	converCmdInfo()
+	convertCmdInfo()
 	setupLookup()
 }
 
 var cmdDescr []*cmdType
 
 // Initialize cmdDescr from lines in cmdInfo.
-func converCmdInfo() {
+func convertCmdInfo() {
 	toParse := cmdInfo
 	for toParse != "" {
 		store := &cmdDescr
@@ -306,6 +309,7 @@ DESCR:
 		var name string
 		var seq int
 		var ref []string
+	TEMPLATE:
 		for _, token := range descr.template {
 			if len(args) == 0 {
 				continue DESCR
@@ -344,6 +348,8 @@ DESCR:
 				parsed = append(parsed, strg)
 			case "*":
 				parsed = append(parsed, strings.Join(args, " "))
+				args = nil
+				break TEMPLATE
 			default:
 				if token != w {
 					continue DESCR
