@@ -122,5 +122,7 @@ func (s *State) cmd(c string) {
 }
 
 func (s *State) CloseConnection() {
-	s.conn.Close()
+	if c := s.conn; c != nil {
+		s.conn.Close()
+	}
 }
