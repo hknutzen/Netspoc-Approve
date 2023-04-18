@@ -3,6 +3,7 @@ package asa
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -129,14 +130,16 @@ tunnel-group-map $crypto_ca_certificate_map $SEQ $tunnel-group
 webvpn
  certificate-group-map $crypto_ca_certificate_map $SEQ $tunnel-group
 `
+var objGroupRegex = regexp.MustCompile(`\bobject-group (\S+)\b`)
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 	if len(data) == 0 {
 		var n *ASAConfig
 		return n, nil
 	}
+	// prefix -> name -> commands with same prefix and name
 	lookup := make(map[string]map[string][]*cmd)
-	config := &ASAConfig{lookup: lookup}
+	// Remember previous toplevel command where subcommands are added.
 	var prev *cmd
 	for len(data) > 0 {
 		first, rest, _ := bytes.Cut(data, []byte("\n"))
@@ -145,7 +148,7 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		if line == "" || line[0] == '!' {
 			continue
 		}
-		// Handle sub commands.
+		// Handle sub command.
 		if line[0] == ' ' {
 			line = line[1:]
 			// Ignore sub command of ignored command.
@@ -161,9 +164,19 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		}
 		// Handle toplevel command.
 		c := lookupCmd(line)
-		prev = c
+		prev = c // Set to next command or nil.
 		if c != nil {
 			p := c.typ.prefix
+			// Handle referenced object-groups:
+			// Replace "object-group NAME" by "$REF" in cmd.parsed
+			// and add "NAME" to cmd.ref .
+			if p == "access-list" {
+				objGroupRegex.ReplaceAllStringFunc(c.parsed, func(s string) string {
+					_, name, _ := strings.Cut(s, " ")
+					c.ref = append(c.ref, name)
+					return "$REF"
+				})
+			}
 			m := lookup[p]
 			if m == nil {
 				m = make(map[string][]*cmd)
@@ -172,12 +185,17 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 			m[c.name] = append(m[c.name], c)
 		}
 	}
-	return config, nil
+	return &ASAConfig{lookup: lookup}, nil
 }
 
 func init() {
 	convertCmdInfo()
 	setupLookup()
+	for _, d := range prefixMap["access-list"].descrList {
+		d.ref = []string{
+			"object-group", "object-group", "object-group",
+		}
+	}
 }
 
 var cmdDescr []*cmdType
