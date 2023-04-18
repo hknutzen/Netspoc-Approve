@@ -23,7 +23,11 @@ type cmdType struct {
 }
 
 type cmd struct {
-	typ  *cmdType
+	typ         *cmdType
+	transferred bool // cmd was already transferred to device
+	toDelete    bool // cmd is no longer referenced und shall be deleted
+	needed      bool // cmd is referenced again and must not be deleted
+
 	orig string // e.g. "crypto map abc 10 match address xyz"
 	// "*" and "$STRING" of template are only used for matching,
 	// but 'parsed' contains original value.
@@ -114,7 +118,6 @@ crypto_map $NAME $SEQ set pfs *
 crypto_map $NAME $SEQ set reverse-route
 crypto_map $NAME $SEQ set security-association lifetime *
 crypto_map $NAME $SEQ set trustpoint *
-
 username $NAME nopassword
 username $NAME attributes
  vpn-filter value $access-list

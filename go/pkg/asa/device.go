@@ -11,10 +11,17 @@ import (
 
 type State struct {
 	conn    *console.Conn
-	changes []change
+	a       *ASAConfig
+	b       *ASAConfig
+	changes changeList
 }
 type change struct {
 	cmd string
+}
+type changeList []string
+
+func (l *changeList) push(chg ...string) {
+	*l = append(*l, chg...)
 }
 
 func (s *State) LoadDevice(
@@ -92,9 +99,9 @@ func (s *State) setTerminal() {
 }
 
 func (s *State) GetChanges(c1, c2 device.DeviceConfig) ([]error, error) {
-	p1 := c1.(*ASAConfig)
-	p2 := c2.(*ASAConfig)
-	s.changes = diffConfig(p1, p2)
+	s.a = c1.(*ASAConfig)
+	s.b = c2.(*ASAConfig)
+	s.diffConfig()
 	return nil, nil
 }
 
@@ -105,7 +112,7 @@ func (s *State) HasChanges() bool {
 func (s *State) ShowChanges() string {
 	var collect strings.Builder
 	for _, chg := range s.changes {
-		fmt.Fprintln(&collect, chg.cmd)
+		fmt.Fprintln(&collect, chg)
 	}
 	return collect.String()
 }
