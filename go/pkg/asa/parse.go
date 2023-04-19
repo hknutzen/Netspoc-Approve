@@ -129,6 +129,14 @@ tunnel-group-map default-group $tunnel-group
 tunnel-group-map $crypto_ca_certificate_map $SEQ $tunnel-group
 webvpn
  certificate-group-map $crypto_ca_certificate_map $SEQ $tunnel-group
+
+# Other anchors, not referencing any command
+route *
+ipv6_route *
+interface *
+ shutdown
+ nameif *
+no_sysopt_connection_permit-vpn
 `
 var objGroupRegex = regexp.MustCompile(`\bobject-group (\S+)\b`)
 
@@ -167,16 +175,6 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		prev = c // Set to next command or nil.
 		if c != nil {
 			p := c.typ.prefix
-			// Handle referenced object-groups:
-			// Replace "object-group NAME" by "$REF" in cmd.parsed
-			// and add "NAME" to cmd.ref .
-			if p == "access-list" {
-				objGroupRegex.ReplaceAllStringFunc(c.parsed, func(s string) string {
-					_, name, _ := strings.Cut(s, " ")
-					c.ref = append(c.ref, name)
-					return "$REF"
-				})
-			}
 			m := lookup[p]
 			if m == nil {
 				m = make(map[string][]*cmd)
@@ -185,17 +183,31 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 			m[c.name] = append(m[c.name], c)
 		}
 	}
+	postprocessParsed(lookup)
 	return &ASAConfig{lookup: lookup}, nil
+}
+
+func postprocessParsed(lookup map[string]map[string][]*cmd) {
+	// access-list may reference up to three object-groups.
+	for _, d := range prefixMap["access-list"].descrList {
+		d.ref = []string{"object-group", "object-group", "object-group"}
+	}
+	// In access-list, replace "object-group NAME" by "$REF" in cmd.parsed
+	// and add "NAME" to cmd.ref .
+	for _, l := range lookup["access-list"] {
+		for _, c := range l {
+			objGroupRegex.ReplaceAllStringFunc(c.parsed, func(s string) string {
+				_, name, _ := strings.Cut(s, " ")
+				c.ref = append(c.ref, name)
+				return "$REF"
+			})
+		}
+	}
 }
 
 func init() {
 	convertCmdInfo()
 	setupLookup()
-	for _, d := range prefixMap["access-list"].descrList {
-		d.ref = []string{
-			"object-group", "object-group", "object-group",
-		}
-	}
 }
 
 var cmdDescr []*cmdType
@@ -385,6 +397,10 @@ DESCR:
 		if descr.ignore {
 			continue
 		}
+		if prefix != "" {
+			words = append([]string{prefix}, words...)
+			parsed = append([]string{prefix}, parsed...)
+		}
 		c := &cmd{
 			typ:    descr,
 			orig:   strings.Join(words, " "),
@@ -392,10 +408,6 @@ DESCR:
 			name:   name,
 			seq:    seq,
 			ref:    ref,
-		}
-		if prefix != "" {
-			c.orig = prefix + " " + c.orig
-			c.parsed = prefix + " " + c.parsed
 		}
 		return c
 	}

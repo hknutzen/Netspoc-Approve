@@ -12,6 +12,9 @@ var anchors = []string{
 }
 
 func (s *State) diffConfig() {
+	s.diffUnnamedCmds("route", getParsed)
+	s.diffUnnamedCmds("ipv6 route", getParsed)
+	s.diffUnnamedCmds("no sysopt connection permit-vpn", getParsed)
 	// Use parsed command "access-group $REF interface <NAME>",
 	// effectively using name of interface as key.
 	s.diffUnnamedCmds("access-group", getParsed)
@@ -135,7 +138,7 @@ func (s *State) delCmds(l []*cmd) {
 }
 
 // Recursively transfer commands referenced from command and subcommands.
-// Then transfer command its subcommands.
+// Then transfer command and its subcommands.
 // Mark transferred commands as transferred.
 // Transfer each command only once.
 func (s *State) addCmds(l []*cmd) {
