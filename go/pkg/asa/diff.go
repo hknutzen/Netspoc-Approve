@@ -1,10 +1,12 @@
 package asa
 
 import (
+	"net/netip"
 	"sort"
 	"strings"
 
 	"github.com/pkg/diff/myers"
+	"golang.org/x/exp/maps"
 )
 
 var anchors = []string{
@@ -32,6 +34,7 @@ func (s *State) diffConfig() {
 		}
 		return strings.Join(result, "\n")
 	}
+	s.diffTunnelGroup()
 	s.diffUnnamedCmds("tunnel-group-map", certMapKey)
 	s.diffSubCmds("webvpn", certMapKey)
 	s.diffNamedCmds("username")
@@ -113,17 +116,48 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) {
 	}
 }
 
+// tunnel-group command is anchor, if name is IP address.
+func (s *State) diffTunnelGroup() {
+	aMap := s.a.lookup["tunnel-group"]
+	bMap := s.b.lookup["tunnel-group"]
+	getNames := func(m map[string][]*cmd) []string {
+		var result []string
+		for name := range m {
+			if _, err := netip.ParseAddr(name); err == nil {
+				result = append(result, name)
+			}
+		}
+		sort.Strings(result)
+		return result
+	}
+	aNames := getNames(aMap)
+	bNames := getNames(bMap)
+	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
+}
+
 func (s *State) diffNamedCmds(prefix string) {
 	aMap := s.a.lookup[prefix]
 	bMap := s.b.lookup[prefix]
-	for aName, al := range aMap {
+	aNames := maps.Keys(aMap)
+	bNames := maps.Keys(bMap)
+	sort.Strings(aNames)
+	sort.Strings(bNames)
+	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
+}
+
+func (s *State) diffNamedCmds2(
+	aMap, bMap map[string][]*cmd, aNames, bNames []string) {
+
+	for _, aName := range aNames {
+		al := aMap[aName]
 		if bl, found := bMap[aName]; found {
 			s.makeEqual(al, bl)
 		} else {
 			s.delCmds(al)
 		}
 	}
-	for bName, bl := range bMap {
+	for _, bName := range bNames {
+		bl := bMap[bName]
 		if _, found := aMap[bName]; !found {
 			s.addCmds(bl)
 		}
