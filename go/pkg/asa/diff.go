@@ -38,6 +38,7 @@ func (s *State) diffConfig() {
 	s.diffUnnamedCmds("tunnel-group-map", certMapKey)
 	s.diffSubCmds("webvpn", certMapKey)
 	s.diffNamedCmds("username")
+	s.deleteUnused()
 }
 
 func getParsed(_ *ASAConfig, c *cmd) string {
@@ -86,16 +87,22 @@ func (ab *cmdsPair) Equal(ai, bi int) bool {
 }
 
 func (s *State) sortDiffCmds(lookup func(*ASAConfig) []*cmd, key keyFunc) {
-
-	getSortedCmds := func(c *ASAConfig) []*cmd {
+	sorted := func(c *ASAConfig) []*cmd {
 		l := lookup(c)
 		sort.Slice(l, func(i, j int) bool { return key(c, l[i]) < key(c, l[j]) })
 		return l
 	}
-	s.diffCmds(getSortedCmds(s.a), getSortedCmds(s.b), key)
+	s.diffCmds(sorted(s.a), sorted(s.b), key, noRef)
 }
 
-func (s *State) diffCmds(al, bl []*cmd, key keyFunc) {
+type refCmd bool
+
+const (
+	noRef refCmd = false
+	isRef refCmd = true
+)
+
+func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) {
 	ab := &cmdsPair{
 		a:     s.a,
 		b:     s.b,
@@ -105,7 +112,9 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) {
 	}
 	for _, r := range myers.Diff(nil, ab).Ranges {
 		if r.IsDelete() {
-			s.delCmds(ab.aCmds[r.LowA:r.HighA])
+			if !isRef {
+				s.delCmds(ab.aCmds[r.LowA:r.HighA])
+			}
 		} else if r.IsInsert() {
 			s.addCmds(ab.bCmds[r.LowB:r.HighB])
 		} else {
@@ -157,17 +166,16 @@ func (s *State) diffNamedCmds2(
 		}
 	}
 	for _, bName := range bNames {
-		bl := bMap[bName]
 		if _, found := aMap[bName]; !found {
-			s.addCmds(bl)
+			s.addCmds(bMap[bName])
 		}
 	}
 }
 
-// Mark to be deleted toplevel commands.
 func (s *State) delCmds(l []*cmd) {
 	for _, c := range l {
-		c.toDelete = true
+		c.deleted = true
+		s.changes.push("no " + c.orig)
 	}
 }
 
@@ -215,15 +223,28 @@ func withRefCmdsDo(cnf *ASAConfig, c *cmd, do func([]*cmd)) {
 // Equalize subcommands and referenced commands.
 func (s *State) makeEqual(al, bl []*cmd) {
 	for i, a := range al {
+		a.needed = true
 		b := bl[i]
-		s.diffParsedCmds(a.sub, b.sub)
+		s.diffCmds(a.sub, b.sub, getParsed, noRef)
 		for i, name := range a.ref {
 			prefix := a.typ.ref[i]
-			s.diffParsedCmds(s.a.lookup[prefix][name], s.b.lookup[prefix][name])
+			s.diffCmds(s.a.lookup[prefix][name], s.b.lookup[prefix][name],
+				getParsed, isRef)
 		}
 	}
 }
 
-func (s *State) diffParsedCmds(al, bl []*cmd) {
-	s.diffCmds(al, bl, getParsed)
+func (s *State) deleteUnused() {
+	for _, m := range s.a.lookup {
+		for name, l := range m {
+			if name != "" {
+				for _, c := range l {
+					if !c.needed && !c.deleted {
+						c.deleted = true
+						s.changes.push("no " + c.orig)
+					}
+				}
+			}
+		}
+	}
 }

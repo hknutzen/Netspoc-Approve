@@ -26,7 +26,7 @@ type cmdType struct {
 type cmd struct {
 	typ         *cmdType
 	transferred bool // cmd was already transferred to device
-	toDelete    bool // cmd is no longer referenced und shall be deleted
+	deleted     bool // cmd is no longer referenced und shall be deleted
 	needed      bool // cmd is referenced again and must not be deleted
 
 	orig string // e.g. "crypto map abc 10 match address xyz"
