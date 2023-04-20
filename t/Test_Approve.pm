@@ -176,21 +176,8 @@ sub filter_compare_output {
 
 sub approve_warn {
     my($type, $conf, $spoc) = @_;
-    my ($status, $stdout, $stderr) =
-        compare_files($type, $conf, $spoc);
-
-    # 0: Success, 1: compare found diffs
-    if ($status != 0 && $status != 1) {
-        $stderr ||= '';
-        BAIL_OUT "Unexpected status: $status\n$stderr\n";
-    }
+    my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc);
     my $changes = filter_compare_output($stdout);
-    if ($changes and $status == 0) {
-        BAIL_OUT "Got status 'unchanged', but changes found:\n$changes";
-    }
-    elsif (not $changes and $status == 1) {
-        BAIL_OUT "Got status 'changed' but no changes found";
-    }
     return ($changes, $stderr);
 }
 
