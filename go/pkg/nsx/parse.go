@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
@@ -106,11 +107,10 @@ type NsxConfig struct {
 }
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
-	if len(data) == 0 {
-		var n *NsxConfig
-		return n, nil
-	}
 	config := &NsxConfig{}
+	if len(data) == 0 {
+		return config, nil
+	}
 	err := json.Unmarshal(removeHeader(data), config)
 	if err != nil {
 		return nil, err

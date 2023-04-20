@@ -9,9 +9,6 @@ import (
 
 func (n1 *NsxConfig) MergeSpoc(c2 device.DeviceConfig) device.DeviceConfig {
 	n2 := c2.(*NsxConfig)
-	if n2 == nil {
-		return n1
-	}
 	n1.Groups = append(n1.Groups, n2.Groups...)
 	n1.Services = append(n1.Services, n2.Services...)
 

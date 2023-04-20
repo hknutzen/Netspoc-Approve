@@ -2064,3 +2064,78 @@ action=set&type=config&
  <log-end>yes</log-end>
  <rule-type>interzone</rule-type>
 =END=
+
+############################################################
+=TITLE=Empty IPv4 with IPv6
+=DEVICE=
+[[prefix vsys2]]
+[[postfix]]
+=NETSPOC=
+-- ipv6/router
+[[prefix vsys2]]
+[[rules
+- name: v6r1
+  src: [v6g0]
+  dst: ["NET_::a01:200_120"]
+  srv: [tcp 80]]]
+[[groups
+- {name: v6g0, members: ["IP_::a01:10a", "IP_::a01:114"]}
+]]
+[[addresses
+- {name: "IP_::a01:10a", ip: "::a01:10a/128"}
+- {name: "IP_::a01:114", ip: "::a01:114/128"}
+- {name: "NET_::a01:200_120", ip: "::a01:300/120"}
+]]
+[[services
+- {proto: tcp, port: 80}
+]]
+[[postfix]]
+=OUTPUT=
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='IP_::a01:10a']&
+ element=
+  <ip-netmask>::a01:10a/128</ip-netmask>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='IP_::a01:114']&
+ element=
+  <ip-netmask>::a01:114/128</ip-netmask>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address/entry[@name='NET_::a01:200_120']&
+ element=
+  <ip-netmask>::a01:300/120</ip-netmask>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/address-group/entry[@name='v6g0']/static&
+ element=
+  <member>IP_::a01:10a</member>
+  <member>IP_::a01:114</member>
+action=set&type=config&
+ xpath=
+ /config/devices/entry[@name='localhost.localdomain']
+ /vsys/entry[@name='vsys2']/service/entry[@name='tcp 80']&
+ element=
+ <protocol>
+  <tcp>
+   <port>
+    80
+   </port>
+  </tcp>
+ </protocol>
+action=set&type=config&
+ xpath=/config/devices/entry[@name='localhost.localdomain']
+  /vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='v6r1']&
+ element=
+  <action>allow</action>
+  <from><member>z1</member></from>
+  <to><member>z2</member></to>
+  <source><member>v6g0</member></source>
+  <destination><member>NET_::a01:200_120</member></destination>
+  <service><member>tcp 80</member></service>
+  <application><member>any</member></application>
+  <log-start>yes</log-start>
+  <log-end>yes</log-end>
+  <rule-type>interzone</rule-type>
+=END=

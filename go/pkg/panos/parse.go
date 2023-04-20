@@ -37,9 +37,9 @@ func parseResponse(data []byte) (string, []byte, error) {
 }
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
+	config := &PanConfig{}
 	if len(data) == 0 {
-		var v *PanConfig
-		return v, nil
+		return config, nil
 	}
 	// Also handle saved config of device:
 	// - starting with http address and
@@ -48,9 +48,8 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		i := bytes.IndexByte(data, byte('\n'))
 		return parseResponseConfig(data[i+1:])
 	}
-	v := new(PanConfig)
-	err := xml.Unmarshal(data, v)
-	return v, err
+	err := xml.Unmarshal(data, config)
+	return config, err
 }
 
 func parseResponseConfig(body []byte) (*PanConfig, error) {
