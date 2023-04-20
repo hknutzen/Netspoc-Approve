@@ -141,9 +141,9 @@ no_sysopt_connection_permit-vpn
 var objGroupRegex = regexp.MustCompile(`\bobject-group (\S+)\b`)
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
+	config := &ASAConfig{}
 	if len(data) == 0 {
-		var n *ASAConfig
-		return n, nil
+		return config, nil
 	}
 	// prefix -> name -> commands with same prefix and name
 	lookup := make(map[string]map[string][]*cmd)
@@ -184,7 +184,8 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		}
 	}
 	postprocessParsed(lookup)
-	return &ASAConfig{lookup: lookup}, nil
+	config.lookup = lookup
+	return config, nil
 }
 
 func postprocessParsed(lookup map[string]map[string][]*cmd) {
