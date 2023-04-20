@@ -26,8 +26,8 @@ type cmdType struct {
 type cmd struct {
 	typ         *cmdType
 	transferred bool // cmd was already transferred to device
-	deleted     bool // cmd is no longer referenced und shall be deleted
-	needed      bool // cmd is referenced again and must not be deleted
+	deleted     bool // cmd has been deleted
+	needed      bool // cmd is referenced and must not be deleted
 
 	orig string // e.g. "crypto map abc 10 match address xyz"
 	// "*" and "$STRING" of template are only used for matching,
