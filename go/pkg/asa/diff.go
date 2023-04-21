@@ -176,7 +176,11 @@ func (s *State) delCmds(l []*cmd) {
 	for _, c := range l {
 		c.deleted = true
 		s.setSuperCmd(c)
-		s.changes.push("no " + c.orig)
+		if c2 := strings.TrimPrefix(c.orig, "no "); c.orig != c2 {
+			s.changes.push(c2)
+		} else {
+			s.changes.push("no " + c.orig)
+		}
 	}
 }
 
