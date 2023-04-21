@@ -32,11 +32,12 @@ type cmd struct {
 	orig string // e.g. "crypto map abc 10 match address xyz"
 	// "*" and "$STRING" of template are only used for matching,
 	// but 'parsed' contains original value.
-	parsed string   // e.g. "crypto map $NAME $SEQ match address $REF"
-	name   string   // Value of $NAME, e.g. "abc"
-	seq    int      // Value of $SEQ,  e.g. 10
-	ref    []string // Values of $REF, e.g. ["xyz"]
-	sub    []*cmd
+	parsed   string   // e.g. "crypto map $NAME $SEQ match address $REF"
+	name     string   // Value of $NAME, e.g. "abc"
+	seq      int      // Value of $SEQ,  e.g. 10
+	ref      []string // Values of $REF, e.g. ["xyz"]
+	sub      []*cmd
+	subCmdOf *cmd
 }
 
 // Description of commands that will be parsed.
@@ -167,6 +168,7 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 			words := strings.Split(line, " ")
 			if c := matchCmd("", words, prev.typ.sub); c != nil {
 				prev.sub = append(prev.sub, c)
+				c.subCmdOf = prev
 			}
 			continue
 		}

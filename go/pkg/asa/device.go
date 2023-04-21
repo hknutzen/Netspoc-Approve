@@ -10,10 +10,11 @@ import (
 )
 
 type State struct {
-	conn    *console.Conn
-	a       *ASAConfig
-	b       *ASAConfig
-	changes changeList
+	conn     *console.Conn
+	a        *ASAConfig
+	b        *ASAConfig
+	changes  changeList
+	subCmdOf *cmd
 }
 type change struct {
 	cmd string

@@ -175,6 +175,7 @@ func (s *State) diffNamedCmds2(
 func (s *State) delCmds(l []*cmd) {
 	for _, c := range l {
 		c.deleted = true
+		s.setSuperCmd(c)
 		s.changes.push("no " + c.orig)
 	}
 }
@@ -199,9 +200,21 @@ func (s *State) addCmds(l []*cmd) {
 }
 
 func (s *State) addCmd(c *cmd) {
+	s.setSuperCmd(c)
 	s.changes.push(c.orig)
 	for _, sc := range c.sub {
 		s.changes.push(sc.orig)
+	}
+}
+
+func (s *State) setSuperCmd(c *cmd) {
+	if c.subCmdOf == nil {
+		s.subCmdOf = c
+	} else {
+		if s.subCmdOf == nil || s.subCmdOf.orig != c.subCmdOf.orig {
+			s.changes.push(c.subCmdOf.orig)
+			s.subCmdOf = c.subCmdOf
+		}
 	}
 }
 
@@ -234,6 +247,7 @@ func (s *State) makeEqual(al, bl []*cmd) {
 	}
 }
 
+// Delete unused toplevel commands from device.
 func (s *State) deleteUnused() {
 	for _, m := range s.a.lookup {
 		for name, l := range m {
