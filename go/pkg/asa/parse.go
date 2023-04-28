@@ -398,7 +398,7 @@ DESCR:
 			continue
 		}
 		if descr.ignore {
-			continue
+			return nil
 		}
 		if prefix != "" {
 			words = append([]string{prefix}, words...)
