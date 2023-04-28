@@ -3,6 +3,7 @@ package asa
 import (
 	"net/netip"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/diff/myers"
@@ -102,7 +103,10 @@ const (
 	isRef refCmd = true
 )
 
-func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) {
+// Compare list of commands having equal prefix.
+// Return name of existing command, if it is unchanged or modified
+// or return name of new command, if it replaces old command.
+func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) string {
 	ab := &cmdsPair{
 		a:     s.a,
 		b:     s.b,
@@ -110,19 +114,46 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) {
 		bCmds: bl,
 		key:   key,
 	}
-	for _, r := range myers.Diff(nil, ab).Ranges {
-		if r.IsDelete() {
-			if !isRef {
-				s.delCmds(ab.aCmds[r.LowA:r.HighA])
+	diff := myers.Diff(nil, ab).Ranges
+	// If some command modifies existing command on device with name N,
+	// then also use name N in other added commands (having same prefix).
+	nameN := ""
+FINDEQ:
+	for _, r := range diff {
+		if r.IsEqual() {
+			for _, aCmd := range al[r.LowA:r.HighA] {
+				nameN = aCmd.name
+				break FINDEQ
 			}
-		} else if r.IsInsert() {
-			s.addCmds(ab.bCmds[r.LowB:r.HighB])
-		} else {
-			al := ab.aCmds[r.LowA:r.HighA]
-			bl := ab.bCmds[r.LowB:r.HighB]
-			s.makeEqual(al, bl)
 		}
 	}
+	if nameN != "" {
+		for _, r := range diff {
+			if r.IsInsert() {
+				for _, bCmd := range bl[r.LowB:r.HighB] {
+					bCmd.name = nameN
+				}
+			}
+		}
+	}
+	for _, r := range diff {
+		if r.IsDelete() {
+			if !isRef {
+				s.delCmds(al[r.LowA:r.HighA])
+			}
+		} else if r.IsInsert() {
+			s.addCmds(bl[r.LowB:r.HighB])
+		} else {
+			s.makeEqual(al[r.LowA:r.HighA], bl[r.LowB:r.HighB])
+		}
+	}
+	if nameN != "" {
+		return nameN
+	}
+	if len(bl) > 0 {
+		return bl[0].name
+	}
+	return ""
 }
 
 // tunnel-group command is anchor, if name is IP address.
@@ -205,10 +236,20 @@ func (s *State) addCmds(l []*cmd) {
 
 func (s *State) addCmd(c *cmd) {
 	s.setSuperCmd(c)
-	s.changes.push(c.orig)
+	s.changes.push(c.String())
 	for _, sc := range c.sub {
 		s.changes.push(sc.orig)
 	}
+}
+
+func (c *cmd) String() string {
+	s := c.parsed
+	s = strings.Replace(s, "$NAME", c.name, 1)
+	s = strings.Replace(s, "$SEQ", strconv.Itoa(c.seq), 1)
+	for _, r := range c.ref {
+		s = strings.Replace(s, "$REF", r, 1)
+	}
+	return s
 }
 
 func (s *State) setSuperCmd(c *cmd) {
@@ -216,7 +257,7 @@ func (s *State) setSuperCmd(c *cmd) {
 		s.subCmdOf = c
 	} else {
 		if s.subCmdOf == nil || s.subCmdOf.orig != c.subCmdOf.orig {
-			s.changes.push(c.subCmdOf.orig)
+			s.changes.push(c.subCmdOf.String())
 			s.subCmdOf = c.subCmdOf
 		}
 	}
@@ -236,17 +277,34 @@ func withRefCmdsDo(cnf *ASAConfig, c *cmd, do func([]*cmd)) {
 	}
 }
 
-// al and bl are lists of commands, known to be equal.
+// al and bl are lists of commands, known to be equal, but names may differ.
 // Equalize subcommands and referenced commands.
 func (s *State) makeEqual(al, bl []*cmd) {
 	for i, a := range al {
 		a.needed = true
 		b := bl[i]
+		b.name = a.name
+		//fmt.Fprintf(os.Stderr, "a: %s\n", a.orig)
+		//fmt.Fprintf(os.Stderr, "b: %s\n", b.orig)
 		s.diffCmds(a.sub, b.sub, getParsed, noRef)
-		for i, name := range a.ref {
+		changedRef := false
+		for i, aName := range a.ref {
 			prefix := a.typ.ref[i]
-			s.diffCmds(s.a.lookup[prefix][name], s.b.lookup[prefix][name],
+			bName := b.ref[i]
+			refName := s.diffCmds(
+				s.a.lookup[prefix][aName],
+				s.b.lookup[prefix][bName],
 				getParsed, isRef)
+			//fmt.Fprintf(os.Stderr, "refName: %s, aName: %sm bName: %s\n",
+			//	refName, aName, bName)
+			if refName != aName {
+				changedRef = true
+			} else {
+				b.ref[i] = refName
+			}
+		}
+		if changedRef {
+			s.addCmd(b)
 		}
 	}
 }
