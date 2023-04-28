@@ -15,6 +15,7 @@ var anchors = []string{
 }
 
 func (s *State) diffConfig() {
+	s.generateNamesForTransfer()
 	s.diffUnnamedCmds("route", getParsed)
 	s.diffUnnamedCmds("ipv6 route", getParsed)
 	s.diffUnnamedCmds("no sysopt connection permit-vpn", getParsed)
@@ -220,16 +221,25 @@ func (s *State) delCmds(l []*cmd) {
 // Mark transferred commands as transferred.
 // Transfer each command only once.
 func (s *State) addCmds(l []*cmd) {
-	var add func(l []*cmd)
-	add = func(l []*cmd) {
-		for _, c := range l {
-			if c.transferred {
-				continue
-			}
-			c.transferred = true
-			withRefCmdsDo(s.b, c, add)
-			s.addCmd(c)
+	var add func(l []*cmd) string
+	follow := func(c *cmd) {
+		for i, name := range c.ref {
+			prefix := c.typ.ref[i]
+			c.ref[i] = add(s.b.lookup[prefix][name])
 		}
+	}
+	add = func(l []*cmd) string {
+		for _, c := range l {
+			if !c.transferred {
+				c.transferred = true
+				follow(c)
+				for _, sc := range c.sub {
+					follow(sc)
+				}
+				s.addCmd(c)
+			}
+		}
+		return l[0].name
 	}
 	add(l)
 }
@@ -238,7 +248,7 @@ func (s *State) addCmd(c *cmd) {
 	s.setSuperCmd(c)
 	s.changes.push(c.String())
 	for _, sc := range c.sub {
-		s.changes.push(sc.orig)
+		s.changes.push(sc.String())
 	}
 }
 
@@ -263,29 +273,16 @@ func (s *State) setSuperCmd(c *cmd) {
 	}
 }
 
-func withRefCmdsDo(cnf *ASAConfig, c *cmd, do func([]*cmd)) {
-	follow := func(c *cmd) {
-		for i, name := range c.ref {
-			prefix := c.typ.ref[i]
-			l := cnf.lookup[prefix][name]
-			do(l)
-		}
-	}
-	follow(c)
-	for _, sc := range c.sub {
-		follow(sc)
-	}
-}
-
 // al and bl are lists of commands, known to be equal, but names may differ.
 // Equalize subcommands and referenced commands.
+// Overwrite command
 func (s *State) makeEqual(al, bl []*cmd) {
 	for i, a := range al {
 		a.needed = true
 		b := bl[i]
 		b.name = a.name
-		//fmt.Fprintf(os.Stderr, "a: %s\n", a.orig)
-		//fmt.Fprintf(os.Stderr, "b: %s\n", b.orig)
+		//fmt.Fprintf(os.Stderr, "a: %s\n", a)
+		//fmt.Fprintf(os.Stderr, "b: %s\n", b)
 		s.diffCmds(a.sub, b.sub, getParsed, noRef)
 		changedRef := false
 		for i, aName := range a.ref {
@@ -295,13 +292,12 @@ func (s *State) makeEqual(al, bl []*cmd) {
 				s.a.lookup[prefix][aName],
 				s.b.lookup[prefix][bName],
 				getParsed, isRef)
-			//fmt.Fprintf(os.Stderr, "refName: %s, aName: %sm bName: %s\n",
+			//fmt.Fprintf(os.Stderr, "refName: %s, aName: %s bName: %s\n",
 			//	refName, aName, bName)
 			if refName != aName {
 				changedRef = true
-			} else {
-				b.ref[i] = refName
 			}
+			b.ref[i] = refName
 		}
 		if changedRef {
 			s.addCmd(b)
@@ -320,6 +316,48 @@ func (s *State) deleteUnused() {
 						s.changes.push("no " + c.orig)
 					}
 				}
+			}
+		}
+	}
+}
+
+// Generate new names for objects from Netspoc: <spoc-name>-DRC-<index>
+func (s *State) generateNamesForTransfer() {
+	set := func(c *cmd, devNames map[string][]*cmd) {
+		prefix := c.name + "-DRC-"
+		index := 0
+		for {
+			newName := prefix + strconv.Itoa(index)
+			if _, found := devNames[newName]; !found {
+				//fmt.Fprintf(os.Stderr, "%s -> %s\n", c.name, newName)
+				c.name = newName
+				break
+			}
+			index++
+		}
+	}
+	for prefix, m := range s.b.lookup {
+		switch prefix {
+		case "crypto map", "username", // Anchors
+			"crypto dynamic-map": // Dynamic crypto map has certificate as name.
+			continue
+		}
+		for name, bl := range m {
+			switch name {
+			case "":
+				continue
+			case "DfltGrpPolicy":
+				if prefix == "group-policy" {
+					continue
+				}
+			}
+			if prefix == "tunnel-group" {
+				if _, err := netip.ParseAddr(name); err == nil {
+					continue
+				}
+			}
+			for _, c := range bl {
+				set(c, s.a.lookup[prefix])
 			}
 		}
 	}
