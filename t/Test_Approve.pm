@@ -191,7 +191,9 @@ sub test_warn {
 sub approve {
     my($type, $conf, $spoc) = @_;
     my ($changes, $stderr) = approve_warn($type, $conf, $spoc);
-    $stderr and BAIL_OUT "STDERR:\n$stderr\n";
+    if ($stderr) {
+        return "unexpected STDERR:\n$stderr\n";
+    }
     return $changes;
 }
 
@@ -286,8 +288,10 @@ sub check_parse_and_unchanged {
     eq_or_diff(approve( $type, $minimal_device, $in ), $out, $title);
 
     $out = '';
-    $title =~ /^Parse (.*)/ or
-	BAIL_OUT "Need title starting with 'Parse' as argument!";
+    if ($title !~ /^Parse (.*)/) {
+        fail("Title must start with 'Parse':\n$title");
+        return;
+    }
     $title = "Empty out on identical in ($1)";
     eq_or_diff(approve( $type, $in, $in ), $out, $title);
 }
