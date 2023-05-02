@@ -36,10 +36,14 @@ func (s *State) diffConfig() {
 		}
 		return strings.Join(result, "\n")
 	}
-	s.diffTunnelGroup()
 	s.diffUnnamedCmds("tunnel-group-map", certMapKey)
 	s.diffSubCmds("webvpn", certMapKey)
 	s.diffNamedCmds("username")
+	s.diffTunnelGroup()
+	s.diffPredefined("group-policy", "DfltGrpPolicy")
+	s.diffPredefined("tunnel-group", "ipsec-l2l")
+	s.diffPredefined("tunnel-group", "remote-access")
+	s.diffPredefined("tunnel-group", "webvpn")
 	s.deleteUnused()
 }
 
@@ -70,6 +74,67 @@ func (s *State) diffSubCmds(prefix string, key keyFunc) {
 		},
 			key,
 		)
+	}
+}
+
+func (s *State) diffNamedCmds(prefix string) {
+	aMap := s.a.lookup[prefix]
+	bMap := s.b.lookup[prefix]
+	aNames := maps.Keys(aMap)
+	bNames := maps.Keys(bMap)
+	sort.Strings(aNames)
+	sort.Strings(bNames)
+	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
+}
+
+// tunnel-group command is anchor, if name is IP address.
+func (s *State) diffTunnelGroup() {
+	aMap := s.a.lookup["tunnel-group"]
+	bMap := s.b.lookup["tunnel-group"]
+	getIPNames := func(m map[string][]*cmd) []string {
+		var result []string
+		for name := range m {
+			if _, err := netip.ParseAddr(name); err == nil {
+				result = append(result, name)
+			}
+		}
+		sort.Strings(result)
+		return result
+	}
+	aNames := getIPNames(aMap)
+	bNames := getIPNames(bMap)
+	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
+}
+
+func (s *State) diffPredefined(prefix, name string) {
+	aMap := s.a.lookup[prefix]
+	bMap := s.b.lookup[prefix]
+	if al, found := aMap[name]; found {
+		if bl, found := bMap[name]; found {
+			s.makeEqual(al, bl)
+		} else {
+			for _, aCmd := range al {
+				aCmd.needed = true
+			}
+		}
+	} else if bl, found := bMap[name]; found {
+		s.addCmds(bl)
+	}
+}
+
+// Delete unused toplevel commands from device.
+func (s *State) deleteUnused() {
+	for _, m := range s.a.lookup {
+		for name, l := range m {
+			if name != "" {
+				for _, c := range l {
+					if !c.needed && !c.deleted {
+						c.deleted = true
+						s.changes.push("no " + c.orig)
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -155,35 +220,6 @@ FINDEQ:
 		return bl[0].name
 	}
 	return ""
-}
-
-// tunnel-group command is anchor, if name is IP address.
-func (s *State) diffTunnelGroup() {
-	aMap := s.a.lookup["tunnel-group"]
-	bMap := s.b.lookup["tunnel-group"]
-	getNames := func(m map[string][]*cmd) []string {
-		var result []string
-		for name := range m {
-			if _, err := netip.ParseAddr(name); err == nil {
-				result = append(result, name)
-			}
-		}
-		sort.Strings(result)
-		return result
-	}
-	aNames := getNames(aMap)
-	bNames := getNames(bMap)
-	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
-}
-
-func (s *State) diffNamedCmds(prefix string) {
-	aMap := s.a.lookup[prefix]
-	bMap := s.b.lookup[prefix]
-	aNames := maps.Keys(aMap)
-	bNames := maps.Keys(bMap)
-	sort.Strings(aNames)
-	sort.Strings(bNames)
-	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
 func (s *State) diffNamedCmds2(
@@ -301,22 +337,6 @@ func (s *State) makeEqual(al, bl []*cmd) {
 		}
 		if changedRef {
 			s.addCmd(b)
-		}
-	}
-}
-
-// Delete unused toplevel commands from device.
-func (s *State) deleteUnused() {
-	for _, m := range s.a.lookup {
-		for name, l := range m {
-			if name != "" {
-				for _, c := range l {
-					if !c.needed && !c.deleted {
-						c.deleted = true
-						s.changes.push("no " + c.orig)
-					}
-				}
-			}
 		}
 	}
 }
