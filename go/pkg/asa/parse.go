@@ -30,7 +30,7 @@ type cmd struct {
 	needed      bool // cmd is referenced and must not be deleted
 
 	orig string // e.g. "crypto map abc 10 match address xyz"
-	// "*" and "$STRING" of template are only used for matching,
+	// "*" and `"` of template are only used for matching,
 	// but 'parsed' contains original value.
 	parsed   string   // e.g. "crypto map $NAME $SEQ match address $REF"
 	name     string   // Value of $NAME, e.g. "abc"
@@ -89,7 +89,7 @@ aaa-server $NAME *
  ldap-attribute-map $ldap_attribute-map
 ldap_attribute-map $NAME
  map-name memberOf Group-Policy
- map-value memberOf $STRING $group-policy
+ map-value memberOf " $group-policy
 
 # Is anchor if $NAME is IP address
 tunnel-group $NAME type *
@@ -365,7 +365,7 @@ DESCR:
 			case "$REF":
 				ref = append(ref, w)
 				parsed = append(parsed, token)
-			case "$STRING":
+			case `"`:
 				strg := ""
 				if w[0] == '"' {
 					for j, w2 := range args {
