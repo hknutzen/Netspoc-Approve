@@ -187,7 +187,8 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 	}
 	postprocessParsed(lookup)
 	config.lookup = lookup
-	return config, nil
+	err := checkReferences(lookup)
+	return config, err
 }
 
 func postprocessParsed(lookup map[string]map[string][]*cmd) {
@@ -242,6 +243,34 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 		}
 		lookup["aaa-server"][name] = l[0:2]
 	}
+}
+
+func checkReferences(lookup map[string]map[string][]*cmd) error {
+	for _, m := range lookup {
+		for _, cmdList := range m {
+			check := func(c *cmd) error {
+				for i, name := range c.ref {
+					prefix := c.typ.ref[i]
+					if _, found := lookup[prefix][name]; !found {
+						return fmt.Errorf("Referencing unknown '%s %s' from '%s'",
+							prefix, name, c.orig)
+					}
+				}
+				return nil
+			}
+			for _, c := range cmdList {
+				if err := check(c); err != nil {
+					return err
+				}
+				for _, sc := range c.sub {
+					if err := check(sc); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func init() {
