@@ -391,6 +391,6 @@ func warning(format string, args ...interface{}) {
 }
 
 func Abort(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "Error>>> "+format+"\n", args...)
+	fmt.Fprintf(os.Stderr, "ERROR>>> "+format+"\n", args...)
 	os.Exit(1)
 }
