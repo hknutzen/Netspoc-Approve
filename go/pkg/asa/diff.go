@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/pkg/diff/myers"
 	"golang.org/x/exp/maps"
 )
@@ -22,7 +23,7 @@ func (s *State) diffConfig() {
 	// Use parsed command "access-group $REF interface <NAME>",
 	// effectively using name of interface as key.
 	s.diffUnnamedCmds("access-group", getParsed)
-	// Use list of subcommands of referenced crypto_ca_certificate_map as key.
+	// Use "subject-name" of referenced "crypto ca certificate map" as key.
 	certMapKey := func(conf *ASAConfig, c *cmd) string {
 		name := c.ref[0]
 		prefix := c.typ.ref[0]
@@ -30,11 +31,12 @@ func (s *State) diffConfig() {
 		if l == nil {
 			return ""
 		}
-		var result []string
-		for _, s := range l[0].sub {
-			result = append(result, s.parsed)
+		for _, sc := range l[0].sub {
+			if strings.HasPrefix(sc.parsed, "subject-name attr") {
+				return sc.parsed
+			}
 		}
-		return strings.Join(result, "\n")
+		return ""
 	}
 	s.diffUnnamedCmds("tunnel-group-map", certMapKey)
 	s.diffSubCmds("webvpn", certMapKey)
@@ -106,6 +108,24 @@ func (s *State) diffTunnelGroup() {
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
+func (s *State) diffNamedCmds2(
+	aMap, bMap map[string][]*cmd, aNames, bNames []string) {
+
+	for _, aName := range aNames {
+		al := aMap[aName]
+		if bl, found := bMap[aName]; found {
+			s.makeEqual(al, bl)
+		} else {
+			s.delCmds(al)
+		}
+	}
+	for _, bName := range bNames {
+		if _, found := aMap[bName]; !found {
+			s.addCmds(bMap[bName])
+		}
+	}
+}
+
 func (s *State) diffPredefined(prefix, name string) {
 	aMap := s.a.lookup[prefix]
 	bMap := s.b.lookup[prefix]
@@ -119,22 +139,6 @@ func (s *State) diffPredefined(prefix, name string) {
 		}
 	} else if bl, found := bMap[name]; found {
 		s.addCmds(bl)
-	}
-}
-
-// Delete unused toplevel commands from device.
-func (s *State) deleteUnused() {
-	for _, m := range s.a.lookup {
-		for name, l := range m {
-			if name != "" {
-				for _, c := range l {
-					if !c.needed && !c.deleted {
-						c.deleted = true
-						s.changes.push("no " + c.orig)
-					}
-				}
-			}
-		}
 	}
 }
 
@@ -173,6 +177,13 @@ const (
 // Return name of existing command, if it is unchanged or modified
 // or return name of new command, if it replaces old command.
 func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) string {
+	// Command from Netspoc already was transferred or was found on device.
+	if len(bl) > 0 {
+		c := bl[0]
+		if c.ready {
+			return c.name
+		}
+	}
 	ab := &cmdsPair{
 		a:     s.a,
 		b:     s.b,
@@ -222,21 +233,89 @@ FINDEQ:
 	return ""
 }
 
-func (s *State) diffNamedCmds2(
-	aMap, bMap map[string][]*cmd, aNames, bNames []string) {
-
-	for _, aName := range aNames {
-		al := aMap[aName]
-		if bl, found := bMap[aName]; found {
-			s.makeEqual(al, bl)
-		} else {
-			s.delCmds(al)
+// al and bl are lists of commands, known to be equal, but names may differ.
+// Equalize subcommands and referenced commands.
+// Overwrite command
+func (s *State) makeEqual(al, bl []*cmd) {
+	for i, a := range al {
+		b := bl[i]
+		//fmt.Fprintf(os.Stderr, "a: %s\n", a)
+		//fmt.Fprintf(os.Stderr, "b: %s\n", b)
+		a.needed = true
+		b.name = a.name
+		b.ready = true
+		s.diffCmds(a.sub, b.sub, getParsed, noRef)
+		changedRef := false
+		for i, aName := range a.ref {
+			prefix := a.typ.ref[i]
+			bName := b.ref[i]
+			if prefix == "aaa-server" && aName != bName {
+				changedRef = true
+				s.addCmds(s.b.lookup[prefix][bName])
+				continue
+			}
+			refName := s.diffCmds(
+				s.a.lookup[prefix][aName],
+				s.b.lookup[prefix][bName],
+				getParsed, isRef)
+			//fmt.Fprintf(os.Stderr, "refName: %s, aName: %s, bName: %s\n",
+			//	refName, aName, bName)
+			if refName != aName {
+				changedRef = true
+			}
+			b.ref[i] = refName
+		}
+		if changedRef {
+			s.addCmd(b)
 		}
 	}
-	for _, bName := range bNames {
-		if _, found := aMap[bName]; !found {
-			s.addCmds(bMap[bName])
+}
+
+// Recursively transfer commands referenced from command and subcommands.
+// Then transfer command and its subcommands.
+// Mark transferred commands.
+// Transfer each command only once.
+func (s *State) addCmds(l []*cmd) {
+	var add func(l []*cmd) string
+	follow := func(c *cmd) {
+		for i, name := range c.ref {
+			switch prefix := c.typ.ref[i]; prefix {
+			case "aaa-server", "ldap attribute-map":
+				if al, found := s.a.lookup[prefix][name]; found {
+					s.diffCmds(al, s.b.lookup[prefix][name], getParsed, isRef)
+					continue
+				}
+				device.Abort("'%s %s' must be transferred manually", prefix, name)
+			default:
+				c.ref[i] = add(s.b.lookup[prefix][name])
+			}
 		}
+	}
+	add = func(l []*cmd) string {
+		for _, c := range l {
+			if !c.ready {
+				c.ready = true
+				follow(c)
+				for _, sc := range c.sub {
+					follow(sc)
+				}
+				s.addCmd(c)
+			}
+		}
+		return l[0].name
+	}
+	add(l)
+}
+
+func (s *State) addCmd(c *cmd) {
+	switch c.typ.prefix {
+	case "aaa-server", "ldap attribute-map":
+		return
+	}
+	s.setSuperCmd(c)
+	s.changes.push(c.String())
+	for _, sc := range c.sub {
+		s.changes.push(sc.String())
 	}
 }
 
@@ -252,39 +331,23 @@ func (s *State) delCmds(l []*cmd) {
 	}
 }
 
-// Recursively transfer commands referenced from command and subcommands.
-// Then transfer command and its subcommands.
-// Mark transferred commands as transferred.
-// Transfer each command only once.
-func (s *State) addCmds(l []*cmd) {
-	var add func(l []*cmd) string
-	follow := func(c *cmd) {
-		for i, name := range c.ref {
-			prefix := c.typ.ref[i]
-			c.ref[i] = add(s.b.lookup[prefix][name])
-		}
-	}
-	add = func(l []*cmd) string {
-		for _, c := range l {
-			if !c.transferred {
-				c.transferred = true
-				follow(c)
-				for _, sc := range c.sub {
-					follow(sc)
+// Delete unused toplevel commands from device.
+func (s *State) deleteUnused() {
+	for _, m := range s.a.lookup {
+		for name, l := range m {
+			if name != "" {
+				for _, c := range l {
+					switch c.typ.prefix {
+					case "aaa-server", "ldap attribute-map":
+						continue
+					}
+					if !c.needed && !c.deleted {
+						c.deleted = true
+						s.changes.push("no " + c.orig)
+					}
 				}
-				s.addCmd(c)
 			}
 		}
-		return l[0].name
-	}
-	add(l)
-}
-
-func (s *State) addCmd(c *cmd) {
-	s.setSuperCmd(c)
-	s.changes.push(c.String())
-	for _, sc := range c.sub {
-		s.changes.push(sc.String())
 	}
 }
 
@@ -309,38 +372,6 @@ func (s *State) setSuperCmd(c *cmd) {
 	}
 }
 
-// al and bl are lists of commands, known to be equal, but names may differ.
-// Equalize subcommands and referenced commands.
-// Overwrite command
-func (s *State) makeEqual(al, bl []*cmd) {
-	for i, a := range al {
-		a.needed = true
-		b := bl[i]
-		b.name = a.name
-		//fmt.Fprintf(os.Stderr, "a: %s\n", a)
-		//fmt.Fprintf(os.Stderr, "b: %s\n", b)
-		s.diffCmds(a.sub, b.sub, getParsed, noRef)
-		changedRef := false
-		for i, aName := range a.ref {
-			prefix := a.typ.ref[i]
-			bName := b.ref[i]
-			refName := s.diffCmds(
-				s.a.lookup[prefix][aName],
-				s.b.lookup[prefix][bName],
-				getParsed, isRef)
-			//fmt.Fprintf(os.Stderr, "refName: %s, aName: %s bName: %s\n",
-			//	refName, aName, bName)
-			if refName != aName {
-				changedRef = true
-			}
-			b.ref[i] = refName
-		}
-		if changedRef {
-			s.addCmd(b)
-		}
-	}
-}
-
 // Generate new names for objects from Netspoc: <spoc-name>-DRC-<index>
 func (s *State) generateNamesForTransfer() {
 	set := func(c *cmd, devNames map[string][]*cmd) {
@@ -359,7 +390,8 @@ func (s *State) generateNamesForTransfer() {
 	for prefix, m := range s.b.lookup {
 		switch prefix {
 		case "crypto map", "username", // Anchors
-			"crypto dynamic-map": // Dynamic crypto map has certificate as name.
+			"crypto dynamic-map", // Has certificate as name.
+			"aaa-server":         // Has fixed name.
 			continue
 		}
 		for name, bl := range m {

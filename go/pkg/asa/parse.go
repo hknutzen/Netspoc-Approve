@@ -24,10 +24,10 @@ type cmdType struct {
 }
 
 type cmd struct {
-	typ         *cmdType
-	transferred bool // cmd was already transferred to device
-	deleted     bool // cmd has been deleted
-	needed      bool // cmd is referenced and must not be deleted
+	typ     *cmdType
+	ready   bool // cmd from Netspoc was already found on or transferred to device
+	deleted bool // cmd on device has been deleted
+	needed  bool // cmd on device is referenced and must not be deleted
 
 	orig string // e.g. "crypto map abc 10 match address xyz"
 	// "*" and `"` of template are only used for matching,
@@ -243,6 +243,16 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 		}
 		lookup["aaa-server"][name] = l[0:2]
 	}
+	// Normalize subcommand "subject-name attr *"
+	// of "crypto ca certificate map" to lowercase for comparison with device,
+	// because it gets stored in lowercase on device.
+	for _, l := range lookup["crypto ca certificate map"] {
+		for _, c := range l {
+			for _, sc := range c.sub {
+				sc.parsed = strings.ToLower(sc.parsed)
+			}
+		}
+	}
 }
 
 func checkReferences(lookup map[string]map[string][]*cmd) error {
@@ -434,7 +444,7 @@ DESCR:
 				strg := ""
 				if w[0] == '"' {
 					for j, w2 := range args {
-						if strings.HasSuffix(w2, `"`) {
+						if strings.HasSuffix(w2, `"`) && !strings.HasSuffix(w2, `\"`) {
 							strg = strings.Join(args[:j+1], " ")
 							args = args[j:]
 							break
