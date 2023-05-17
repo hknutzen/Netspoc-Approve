@@ -24,10 +24,11 @@ type cmdType struct {
 }
 
 type cmd struct {
-	typ     *cmdType
-	ready   bool // cmd from Netspoc was already found on or transferred to device
-	deleted bool // cmd on device has been deleted
-	needed  bool // cmd on device is referenced and must not be deleted
+	typ       *cmdType
+	ready     bool // cmd from Netspoc was found on or transferred to device
+	deleted   bool // cmd on device has been deleted
+	needed    bool // cmd on device is referenced and must not be deleted
+	fixedName bool
 
 	orig string // e.g. "crypto map abc 10 match address xyz"
 	// "*" and `"` of template are only used for matching,

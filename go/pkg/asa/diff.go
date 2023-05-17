@@ -112,16 +112,11 @@ func (s *State) diffNamedCmds2(
 	aMap, bMap map[string][]*cmd, aNames, bNames []string) {
 
 	for _, aName := range aNames {
-		al := aMap[aName]
-		if bl, found := bMap[aName]; found {
-			s.makeEqual(al, bl)
-		} else {
-			s.delCmds(al)
-		}
+		s.diffCmds(aMap[aName], bMap[aName], getParsed, noRef)
 	}
 	for _, bName := range bNames {
 		if _, found := aMap[bName]; !found {
-			s.addCmds(bMap[bName])
+			s.diffCmds(nil, bMap[bName], getParsed, noRef)
 		}
 	}
 }
@@ -279,16 +274,18 @@ func (s *State) addCmds(l []*cmd) {
 	var add func(l []*cmd) string
 	follow := func(c *cmd) {
 		for i, name := range c.ref {
-			switch prefix := c.typ.ref[i]; prefix {
-			case "aaa-server", "ldap attribute-map":
+			prefix := c.typ.ref[i]
+			if s.b.lookup[prefix][name][0].fixedName {
 				if al, found := s.a.lookup[prefix][name]; found {
 					s.diffCmds(al, s.b.lookup[prefix][name], getParsed, isRef)
 					continue
 				}
-				device.Abort("'%s %s' must be transferred manually", prefix, name)
-			default:
-				c.ref[i] = add(s.b.lookup[prefix][name])
+				switch prefix {
+				case "aaa-server", "ldap attribute-map":
+					device.Abort("'%s %s' must be transferred manually", prefix, name)
+				}
 			}
+			c.ref[i] = add(s.b.lookup[prefix][name])
 		}
 	}
 	add = func(l []*cmd) string {
@@ -321,6 +318,9 @@ func (s *State) addCmd(c *cmd) {
 
 func (s *State) delCmds(l []*cmd) {
 	for _, c := range l {
+		if c.needed {
+			continue
+		}
 		c.deleted = true
 		s.setSuperCmd(c)
 		if c2 := strings.TrimPrefix(c.orig, "no "); c.orig != c2 {
@@ -388,11 +388,12 @@ func (s *State) generateNamesForTransfer() {
 		}
 	}
 	for prefix, m := range s.b.lookup {
+		fixed := false
 		switch prefix {
 		case "crypto map", "username", // Anchors
-			"crypto dynamic-map", // Has certificate as name.
-			"aaa-server":         // Has fixed name.
-			continue
+			"crypto dynamic-map",               // Has certificate as name.
+			"aaa-server", "ldap attribute-map": // Has fixed name.
+			fixed = true
 		}
 		for name, bl := range m {
 			switch name {
@@ -400,16 +401,20 @@ func (s *State) generateNamesForTransfer() {
 				continue
 			case "DfltGrpPolicy":
 				if prefix == "group-policy" {
-					continue
+					fixed = true
 				}
 			}
 			if prefix == "tunnel-group" {
 				if _, err := netip.ParseAddr(name); err == nil {
-					continue
+					fixed = true
 				}
 			}
 			for _, c := range bl {
-				set(c, s.a.lookup[prefix])
+				if fixed {
+					c.fixedName = true
+				} else {
+					set(c, s.a.lookup[prefix])
+				}
 			}
 		}
 	}
