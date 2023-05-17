@@ -245,12 +245,24 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 		lookup["aaa-server"][name] = l[0:2]
 	}
 	// Normalize subcommand "subject-name attr *"
-	// of "crypto ca certificate map" to lowercase for comparison with device,
+	// of "crypto ca certificate map" tx1o lowercase for comparison with device,
 	// because it gets stored in lowercase on device.
-	for _, l := range lookup["crypto ca certificate map"] {
+	idMap := make(map[string]string)
+	for name, l := range lookup["crypto ca certificate map"] {
 		for _, c := range l {
 			for _, sc := range c.sub {
-				sc.parsed = strings.ToLower(sc.parsed)
+				if strings.HasPrefix(sc.parsed, "subject-name") {
+					sc.parsed = strings.ToLower(sc.parsed)
+				}
+				if other, found := idMap[sc.parsed]; found {
+					if other > name {
+						other, name = name, other
+					}
+					device.Abort(
+						"Two ca cert map items use identical subject-name: '%s', '%s'",
+						other, name)
+				}
+				idMap[sc.parsed] = name
 			}
 		}
 	}
