@@ -266,6 +266,24 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 			}
 		}
 	}
+	// Add default tunnel-groups if missing.
+	name2typ := map[string]string{
+		"DefaultL2LGroup":    "ipsec-l2l",
+		"DefaultRAGroup":     "remote-access",
+		"DefaultWEBVPNGroup": "webvpn",
+	}
+	m := lookup["tunnel-group"]
+	if m == nil {
+		m = make(map[string][]*cmd)
+		lookup["tunnel-group"] = m
+	}
+	for name, typ := range name2typ {
+		if _, found := m[name]; !found {
+			c := lookupCmd("tunnel-group " + name + " type " + typ)
+			c.needed = true
+			m[name] = []*cmd{c}
+		}
+	}
 }
 
 func checkReferences(lookup map[string]map[string][]*cmd) error {
