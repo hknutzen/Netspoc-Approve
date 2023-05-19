@@ -179,6 +179,13 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) string {
 			return c.name
 		}
 	}
+	// Find largest used sequence number used on device.
+	seq := 0
+	for _, aCmd := range al {
+		if aCmd.seq > seq {
+			seq = aCmd.seq
+		}
+	}
 	ab := &cmdsPair{
 		a:     s.a,
 		b:     s.b,
@@ -204,6 +211,9 @@ FINDEQ:
 			if r.IsInsert() {
 				for _, bCmd := range bl[r.LowB:r.HighB] {
 					bCmd.name = nameN
+					// Use fresh sequence numbers for added commands from Netspoc.
+					seq += 10
+					bCmd.seq = seq
 				}
 			}
 		}
@@ -238,6 +248,7 @@ func (s *State) makeEqual(al, bl []*cmd) {
 		//fmt.Fprintf(os.Stderr, "b: %s\n", b)
 		a.needed = true
 		b.name = a.name
+		b.seq = a.seq
 		b.ready = true
 		s.diffCmds(a.sub, b.sub, getParsed, noRef)
 		changedRef := false
