@@ -462,7 +462,7 @@ DESCR:
 				name = w
 				parsed = append(parsed, token)
 			case "$SEQ":
-				num, err := strconv.ParseInt(w, 10, 16)
+				num, err := strconv.ParseUint(w, 10, 16)
 				if err != nil {
 					continue DESCR
 				}
