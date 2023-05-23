@@ -41,6 +41,7 @@ func (s *State) diffConfig() {
 	s.diffUnnamedCmds("tunnel-group-map", certMapKey)
 	s.diffSubCmds("webvpn", certMapKey)
 	s.diffNamedCmds("username")
+	s.diffNamedCmds("crypto map")
 	s.diffTunnelGroup()
 	s.diffPredefined("group-policy", "DfltGrpPolicy")
 	s.diffPredefined("tunnel-group", "ipsec-l2l")
@@ -50,7 +51,15 @@ func (s *State) diffConfig() {
 }
 
 func getParsed(_ *ASAConfig, c *cmd) string {
-	return c.parsed
+	key := c.parsed
+	// Must not change this command, which may be referenced from
+	// different places.
+	if c.typ.prefix == "crypto ipsec ikev2 ipsec-proposal" {
+		for _, sc := range c.sub {
+			key += " " + sc.parsed
+		}
+	}
+	return key
 }
 
 func (s *State) diffUnnamedCmds(prefix string, key keyFunc) {
@@ -112,11 +121,11 @@ func (s *State) diffNamedCmds2(
 	aMap, bMap map[string][]*cmd, aNames, bNames []string) {
 
 	for _, aName := range aNames {
-		s.diffCmds(aMap[aName], bMap[aName], getParsed, noRef)
+		s.diffSeqCmds(aMap[aName], bMap[aName], getParsed, noRef)
 	}
 	for _, bName := range bNames {
 		if _, found := aMap[bName]; !found {
-			s.diffCmds(nil, bMap[bName], getParsed, noRef)
+			s.diffSeqCmds(nil, bMap[bName], getParsed, noRef)
 		}
 	}
 }
@@ -134,6 +143,98 @@ func (s *State) diffPredefined(prefix, name string) {
 		}
 	} else if bl, found := bMap[name]; found {
 		s.addCmds(bl)
+	}
+}
+
+func (s *State) diffSeqCmds(al, bl []*cmd, key keyFunc, isRef refCmd) {
+	mapBySeq := func(l []*cmd) map[int][]*cmd {
+		m := make(map[int][]*cmd)
+		for _, c := range l {
+			m[c.seq] = append(m[c.seq], c)
+		}
+		return m
+	}
+	aSeqMap := mapBySeq(al)
+	bSeqMap := mapBySeq(bl)
+	var prefix string
+	if len(al) > 0 {
+		prefix = al[0].typ.prefix
+	} else {
+		prefix = bl[0].typ.prefix
+	}
+	if prefix == "crypto map" {
+		s.diffCryptoMap(aSeqMap, bSeqMap, key, isRef)
+	} else {
+		if len(aSeqMap) > 1 || len(bSeqMap) > 1 {
+			device.Abort("Only one sequence nummber supported with '%s'", prefix)
+		}
+		var al, bl []*cmd
+		for _, al = range aSeqMap {
+			break
+		}
+		for _, bl = range bSeqMap {
+			break
+		}
+		s.diffCmds(al, bl, key, isRef)
+	}
+}
+
+func (s *State) diffCryptoMap(
+	aSeqMap, bSeqMap map[int][]*cmd, key keyFunc, isRef refCmd) {
+
+	mapByPeer := func(seqMap map[int][]*cmd) map[string][]*cmd {
+		m := make(map[string][]*cmd)
+		for _, l := range seqMap {
+			peer := ""
+			for _, c := range l {
+				if _, p, found := strings.Cut(c.parsed, " set peer "); found {
+					peer = p
+					break
+				}
+				if strings.Contains(c.parsed, " ipsec-isakmp dynamic ") {
+					peer = c.ref[0]
+					break
+				}
+			}
+			if peer == "" {
+				device.Abort("Missing peer or dynamic in crypto map %s %s",
+					l[0].name, l[0].seq)
+			}
+			if _, found := m[peer]; found {
+				device.Abort(
+					"Duplicate peer or dynamic peer %s in crypto map %s %s",
+					peer, l[0].name, l[0].seq)
+			}
+			m[peer] = l
+		}
+		return m
+	}
+	aPeerMap := mapByPeer(aSeqMap)
+	bPeerMap := mapByPeer(bSeqMap)
+	aPeers := maps.Keys(aPeerMap)
+	bPeers := maps.Keys(bPeerMap)
+	sort.Strings(aPeers)
+	sort.Strings(bPeers)
+	for _, aPeer := range aPeers {
+		s.diffCmds(aPeerMap[aPeer], bPeerMap[aPeer], getParsed, isRef)
+	}
+	// Use fresh sequence number per peer for added commands from Netspoc.
+	seq := 1
+	for _, bPeer := range bPeers {
+		if _, found := aPeerMap[bPeer]; !found {
+			bl := bPeerMap[bPeer]
+			for {
+				if _, found := aSeqMap[seq]; !found {
+					break
+				}
+				seq++
+			}
+			for _, bCmd := range bl {
+				bCmd.seq = seq
+			}
+			s.diffCmds(nil, bl, getParsed, isRef)
+			seq++
+		}
 	}
 }
 
@@ -179,13 +280,6 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) string {
 			return c.name
 		}
 	}
-	// Find largest used sequence number used on device.
-	seq := 0
-	for _, aCmd := range al {
-		if aCmd.seq > seq {
-			seq = aCmd.seq
-		}
-	}
 	ab := &cmdsPair{
 		a:     s.a,
 		b:     s.b,
@@ -206,25 +300,19 @@ FINDEQ:
 			}
 		}
 	}
-	if nameN != "" {
-		for _, r := range diff {
-			if r.IsInsert() {
-				for _, bCmd := range bl[r.LowB:r.HighB] {
-					bCmd.name = nameN
-					// Use fresh sequence numbers for added commands from Netspoc.
-					seq += 10
-					bCmd.seq = seq
-				}
-			}
-		}
-	}
 	for _, r := range diff {
 		if r.IsDelete() {
 			if !isRef {
 				s.delCmds(al[r.LowA:r.HighA])
 			}
 		} else if r.IsInsert() {
-			s.addCmds(bl[r.LowB:r.HighB])
+			l := bl[r.LowB:r.HighB]
+			for _, bCmd := range l {
+				if nameN != "" {
+					bCmd.name = nameN
+				}
+			}
+			s.addCmds(l)
 		} else {
 			s.makeEqual(al[r.LowA:r.HighA], bl[r.LowB:r.HighB])
 		}
@@ -344,10 +432,15 @@ func (s *State) delCmds(l []*cmd) {
 
 // Delete unused toplevel commands from device.
 func (s *State) deleteUnused() {
-	for _, m := range s.a.lookup {
-		for name, l := range m {
+	prefixes := maps.Keys(s.a.lookup)
+	sort.Strings(prefixes)
+	for _, prefix := range prefixes {
+		m := s.a.lookup[prefix]
+		names := maps.Keys(m)
+		sort.Strings(names)
+		for _, name := range names {
 			if name != "" {
-				for _, c := range l {
+				for _, c := range m[name] {
 					switch c.typ.prefix {
 					case "aaa-server", "ldap attribute-map":
 						continue
