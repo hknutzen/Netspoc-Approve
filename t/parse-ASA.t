@@ -386,12 +386,12 @@ END
 
 $out = <<END;
 route outside 10.20.0.0 255.255.0.0 10.1.2.3
+access-list inside_in-DRC-0 extended deny ip any any
+access-group inside_in-DRC-0 in interface inside
 object-group network g0-DRC-0
 network-object 10.0.6.0 255.255.255.0
 network-object 10.0.5.0 255.255.255.0
 network-object host 10.0.12.3
-access-list inside_in-DRC-0 extended deny ip any any
-access-group inside_in-DRC-0 in interface inside
 access-list outside_in-DRC-0 extended permit udp object-group g0-DRC-0 host 10.0.1.11 eq sip
 access-list outside_in-DRC-0 extended permit tcp any host 10.0.1.11 range 7937 8999
 access-list outside_in-DRC-0 extended deny ip any any
@@ -555,8 +555,8 @@ test_run($title, 'ASA', $device, $in, $out);
 $title = "Parse crypto map, dynamic map with tunnel-group";
 ############################################################
 $in = <<END;
-access-list crypto-acl1 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
-access-list crypto-acl2 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
+access-list crypto-acl1 extended permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
+access-list crypto-acl2 extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 
 crypto ipsec ikev1 transform-set trans esp-3des esp-sha-hmac
 crypto dynamic-map some-name 10 match address crypto-acl2
@@ -579,25 +579,24 @@ tunnel-group-map some-name 10 some-name
 END
 
 $out = <<END;
-tunnel-group some-name-DRC-0 type ipsec-l2l
-tunnel-group some-name-DRC-0 ipsec-attributes
-ikev2 local-authentication certificate Trustpoint2
-ikev2 remote-authentication certificate
-peer-id-validate nocheck
 crypto ca certificate map some-name-DRC-0 10
 subject-name attr ea eq some-name
 extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group some-name-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
 tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
-access-list crypto-acl1-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
-crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
-crypto map map-outside 10 set peer 97.98.99.100
-crypto map map-outside 10 set pfs group2
-crypto map map-outside 10 set security-association lifetime seconds 43200
-crypto map map-outside 10 set security-association lifetime kilobytes 4608000
+access-list crypto-acl1-DRC-0 extended permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto map map-outside 10 match address crypto-acl1-DRC-0
+crypto map map-outside 10 set pfs group2
+crypto map map-outside 10 set peer 97.98.99.100
 no crypto map map-outside 10 set ikev1 transform-set
+crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
 crypto map map-outside 10 set ikev1 transform-set trans-DRC-0
-access-list crypto-acl2-DRC-0 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
+crypto map map-outside 10 set security-association lifetime seconds 43200 kilobytes 4608000
+access-list crypto-acl2-DRC-0 extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 crypto dynamic-map some-name 10 match address crypto-acl2-DRC-0
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 END
@@ -685,23 +684,21 @@ username jon.doe@token.example.com attributes
 END
 
 $out = <<'END';
-access-list split-tunnel-DRC-0 standard permit 10.2.42.0 255.255.255.224
-group-policy VPN-group-DRC-0 internal
-group-policy VPN-group-DRC-0 attributes
-anyconnect-custom perapp value SomeName
-banner value Willkommen!
-dns-server 10.1.2.3 10.44.55.66
-split-tunnel-policy tunnelspecified
-vpn-idle-timeout 60
-group-policy VPN-group-DRC-0 attributes
-split-tunnel-network-list value split-tunnel-DRC-0
+username jon.doe@token.example.com nopassword
 access-list vpn-filter-DRC-0 extended permit ip host 10.1.1.67 10.2.42.0 255.255.255.224
 access-list vpn-filter-DRC-0 extended deny ip any any
-username jon.doe@token.example.com nopassword
+group-policy VPN-group-DRC-0 internal
+access-list split-tunnel-DRC-0 standard permit 10.2.42.0 255.255.255.224
+group-policy VPN-group-DRC-0 attributes
+banner value Willkommen!
+dns-server 10.1.2.3 10.44.55.66
+anyconnect-custom perapp value SomeName
+split-tunnel-network-list value split-tunnel-DRC-0
+split-tunnel-policy tunnelspecified
+vpn-idle-timeout 60
 username jon.doe@token.example.com attributes
-service-type remote-access
 vpn-framed-ip-address 10.1.1.67 255.255.254.0
-username jon.doe@token.example.com attributes
+service-type remote-access
 vpn-filter value vpn-filter-DRC-0
 vpn-group-policy VPN-group-DRC-0
 END
@@ -756,13 +753,13 @@ crypto map crypto-outside interface outside
 END
 
 $out = <<'END';
-tunnel-group 193.155.130.3 type ipsec-l2l
-tunnel-group 193.155.130.3 ipsec-attributes
-ikev2 local-authentication certificate ASDM_TrustPoint1
-ikev2 remote-authentication certificate
-peer-id-validate nocheck
 crypto ca certificate map cert-map-DRC-0 10
 subject-name attr ea eq cert@example.com
+tunnel-group 193.155.130.3 type ipsec-l2l
+tunnel-group 193.155.130.3 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate ASDM_TrustPoint1
+ikev2 remote-authentication certificate
 tunnel-group-map cert-map-DRC-0 10 193.155.130.3
 tunnel-group 193.155.130.1 type ipsec-l2l
 tunnel-group 193.155.130.1 ipsec-attributes
@@ -795,11 +792,10 @@ END
 
 $out = <<'END';
 username jon.doe@token.example.com attributes
+no vpn-simultaneous-logins
+no password-storage
 vpn-framed-ip-address 10.11.22.33 255.255.0.0
 vpn-idle-timeout 60
-username jon.doe@token.example.com attributes
-no password-storage
-no vpn-simultaneous-logins
 END
 test_run($title, 'ASA', $device, $in, $out);
 
@@ -837,14 +833,13 @@ END
 $out = <<'END';
 group-policy VPN-group attributes
 no banner
+no vpn-idle-timeout
+no pfs
+no anyconnect-custom perapp
 banner value Willkommen!
 dns-server value 10.1.2.3
 split-tunnel-policy tunnelall
 vpn-session-timeout 40
-group-policy VPN-group attributes
-no anyconnect-custom perapp
-no pfs
-no vpn-idle-timeout
 END
 test_run($title, 'ASA', $device, $in, $out);
 
@@ -937,41 +932,38 @@ tunnel-group VPN-tunnel ipsec-attributes
  trust-point ASDM_TrustPoint4
 tunnel-group VPN-tunnel webvpn-attributes
  authentication aaa certificate
-! TODO: parse sequence number
 tunnel-group-map ca-map 20 VPN-tunnel
 webvpn
  certificate-group-map ca-map 20 VPN-tunnel
 END
 
 $out = <<'END';
+crypto ca certificate map ca-map-DRC-0 10
+subject-name attr ea co @sub.example.com
 tunnel-group VPN-tunnel-DRC-0 type remote-access
+group-policy VPN-group-DRC-0 internal
+ip local pool pool-DRC-0 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list split-tunnel-DRC-0 standard permit 10.1.0.0 255.255.255.0
 access-list vpn-filter-DRC-0 extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
 access-list vpn-filter-DRC-0 extended deny ip any any
-access-list split-tunnel-DRC-0 standard permit 10.1.0.0 255.255.255.0
-ip local pool pool-DRC-0 10.1.219.192-10.1.219.255 mask 0.0.0.63
-group-policy VPN-group-DRC-0 internal
-group-policy VPN-group-DRC-0 attributes
-banner value Willkommen beim Zugang per VPN
-split-tunnel-policy tunnelspecified
-vpn-idle-timeout 60
 group-policy VPN-group-DRC-0 attributes
 address-pools value pool-DRC-0
+banner value Willkommen beim Zugang per VPN
 split-tunnel-network-list value split-tunnel-DRC-0
+split-tunnel-policy tunnelspecified
 vpn-filter value vpn-filter-DRC-0
-tunnel-group VPN-tunnel-DRC-0 general-attributes
+vpn-idle-timeout 60
 tunnel-group VPN-tunnel-DRC-0 general-attributes
 default-group-policy VPN-group-DRC-0
 tunnel-group VPN-tunnel-DRC-0 ipsec-attributes
-isakmp ikev1-user-authentication none
 peer-id-validate req
+isakmp ikev1-user-authentication none
 trust-point ASDM_TrustPoint4
 tunnel-group VPN-tunnel-DRC-0 webvpn-attributes
 authentication aaa certificate
-crypto ca certificate map ca-map-DRC-0 10
-subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
+tunnel-group-map ca-map-DRC-0 20 VPN-tunnel-DRC-0
 webvpn
-certificate-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
+certificate-group-map ca-map-DRC-0 20 VPN-tunnel-DRC-0
 END
 check_parse_and_unchanged($title, 'ASA', $minimal_device, $in, $out);
 
@@ -1037,7 +1029,7 @@ $device = $minimal_device;
 $device .= <<'END';
 tunnel-group 193.155.130.20 type ipsec-l2l
 tunnel-group 193.155.130.20 ipsec-attributes
- pre-shared-key *
+ ikev1 pre-shared-key *
  peer-id-validate nocheck
 END
 
@@ -1053,16 +1045,14 @@ tunnel-group-map ca-map 20 193.155.130.20
 END
 
 $out = <<'END';
-tunnel-group 193.155.130.20 type ipsec-l2l
-tunnel-group 193.155.130.20 ipsec-attributes
-ikev2 local-authentication certificate Trustpoint2
-ikev2 remote-authentication certificate
-trust-point ASDM_TrustPoint5
 crypto ca certificate map ca-map-DRC-0 10
 subject-name attr ea eq some@example.com
-tunnel-group-map ca-map-DRC-0 10 193.155.130.20
-no tunnel-group 193.155.130.20 ipsec-attributes
-clear configure tunnel-group 193.155.130.20
+tunnel-group 193.155.130.20 ipsec-attributes
+no peer-id-validate nocheck
+trust-point ASDM_TrustPoint5
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+tunnel-group-map ca-map-DRC-0 20 193.155.130.20
 END
 test_run($title, 'ASA', $device, $in, $out);
 
@@ -1265,12 +1255,9 @@ crypto ca certificate map ca-map 10
 tunnel-group-map ca-map 20 VPN-tunnel
 END
 
-# ToDo:
-# Old value should be removed first:
-# no extended-key-usage co 1.3.6.1.4.1.311.20.2.2
-# This has to be done manually now.
 $out = <<'END';
 crypto ca certificate map ca-map 10
+no extended-key-usage co 1.3.6.1.4.1.311.20.2.2
 extended-key-usage co clientauth
 END
 test_run($title, 'ASA', $device, $in, $out);
@@ -1301,7 +1288,7 @@ END
 
 $out = <<'END';
 webvpn
-certificate-group-map ca-map 10 NAME
+certificate-group-map ca-map 20 NAME
 END
 test_run($title, 'ASA', $device, $in, $out);
 
@@ -1335,7 +1322,7 @@ crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 crypto ipsec ikev1 transform-set Trans2 esp-aes-192 esp-sha-hmac
 crypto ipsec ikev2 ipsec-proposal Proposal1
  protocol esp encryption aes192 aes 3des
- protocol esp integrity  sha
+ protocol esp integrity sha
 access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.1
@@ -1363,24 +1350,24 @@ crypto map crypto-outside 3 set pfs group1
 END
 
 $out = <<'END';
-access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
-crypto map crypto-outside 2 set peer 10.0.0.2
-crypto map crypto-outside 2 set pfs group1
-crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
-no crypto map crypto-outside 2 set ikev1 transform-set
-crypto map crypto-outside 2 set ikev1 transform-set Trans1a
+no crypto map crypto-outside 3 match address crypto-outside-3
 crypto ipsec ikev2 ipsec-proposal Proposal1-DRC-0
 protocol esp encryption aes192 aes256
-protocol esp integrity sha
+protocol esp integrity  sha
 no crypto map crypto-outside 3 set ikev2 ipsec-proposal
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1-DRC-0
 crypto map crypto-outside 3 set pfs group1
-clear configure crypto map crypto-outside 1
-no crypto map crypto-outside 3 match address crypto-outside-3
-no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
-no crypto ipsec ikev2 ipsec-proposal Proposal1
+access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
+crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
+crypto map crypto-outside 2 set peer 10.0.0.2
+no crypto map crypto-outside 2 set ikev1 transform-set
+crypto map crypto-outside 2 set pfs group1
+crypto map crypto-outside 2 set ikev1 transform-set Trans1a
 clear configure access-list crypto-outside-1
 clear configure access-list crypto-outside-3
+no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+no crypto ipsec ikev2 ipsec-proposal Proposal1
+clear configure crypto map crypto-outside 1
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -1440,20 +1427,20 @@ crypto map crypto-outside 65532 ipsec-isakmp dynamic name3@example.com
 END
 
 $out = <<'END';
+crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
+clear configure crypto map crypto-outside 65533
+access-list crypto-outside-2-DRC-0 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
+crypto dynamic-map name2@example.com 20 match address crypto-outside-2-DRC-0
+crypto map crypto-outside 1 ipsec-isakmp dynamic name2@example.com
+clear configure access-list crypto-outside-65533
 crypto ipsec ikev1 transform-set Trans2-DRC-0 esp-aes esp-md5-hmac
 no crypto dynamic-map name3@example.com 20 set ikev1 transform-set
 crypto dynamic-map name3@example.com 20 set ikev1 transform-set Trans1a Trans2-DRC-0
-access-list crypto-outside-2-DRC-0 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
-crypto dynamic-map name2@example.com 20 match address crypto-outside-2-DRC-0
-crypto map crypto-outside 65532 ipsec-isakmp dynamic name2@example.com
-crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
-clear configure crypto map crypto-outside 65533
 no crypto dynamic-map name1@example.com 20 set pfs group2
 no crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a Trans3
 clear configure crypto dynamic-map name4@example.com 40
 no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-sha-hmac
 no crypto ipsec ikev1 transform-set Trans3 esp-aes-256 esp-md5-hmac
-clear configure access-list crypto-outside-65533
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -1517,7 +1504,7 @@ $title = "Transfer aaa-server manually";
 $device = $minimal_device;
 
 $out = <<'END';
-ERROR>>> AUTH_SERVER LDAP_KV must be transferred manually
+ERROR>>> 'aaa-server LDAP_KV' must be transferred manually
 END
 
 test_err($title, 'ASA', $device, $in, $out);
@@ -1549,7 +1536,7 @@ aaa-server LDAP_KV (inside) host 10.2.8.16
 END
 
 $out = <<'END';
-ERROR>>> LDAP_MAP LDAPMAP-DRC-0 must be transferred manually
+ERROR>>> 'ldap attribute-map LDAPMAP' must be transferred manually
 END
 
 test_err($title, 'ASA', $device, $in, $out);
@@ -1606,28 +1593,27 @@ ldap attribute-map LDAPMAP
 END
 
 $out = <<'END';
+crypto ca certificate map ca-map-G1-DRC-0 10
+subject-name attr cn co g1
 tunnel-group VPN-tunnel-G1-DRC-0 type remote-access
+group-policy VPN-group-G1-DRC-0 internal
+ip local pool pool-G1-DRC-0 10.3.4.8-10.3.4.15 mask 255.255.255.248
 access-list vpn-filter-G1-DRC-0 extended permit ip 10.3.4.8 255.255.255.248 any4
 access-list vpn-filter-G1-DRC-0 extended deny ip any4 any4
-ip local pool pool-G1-DRC-0 10.3.4.8-10.3.4.15 mask 255.255.255.248
-group-policy VPN-group-G1-DRC-0 internal
-group-policy VPN-group-G1-DRC-0 attributes
 group-policy VPN-group-G1-DRC-0 attributes
 address-pools value pool-G1-DRC-0
 vpn-filter value vpn-filter-G1-DRC-0
 ldap attribute-map LDAPMAP
 map-value memberOf "CN=g-m1,OU=VPN,OU=group,DC=example,DC=com" VPN-group-G1-DRC-0
+group-policy VPN-group-G2-DRC-0 internal
+ip local pool pool-G2-DRC-0 10.3.4.16-10.3.4.23 mask 255.255.255.248
 access-list vpn-filter-G2-DRC-0 extended permit ip 10.3.4.16 255.255.255.248 any4
 access-list vpn-filter-G2-DRC-0 extended deny ip any4 any4
-ip local pool pool-G2-DRC-0 10.3.4.16-10.3.4.23 mask 255.255.255.248
-group-policy VPN-group-G2-DRC-0 internal
-group-policy VPN-group-G2-DRC-0 attributes
 group-policy VPN-group-G2-DRC-0 attributes
 address-pools value pool-G2-DRC-0
 vpn-filter value vpn-filter-G2-DRC-0
 ldap attribute-map LDAPMAP
 map-value memberOf "CN=g-m2,OU=VPN,OU=local group,DC=example,DC=com" VPN-group-G2-DRC-0
-tunnel-group VPN-tunnel-G1-DRC-0 general-attributes
 tunnel-group VPN-tunnel-G1-DRC-0 general-attributes
 authentication-server-group LDAP_KV
 tunnel-group VPN-tunnel-G1-DRC-0 ipsec-attributes
@@ -1635,8 +1621,6 @@ ikev1 trust-point ASDM_TrustPoint1
 ikev1 user-authentication none
 tunnel-group VPN-tunnel-G1-DRC-0 webvpn-attributes
 authentication aaa certificate
-crypto ca certificate map ca-map-G1-DRC-0 10
-subject-name attr cn co g1
 tunnel-group-map ca-map-G1-DRC-0 10 VPN-tunnel-G1-DRC-0
 webvpn
 certificate-group-map ca-map-G1-DRC-0 10 VPN-tunnel-G1-DRC-0
@@ -1758,11 +1742,12 @@ ldap attribute-map LDAPMAP
 END
 
 $out = <<'END';
+ldap attribute-map LDAPMAP
+no map-value memberOf "CN=g-m3,OU=VPN,OU=hi  h\"o\" x,DC=example,DC=com" VPN-group-G3
+group-policy VPN-group-G1-DRC-0 internal
+ip local pool pool-G1-DRC-0 10.3.4.8-10.3.4.15 mask 255.255.255.248
 access-list vpn-filter-G1-DRC-0 extended permit ip 10.3.4.8 255.255.255.248 any4
 access-list vpn-filter-G1-DRC-0 extended deny ip any4 any4
-ip local pool pool-G1-DRC-0 10.3.4.8-10.3.4.15 mask 255.255.255.248
-group-policy VPN-group-G1-DRC-0 internal
-group-policy VPN-group-G1-DRC-0 attributes
 group-policy VPN-group-G1-DRC-0 attributes
 address-pools value pool-G1-DRC-0
 vpn-filter value vpn-filter-G1-DRC-0
@@ -1770,11 +1755,9 @@ ldap attribute-map LDAPMAP
 map-value memberOf "CN=g-m1,OU=VPN,OU=group,DC=example,DC=com" VPN-group-G1-DRC-0
 webvpn
 certificate-group-map ca-map-G1 10 VPN-tunnel-G1
-clear configure group-policy VPN-group-G3
-ldap attribute-map LDAPMAP
-no map-value memberOf "CN=g-m3,OU=VPN,OU=hi  h\"o\" x,DC=example,DC=com" VPN-group-G3
 clear configure access-list vpn-filter-G3
 no ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
+clear configure group-policy VPN-group-G3
 END
 
 test_run($title, 'ASA', $device, $in, $out);
