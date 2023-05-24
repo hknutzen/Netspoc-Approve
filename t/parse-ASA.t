@@ -1023,6 +1023,115 @@ END
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
+$title = "Break up identical references to group-policy";
+############################################################
+$device = <<'END';
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list vpn-filter extended permit ip host 10.1.2.2 host 10.1.0.2
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ address-pools value pool
+ vpn-filter value vpn-filter
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy VPN-group
+tunnel-group 1.1.1.2 type ipsec-l2l
+tunnel-group 1.1.1.2 general-attributes
+ default-group-policy VPN-group
+END
+
+$in = <<'END';
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list vpn-filter1 extended permit ip host 10.1.2.2 host 10.1.0.2
+access-list vpn-filter2 extended permit ip host 10.1.2.3 host 10.1.0.3
+group-policy VPN-group1 internal
+group-policy VPN-group1 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter1
+group-policy VPN-group2 internal
+group-policy VPN-group2 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter2
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy VPN-group1
+tunnel-group 1.1.1.2 type ipsec-l2l
+tunnel-group 1.1.1.2 general-attributes
+ default-group-policy VPN-group2
+END
+
+$out = <<'END';
+group-policy VPN-group2-DRC-0 internal
+access-list vpn-filter2-DRC-0 extended permit ip host 10.1.2.3 host 10.1.0.3
+group-policy VPN-group2-DRC-0 attributes
+address-pools value pool
+vpn-filter value vpn-filter2-DRC-0
+tunnel-group 1.1.1.2 general-attributes
+default-group-policy VPN-group2-DRC-0
+END
+
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Break up identical references to tunnel-group";
+############################################################
+$device = <<'END';
+access-list vpn-filter extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ address-pools value pool
+ vpn-filter value vpn-filter
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ default-group-policy VPN-group
+tunnel-group-map ca-map 20 VPN-tunnel
+webvpn
+ certificate-group-map ca-map 20 VPN-tunnel
+END
+
+$in = <<'END';
+access-list vpn-filter1 extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
+access-list vpn-filter2 extended permit ip 10.1.2.192 255.255.255.192 10.2.0.0 255.255.255.0
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+group-policy VPN-group1 internal
+group-policy VPN-group1 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter1
+group-policy VPN-group2 internal
+group-policy VPN-group2 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter2
+tunnel-group VPN-tunnel1 type remote-access
+tunnel-group VPN-tunnel1 general-attributes
+ default-group-policy VPN-group1
+tunnel-group VPN-tunnel2 type remote-access
+tunnel-group VPN-tunnel2 general-attributes
+ default-group-policy VPN-group2
+tunnel-group-map ca-map 20 VPN-tunnel1
+webvpn
+ certificate-group-map ca-map 20 VPN-tunnel2
+END
+
+$out = <<'END';
+tunnel-group VPN-tunnel2-DRC-0 type remote-access
+group-policy VPN-group2-DRC-0 internal
+access-list vpn-filter2-DRC-0 extended permit ip 10.1.2.192 255.255.255.192 10.2.0.0 255.255.255.0
+group-policy VPN-group2-DRC-0 attributes
+address-pools value pool
+vpn-filter value vpn-filter2-DRC-0
+tunnel-group VPN-tunnel2-DRC-0 general-attributes
+default-group-policy VPN-group2-DRC-0
+webvpn
+certificate-group-map ca-map 20 VPN-tunnel2-DRC-0
+END
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
 $title = "Change IP tunnel-group to mapped tunnel-group";
 ############################################################
 $device = $minimal_device;

@@ -273,6 +273,14 @@ const (
 // Return name of existing command, if it is unchanged or modified
 // or return name of new command, if it replaces old command.
 func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) string {
+	// Command on device was already equalized with other command from Netspoc.
+	if len(al) > 0 && al[0].needed {
+		if len(bl) > 0 {
+			s.addCmds(bl)
+			return bl[0].name
+		}
+		return ""
+	}
 	// Command from Netspoc already was transferred or was found on device.
 	if len(bl) > 0 {
 		c := bl[0]
