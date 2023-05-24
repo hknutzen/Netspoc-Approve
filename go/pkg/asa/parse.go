@@ -46,6 +46,11 @@ type cmd struct {
 // First word is used as prefix.
 // This prefix may be referenced in other commands as $<prefix>.
 // If multiple words are used as prefix, space is replaced by underscore.
+//
+// Special characters at beginning of line:
+// <space>: Mark subcommands of previous command
+// !: Matching command or subcommand will be ignored
+// #: Comment that is ignored
 var cmdInfo = `
 # * may reference object-group, will be marked later.
 access-list $NAME standard *
@@ -245,7 +250,7 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 		lookup["aaa-server"][name] = l[0:2]
 	}
 	// Normalize subcommand "subject-name attr *"
-	// of "crypto ca certificate map" tx1o lowercase for comparison with device,
+	// of "crypto ca certificate map" to lowercase for comparison with device,
 	// because it gets stored in lowercase on device.
 	idMap := make(map[string]string)
 	for name, l := range lookup["crypto ca certificate map"] {
