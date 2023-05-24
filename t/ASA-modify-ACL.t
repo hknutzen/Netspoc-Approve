@@ -552,30 +552,30 @@ test_err($title, 'ASA', $device, $in, $out);
 $title = "Handle ACL line with remark";
 ############################################################
 $device = <<'END';
-access-list inside remark Test1
-access-list inside permit ip host 1.1.1.1 any
-access-list inside permit ip host 2.2.2.2 any
-access-list inside remark Test2
-access-list inside permit ip host 4.4.4.4 any
+access-list inside extended remark Test1
+access-list inside extended permit ip host 1.1.1.1 any
+access-list inside extended permit ip host 2.2.2.2 any
+access-list inside extended remark Test2
+access-list inside extended permit ip host 4.4.4.4 any
 access-group inside in interface inside
 END
 
 $in = <<'END';
-access-list inside permit ip host 1.1.1.1 any
-access-list inside remark Test1
-access-list inside permit ip host 4.4.4.4 any
-access-list inside permit ip host 5.5.5.5 any
-access-list inside remark Test3
+access-list inside extended permit ip host 1.1.1.1 any
+access-list inside extended remark Test1
+access-list inside extended permit ip host 4.4.4.4 any
+access-list inside extended permit ip host 5.5.5.5 any
+access-list inside extended remark Test3
 access-group inside in interface inside
 END
 
 $out = <<'END';
-access-list inside line 3 remark Test1
-access-list inside line 7 permit ip host 5.5.5.5 any
-access-list inside line 8 remark Test3
-no access-list inside line 5 remark Test2
-no access-list inside line 4 permit ip host 2.2.2.2 any
-no access-list inside line 1 remark Test1
+access-list inside line 3 extended remark Test1
+access-list inside line 7 extended permit ip host 5.5.5.5 any
+access-list inside line 8 extended remark Test3
+no access-list inside line 5 extended remark Test2
+no access-list inside line 4 extended permit ip host 2.2.2.2 any
+no access-list inside line 1 extended remark Test1
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -586,17 +586,17 @@ $title = "Remove incoming, add outgoing ACL";
 $device = <<'END';
 object-group network g0
  network-object host 1.1.1.1
-access-list inside permit ip object-group g0 any
+access-list inside extended permit ip object-group g0 any
 access-group inside in interface inside
 END
 
 $in = <<'END';
-access-list outside permit ip host 1.1.1.1 any
+access-list outside extended permit ip host 1.1.1.1 any
 access-group outside out interface inside
 END
 
 $out = <<'END';
-access-list outside-DRC-0 permit ip host 1.1.1.1 any
+access-list outside-DRC-0 extended permit ip host 1.1.1.1 any
 access-group outside-DRC-0 out interface inside
 clear configure access-list inside
 no object-group network g0
@@ -610,17 +610,17 @@ $title = "Remove outgoing, add incoming ACL";
 $device = <<'END';
 object-group network g0
  network-object host 1.1.1.1
-access-list outside permit ip object-group g0 any
+access-list outside extended permit ip object-group g0 any
 access-group outside out interface inside
 END
 
 $in = <<'END';
-access-list inside permit ip host 1.1.1.1 any
+access-list inside extended permit ip host 1.1.1.1 any
 access-group inside in interface inside
 END
 
 $out = <<'END';
-access-list inside-DRC-0 permit ip host 1.1.1.1 any
+access-list inside-DRC-0 extended permit ip host 1.1.1.1 any
 access-group inside-DRC-0 in interface inside
 clear configure access-list outside
 no object-group network g0
