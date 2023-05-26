@@ -70,15 +70,17 @@ func (s *State) diffSubCmds(prefix string, key keyFunc) {
 			return
 		}
 		s.addCmds(bl)
-	} else if bl == nil {
-		s.delCmds(al)
-	} else {
-		s.sortDiffCmds(func(c *ASAConfig) []*cmd {
-			if l := c.lookup[prefix][""]; l != nil {
-				return l[0].sub
-			}
-			return nil
-		},
+	} else if bl != nil {
+		for _, aCmd := range al {
+			aCmd.needed = true
+		}
+		s.sortDiffCmds(
+			func(c *ASAConfig) []*cmd {
+				if l := c.lookup[prefix][""]; l != nil {
+					return l[0].sub
+				}
+				return nil
+			},
 			key,
 		)
 	}
@@ -305,8 +307,8 @@ FINDEQ:
 	}
 	for _, r := range diff {
 		if r.IsDelete() {
-			if !isRef {
-				s.delCmds(al[r.LowA:r.HighA])
+			if r.HighA > r.LowA && al[r.LowA].subCmdOf != nil {
+				s.delSubCmds(al[r.LowA:r.HighA])
 			}
 		} else if r.IsInsert() {
 			l := bl[r.LowB:r.HighB]
@@ -418,11 +420,8 @@ func (s *State) addCmd(c *cmd) {
 	}
 }
 
-func (s *State) delCmds(l []*cmd) {
+func (s *State) delSubCmds(l []*cmd) {
 	for _, c := range l {
-		if c.needed {
-			continue
-		}
 		c.deleted = true
 		s.setSuperCmd(c)
 		if c2 := strings.TrimPrefix(c.orig, "no "); c.orig != c2 {
@@ -438,20 +437,20 @@ func (s *State) deleteUnused() {
 	prefixes := maps.Keys(s.a.lookup)
 	sort.Strings(prefixes)
 	for _, prefix := range prefixes {
+		switch prefix {
+		case "aaa-server", "ldap attribute-map", "interface":
+			continue
+		}
 		m := s.a.lookup[prefix]
 		names := maps.Keys(m)
 		sort.Strings(names)
 		for _, name := range names {
-			if name != "" {
-				for _, c := range m[name] {
-					switch c.typ.prefix {
-					case "aaa-server", "ldap attribute-map":
-						continue
-					}
-					if !c.needed && !c.deleted {
-						c.deleted = true
-						s.changes.push("no " + c.orig)
-					}
+			l := m[name]
+			reverse(l)
+			for _, c := range l {
+				if !c.needed && !c.deleted {
+					c.deleted = true
+					s.changes.push("no " + c.orig)
 				}
 			}
 		}
@@ -468,6 +467,9 @@ func (c *cmd) String() string {
 	return s
 }
 
+// If current command is subcommand of some command x
+// then write x and remember that x has been written,
+// so that it isn't written again if another subcommand of x is modified.
 func (s *State) setSuperCmd(c *cmd) {
 	if c.subCmdOf == nil {
 		s.subCmdOf = c
@@ -502,5 +504,11 @@ func (s *State) generateNamesForTransfer() {
 				}
 			}
 		}
+	}
+}
+
+func reverse[S ~[]E, E any](s S) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
 	}
 }
