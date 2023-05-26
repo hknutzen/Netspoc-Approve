@@ -3,6 +3,7 @@ package asa
 import (
 	"bytes"
 	"fmt"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -51,6 +52,9 @@ type cmd struct {
 // <space>: Mark subcommands of previous command
 // !: Matching command or subcommand will be ignored
 // #: Comment that is ignored
+// ':': Attribute for command in following line
+// Valid attributes:
+// :fixedName	# Name from Netspoc and on device is fixed.
 var cmdInfo = `
 # * may reference object-group, will be marked later.
 access-list $NAME standard *
@@ -148,10 +152,6 @@ no_sysopt_connection_permit-vpn
 var objGroupRegex = regexp.MustCompile(`\bobject-group (\S+)\b`)
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
-	config := &ASAConfig{}
-	if len(data) == 0 {
-		return config, nil
-	}
 	// prefix -> name -> commands with same prefix and name
 	lookup := make(map[string]map[string][]*cmd)
 	// Remember previous toplevel command where subcommands are added.
@@ -192,9 +192,8 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		}
 	}
 	postprocessParsed(lookup)
-	config.lookup = lookup
 	err := checkReferences(lookup)
-	return config, err
+	return &ASAConfig{lookup: lookup}, err
 }
 
 func postprocessParsed(lookup map[string]map[string][]*cmd) {
@@ -271,23 +270,47 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 			}
 		}
 	}
-	// Add default tunnel-groups if missing.
+	// Mark commands having fixed name.
+	for _, prefix := range []string{
+		"crypto map", "username", "crypto dynamic-map", "aaa-server",
+		"ldap attribute-map", "tunnel-group",
+	} {
+		for name, l := range lookup[prefix] {
+			if prefix == "tunnel-group" {
+				if _, err := netip.ParseAddr(name); err != nil {
+					continue
+				}
+			}
+			for _, c := range l {
+				c.fixedName = true
+			}
+		}
+	}
+	getPrefixMap := func(p string) map[string][]*cmd {
+		m := lookup[p]
+		if m == nil {
+			m = make(map[string][]*cmd)
+			lookup[p] = m
+		}
+		return m
+	}
+	// Add definition of default group-policy
+	m := getPrefixMap("group-policy")
+	name := "DfltGrpPolicy"
+	c := lookupCmd("group-policy " + name + " internal")
+	c.fixedName = true
+	m[name] = append([]*cmd{c}, m[name]...)
+	// Add definition of default tunnel-groups.
 	name2typ := map[string]string{
 		"DefaultL2LGroup":    "ipsec-l2l",
 		"DefaultRAGroup":     "remote-access",
 		"DefaultWEBVPNGroup": "webvpn",
 	}
-	m := lookup["tunnel-group"]
-	if m == nil {
-		m = make(map[string][]*cmd)
-		lookup["tunnel-group"] = m
-	}
+	m = getPrefixMap("tunnel-group")
 	for name, typ := range name2typ {
-		if _, found := m[name]; !found {
-			c := lookupCmd("tunnel-group " + name + " type " + typ)
-			c.needed = true
-			m[name] = []*cmd{c}
-		}
+		c := lookupCmd("tunnel-group " + name + " type " + typ)
+		c.fixedName = true
+		m[name] = append([]*cmd{c}, m[name]...)
 	}
 }
 

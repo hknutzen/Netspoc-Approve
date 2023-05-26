@@ -1,7 +1,6 @@
 package asa
 
 import (
-	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -42,11 +41,8 @@ func (s *State) diffConfig() {
 	s.diffSubCmds("webvpn", certMapKey)
 	s.diffNamedCmds("username")
 	s.diffNamedCmds("crypto map")
-	s.diffTunnelGroup()
-	s.diffPredefined("group-policy", "DfltGrpPolicy")
-	s.diffPredefined("tunnel-group", "ipsec-l2l")
-	s.diffPredefined("tunnel-group", "remote-access")
-	s.diffPredefined("tunnel-group", "webvpn")
+	s.diffFixedNames("group-policy")
+	s.diffFixedNames("tunnel-group")
 	s.deleteUnused()
 }
 
@@ -98,22 +94,21 @@ func (s *State) diffNamedCmds(prefix string) {
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
-// tunnel-group command is anchor, if name is IP address.
-func (s *State) diffTunnelGroup() {
-	aMap := s.a.lookup["tunnel-group"]
-	bMap := s.b.lookup["tunnel-group"]
-	getIPNames := func(m map[string][]*cmd) []string {
+func (s *State) diffFixedNames(prefix string) {
+	aMap := s.a.lookup[prefix]
+	bMap := s.b.lookup[prefix]
+	getFixedNames := func(m map[string][]*cmd) []string {
 		var result []string
-		for name := range m {
-			if _, err := netip.ParseAddr(name); err == nil {
+		for name, l := range m {
+			if l[0].fixedName {
 				result = append(result, name)
 			}
 		}
 		sort.Strings(result)
 		return result
 	}
-	aNames := getIPNames(aMap)
-	bNames := getIPNames(bMap)
+	aNames := getFixedNames(aMap)
+	bNames := getFixedNames(bMap)
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
@@ -486,7 +481,7 @@ func (s *State) setSuperCmd(c *cmd) {
 
 // Generate new names for objects from Netspoc: <spoc-name>-DRC-<index>
 func (s *State) generateNamesForTransfer() {
-	set := func(c *cmd, devNames map[string][]*cmd) {
+	setName := func(c *cmd, devNames map[string][]*cmd) {
 		prefix := c.name + "-DRC-"
 		index := 0
 		for {
@@ -500,32 +495,10 @@ func (s *State) generateNamesForTransfer() {
 		}
 	}
 	for prefix, m := range s.b.lookup {
-		fixed := false
-		switch prefix {
-		case "crypto map", "username", // Anchors
-			"crypto dynamic-map",               // Has certificate as name.
-			"aaa-server", "ldap attribute-map": // Has fixed name.
-			fixed = true
-		}
-		for name, bl := range m {
-			switch name {
-			case "":
-				continue
-			case "DfltGrpPolicy":
-				if prefix == "group-policy" {
-					fixed = true
-				}
-			}
-			if prefix == "tunnel-group" {
-				if _, err := netip.ParseAddr(name); err == nil {
-					fixed = true
-				}
-			}
+		for _, bl := range m {
 			for _, c := range bl {
-				if fixed {
-					c.fixedName = true
-				} else {
-					set(c, s.a.lookup[prefix])
+				if !c.fixedName {
+					setName(c, s.a.lookup[prefix])
 				}
 			}
 		}
