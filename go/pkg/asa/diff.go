@@ -16,6 +16,8 @@ var anchors = []string{
 }
 
 func (s *State) diffConfig() {
+	postprocessParsed(s.a.lookup)
+	postprocessParsed(s.b.lookup)
 	s.generateNamesForTransfer()
 	s.diffUnnamedCmds("route", getParsed)
 	s.diffUnnamedCmds("ipv6 route", getParsed)
@@ -271,6 +273,9 @@ const (
 // Return name of existing command, if it is unchanged or modified
 // or return name of new command, if it replaces old command.
 func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) string {
+	if len(al) == 0 && len(bl) == 0 {
+		return ""
+	}
 	// Command on device was already equalized with other command from Netspoc.
 	if len(al) > 0 && al[0].needed {
 		if len(bl) > 0 {
@@ -446,15 +451,19 @@ func (s *State) deleteUnused() {
 		sort.Strings(names)
 		for _, name := range names {
 			l := m[name]
+			deleteAll := true
+			for _, c := range l {
+				if c.needed {
+					deleteAll = false
+				}
+			}
 			c0 := l[0]
-			if t := c0.typ; t.canClearConf {
+			if t := c0.typ; deleteAll && t.canClearConf {
 				clear := "clear configure " + prefix + " " + name
 				if slices.Contains(t.template, "$SEQ") {
 					clear += " " + strconv.Itoa(c0.seq)
 				}
-				if !c0.needed {
-					s.changes.push(clear)
-				}
+				s.changes.push(clear)
 			} else {
 				for _, c := range l {
 					if !c.needed {
