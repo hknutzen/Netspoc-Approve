@@ -56,7 +56,7 @@ type cmd struct {
 // Valid attributes:
 // :fixedName	# Name from Netspoc and on device is fixed.
 var cmdInfo = `
-# * may reference object-group, will be marked later.
+# * may reference multiple $object-group, will be resolved later.
 access-list $NAME standard *
 access-list $NAME extended *
 object-group network $NAME
@@ -70,8 +70,10 @@ crypto_ca_certificate_map $NAME $SEQ
  extended-key-usage *
 crypto_dynamic-map $NAME $SEQ match address $access-list
 crypto_dynamic-map $NAME $SEQ ipsec-isakmp dynamic $crypto_dynamic-map
-crypto_dynamic-map $NAME $SEQ set ikev1 transform-set $crypto_ipsec_ikev1_transform-set
-crypto_dynamic-map $NAME $SEQ set ikev2 ipsec-proposal $crypto_ipsec_ikev2_ipsec-proposal
+# * references one or more $crypto_ipsec_ikev1_transform-set
+crypto_dynamic-map $NAME $SEQ set ikev1 transform-set *
+# * references one or more $crypto_ipsec_ikev2_ipsec-proposal
+crypto_dynamic-map $NAME $SEQ set ikev2 ipsec-proposal *
 crypto_dynamic-map $NAME $SEQ set nat-t-disable
 crypto_dynamic-map $NAME $SEQ set peer *
 crypto_dynamic-map $NAME $SEQ set pfs *
@@ -122,8 +124,10 @@ access-group $access-list in *
 access-group $access-list out *
 crypto_map $NAME $SEQ match address $access-list
 crypto_map $NAME $SEQ ipsec-isakmp dynamic $crypto_dynamic-map
-crypto_map $NAME $SEQ set ikev1 transform-set $crypto_ipsec_ikev1_transform-set
-crypto_map $NAME $SEQ set ikev2 ipsec-proposal $crypto_ipsec_ikev2_ipsec-proposal
+# * references one or more $crypto_ipsec_ikev1_transform-set
+crypto_map $NAME $SEQ set ikev1 transform-set *
+# * references one or more $crypto_ipsec_ikev2_ipsec-proposal
+crypto_map $NAME $SEQ set ikev2 ipsec-proposal *
 crypto_map $NAME $SEQ set nat-t-disable
 crypto_map $NAME $SEQ set peer *
 crypto_map $NAME $SEQ set pfs *
@@ -212,6 +216,37 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 			})
 		}
 	}
+	// NAME in commands
+	// "crypto_dynamic-map $NAME $SEQ set ikev1 transform-set NAME ..." and
+	// "crypto_map $NAME $SEQ set ikev1 transform-set NAME ..."
+	// may reference up to 11 $crypto_ipsec_ikev1_transform-set
+	// NAME in commands
+	// "crypto_dynamic-map $NAME $SEQ set ikev2 ipsec-proposal NAME ..." and
+	// "crypto_map $NAME $SEQ set ikev2 ipsec-proposal NAME ..."
+	// may reference up to 11 $crypto_ipsec_ikev2_ipsec-proposal
+	setTransRef := func(prefix, part string) {
+		cmdPart := " set " + part + " "
+		var typ *cmdType
+		for _, l := range lookup[prefix] {
+			for _, c := range l {
+				if def, names, found := strings.Cut(c.parsed, cmdPart); found {
+					l := strings.Fields(names)
+					c.ref = l
+					c.parsed = def + cmdPart + strings.Repeat("$REF ", len(l)-1) + "$REF"
+					typ = c.typ
+				}
+			}
+		}
+		if typ != nil {
+			def := "crypto ipsec " + part
+			typ.ref = []string{def, def, def, def, def, def, def, def, def, def, def}
+		}
+	}
+	setTransRef("crypto map", "ikev1 transform-set")
+	setTransRef("crypto map", "ikev2 ipsec-proposal")
+	setTransRef("crypto dynamic-map", "ikev1 transform-set")
+	setTransRef("crypto dynamic-map", "ikev2 ipsec-proposal")
+
 	// Normalize lines
 	// aaa-server NAME [(interface-name)] host {IP|NAME} [key] [timeout SECONDS]
 	// - strip (interface-name), key, timeout
