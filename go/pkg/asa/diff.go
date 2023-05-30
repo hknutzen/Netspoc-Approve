@@ -8,6 +8,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/pkg/diff/myers"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 var anchors = []string{
@@ -422,7 +423,6 @@ func (s *State) addCmd(c *cmd) {
 
 func (s *State) delSubCmds(l []*cmd) {
 	for _, c := range l {
-		c.deleted = true
 		s.setSuperCmd(c)
 		if c2 := strings.TrimPrefix(c.orig, "no "); c.orig != c2 {
 			s.changes.push(c2)
@@ -435,7 +435,7 @@ func (s *State) delSubCmds(l []*cmd) {
 // Delete unused toplevel commands from device.
 func (s *State) deleteUnused() {
 	prefixes := maps.Keys(s.a.lookup)
-	sort.Strings(prefixes)
+	s.sortByNestedFirst(prefixes)
 	for _, prefix := range prefixes {
 		switch prefix {
 		case "aaa-server", "ldap attribute-map", "interface":
@@ -446,15 +446,81 @@ func (s *State) deleteUnused() {
 		sort.Strings(names)
 		for _, name := range names {
 			l := m[name]
-			reverse(l)
-			for _, c := range l {
-				if !c.needed && !c.deleted {
-					c.deleted = true
-					s.changes.push("no " + c.orig)
+			c0 := l[0]
+			if t := c0.typ; t.canClearConf {
+				clear := "clear configure " + prefix + " " + name
+				if slices.Contains(t.template, "$SEQ") {
+					clear += " " + strconv.Itoa(c0.seq)
+				}
+				if !c0.needed {
+					s.changes.push(clear)
+				}
+			} else {
+				for _, c := range l {
+					if !c.needed {
+						s.changes.push("no " + c.orig)
+					}
 				}
 			}
 		}
 	}
+}
+
+func (s *State) sortByNestedFirst(prefixes []string) {
+	setLevels := func() {
+		// Build map from prefix to cmdType.
+		m := make(map[string][]*cmdType)
+		for _, t := range cmdDescr {
+			m[t.prefix] = append(m[t.prefix], t)
+		}
+		// Mark nodes that reference some marked node.
+		// If some marked node is found, set new level as smallest level - 1.
+		for ready := false; !ready; ready = true {
+			for _, t := range cmdDescr {
+				lv := 0
+				follow := func(t *cmdType) {
+					for _, prefix := range t.ref {
+						for _, t2 := range m[prefix] {
+							if lv2 := t2.level; lv2 < lv {
+								//fmt.Fprintf(os.Stdout, "%v -> %v %v\n",
+								//	t.prefix, t2.prefix, lv2)
+								lv = lv2
+							}
+						}
+					}
+				}
+				follow(t)
+				for _, t2 := range t.sub {
+					follow(t2)
+				}
+				lv--
+				if lv < t.level {
+					t.level = lv
+					//fmt.Fprintf(os.Stdout, "%s %v\n", t.prefix, lv)
+					ready = false
+
+				}
+			}
+		}
+		// For multiple commands with same name and prefix take smallest value.
+		for _, l := range m {
+			lv := 0
+			for _, t := range l {
+				if t.level < lv {
+					lv = t.level
+				}
+			}
+			l[0].level = lv
+		}
+	}
+	getLevel := func(prefix string) int {
+		return maps.Values(s.a.lookup[prefix])[0][0].typ.level
+	}
+	setLevels()
+	sort.Strings(prefixes)
+	sort.SliceStable(prefixes, func(i, j int) bool {
+		return getLevel(prefixes[i]) < getLevel(prefixes[j])
+	})
 }
 
 func (c *cmd) String() string {
@@ -504,11 +570,5 @@ func (s *State) generateNamesForTransfer() {
 				}
 			}
 		}
-	}
-}
-
-func reverse[S ~[]E, E any](s S) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
 	}
 }

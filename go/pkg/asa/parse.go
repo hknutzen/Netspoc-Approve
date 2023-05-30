@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"golang.org/x/exp/slices"
 )
 
 type ASAConfig struct {
@@ -22,12 +23,19 @@ type cmdType struct {
 	ref      []string // Referenced prefixes, e.g. ["access-list"]
 	ignore   bool     // Matching command is ignored.
 	sub      []*cmdType
+	// Nesting level of commands:
+	// - Leaf nodes that don't reference any command have level -1,
+	// - A command c1 referencing c2, ..., cn get one less than
+	//   the smallest level of referenced commands
+	level int
+	// Use "clear configure PREFIX NAME [SEQ]" to remove the complete
+	// command
+	canClearConf bool
 }
 
 type cmd struct {
 	typ       *cmdType
 	ready     bool // cmd from Netspoc was found on or transferred to device
-	deleted   bool // cmd on device has been deleted
 	needed    bool // cmd on device is referenced and must not be deleted
 	fixedName bool
 
@@ -52,24 +60,23 @@ type cmd struct {
 // <space>: Mark subcommands of previous command
 // !: Matching command or subcommand will be ignored
 // #: Comment that is ignored
-// ':': Attribute for command in following line
+// '.': Attribute name, altering properties of following command
 // Valid attributes:
-// :fixedName	# Name from Netspoc and on device is fixed.
 var cmdInfo = `
 # * may reference multiple $object-group, will be resolved later.
 access-list $NAME standard *
 access-list $NAME extended *
+# ignoriere: object-group service|protocol
 object-group network $NAME
  network-object *
  group-object *
  description *
-# ignoriere: object-group service|protocol
 ip_local_pool $NAME *
 crypto_ca_certificate_map $NAME $SEQ
  subject-name attr *
  extended-key-usage *
 crypto_dynamic-map $NAME $SEQ match address $access-list
-crypto_dynamic-map $NAME $SEQ ipsec-isakmp dynamic $crypto_dynamic-map
+crypto_dynamic-map $NAME $SEQ ipsec-isakmp dynamic *
 # * references one or more $crypto_ipsec_ikev1_transform-set
 crypto_dynamic-map $NAME $SEQ set ikev1 transform-set *
 # * references one or more $crypto_ipsec_ikev2_ipsec-proposal
@@ -153,6 +160,16 @@ interface *
  nameif *
 no_sysopt_connection_permit-vpn
 `
+
+var canClearConf = []string{
+	"crypto map",
+	"crypto dynamic-map",
+	"crypto ca certificate map",
+	"username",
+	"tunnel-group",
+	"group-policy",
+}
+
 var objGroupRegex = regexp.MustCompile(`\bobject-group (\S+)\b`)
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
@@ -445,6 +462,9 @@ func convertCmdInfo() {
 			template: template,
 			ref:      ref,
 			ignore:   ignore,
+		}
+		if slices.Contains(canClearConf, prefix) {
+			descr.canClearConf = true
 		}
 		*store = append(*store, descr)
 	}
