@@ -429,11 +429,7 @@ func (s *State) addCmd(c *cmd) {
 func (s *State) delSubCmds(l []*cmd) {
 	for _, c := range l {
 		s.setSuperCmd(c)
-		if c2 := strings.TrimPrefix(c.orig, "no "); c.orig != c2 {
-			s.changes.push(c2)
-		} else {
-			s.changes.push("no " + c.orig)
-		}
+		s.changes.push("no " + c.orig)
 	}
 }
 
@@ -467,7 +463,11 @@ func (s *State) deleteUnused() {
 			} else {
 				for _, c := range l {
 					if !c.needed {
-						s.changes.push("no " + c.orig)
+						if c2 := strings.TrimPrefix(c.orig, "no "); c.orig != c2 {
+							s.changes.push(c2)
+						} else {
+							s.changes.push("no " + c.orig)
+						}
 					}
 				}
 			}
