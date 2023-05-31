@@ -16,8 +16,8 @@ var anchors = []string{
 }
 
 func (s *State) diffConfig() {
-	postprocessParsed(s.a.lookup)
-	postprocessParsed(s.b.lookup)
+	addDefaults(s.a.lookup)
+	addDefaults(s.b.lookup)
 	s.generateNamesForTransfer()
 	s.diffUnnamedCmds("route", getParsed)
 	s.diffUnnamedCmds("ipv6 route", getParsed)
@@ -368,7 +368,7 @@ func (s *State) makeEqual(al, bl []*cmd) {
 			if refName != aName {
 				changedRef = true
 			}
-			b.ref[i] = refName
+			//b.ref[i] = refName
 		}
 		if changedRef {
 			s.addCmd(b)
@@ -395,7 +395,7 @@ func (s *State) addCmds(l []*cmd) {
 					device.Abort("'%s %s' must be transferred manually", prefix, name)
 				}
 			}
-			c.ref[i] = add(s.b.lookup[prefix][name])
+			add(s.b.lookup[prefix][name])
 		}
 	}
 	add = func(l []*cmd) string {
@@ -419,16 +419,31 @@ func (s *State) addCmd(c *cmd) {
 	case "aaa-server", "ldap attribute-map":
 		return
 	}
-	s.setSuperCmd(c)
-	s.changes.push(c.String())
-	for _, sc := range c.sub {
-		s.changes.push(sc.String())
+	pr := s.printNetspocCmd(c)
+	// If current command is subcommand of some command x
+	// then write x and remember that x has been written,
+	// so that it isn't written again if another subcommand of x is modified.
+	if sup := c.subCmdOf; sup != nil {
+		pr2 := s.printNetspocCmd(sup)
+		if s.subCmdOf != pr2 {
+			s.changes.push(pr2)
+			s.subCmdOf = pr2
+		}
+	} else {
+		s.subCmdOf = pr
+	}
+	s.changes.push(pr)
+	for _, sub := range c.sub {
+		s.changes.push(s.printNetspocCmd(sub))
 	}
 }
 
 func (s *State) delSubCmds(l []*cmd) {
 	for _, c := range l {
-		s.setSuperCmd(c)
+		if sup := c.subCmdOf; sup != nil && s.subCmdOf != sup.orig {
+			s.changes.push(sup.orig)
+			s.subCmdOf = sup.orig
+		}
 		s.changes.push("no " + c.orig)
 	}
 }
@@ -473,6 +488,18 @@ func (s *State) deleteUnused() {
 			}
 		}
 	}
+}
+
+func (s *State) printNetspocCmd(c *cmd) string {
+	p := c.parsed
+	p = strings.Replace(p, "$NAME", c.name, 1)
+	p = strings.Replace(p, "$SEQ", strconv.Itoa(c.seq), 1)
+	for i, r := range c.ref {
+		prefix := c.typ.ref[i]
+		name := s.b.lookup[prefix][r][0].name
+		p = strings.Replace(p, "$REF", name, 1)
+	}
+	return p
 }
 
 func (s *State) sortByNestedFirst(prefixes []string) {
@@ -530,30 +557,6 @@ func (s *State) sortByNestedFirst(prefixes []string) {
 	sort.SliceStable(prefixes, func(i, j int) bool {
 		return getLevel(prefixes[i]) < getLevel(prefixes[j])
 	})
-}
-
-func (c *cmd) String() string {
-	s := c.parsed
-	s = strings.Replace(s, "$NAME", c.name, 1)
-	s = strings.Replace(s, "$SEQ", strconv.Itoa(c.seq), 1)
-	for _, r := range c.ref {
-		s = strings.Replace(s, "$REF", r, 1)
-	}
-	return s
-}
-
-// If current command is subcommand of some command x
-// then write x and remember that x has been written,
-// so that it isn't written again if another subcommand of x is modified.
-func (s *State) setSuperCmd(c *cmd) {
-	if c.subCmdOf == nil {
-		s.subCmdOf = c
-	} else {
-		if s.subCmdOf == nil || s.subCmdOf.orig != c.subCmdOf.orig {
-			s.changes.push(c.subCmdOf.String())
-			s.subCmdOf = c.subCmdOf
-		}
-	}
 }
 
 // Generate new names for objects from Netspoc: <spoc-name>-DRC-<index>

@@ -170,8 +170,6 @@ var canClearConf = []string{
 	"group-policy",
 }
 
-var objGroupRegex = regexp.MustCompile(`\bobject-group (\S+)\b`)
-
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 	// prefix -> name -> commands with same prefix and name
 	lookup := make(map[string]map[string][]*cmd)
@@ -212,6 +210,7 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 			m[c.name] = append(m[c.name], c)
 		}
 	}
+	postprocessParsed(lookup)
 	err := checkReferences(lookup)
 	return &ASAConfig{lookup: lookup}, err
 }
@@ -456,20 +455,21 @@ DESCR:
 	return nil
 }
 
+var objGroupRegex = regexp.MustCompile(`\bobject-group (\S+)\b`)
+
 func postprocessParsed(lookup map[string]map[string][]*cmd) {
-	// access-list may reference up to three object-groups.
-	for _, d := range prefixMap["access-list"].descrList {
-		d.ref = []string{"object-group", "object-group", "object-group"}
-	}
 	// In access-list, replace "object-group NAME" by "$REF" in cmd.parsed
 	// and add "NAME" to cmd.ref .
 	for _, l := range lookup["access-list"] {
 		for _, c := range l {
-			objGroupRegex.ReplaceAllStringFunc(c.parsed, func(s string) string {
-				_, name, _ := strings.Cut(s, " ")
-				c.ref = append(c.ref, name)
-				return "$REF"
-			})
+			c.parsed =
+				objGroupRegex.ReplaceAllStringFunc(c.parsed, func(s string) string {
+					_, name, _ := strings.Cut(s, " ")
+					c.ref = append(c.ref, name)
+					return "object-group $REF"
+				})
+			// access-list may reference up to three object-groups.
+			c.typ.ref = []string{"object-group", "object-group", "object-group"}
 		}
 	}
 	// NAME in commands
@@ -482,20 +482,18 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 	// may reference up to 11 $crypto_ipsec_ikev2_ipsec-proposal
 	setTransRef := func(prefix, part string) {
 		cmdPart := " set " + part + " "
-		var typ *cmdType
 		for _, l := range lookup[prefix] {
 			for _, c := range l {
 				if def, names, found := strings.Cut(c.parsed, cmdPart); found {
-					l := strings.Fields(names)
-					c.ref = l
-					c.parsed = def + cmdPart + strings.Repeat("$REF ", len(l)-1) + "$REF"
-					typ = c.typ
+					nl := strings.Fields(names)
+					c.ref = nl
+					c.parsed =
+						def + cmdPart + strings.Repeat("$REF ", len(nl)-1) + "$REF"
+					def := "crypto ipsec " + part
+					c.typ.ref =
+						[]string{def, def, def, def, def, def, def, def, def, def, def}
 				}
 			}
-		}
-		if typ != nil {
-			def := "crypto ipsec " + part
-			typ.ref = []string{def, def, def, def, def, def, def, def, def, def, def}
 		}
 	}
 	setTransRef("crypto map", "ikev1 transform-set")
@@ -577,6 +575,9 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 			}
 		}
 	}
+}
+
+func addDefaults(lookup map[string]map[string][]*cmd) {
 	getPrefixMap := func(p string) map[string][]*cmd {
 		m := lookup[p]
 		if m == nil {
