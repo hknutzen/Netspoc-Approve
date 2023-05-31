@@ -14,7 +14,7 @@ type State struct {
 	a        *ASAConfig
 	b        *ASAConfig
 	changes  changeList
-	subCmdOf *cmd
+	subCmdOf string
 }
 type change struct {
 	cmd string

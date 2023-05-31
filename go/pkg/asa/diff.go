@@ -8,7 +8,6 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/pkg/diff/myers"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 var anchors = []string{
@@ -471,9 +470,6 @@ func (s *State) deleteUnused() {
 			c0 := l[0]
 			if t := c0.typ; deleteAll && t.canClearConf {
 				clear := "clear configure " + prefix + " " + name
-				if slices.Contains(t.template, "$SEQ") {
-					clear += " " + strconv.Itoa(c0.seq)
-				}
 				s.changes.push(clear)
 			} else {
 				for _, c := range l {

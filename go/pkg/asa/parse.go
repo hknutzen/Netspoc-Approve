@@ -162,8 +162,6 @@ no_sysopt_connection_permit-vpn
 `
 
 var canClearConf = []string{
-	"crypto map",
-	"crypto dynamic-map",
 	"crypto ca certificate map",
 	"username",
 	"tunnel-group",
