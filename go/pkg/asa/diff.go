@@ -120,11 +120,11 @@ func (s *State) diffNamedCmds2(
 	aMap, bMap map[string][]*cmd, aNames, bNames []string) {
 
 	for _, aName := range aNames {
-		s.diffSeqCmds(aMap[aName], bMap[aName], getParsed, noRef)
+		s.diffSeqCmds(aMap[aName], bMap[aName], getParsed)
 	}
 	for _, bName := range bNames {
 		if _, found := aMap[bName]; !found {
-			s.diffSeqCmds(nil, bMap[bName], getParsed, noRef)
+			s.diffSeqCmds(nil, bMap[bName], getParsed)
 		}
 	}
 }
@@ -145,7 +145,7 @@ func (s *State) diffPredefined(prefix, name string) {
 	}
 }
 
-func (s *State) diffSeqCmds(al, bl []*cmd, key keyFunc, isRef refCmd) {
+func (s *State) diffSeqCmds(al, bl []*cmd, key keyFunc) {
 	mapBySeq := func(l []*cmd) map[int][]*cmd {
 		m := make(map[int][]*cmd)
 		for _, c := range l {
@@ -162,7 +162,7 @@ func (s *State) diffSeqCmds(al, bl []*cmd, key keyFunc, isRef refCmd) {
 		prefix = bl[0].typ.prefix
 	}
 	if prefix == "crypto map" {
-		s.diffCryptoMap(aSeqMap, bSeqMap, key, isRef)
+		s.diffCryptoMap(aSeqMap, bSeqMap, key)
 	} else {
 		if len(aSeqMap) > 1 || len(bSeqMap) > 1 {
 			device.Abort("Only one sequence nummber supported with '%s'", prefix)
@@ -174,13 +174,11 @@ func (s *State) diffSeqCmds(al, bl []*cmd, key keyFunc, isRef refCmd) {
 		for _, bl = range bSeqMap {
 			break
 		}
-		s.diffCmds(al, bl, key, isRef)
+		s.diffCmds(al, bl, key)
 	}
 }
 
-func (s *State) diffCryptoMap(
-	aSeqMap, bSeqMap map[int][]*cmd, key keyFunc, isRef refCmd) {
-
+func (s *State) diffCryptoMap(aSeqMap, bSeqMap map[int][]*cmd, key keyFunc) {
 	mapByPeer := func(seqMap map[int][]*cmd) map[string][]*cmd {
 		m := make(map[string][]*cmd)
 		for _, l := range seqMap {
@@ -215,7 +213,7 @@ func (s *State) diffCryptoMap(
 	sort.Strings(aPeers)
 	sort.Strings(bPeers)
 	for _, aPeer := range aPeers {
-		s.diffCmds(aPeerMap[aPeer], bPeerMap[aPeer], getParsed, isRef)
+		s.diffCmds(aPeerMap[aPeer], bPeerMap[aPeer], getParsed)
 	}
 	// Use fresh sequence number per peer for added commands from Netspoc.
 	seq := 1
@@ -231,7 +229,7 @@ func (s *State) diffCryptoMap(
 			for _, bCmd := range bl {
 				bCmd.seq = seq
 			}
-			s.diffCmds(nil, bl, getParsed, isRef)
+			s.diffCmds(nil, bl, getParsed)
 			seq++
 		}
 	}
@@ -258,20 +256,13 @@ func (s *State) sortDiffCmds(lookup func(*ASAConfig) []*cmd, key keyFunc) {
 		sort.Slice(l, func(i, j int) bool { return key(c, l[i]) < key(c, l[j]) })
 		return l
 	}
-	s.diffCmds(sorted(s.a), sorted(s.b), key, noRef)
+	s.diffCmds(sorted(s.a), sorted(s.b), key)
 }
-
-type refCmd bool
-
-const (
-	noRef refCmd = false
-	isRef refCmd = true
-)
 
 // Compare list of commands having equal prefix.
 // Return name of existing command, if it is unchanged or modified
 // or return name of new command, if it replaces old command.
-func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) string {
+func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 	if len(al) == 0 && len(bl) == 0 {
 		return ""
 	}
@@ -301,13 +292,10 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc, isRef refCmd) string {
 	// If some command modifies existing command on device with name N,
 	// then also use name N in other added commands (having same prefix).
 	nameN := ""
-FINDEQ:
 	for _, r := range diff {
 		if r.IsEqual() {
-			for _, aCmd := range al[r.LowA:r.HighA] {
-				nameN = aCmd.name
-				break FINDEQ
-			}
+			nameN = al[0].name
+			break
 		}
 	}
 	for _, r := range diff {
@@ -348,7 +336,7 @@ func (s *State) makeEqual(al, bl []*cmd) {
 		b.name = a.name
 		b.seq = a.seq
 		b.ready = true
-		s.diffCmds(a.sub, b.sub, getParsed, noRef)
+		s.diffCmds(a.sub, b.sub, getParsed)
 		changedRef := false
 		for i, aName := range a.ref {
 			prefix := a.typ.ref[i]
@@ -361,7 +349,7 @@ func (s *State) makeEqual(al, bl []*cmd) {
 			refName := s.diffCmds(
 				s.a.lookup[prefix][aName],
 				s.b.lookup[prefix][bName],
-				getParsed, isRef)
+				getParsed)
 			//fmt.Fprintf(os.Stderr, "refName: %s, aName: %s, bName: %s\n",
 			//	refName, aName, bName)
 			if refName != aName {
@@ -386,7 +374,7 @@ func (s *State) addCmds(l []*cmd) {
 			prefix := c.typ.ref[i]
 			if s.b.lookup[prefix][name][0].fixedName {
 				if al, found := s.a.lookup[prefix][name]; found {
-					s.diffCmds(al, s.b.lookup[prefix][name], getParsed, isRef)
+					s.diffCmds(al, s.b.lookup[prefix][name], getParsed)
 					continue
 				}
 				switch prefix {
