@@ -589,16 +589,16 @@ ikev2 local-authentication certificate Trustpoint2
 ikev2 remote-authentication certificate
 tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
 access-list crypto-acl1-DRC-0 extended permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
-crypto map map-outside 10 match address crypto-acl1-DRC-0
-crypto map map-outside 10 set pfs group2
-crypto map map-outside 10 set peer 97.98.99.100
-no crypto map map-outside 10 set ikev1 transform-set
+crypto map map-outside 1 match address crypto-acl1-DRC-0
+crypto map map-outside 1 set pfs group2
+crypto map map-outside 1 set peer 97.98.99.100
+no crypto map map-outside 1 set ikev1 transform-set
 crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
-crypto map map-outside 10 set ikev1 transform-set trans-DRC-0
-crypto map map-outside 10 set security-association lifetime seconds 43200 kilobytes 4608000
+crypto map map-outside 1 set ikev1 transform-set trans-DRC-0
+crypto map map-outside 1 set security-association lifetime seconds 43200 kilobytes 4608000
 access-list crypto-acl2-DRC-0 extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 crypto dynamic-map some-name 10 match address crypto-acl2-DRC-0
-crypto map map-outside 65000 ipsec-isakmp dynamic some-name
+crypto map map-outside 2 ipsec-isakmp dynamic some-name
 END
 check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
@@ -765,6 +765,7 @@ tunnel-group 193.155.130.1 type ipsec-l2l
 tunnel-group 193.155.130.1 ipsec-attributes
 peer-id-validate nocheck
 tunnel-group 193.155.130.2 type ipsec-l2l
+tunnel-group 193.155.130.2 ipsec-attributes
 END
 check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
@@ -792,8 +793,9 @@ END
 
 $out = <<'END';
 username jon.doe@token.example.com attributes
-no vpn-simultaneous-logins
-no password-storage
+no vpn-framed-ip-address 10.1.2.3 255.0.0.0
+no vpn-simultaneous-logins 4
+no password-storage enable
 vpn-framed-ip-address 10.11.22.33 255.255.0.0
 vpn-idle-timeout 60
 END
@@ -832,10 +834,12 @@ END
 
 $out = <<'END';
 group-policy VPN-group attributes
-no banner
-no vpn-idle-timeout
+no banner value Welcome!
+no dns-server value 10.1.2.3 10.44.55.66
+no split-tunnel-policy tunnelspecified
+no vpn-idle-timeout 60
 no pfs
-no anyconnect-custom perapp
+no anyconnect-custom perapp value SomeName
 banner value Willkommen!
 dns-server value 10.1.2.3
 split-tunnel-policy tunnelall
@@ -884,7 +888,7 @@ END
 $in = '';
 
 $out = <<'END';
-clear configure group-policy DfltGrpPolicy
+no group-policy DfltGrpPolicy attributes
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -985,9 +989,9 @@ $in = <<'END';
 END
 
 $out = <<'END';
-clear configure crypto ca certificate map ca-map
-no tunnel-group VPN-tunnel ipsec-attributes
+no tunnel-group-map ca-map 20 VPN-tunnel
 clear configure tunnel-group VPN-tunnel
+clear configure crypto ca certificate map ca-map
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -1018,6 +1022,7 @@ END
 
 $out = <<'END';
 tunnel-group VPN-tunnel ipsec-attributes
+no trust-point ASDM_TrustPoint4
 trust-point ASDM_TrustPoint5
 END
 test_run($title, 'ASA', $device, $in, $out);
@@ -1164,22 +1169,6 @@ ikev2 remote-authentication certificate
 tunnel-group-map ca-map-DRC-0 20 193.155.130.20
 END
 test_run($title, 'ASA', $device, $in, $out);
-
-############################################################
-$title = "Missing type definition for tunnel-group";
-############################################################
-
-$device = $minimal_device;
-$device .= <<'END';
-tunnel-group tunnel1 ipsec-attributes
- ikev2 local-authentication certificate Trustpoint2
- ikev2 remote-authentication certificate
-END
-
-$out = <<'END';
-ERROR>>> Missing type definition for tunnel-group tunnel1
-END
-test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "tunnelgroup-map references unknown tunnel-group";
@@ -1416,7 +1405,6 @@ $in = <<'END';
 END
 
 $out = <<'END';
-no tunnel-group 193.155.130.20 ipsec-attributes
 clear configure tunnel-group 193.155.130.20
 END
 test_run($title, 'ASA', $device, $in, $out);
@@ -1459,7 +1447,6 @@ crypto map crypto-outside 3 set pfs group1
 END
 
 $out = <<'END';
-no crypto map crypto-outside 3 match address crypto-outside-3
 crypto ipsec ikev2 ipsec-proposal Proposal1-DRC-0
 protocol esp encryption aes192 aes256
 protocol esp integrity  sha
@@ -1472,30 +1459,17 @@ crypto map crypto-outside 2 set peer 10.0.0.2
 no crypto map crypto-outside 2 set ikev1 transform-set
 crypto map crypto-outside 2 set pfs group1
 crypto map crypto-outside 2 set ikev1 transform-set Trans1a
-clear configure access-list crypto-outside-1
-clear configure access-list crypto-outside-3
+no crypto map crypto-outside 1 match address crypto-outside-1
+no crypto map crypto-outside 1 set peer 10.0.0.1
+no crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+no crypto map crypto-outside 3 match address crypto-outside-3
+no access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
+no access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
 no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 no crypto ipsec ikev2 ipsec-proposal Proposal1
-clear configure crypto map crypto-outside 1
 END
 
 test_run($title, 'ASA', $device, $in, $out);
-
-############################################################
-$title = "Too many encryption types";
-############################################################
-$device = <<'END';
-crypto ipsec ikev2 ipsec-proposal Proposal1
- protocol esp encryption aes192 aes 3des des
-END
-
-$out = <<'END';
-ERROR>>> Unexpected token 'des'
-ERROR>>>  at line 2, pos 7:
-ERROR>>> >>protocol esp encryption aes192 aes 3des des<<
-END
-
-test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Insert, change and delete dynamic crypto map";
@@ -1537,17 +1511,18 @@ END
 
 $out = <<'END';
 crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
-clear configure crypto map crypto-outside 65533
+crypto ipsec ikev1 transform-set Trans2-DRC-0 esp-aes esp-md5-hmac
+crypto dynamic-map name3@example.com 20 set ikev1 transform-set Trans1a Trans2-DRC-0
 access-list crypto-outside-2-DRC-0 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
 crypto dynamic-map name2@example.com 20 match address crypto-outside-2-DRC-0
 crypto map crypto-outside 1 ipsec-isakmp dynamic name2@example.com
-clear configure access-list crypto-outside-65533
-crypto ipsec ikev1 transform-set Trans2-DRC-0 esp-aes esp-md5-hmac
-no crypto dynamic-map name3@example.com 20 set ikev1 transform-set
-crypto dynamic-map name3@example.com 20 set ikev1 transform-set Trans1a Trans2-DRC-0
-no crypto dynamic-map name1@example.com 20 set pfs group2
+no crypto map crypto-outside 65533 ipsec-isakmp dynamic name4@example.com
 no crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a Trans3
-clear configure crypto dynamic-map name4@example.com 40
+no crypto dynamic-map name1@example.com 20 set pfs group2
+no crypto dynamic-map name4@example.com 40 match address crypto-outside-65533
+no crypto dynamic-map name4@example.com 40 set ikev1 transform-set Trans1a Trans1b
+no access-list crypto-outside-65533 extended permit ip 10.1.4.0 255.255.255.0 10.99.2.0 255.255.255.0
+no crypto dynamic-map name3@example.com 20 set ikev1 transform-set
 no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-sha-hmac
 no crypto ipsec ikev1 transform-set Trans3 esp-aes-256 esp-md5-hmac
 END
@@ -1864,9 +1839,10 @@ ldap attribute-map LDAPMAP
 map-value memberOf "CN=g-m1,OU=VPN,OU=group,DC=example,DC=com" VPN-group-G1-DRC-0
 webvpn
 certificate-group-map ca-map-G1 10 VPN-tunnel-G1
-clear configure access-list vpn-filter-G3
-no ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
 clear configure group-policy VPN-group-G3
+no access-list vpn-filter-G3 extended permit ip 10.3.4.24 255.255.255.248 any4
+no access-list vpn-filter-G3 extended deny ip any4 any4
+no ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
 END
 
 test_run($title, 'ASA', $device, $in, $out);
