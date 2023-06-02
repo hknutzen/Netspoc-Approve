@@ -8,6 +8,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/pkg/diff/myers"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 var anchors = []string{
@@ -274,11 +275,15 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 		}
 		return ""
 	}
-	// Command from Netspoc already was transferred or was found on device.
 	if len(bl) > 0 {
 		c := bl[0]
+		// Command from Netspoc already was transferred or was found on device.
 		if c.ready {
 			return c.name
+		}
+		// Find equal simple object on device or transfer.
+		if c.typ.simpleObject {
+			return s.equalizeSimpleObject(al, bl)
 		}
 	}
 	ab := &cmdsPair{
@@ -363,12 +368,51 @@ func (s *State) makeEqual(al, bl []*cmd) {
 	}
 }
 
+func (s *State) equalizeSimpleObject(al, bl []*cmd) string {
+	if !simpleObjEqual(al, bl) {
+		al = s.findSimpleObjOnDevice(bl)
+	}
+	if al != nil {
+		al[0].needed = true
+		bl[0].ready = true
+		return al[0].name
+	}
+	s.addCmds(bl)
+	return bl[0].name
+}
+
+func (s *State) findSimpleObjOnDevice(bl []*cmd) []*cmd {
+	prefix := bl[0].typ.prefix
+	for _, al := range s.a.lookup[prefix] {
+		if simpleObjEqual(al, bl) {
+			return al
+		}
+	}
+	return nil
+}
+
+func simpleObjEqual(al, bl []*cmd) bool {
+	if len(al) != len(bl) {
+		return false
+	}
+	ac, bc := al[0], bl[0]
+	sortedSub := func(c *cmd) []string {
+		l := make([]string, len(c.sub))
+		for i, s := range c.sub {
+			l[i] = s.parsed
+		}
+		sort.Strings(l)
+		return l
+	}
+	return ac.parsed == bc.parsed && slices.Equal(sortedSub(ac), sortedSub(bc))
+}
+
 // Recursively transfer commands referenced from command and subcommands.
 // Then transfer command and its subcommands.
 // Mark transferred commands.
 // Transfer each command only once.
 func (s *State) addCmds(l []*cmd) {
-	var add func(l []*cmd) string
+	var add func(l []*cmd)
 	follow := func(c *cmd) {
 		for i, name := range c.ref {
 			prefix := c.typ.ref[i]
@@ -385,18 +429,26 @@ func (s *State) addCmds(l []*cmd) {
 			add(s.b.lookup[prefix][name])
 		}
 	}
-	add = func(l []*cmd) string {
-		for _, c := range l {
-			if !c.ready {
-				c.ready = true
-				follow(c)
-				for _, sc := range c.sub {
-					follow(sc)
-				}
-				s.addCmd(c)
+	add = func(bl []*cmd) {
+		if bl[0].ready {
+			return
+		}
+		bl[0].ready = true
+		if bl[0].typ.simpleObject {
+			if al := s.findSimpleObjOnDevice(bl); al != nil {
+				al[0].needed = true
+				bl[0].name = al[0].name
+				return
 			}
 		}
-		return l[0].name
+		for _, c := range bl {
+			follow(c)
+			for _, sc := range c.sub {
+				follow(sc)
+			}
+			s.addCmd(c)
+		}
+		return
 	}
 	add(l)
 }

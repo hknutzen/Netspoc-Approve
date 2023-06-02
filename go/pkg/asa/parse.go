@@ -31,6 +31,9 @@ type cmdType struct {
 	// Use "clear configure PREFIX NAME [SEQ]" to remove the complete
 	// command
 	canClearConf bool
+	// Do not change object on device but try to find a matching
+	// command on device.
+	simpleObject bool
 }
 
 type cmd struct {
@@ -166,6 +169,12 @@ var canClearConf = []string{
 	"username",
 	"tunnel-group",
 	"group-policy",
+}
+
+var simpleObject = []string{
+	"ip local pool",
+	"crypto ipsec ikev1 transform-set",
+	"crypto ipsec ikev2 ipsec-proposal",
 }
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
@@ -312,6 +321,9 @@ func convertCmdInfo() {
 		}
 		if slices.Contains(canClearConf, prefix) {
 			descr.canClearConf = true
+		}
+		if slices.Contains(simpleObject, prefix) {
+			descr.simpleObject = true
 		}
 		*store = append(*store, descr)
 	}
