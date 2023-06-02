@@ -303,12 +303,16 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 			break
 		}
 	}
+	// Delete commands before adding new ones.
 	for _, r := range diff {
 		if r.IsDelete() {
-			if r.HighA > r.LowA && al[r.LowA].subCmdOf != nil {
-				s.delSubCmds(al[r.LowA:r.HighA])
+			if nameN != "" || r.HighA > r.LowA && al[r.LowA].subCmdOf != nil {
+				s.delCmds(al[r.LowA:r.HighA])
 			}
-		} else if r.IsInsert() {
+		}
+	}
+	for _, r := range diff {
+		if r.IsInsert() {
 			l := bl[r.LowB:r.HighB]
 			for _, bCmd := range l {
 				if nameN != "" {
@@ -316,7 +320,7 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 				}
 			}
 			s.addCmds(l)
-		} else {
+		} else if r.IsEqual() {
 			s.makeEqual(al[r.LowA:r.HighA], bl[r.LowB:r.HighB])
 		}
 	}
@@ -481,12 +485,14 @@ func (s *State) addCmd(c *cmd) {
 	}
 }
 
-func (s *State) delSubCmds(l []*cmd) {
+// Delete subcommands and parts of multi line command.
+func (s *State) delCmds(l []*cmd) {
 	for _, c := range l {
 		if sup := c.subCmdOf; sup != nil && s.subCmdOf != sup.orig {
 			s.changes.push(sup.orig)
 			s.subCmdOf = sup.orig
 		}
+		c.needed = true // Don't delete again later.
 		s.changes.push("no " + c.orig)
 	}
 }
