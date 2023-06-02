@@ -363,6 +363,9 @@ func (s *State) makeEqual(al, bl []*cmd) {
 			//b.ref[i] = refName
 		}
 		if changedRef {
+			if strings.Contains(b.parsed, "$NAME $SEQ set ikev") {
+				s.changes.push("no " + a.orig)
+			}
 			s.addCmd(b)
 		}
 	}
