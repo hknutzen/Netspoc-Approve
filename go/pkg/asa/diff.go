@@ -375,6 +375,7 @@ func (s *State) equalizeSimpleObject(al, bl []*cmd) string {
 	if al != nil {
 		al[0].needed = true
 		bl[0].ready = true
+		bl[0].name = al[0].name
 		return al[0].name
 	}
 	s.addCmds(bl)
