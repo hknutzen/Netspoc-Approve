@@ -303,7 +303,9 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 			break
 		}
 	}
-	// Delete commands before adding new ones.
+	// Delete commands before adding new ones
+	// But must not delete complete toplevel command, because currently
+	// it is not known, if it is referenced by some other command.
 	for _, r := range diff {
 		if r.IsDelete() {
 			if nameN != "" || r.HighA > r.LowA && al[r.LowA].subCmdOf != nil {
