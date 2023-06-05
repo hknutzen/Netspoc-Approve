@@ -17,7 +17,7 @@ import (
 )
 
 type RealDevice interface {
-	LoadDevice(path string, c *Config, l1, l2 *os.File) (DeviceConfig, error)
+	LoadDevice(fname string, c *Config, l1, l2 *os.File) (DeviceConfig, error)
 	ParseConfig(data []byte) (DeviceConfig, error)
 	GetChanges(c1, c2 DeviceConfig) ([]error, error)
 	ApplyCommands(*os.File) error
@@ -35,9 +35,9 @@ type DeviceConfig interface {
 
 type state struct {
 	RealDevice
-	config  *Config
-	logPath string
-	quiet   bool
+	config   *Config
+	logFname string
+	quiet    bool
 }
 
 func Main(device RealDevice) int {
@@ -90,12 +90,12 @@ func Main(device RealDevice) int {
 			fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
 			return 1
 		}
-		path := args[0]
-		s.setLogDir(*logDir, path)
+		fname := args[0]
+		s.setLogDir(*logDir, fname)
 		if *compare {
-			err = s.compare(path)
+			err = s.compare(fname)
 		} else {
-			err = s.approve(path)
+			err = s.approve(fname)
 		}
 	}
 	if err != nil {
@@ -106,38 +106,38 @@ func Main(device RealDevice) int {
 	return 0
 }
 
-func (s *state) compareFiles(path1, path2 string) error {
-	conf1, err := s.loadSpoc(path1)
+func (s *state) compareFiles(fname1, fname2 string) error {
+	conf1, err := s.loadSpoc(fname1)
 	if err != nil {
 		return err
 	}
-	return s.showCompare(conf1, path2)
+	return s.showCompare(conf1, fname2)
 }
 
-func (s *state) compare(path string) error {
-	conf1, err := s.loadDevice(path)
+func (s *state) compare(fname string) error {
+	conf1, err := s.loadDevice(fname)
 	if err != nil {
 		return err
 	}
-	if err := s.showCompare(conf1, path); err != nil {
+	if err := s.showCompare(conf1, fname); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *state) approve(path string) error {
-	conf1, err := s.loadDevice(path)
+func (s *state) approve(fname string) error {
+	conf1, err := s.loadDevice(fname)
 	if err != nil {
 		return err
 	}
-	err = s.getCompare(conf1, path, errT)
+	err = s.getCompare(conf1, fname, errT)
 	if err != nil {
 		return err
 	}
 	return s.applyCommands()
 }
 
-func (s *state) loadDevice(path string) (DeviceConfig, error) {
+func (s *state) loadDevice(fname string) (DeviceConfig, error) {
 	logConfig, err := s.getLogFH(".config")
 	if err != nil {
 		return nil, err
@@ -148,7 +148,7 @@ func (s *state) loadDevice(path string) (DeviceConfig, error) {
 		return nil, err
 	}
 	defer closeLogFH(logLogin)
-	return s.LoadDevice(path, s.config, logLogin, logConfig)
+	return s.LoadDevice(fname, s.config, logLogin, logConfig)
 }
 
 func (s *state) applyCommands() error {
@@ -163,8 +163,8 @@ func (s *state) applyCommands() error {
 	return s.ApplyCommands(logFH)
 }
 
-func (s *state) showCompare(conf1 DeviceConfig, path string) error {
-	err := s.getCompare(conf1, path, warnT)
+func (s *state) showCompare(conf1 DeviceConfig, fname string) error {
+	err := s.getCompare(conf1, fname, warnT)
 	if err != nil {
 		return err
 	}
@@ -190,8 +190,8 @@ const (
 	warnT
 )
 
-func (s *state) getCompare(c1 DeviceConfig, path string, chk warnOrErr) error {
-	c2, err := s.loadSpoc(path)
+func (s *state) getCompare(c1 DeviceConfig, fname string, chk warnOrErr) error {
+	c2, err := s.loadSpoc(fname)
 	if err != nil {
 		return err
 	}
@@ -217,26 +217,26 @@ func (s *state) getCompare(c1 DeviceConfig, path string, chk warnOrErr) error {
 	return nil
 }
 
-func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
-	v6Path := getIPv6Path(v4Path)
-	conf4, err := s.loadSpocWithRaw(v4Path)
+func (s *state) loadSpoc(v4Fname string) (DeviceConfig, error) {
+	v6Fname := getIPv6Fname(v4Fname)
+	conf4, err := s.loadSpocWithRaw(v4Fname)
 	if err != nil {
 		return nil, err
 	}
-	conf6, err := s.loadSpocWithRaw(v6Path)
+	conf6, err := s.loadSpocWithRaw(v6Fname)
 	if err != nil {
 		return nil, err
 	}
 	return conf4.MergeSpoc(conf6), nil
 }
 
-func (s *state) loadSpocWithRaw(pathName string) (DeviceConfig, error) {
-	conf, err := s.loadSpocFile(pathName)
+func (s *state) loadSpocWithRaw(fname string) (DeviceConfig, error) {
+	conf, err := s.loadSpocFile(fname)
 	if err != nil {
 		return nil, err
 	}
-	rawPath := pathName + ".raw"
-	raw, err := s.loadSpocFile(rawPath)
+	rawFname := fname + ".raw"
+	raw, err := s.loadSpocFile(rawFname)
 	if err != nil {
 		return nil, err
 	}
@@ -248,27 +248,28 @@ func (s *state) loadSpocWithRaw(pathName string) (DeviceConfig, error) {
 	return conf.MergeSpoc(raw), nil
 }
 
-func (s *state) loadSpocFile(path string) (DeviceConfig, error) {
-	data, err := os.ReadFile(path)
+func (s *state) loadSpocFile(fname string) (DeviceConfig, error) {
+	data, err := os.ReadFile(fname)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("Can't %v", err)
 	}
 	c, err := s.ParseConfig(data)
 	//c.origin = "Netspoc"
 	if err != nil {
-		return nil, fmt.Errorf("Can't parse %s: %v", path, err)
+		b := path.Base(fname)
+		return nil, fmt.Errorf("While reading %s: %v", b, err)
 	}
 	return c, nil
 }
 
-func getIPv6Path(p string) string {
+func getIPv6Fname(p string) string {
 	dir := path.Dir(p)
 	base := path.Base(p)
 	return dir + "/ipv6/" + base
 }
 
-func getRawHostnameIP(path string) ([]string, []string, error) {
-	data, err := os.ReadFile(path)
+func getRawHostnameIP(fname string) ([]string, []string, error) {
+	data, err := os.ReadFile(fname)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Can't %v", err)
 	}
@@ -283,48 +284,48 @@ func getRawHostnameIP(path string) ([]string, []string, error) {
 	names := find(reName)
 	ips := find(reIP)
 	if names == "" {
-		return nil, nil, fmt.Errorf("Missing device name in %s", path)
+		return nil, nil, fmt.Errorf("Missing device name in %s", fname)
 	}
 	if ips == "" {
-		return nil, nil, fmt.Errorf("Missing IP address in %s", path)
+		return nil, nil, fmt.Errorf("Missing IP address in %s", fname)
 	}
 	ipList := strings.Split(ips, ", ")
 	nameList := strings.Split(names, ", ")
 	return nameList, ipList, nil
 }
 
-func GetHostnameIP(path string) (string, string, error) {
-	nameList, ipList, err := getRawHostnameIP(path)
+func GetHostnameIP(fname string) (string, string, error) {
+	nameList, ipList, err := getRawHostnameIP(fname)
 	if err != nil {
 		return "", "", err
 	}
 	return nameList[0], ipList[0], nil
 }
 
-func getHostnameIPList(path string) ([]string, []string, error) {
-	nameList, ipList, err := getRawHostnameIP(path)
+func getHostnameIPList(fname string) ([]string, []string, error) {
+	nameList, ipList, err := getRawHostnameIP(fname)
 	if err != nil {
 		return nil, nil, err
 	}
 	if len(nameList) != len(ipList) {
 		return nil, nil, fmt.Errorf(
-			"Number of device names and IP addresses don't match in %s", path)
+			"Number of device names and IP addresses don't match in %s", fname)
 	}
 	return nameList, ipList, nil
 }
 
 func (s *state) setLogDir(logDir, file string) {
 	if logDir != "" {
-		s.logPath = path.Join(logDir, path.Base(file))
+		s.logFname = path.Join(logDir, path.Base(file))
 	}
 }
 
 func (s *state) getLogFH(ext string) (*os.File, error) {
-	if s.logPath == "" {
+	if s.logFname == "" {
 		return nil, nil
 	}
-	file := s.logPath + ext
-	return os.Create(file)
+	fname := s.logFname + ext
+	return os.Create(fname)
 }
 
 func closeLogFH(fh *os.File) {
@@ -357,12 +358,12 @@ func GetHTTPClient(cfg *Config) *http.Client {
 }
 
 func TryReachableHTTPLogin(
-	path string,
+	fname string,
 	cfg *Config,
 	login func(name, ip, user, pass string) error,
 ) error {
 
-	nameList, ipList, err := getHostnameIPList(path)
+	nameList, ipList, err := getHostnameIPList(fname)
 	if err != nil {
 		return err
 	}
