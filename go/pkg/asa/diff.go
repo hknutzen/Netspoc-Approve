@@ -16,8 +16,6 @@ var anchors = []string{
 }
 
 func (s *State) diffConfig() {
-	addDefaults(s.a.lookup)
-	addDefaults(s.b.lookup)
 	s.generateNamesForTransfer()
 	s.diffUnnamedCmds("route", getParsed)
 	s.diffUnnamedCmds("ipv6 route", getParsed)

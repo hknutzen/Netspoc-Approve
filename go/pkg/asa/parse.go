@@ -219,6 +219,7 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		}
 	}
 	postprocessParsed(lookup)
+	addDefaults(lookup)
 	err := checkReferences(lookup)
 	return &ASAConfig{lookup: lookup}, err
 }
@@ -589,30 +590,24 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 }
 
 func addDefaults(lookup map[string]map[string][]*cmd) {
-	getPrefixMap := func(p string) map[string][]*cmd {
-		m := lookup[p]
+	add := func(prefix, name, typ string) {
+		m := lookup[prefix]
 		if m == nil {
 			m = make(map[string][]*cmd)
-			lookup[p] = m
+			lookup[prefix] = m
 		}
-		return m
-	}
-	// Add definition of default group-policy
-	m := getPrefixMap("group-policy")
-	name := "DfltGrpPolicy"
-	c := lookupCmd("group-policy " + name + " internal")
-	c.fixedName = true
-	m[name] = append([]*cmd{c}, m[name]...)
-	// Add definition of default tunnel-groups.
-	name2typ := map[string]string{
-		"DefaultL2LGroup":    "ipsec-l2l",
-		"DefaultRAGroup":     "remote-access",
-		"DefaultWEBVPNGroup": "webvpn",
-	}
-	m = getPrefixMap("tunnel-group")
-	for name, typ := range name2typ {
-		c := lookupCmd("tunnel-group " + name + " type " + typ)
+		c := lookupCmd(prefix + " " + name + " " + typ)
 		c.fixedName = true
+		l := m[name]
+		// Add only once when parsing IPv4, IPv6 and raw.
+		if len(l) > 0 && l[0].parsed == c.parsed {
+			return
+		}
 		m[name] = append([]*cmd{c}, m[name]...)
 	}
+	// Add definitions of default group-policy and default tunnel-groups.
+	add("group-policy", "DfltGrpPolicy", "internal")
+	add("tunnel-group", "DefaultL2LGroup", "type ipsec-l2l")
+	add("tunnel-group", "DefaultRAGroup", "type remote-access")
+	add("tunnel-group", "DefaultWEBVPNGroup", "type webvpn")
 }
