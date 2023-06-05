@@ -40,6 +40,7 @@ type cmd struct {
 	typ       *cmdType
 	ready     bool // cmd from Netspoc was found on or transferred to device
 	needed    bool // cmd on device is referenced and must not be deleted
+	toDelete  bool // Remove cmd on device if it is not needed
 	fixedName bool
 
 	orig string // e.g. "crypto map abc 10 match address xyz"
