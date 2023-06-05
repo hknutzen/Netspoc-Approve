@@ -592,7 +592,6 @@ access-list crypto-acl1-DRC-0 extended permit ip 10.1.2.0 255.255.240.0 host 10.
 crypto map map-outside 1 match address crypto-acl1-DRC-0
 crypto map map-outside 1 set pfs group2
 crypto map map-outside 1 set peer 97.98.99.100
-no crypto map map-outside 1 set ikev1 transform-set
 crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
 crypto map map-outside 1 set ikev1 transform-set trans-DRC-0
 crypto map map-outside 1 set security-association lifetime seconds 43200 kilobytes 4608000
@@ -1265,9 +1264,9 @@ tunnel-group-map ca-map 20 VPN-tunnel
 END
 
 $out = <<'END';
+no tunnel-group NAME ipsec-attributes
 tunnel-group NAME webvpn-attributes
 authentication aaa
-no tunnel-group NAME ipsec-attributes
 END
 test_run($title, 'ASA', $device, $in, $out);
 
@@ -1447,22 +1446,22 @@ crypto map crypto-outside 3 set pfs group1
 END
 
 $out = <<'END';
+no crypto map crypto-outside 3 match address crypto-outside-3
+no crypto map crypto-outside 3 set pfs group2
 crypto ipsec ikev2 ipsec-proposal Proposal1-DRC-0
 protocol esp encryption aes192 aes256
 protocol esp integrity  sha
-no crypto map crypto-outside 3 set ikev2 ipsec-proposal
+no crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1-DRC-0
 crypto map crypto-outside 3 set pfs group1
 access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
 crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
 crypto map crypto-outside 2 set peer 10.0.0.2
-no crypto map crypto-outside 2 set ikev1 transform-set
-crypto map crypto-outside 2 set pfs group1
 crypto map crypto-outside 2 set ikev1 transform-set Trans1a
+crypto map crypto-outside 2 set pfs group1
 no crypto map crypto-outside 1 match address crypto-outside-1
 no crypto map crypto-outside 1 set peer 10.0.0.1
 no crypto map crypto-outside 1 set ikev1 transform-set Trans1b
-no crypto map crypto-outside 3 match address crypto-outside-3
 no access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
 no access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
 no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
@@ -1510,6 +1509,8 @@ crypto map crypto-outside 65532 ipsec-isakmp dynamic name3@example.com
 END
 
 $out = <<'END';
+no crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a Trans3
+no crypto dynamic-map name1@example.com 20 set pfs group2
 crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
 crypto ipsec ikev1 transform-set Trans2-DRC-0 esp-aes esp-md5-hmac
 crypto dynamic-map name3@example.com 20 set ikev1 transform-set Trans1a Trans2-DRC-0
@@ -1517,12 +1518,9 @@ access-list crypto-outside-2-DRC-0 extended permit ip 10.1.2.0 255.255.255.0 10.
 crypto dynamic-map name2@example.com 20 match address crypto-outside-2-DRC-0
 crypto map crypto-outside 1 ipsec-isakmp dynamic name2@example.com
 no crypto map crypto-outside 65533 ipsec-isakmp dynamic name4@example.com
-no crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a Trans3
-no crypto dynamic-map name1@example.com 20 set pfs group2
 no crypto dynamic-map name4@example.com 40 match address crypto-outside-65533
 no crypto dynamic-map name4@example.com 40 set ikev1 transform-set Trans1a Trans1b
 no access-list crypto-outside-65533 extended permit ip 10.1.4.0 255.255.255.0 10.99.2.0 255.255.255.0
-no crypto dynamic-map name3@example.com 20 set ikev1 transform-set
 no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-sha-hmac
 no crypto ipsec ikev1 transform-set Trans3 esp-aes-256 esp-md5-hmac
 END
