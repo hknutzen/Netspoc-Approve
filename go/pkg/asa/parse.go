@@ -230,8 +230,8 @@ func checkReferences(lookup map[string]map[string][]*cmd) error {
 				for i, name := range c.ref {
 					prefix := c.typ.ref[i]
 					if _, found := lookup[prefix][name]; !found {
-						return fmt.Errorf("Referencing unknown '%s %s' from '%s'",
-							prefix, name, c.orig)
+						return fmt.Errorf("'%s' references unknown '%s %s'",
+							c.orig, prefix, name)
 					}
 				}
 				return nil
