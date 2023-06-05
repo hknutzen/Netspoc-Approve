@@ -403,29 +403,7 @@ END
 check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 ############################################################
-$title = "Abort on unknown sub command of object-group";
-############################################################
-
-$device = $minimal_device . <<'END';
-object-group network g0
- network-object 10.0.3.0 255.255.255.0
- unknown command
-access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
-access-group outside_in in interface ethernet0
-END
-
-$in = <<'END';
-END
-
-$out = <<END;
-ERROR>>> Unexpected command in line 7:
->>unknown command<<
-END
-
-test_err($title, 'ASA', $device, $in, $out);
-
-############################################################
-$title = "object-group of type tcp-udp";
+$title = "object-group of type tcp-udp is ignored";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
@@ -438,9 +416,7 @@ access-group outside_in in interface outside
 END
 
 $out = <<'END';
-ERROR>>> Expected port number or port name
-ERROR>>>  at line 7, pos 3:
-ERROR>>> >>port-object eq http<<
+ERROR>>> While reading conf: 'access-list outside_in extended permit object-group g1 any any' references unknown 'object-group g1'
 END
 test_err($title, 'ASA', $device, $device, $out);
 
@@ -455,12 +431,11 @@ access-group outside_in in interface outside
 END
 
 $out = <<'END';
-ERROR>>> port specifier 'neq' not implemented
 END
-test_err($title, 'ASA', $device, $device, $out);
+test_run($title, 'ASA', $device, $device, $out);
 
 ############################################################
-$title = "Unknown port specifier";
+$title = "Unknown port specifier isn't parsed in detail";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
@@ -470,11 +445,8 @@ access-group outside_in in interface outside
 END
 
 $out = <<'END';
-ERROR>>> Unexpected token 'foo'
-ERROR>>>  at line 5, pos 8:
-ERROR>>> >>access-list outside_in extended permit tcp any any foo 22<<
 END
-test_err($title, 'ASA', $device, $device, $out);
+test_run($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Different port specifers";
@@ -620,7 +592,7 @@ END
 check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 ############################################################
-$title = "Must not change type of tunnel-group";
+$title = "Change type of tunnel-group";
 ############################################################
 $device = <<END;
 tunnel-group VPN-single type remote-access
@@ -639,10 +611,16 @@ tunnel-group-map default-group some-name
 END
 
 $out = <<"END";
-ERROR>>> Can't change type of TUNNEL_GROUP_DEFINE VPN-single
+tunnel-group some-name-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+tunnel-group-map default-group some-name-DRC-0
+clear configure tunnel-group VPN-single
 END
 
-test_err($title, 'ASA', $device, $in, $out);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Don't touch tunnel-group-map referencing built in";
@@ -1180,7 +1158,7 @@ tunnel-group-map ca-map 20 193.155.130.20
 END
 
 $out = <<'END';
-ERROR>>> 'tunnel-group-map ca-map 20 193.155.130.20' references unknown tunnel-group 193.155.130.20
+ERROR>>> While reading conf: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'tunnel-group 193.155.130.20'
 END
 test_err($title, 'ASA', $device, $device, $out);
 
