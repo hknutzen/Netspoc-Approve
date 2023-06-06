@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"net/netip"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -467,21 +466,17 @@ DESCR:
 	return nil
 }
 
-var objGroupRegex = regexp.MustCompile(`\bobject-group (\S+)\b`)
-
 func postprocessParsed(lookup map[string]map[string][]*cmd) {
 	// In access-list, replace "object-group NAME" by "$REF" in cmd.parsed
 	// and add "NAME" to cmd.ref .
 	for _, l := range lookup["access-list"] {
 		for _, c := range l {
-			c.parsed =
-				objGroupRegex.ReplaceAllStringFunc(c.parsed, func(s string) string {
-					_, name, _ := strings.Cut(s, " ")
-					c.ref = append(c.ref, name)
-					return "object-group $REF"
-				})
-			// access-list may reference up to three object-groups.
-			c.typ.ref = []string{"object-group", "object-group", "object-group"}
+			postprocessACL(c)
+			// access-list may reference up to five object-groups.
+			c.typ.ref = []string{
+				"object-group", "object-group", "object-group",
+				"object-group", "object-group",
+			}
 		}
 	}
 	// NAME in commands
@@ -587,6 +582,268 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 			}
 		}
 	}
+}
+
+var protoNames = map[string]int{
+	"ah":    51,
+	"eigrp": 88,
+	"esp":   50,
+	"gre":   47,
+	//"icmp": 1,
+	//"icmp6": 58,
+	"igmp": 2,
+	"igrp": 9,
+	//"ip"
+	"ipinip": 4,
+	"ipsec":  50,
+	"nos":    94,
+	"ospf":   89,
+	"pcp":    108,
+	"pim":    103,
+	"pptp":   47,
+	"sctp":   132,
+	"snp":    109,
+	//"tcp": 6,
+	//"udp": 17,
+}
+
+var tcpNames = map[string]int{
+	"aol":             5190,
+	"bgp":             179,
+	"chargen":         19,
+	"cifs":            3020,
+	"citrix-ica":      1494,
+	"cmd":             514,
+	"ctiqbe":          2748,
+	"daytime":         13,
+	"discard":         9,
+	"domain":          53,
+	"echo":            7,
+	"exec":            512,
+	"finger":          79,
+	"ftp":             21,
+	"ftp-data":        20,
+	"gopher":          70,
+	"h323":            1720,
+	"hostname":        101,
+	"http":            80,
+	"https":           443,
+	"ident":           113,
+	"imap4":           143,
+	"irc":             194,
+	"kerberos":        750,
+	"klogin":          543,
+	"kshell":          544,
+	"ldap":            389,
+	"ldaps":           636,
+	"login":           513,
+	"lotusnotes":      1352,
+	"lpd":             515,
+	"netbios-ssn":     139,
+	"nfs":             2049,
+	"nntp":            119,
+	"pcanywhere-data": 5631,
+	"pim-auto-rp":     496,
+	"pop2":            109,
+	"pop3":            110,
+	"pptp":            1723,
+	"rsh":             514,
+	"rtsp":            554,
+	"sip":             5060,
+	"smtp":            25,
+	"sqlnet":          1521,
+	"ssh":             22,
+	"sunrpc":          111,
+	"tacacs":          49,
+	"talk":            517,
+	"telnet":          23,
+	"uucp":            540,
+	"whois":           43,
+	"www":             80,
+}
+
+var udpNames = map[string]int{
+	"biff":              512,
+	"bootpc":            68,
+	"bootps":            67,
+	"cifs":              3020,
+	"discard":           9,
+	"dnsix":             195,
+	"domain":            53,
+	"echo":              9,
+	"http":              80,
+	"isakmp":            500,
+	"kerberos":          750,
+	"mobile-ip":         434,
+	"nameserver":        42,
+	"netbios-dgm":       138,
+	"netbios-ns":        137,
+	"nfs":               2049,
+	"ntp":               123,
+	"pcanywhere-status": 5632,
+	"pim-auto-rp":       496,
+	"radius":            1645,
+	"radius-acct":       1646,
+	"rip":               520,
+	"secureid-udp":      5510,
+	"sip":               5060,
+	"snmp":              161,
+	"snmptrap":          162,
+	"sunrpc":            111,
+	"syslog":            514,
+	"tacacs":            49,
+	"talk":              517,
+	"tftp":              69,
+	"time":              37,
+	"vxlan":             4789,
+	"who":               513,
+	"www":               80,
+	"xdmcp":             177,
+}
+
+var icmpTypes = map[string]int{
+	"alternate-address":    6,
+	"conversion-error":     31,
+	"echo":                 8,
+	"echo-reply":           0,
+	"information-reply":    16,
+	"information-request":  15,
+	"mask-reply":           18,
+	"mask-request":         17,
+	"mobile-redirect":      32,
+	"parameter-problem":    12,
+	"redirect":             5,
+	"router-advertisement": 9,
+	"router-solicitation":  10,
+	"source-quench":        4,
+	"time-exceeded":        11,
+	"timestamp-reply":      14,
+	"timestamp-request":    13,
+	"traceroute":           30,
+	"unreachable":          3,
+}
+
+var icmp6Types = map[string]int{
+	"echo":                   128,
+	"echo-reply":             129,
+	"membership-query":       130,
+	"membership-reduction":   132,
+	"membership-report":      131,
+	"neighbor-advertisement": 136,
+	"neighbor-redirect":      137,
+	"neighbor-solicitation":  135,
+	"packet-too-big":         2,
+	"parameter-problem":      4,
+	"router-advertisement":   134,
+	"router-renumbering":     138,
+	"router-solicitation":    133,
+	"time-exceeded":          3,
+	"unreachable":            1,
+}
+
+// Postprocess command
+// access-list $NAME extended deny|permit PROTO SRC [PORT] DST [PORT]
+// - Replace named numbers by number
+// - Replace reference to object-group by $REF
+func postprocessACL(c *cmd) {
+	tokens := strings.Fields(c.parsed)
+	if tokens[2] == "standard" {
+		return
+	}
+	// Skip "access-list $NAME extended deny|permit"
+	parts := tokens[4:]
+	proto := ""
+
+	convNamed := func(m map[string]int) {
+		if num, found := m[parts[0]]; found {
+			parts[0] = strconv.Itoa(num)
+		}
+		parts = parts[1:]
+	}
+	convNamedPort := func() {
+		switch proto {
+		case "tcp":
+			convNamed(tcpNames)
+		case "udp":
+			convNamed(udpNames)
+		default:
+			parts = parts[1:]
+		}
+	}
+	convObjectGroup := func() {
+		name := parts[1]
+		parts[1] = "$REF"
+		c.ref = append(c.ref, name)
+		parts = parts[2:]
+	}
+	convProto := func() {
+		proto = parts[0]
+		switch proto {
+		case "object-group":
+			convObjectGroup()
+		case "object":
+			parts = parts[2:]
+		default:
+			convNamed(protoNames)
+		}
+	}
+	convObject := func() {
+		if len(parts) > 0 {
+			switch parts[0] {
+			case "object-group":
+				convObjectGroup()
+			case "host", "object", "object-group-security", "object-group-user",
+				"security-group", "user", "user-group":
+				parts = parts[2:]
+			case "any", "any4", "any6", "interface":
+				parts = parts[1:]
+			default:
+				if strings.Contains(parts[0], "/") {
+					parts = parts[1:]
+				} else {
+					parts = parts[2:]
+				}
+			}
+		}
+	}
+	convPort := func() {
+		if len(parts) > 0 {
+			switch parts[0] {
+			case "object-group":
+				convObjectGroup()
+			case "eq", "gt", "lt", "neq":
+				parts = parts[1:]
+				convNamedPort()
+			case "range":
+				parts = parts[1:]
+				convNamedPort()
+				convNamedPort()
+			}
+		}
+	}
+	convICMP := func() {
+		if len(parts) > 0 {
+			switch proto {
+			case "icmp":
+				convNamed(icmpTypes)
+			case "icmp6":
+				convNamed(icmp6Types)
+			}
+		}
+	}
+
+	convProto()
+	convObject()
+	switch proto {
+	case "tcp", "udp":
+		convPort()
+		convObject()
+		convPort()
+	case "icmp", "icmp6":
+		convObject()
+		convICMP()
+	}
+	c.parsed = strings.Join(tokens, " ")
 }
 
 func addDefaults(lookup map[string]map[string][]*cmd) {
