@@ -485,7 +485,7 @@ END
 test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
-$title = "Reference same ACL from two interfaces";
+$title = "Change ACL referenced from two interfaces";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
@@ -494,12 +494,44 @@ access-group outside_in in interface inside
 access-group outside_in in interface outside
 END
 
-$out = <<'END';
-ERROR>>> Multiple occurrences of command not allowed
-ERROR>>>  at line 7, pos 5:
-ERROR>>> >>access-group outside_in in interface outside<<
+$in = <<'END';
+access-list outside_in extended permit tcp any any eq 22
+access-list outside_in extended permit tcp any any eq 25
+access-group outside_in in interface inside
+access-group outside_in in interface outside
 END
-test_err($title, 'ASA', $device, $device, $out);
+
+$out = <<'END';
+access-list outside_in extended permit tcp any any eq 25
+END
+
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Change only one ACL referenced from two interfaces";
+############################################################
+$device = $minimal_device;
+$device .= <<'END';
+access-list outside_in extended permit tcp any any eq 22
+access-group outside_in in interface inside
+access-group outside_in in interface outside
+END
+
+$in = <<'END';
+access-list outside_in extended permit tcp any any eq 22
+access-list outside_in extended permit tcp any any eq 25
+access-list inside_in extended permit tcp any any eq 22
+access-group outside_in in interface inside
+access-group inside_in in interface outside
+END
+
+$out = <<'END';
+access-list outside_in extended permit tcp any any eq 25
+access-list inside_in-DRC-0 extended permit tcp any any eq 22
+access-group inside_in-DRC-0 in interface outside
+END
+
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Ignore ASA pre 8.4 static, global, nat";
