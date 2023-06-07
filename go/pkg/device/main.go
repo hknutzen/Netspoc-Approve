@@ -204,7 +204,7 @@ func (s *state) getCompare(c1 DeviceConfig, fname string, chk warnOrErr) error {
 			return warnings[0]
 		}
 		for _, w := range warnings {
-			warning("%v", w)
+			Warning("%v", w)
 		}
 	}
 	// Check hostname only after config has been validated in GetChanges.
@@ -212,7 +212,7 @@ func (s *state) getCompare(c1 DeviceConfig, fname string, chk warnOrErr) error {
 		if chk == errT {
 			return err
 		}
-		warning("%v", err)
+		Warning("%v", err)
 	}
 	return nil
 }
@@ -374,7 +374,7 @@ func TryReachableHTTPLogin(
 			return err
 		}
 		if err := login(name, ip, user, pass); err != nil {
-			warning("%v", err)
+			Warning("%v", err)
 			continue
 		}
 		return nil
@@ -387,7 +387,7 @@ func Info(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, format+"\n", args...)
 }
 
-func warning(format string, args ...interface{}) {
+func Warning(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "WARNING>>> "+format+"\n", args...)
 }
 
