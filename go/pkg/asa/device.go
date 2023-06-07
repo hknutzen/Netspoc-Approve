@@ -3,10 +3,12 @@ package asa
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"golang.org/x/exp/maps"
 )
 
 type State struct {
@@ -102,6 +104,9 @@ func (s *State) setTerminal() {
 func (s *State) GetChanges(c1, c2 device.DeviceConfig) ([]error, error) {
 	s.a = c1.(*ASAConfig)
 	s.b = c2.(*ASAConfig)
+	if err := s.checkInterfaces(); err != nil {
+		return nil, err
+	}
 	s.diffConfig()
 	return nil, nil
 }
@@ -133,4 +138,57 @@ func (s *State) CloseConnection() {
 	if c := s.conn; c != nil {
 		s.conn.Close()
 	}
+}
+
+func (s *State) checkInterfaces() error {
+
+	// Collect named interfaces from Netspoc.
+	// These are defined implicitly by commands
+	// "access-group $access-list in|out interface INTF".
+	// Ignore "access-group $access-list global".
+	bIntf := make(map[string]bool)
+	for _, l := range s.b.lookup["access-group"] {
+		for _, c := range l {
+			tokens := strings.Fields(c.parsed)
+			if len(tokens) == 5 {
+				bIntf[tokens[4]] = true
+			}
+		}
+	}
+
+	// Collect and check named interfaces from device.
+	aIntf := make(map[string]bool)
+	for _, l := range s.a.lookup["interface"] {
+		for _, c := range l {
+			name := ""
+			shutdown := false
+			for _, sc := range c.sub {
+				tokens := strings.Fields(sc.parsed)
+				switch tokens[0] {
+				case "shutdown":
+					shutdown = true
+				case "nameif":
+					name = tokens[1]
+				}
+			}
+			if name != "" {
+				aIntf[name] = true
+				if !shutdown && !bIntf[name] {
+					device.Warning(
+						"Interface '%s' on device is not known by Netspoc", name)
+				}
+			}
+		}
+	}
+
+	// Check interfaces from Netspoc
+	bNames := maps.Keys(bIntf)
+	sort.Strings(bNames)
+	for _, name := range bNames {
+		if !aIntf[name] {
+			return fmt.Errorf(
+				"Interface '%s' from Netspoc not known on device", name)
+		}
+	}
+	return nil
 }
