@@ -467,7 +467,7 @@ END
 test_run($title, 'ASA', $device, $device, $out);
 
 ############################################################
-$title = "Unsupported global ACL ";
+$title = "Remove global ACL from device";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
@@ -477,12 +477,16 @@ access-list global_ACL extended permit tcp any any eq 22
 access-group global_ACL global
 END
 
-$out = <<'END';
-ERROR>>> Global access-list not supported
-ERROR>>>  at line 8, pos 1:
-ERROR>>> >>access-group global_ACL global<<
+$in = <<'END';
+access-list outside_in extended deny ip any any
+access-group outside_in in interface outside
 END
-test_err($title, 'ASA', $device, $device, $out);
+
+$out = <<'END';
+no access-group global_ACL global
+no access-list global_ACL extended permit tcp any any eq 22
+END
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Change ACL referenced from two interfaces";
