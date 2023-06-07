@@ -585,15 +585,12 @@ func postprocessParsed(lookup map[string]map[string][]*cmd) {
 }
 
 var protoNames = map[string]int{
-	"ah":    51,
-	"eigrp": 88,
-	"esp":   50,
-	"gre":   47,
-	//"icmp": 1,
-	//"icmp6": 58,
-	"igmp": 2,
-	"igrp": 9,
-	//"ip"
+	"ah":     51,
+	"eigrp":  88,
+	"esp":    50,
+	"gre":    47,
+	"igmp":   2,
+	"igrp":   9,
 	"ipinip": 4,
 	"ipsec":  50,
 	"nos":    94,
@@ -603,10 +600,14 @@ var protoNames = map[string]int{
 	"pptp":   47,
 	"sctp":   132,
 	"snp":    109,
-	//"tcp": 6,
-	//"udp": 17,
 }
 
+var protoNonNumeric = map[string]string{
+	"1":  "icmp",
+	"58": "icmp6",
+	"6":  "tcp",
+	"17": "udp",
+}
 var tcpNames = map[string]int{
 	"aol":             5190,
 	"bgp":             179,
@@ -784,6 +785,9 @@ func postprocessACL(c *cmd) {
 		case "object":
 			parts = parts[2:]
 		default:
+			if name, found := protoNonNumeric[parts[0]]; found {
+				parts[0] = name
+			}
 			convNamed(protoNames)
 		}
 	}
