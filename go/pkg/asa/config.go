@@ -84,7 +84,8 @@ func mergeACLs(n1, n2 *ASAConfig) {
 				device.Abort("Name clash for 'access-list %s'", aclName2)
 			}
 			set("access-list", aclName2, aclList2)
-			set("access-group", "", append(l1, c2))
+			l1 = append(l1, c2)
+			set("access-group", "", l1)
 		}
 	}
 }
