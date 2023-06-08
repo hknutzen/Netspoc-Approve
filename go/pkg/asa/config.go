@@ -10,7 +10,7 @@ func (n1 *ASAConfig) MergeSpoc(c2 device.DeviceConfig) device.DeviceConfig {
 	n2 := c2.(*ASAConfig)
 	lookup := n1.lookup
 	if lookup == nil {
-		lookup = make(map[string]map[string][]*cmd)
+		lookup = make(objLookup)
 		n1.lookup = lookup
 	}
 	mergeACLs(n1, n2)
