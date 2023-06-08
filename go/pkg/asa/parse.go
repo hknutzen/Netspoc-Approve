@@ -13,8 +13,10 @@ import (
 
 type ASAConfig struct {
 	// prefix -> name -> commands with same prefix and name
-	lookup map[string]map[string][]*cmd
+	lookup objLookup
 }
+
+type objLookup map[string]map[string][]*cmd
 
 type cmdType struct {
 	prefix   string   // e.g. "crypto map"
@@ -179,7 +181,7 @@ var simpleObject = []string{
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 	// prefix -> name -> commands with same prefix and name
-	lookup := make(map[string]map[string][]*cmd)
+	lookup := make(objLookup)
 	// Remember previous toplevel command where subcommands are added.
 	var prev *cmd
 	for len(data) > 0 {
@@ -218,20 +220,23 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		}
 	}
 	postprocessParsed(lookup)
-	addDefaults(lookup)
 	err := checkReferences(lookup)
 	return &ASAConfig{lookup: lookup}, err
 }
 
-func checkReferences(lookup map[string]map[string][]*cmd) error {
+func checkReferences(lookup objLookup) error {
 	for _, m := range lookup {
 		for _, cmdList := range m {
 			check := func(c *cmd) error {
 				for i, name := range c.ref {
 					prefix := c.typ.ref[i]
 					if _, found := lookup[prefix][name]; !found {
-						return fmt.Errorf("'%s' references unknown '%s %s'",
-							c.orig, prefix, name)
+						if v, found := defaultObjects[[2]string{prefix, name}]; found {
+							addDefaultObject(lookup, prefix, name, v)
+						} else {
+							return fmt.Errorf("'%s' references unknown '%s %s'",
+								c.orig, prefix, name)
+						}
 					}
 				}
 				return nil
@@ -249,6 +254,36 @@ func checkReferences(lookup map[string]map[string][]*cmd) error {
 		}
 	}
 	return nil
+}
+
+var defaultObjects = map[[2]string]string{
+	[2]string{"group-policy", "DfltGrpPolicy"}:      "internal",
+	[2]string{"tunnel-group", "DefaultL2LGroup"}:    "type ipsec-l2l",
+	[2]string{"tunnel-group", "DefaultRAGroup"}:     "type remote-access",
+	[2]string{"tunnel-group", "DefaultWEBVPNGroup"}: "type webvpn",
+}
+
+func addDefaultObject(lookup objLookup, prefix, name, typ string) {
+	m := lookup[prefix]
+	if m == nil {
+		m = make(map[string][]*cmd)
+		lookup[prefix] = m
+	}
+	c := lookupCmd(prefix + " " + name + " " + typ)
+	c.fixedName = true
+	l := m[name]
+	// Do not add again, if already referenced previously.
+	if len(l) > 0 && l[0].parsed == c.parsed {
+		return
+	}
+	m[name] = append([]*cmd{c}, l...)
+}
+
+// Add definitions of default group-policy and default tunnel-groups.
+func addDefaults(lookup objLookup) {
+	for k, v := range defaultObjects {
+		addDefaultObject(lookup, k[0], k[1], v)
+	}
 }
 
 func init() {
@@ -466,7 +501,7 @@ DESCR:
 	return nil
 }
 
-func postprocessParsed(lookup map[string]map[string][]*cmd) {
+func postprocessParsed(lookup objLookup) {
 	// In access-list, replace "object-group NAME" by "$REF" in cmd.parsed
 	// and add "NAME" to cmd.ref .
 	for _, l := range lookup["access-list"] {
@@ -848,27 +883,4 @@ func postprocessACL(c *cmd) {
 		convICMP()
 	}
 	c.parsed = strings.Join(tokens, " ")
-}
-
-func addDefaults(lookup map[string]map[string][]*cmd) {
-	add := func(prefix, name, typ string) {
-		m := lookup[prefix]
-		if m == nil {
-			m = make(map[string][]*cmd)
-			lookup[prefix] = m
-		}
-		c := lookupCmd(prefix + " " + name + " " + typ)
-		c.fixedName = true
-		l := m[name]
-		// Add only once when parsing IPv4, IPv6 and raw.
-		if len(l) > 0 && l[0].parsed == c.parsed {
-			return
-		}
-		m[name] = append([]*cmd{c}, m[name]...)
-	}
-	// Add definitions of default group-policy and default tunnel-groups.
-	add("group-policy", "DfltGrpPolicy", "internal")
-	add("tunnel-group", "DefaultL2LGroup", "type ipsec-l2l")
-	add("tunnel-group", "DefaultRAGroup", "type remote-access")
-	add("tunnel-group", "DefaultWEBVPNGroup", "type webvpn")
 }
