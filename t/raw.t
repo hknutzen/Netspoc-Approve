@@ -569,10 +569,7 @@ test_err($title, 'Linux', '', $spoc, $out);
 $title = "Add crypto";
 ############################################################
 
-$device = <<'END';
-interface Ethernet0/1
- nameif outside
-END
+$device = '';
 
 $spoc = {
 spoc4 => <<END
@@ -628,10 +625,7 @@ test_run($title, 'ASA', $device, $spoc, $out);
 $title = "Prepend and append crypto filter ACL";
 ############################################################
 
-$device = <<'END';
-interface Ethernet0/1
- nameif outside
-END
+$device = '';
 
 $spoc = {
 spoc4 => <<END
@@ -665,10 +659,7 @@ test_run($title, 'ASA', $device, $spoc, $out);
 $title = "Change crypto map attributes";
 ############################################################
 
-$device = <<'END';
-interface Ethernet0/1
- nameif outside
-END
+$device = '';
 
 $spoc = {
 spoc4 => <<END
@@ -717,10 +708,7 @@ test_run($title, 'ASA', $device, $spoc, $out);
 $title = "Add crypto map entry";
 ############################################################
 
-$device = <<'END';
-interface Ethernet0/1
- nameif outside
-END
+$device = '';
 
 $spoc = {
 spoc4 => <<END
@@ -748,8 +736,6 @@ raw4 => <<END
 crypto ipsec ikev2 ipsec-proposal Trans2x
  protocol esp encryption aes-256
  protocol esp integrity sha-384
-interface Ethernet0/1
- nameif outside
 access-list crypto-1.2.3.9 extended permit ip host 10.1.1.19 10.1.2.0 255.255.255.240
 crypto map crypto-outside 1 set peer 1.2.3.9
 crypto map crypto-outside 1 match address crypto-1.2.3.9
@@ -820,8 +806,6 @@ $title = "Add crypto map entry; must not overwrite while shifting";
 ############################################################
 
 $device = <<'END';
-interface Ethernet0/1
- nameif outside
 END
 
 $spoc = {
@@ -842,6 +826,9 @@ tunnel-group 1.2.3.10 ipsec-attributes
 END
 ,
 raw4 => <<END
+crypto ipsec ikev2 ipsec-proposal Trans2
+ protocol esp encryption aes-256
+ protocol esp integrity sha-384
 interface Ethernet0/1
  nameif outside
 crypto map crypto-outside 1 set peer 1.2.3.9
@@ -853,17 +840,14 @@ END
 };
 
 $out = <<'END';
+crypto map crypto-outside 1 set peer 1.2.3.10
 crypto ipsec ikev2 ipsec-proposal Trans2-DRC-0
 protocol esp encryption aes-256
 protocol esp integrity sha-384
-crypto map crypto-outside 1 set peer 1.2.3.9
-no crypto map crypto-outside 1 set ikev2 ipsec-proposal
 crypto map crypto-outside 1 set ikev2 ipsec-proposal Trans2-DRC-0
 crypto map crypto-outside 2 set peer 1.2.3.4
-no crypto map crypto-outside 2 set ikev2 ipsec-proposal
 crypto map crypto-outside 2 set ikev2 ipsec-proposal Trans2-DRC-0
-crypto map crypto-outside 3 set peer 1.2.3.10
-no crypto map crypto-outside 3 set ikev2 ipsec-proposal
+crypto map crypto-outside 3 set peer 1.2.3.9
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Trans2-DRC-0
 tunnel-group 1.2.3.10 type ipsec-l2l
 tunnel-group 1.2.3.10 ipsec-attributes
