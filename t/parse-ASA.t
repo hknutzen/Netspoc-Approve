@@ -174,8 +174,8 @@ END
 };
 
 $out = <<END;
-access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in-DRC-0 extended permit icmp any4 any4 3 6
+access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
 END
@@ -204,8 +204,8 @@ END
 };
 
 $out = <<END;
-access-list inside_in-DRC-0 extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
 access-list inside_in-DRC-0 extended permit icmp6 any6 any6 128
+access-list inside_in-DRC-0 extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
 access-list inside_in-DRC-0 extended deny ip any6 any6
 access-group inside_in-DRC-0 in interface inside
 END

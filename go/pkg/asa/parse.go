@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"golang.org/x/exp/slices"
@@ -43,6 +44,7 @@ type cmd struct {
 	needed    bool // cmd on device is referenced and must not be deleted
 	toDelete  bool // Remove cmd on device if it is not needed
 	fixedName bool
+	append    bool // Command was found after [APPEND] marker in raw file
 
 	orig string // e.g. "crypto map abc 10 match address xyz"
 	// "*" and `"` of template are only used for matching,
@@ -184,12 +186,19 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 	lookup := make(objLookup)
 	// Remember previous toplevel command where subcommands are added.
 	var prev *cmd
+	// Mark commands found after [APPEND] marker.
+	isAppend := false
 	for len(data) > 0 {
 		first, rest, _ := bytes.Cut(data, []byte("\n"))
 		data = rest
 		line := string(first)
+		// Remove whitespace at end of line in manually created raw file.
+		line = strings.TrimRightFunc(line, unicode.IsSpace)
 		if line == "" || line[0] == '!' {
 			continue
+		}
+		if line == "[APPEND]" {
+			isAppend = true
 		}
 		// Handle sub command.
 		if line[0] == ' ' {
@@ -216,6 +225,7 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 				m = make(map[string][]*cmd)
 				lookup[p] = m
 			}
+			c.append = isAppend
 			m[c.name] = append(m[c.name], c)
 		}
 	}

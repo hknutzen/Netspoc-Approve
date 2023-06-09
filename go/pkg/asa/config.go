@@ -60,30 +60,33 @@ func mergeACLs(n1, n2 *ASAConfig) {
 		m[c.parsed] = c
 	}
 	for _, c2 := range l2 {
-		aclName2 := c2.ref[0]
-		aclList2 := n2.lookup["access-list"][aclName2]
+		name2 := c2.ref[0]
+		acl2 := n2.lookup["access-list"][name2]
 		if c1, found := m[c2.parsed]; found {
 			// Modify existing ACL
-			aclName1 := c1.ref[0]
-			aclList1 := n1.lookup["access-list"][aclName1]
-
-			// Append mode adds entries behind last permit line.
-			// Find last permit line within entries from Netspoc.
-			i := len(aclList1) - 1
-			for ; i >= 0; i-- {
-				if strings.Contains(aclList1[i].parsed, "$NAME extended permit") {
-					i++
-					break
+			name1 := c1.ref[0]
+			acl1 := n1.lookup["access-list"][name1]
+			if c2.append {
+				// Append mode adds entries behind last permit line.
+				// Find last permit line within entries from Netspoc.
+				i := len(acl1) - 1
+				for ; i >= 0; i-- {
+					if strings.Contains(acl1[i].parsed, "$NAME extended permit") {
+						i++
+						break
+					}
 				}
+				acl1 = append(acl1[:i], append(acl2, acl1[i:]...)...)
+			} else {
+				acl1 = append(acl2, acl1...)
 			}
-			set("access-list", aclName1,
-				append(aclList1[:i], append(aclList2, aclList1[i:]...)...))
+			set("access-list", name1, acl1)
 		} else {
 			// Insert new ACL
-			if n1.lookup["access-list"][aclName2] != nil {
-				device.Abort("Name clash for 'access-list %s'", aclName2)
+			if n1.lookup["access-list"][name2] != nil {
+				device.Abort("Name clash for 'access-list %s'", name2)
 			}
-			set("access-list", aclName2, aclList2)
+			set("access-list", name2, acl2)
 			l1 = append(l1, c2)
 			set("access-group", "", l1)
 		}
