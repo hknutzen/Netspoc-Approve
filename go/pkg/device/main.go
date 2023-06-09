@@ -254,7 +254,6 @@ func (s *state) loadSpocFile(fname string) (DeviceConfig, error) {
 		return nil, fmt.Errorf("Can't %v", err)
 	}
 	c, err := s.ParseConfig(data)
-	//c.origin = "Netspoc"
 	if err != nil {
 		b := path.Base(fname)
 		return nil, fmt.Errorf("While reading %s: %v", b, err)
