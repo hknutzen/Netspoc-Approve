@@ -187,12 +187,12 @@ func (s *State) diffCryptoMap(aSeqMap, bSeqMap map[int][]*cmd, key keyFunc) {
 				}
 			}
 			if peer == "" {
-				device.Abort("Missing peer or dynamic in crypto map %s %s",
+				device.Abort("Missing peer or dynamic in crypto map %s %d",
 					l[0].name, l[0].seq)
 			}
 			if _, found := m[peer]; found {
 				device.Abort(
-					"Duplicate peer or dynamic peer %s in crypto map %s %s",
+					"Duplicate peer or dynamic peer %s in crypto map %s %d",
 					peer, l[0].name, l[0].seq)
 			}
 			m[peer] = l
