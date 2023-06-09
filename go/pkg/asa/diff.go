@@ -7,6 +7,7 @@ import (
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/pkg/diff/myers"
+	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
@@ -147,13 +148,6 @@ func (s *State) diffPredefined(prefix, name string) {
 }
 
 func (s *State) diffSeqCmds(al, bl []*cmd, key keyFunc) {
-	mapBySeq := func(l []*cmd) map[int][]*cmd {
-		m := make(map[int][]*cmd)
-		for _, c := range l {
-			m[c.seq] = append(m[c.seq], c)
-		}
-		return m
-	}
 	aSeqMap := mapBySeq(al)
 	bSeqMap := mapBySeq(bl)
 	var prefix string
@@ -665,4 +659,18 @@ func (s *State) generateNamesForTransfer() {
 			}
 		}
 	}
+}
+
+func mapBySeq(l []*cmd) map[int][]*cmd {
+	m := make(map[int][]*cmd)
+	for _, c := range l {
+		m[c.seq] = append(m[c.seq], c)
+	}
+	return m
+}
+
+func sortedKeys[M ~map[K]V, K constraints.Ordered, V any](m M) []K {
+	keys := maps.Keys(m)
+	slices.Sort(keys)
+	return keys
 }

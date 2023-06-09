@@ -21,13 +21,27 @@ func (n1 *ASAConfig) MergeSpoc(c2 device.DeviceConfig) device.DeviceConfig {
 			lookup[prefix] = m1
 		}
 		for name, l2 := range m2 {
-			l1 := m1[name]
 			switch prefix {
-			case "access-list":
-			case "access-group":
-			default:
-				l1 = append(l1, l2...)
+			case "access-list", "access-group":
+				continue
 			}
+			l1 := m1[name]
+			c2 := l2[0]
+			// Use fresh sequence numbers for merged commands.
+			if strings.Contains(c2.parsed, " $SEQ ") {
+				m1 := mapBySeq(l1)
+				m2 := mapBySeq(l2)
+				seq := 1
+				for _, s2 := range sortedKeys(m2) {
+					// Get next free seq num
+					for ; m1[seq] != nil; seq++ {
+					}
+					for _, c := range m2[s2] {
+						c.seq = seq
+					}
+				}
+			}
+			l1 = append(l1, l2...)
 			m1[name] = l1
 		}
 	}
