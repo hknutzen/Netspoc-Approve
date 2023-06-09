@@ -18,7 +18,7 @@ import (
 
 type RealDevice interface {
 	LoadDevice(fname string, c *Config, l1, l2 *os.File) (DeviceConfig, error)
-	ParseConfig(data []byte) (DeviceConfig, error)
+	ParseConfig(data []byte, fName string) (DeviceConfig, error)
 	GetChanges(c1, c2 DeviceConfig) ([]error, error)
 	ApplyCommands(*os.File) error
 	HasChanges() bool
@@ -253,7 +253,7 @@ func (s *state) loadSpocFile(fname string) (DeviceConfig, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("Can't %v", err)
 	}
-	c, err := s.ParseConfig(data)
+	c, err := s.ParseConfig(data, fname)
 	if err != nil {
 		b := path.Base(fname)
 		return nil, fmt.Errorf("While reading %s: %v", b, err)

@@ -50,7 +50,7 @@ func (s *State) LoadDevice(
 	device.Info("Parsing device config")
 	out := s.conn.GetCmdOutput("write term")
 	device.Info("Got device config")
-	config, err := s.ParseConfig([]byte(out))
+	config, err := s.ParseConfig([]byte(out), "<device>")
 	device.Info("Parsed device config")
 	if err != nil {
 		err = fmt.Errorf("While reading device: %v", err)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/netip"
+	"path"
 	"strconv"
 	"strings"
 	"unicode"
@@ -181,13 +182,16 @@ var simpleObject = []string{
 	"crypto ipsec ikev2 ipsec-proposal",
 }
 
-func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
+func (s *State) ParseConfig(data []byte, fName string) (
+	device.DeviceConfig, error) {
+
 	// prefix -> name -> commands with same prefix and name
 	lookup := make(objLookup)
 	// Remember previous toplevel command where subcommands are added.
 	var prev *cmd
 	// Mark commands found after [APPEND] marker.
 	isAppend := false
+	strict := path.Ext(fName) == "raw"
 	for len(data) > 0 {
 		first, rest, _ := bytes.Cut(data, []byte("\n"))
 		data = rest
@@ -217,8 +221,12 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		}
 		// Handle toplevel command.
 		c := lookupCmd(line)
-		prev = c // Set to next command or nil.
-		if c != nil {
+		if c == nil {
+			if strict {
+				return nil, fmt.Errorf("Unexpected command:\n>>%s<<", line)
+			}
+		} else {
+			prev = c // Set to next command or nil.
 			p := c.typ.prefix
 			m := lookup[p]
 			if m == nil {
