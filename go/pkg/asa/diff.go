@@ -93,10 +93,8 @@ func (s *State) diffSubCmds(prefix string, key keyFunc) {
 func (s *State) diffNamedCmds(prefix string) {
 	aMap := s.a.lookup[prefix]
 	bMap := s.b.lookup[prefix]
-	aNames := maps.Keys(aMap)
-	bNames := maps.Keys(bMap)
-	sort.Strings(aNames)
-	sort.Strings(bNames)
+	aNames := sortedKeys(aMap)
+	bNames := sortedKeys(bMap)
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
@@ -203,10 +201,8 @@ func (s *State) diffCryptoMap(aSeqMap, bSeqMap map[int][]*cmd, key keyFunc) {
 	}
 	aPeerMap := mapByPeer(aSeqMap)
 	bPeerMap := mapByPeer(bSeqMap)
-	aPeers := maps.Keys(aPeerMap)
-	bPeers := maps.Keys(bPeerMap)
-	sort.Strings(aPeers)
-	sort.Strings(bPeers)
+	aPeers := sortedKeys(aPeerMap)
+	bPeers := sortedKeys(bPeerMap)
 	for _, aPeer := range aPeers {
 		s.diffCmds(aPeerMap[aPeer], bPeerMap[aPeer], getParsed)
 	}
@@ -390,8 +386,7 @@ func (s *State) equalizeSimpleObject(al, bl []*cmd) string {
 func (s *State) findSimpleObjOnDevice(bl []*cmd) []*cmd {
 	prefix := bl[0].typ.prefix
 	m := s.a.lookup[prefix]
-	names := maps.Keys(m)
-	sort.Strings(names)
+	names := sortedKeys(m)
 	for _, name := range names {
 		al := m[name]
 		if simpleObjEqual(al, bl) {
@@ -537,8 +532,7 @@ func (s *State) deleteUnused() {
 			continue
 		}
 		m := s.a.lookup[prefix]
-		names := maps.Keys(m)
-		sort.Strings(names)
+		names := sortedKeys(m)
 		for _, name := range names {
 			l := m[name]
 			deleteAll := true
