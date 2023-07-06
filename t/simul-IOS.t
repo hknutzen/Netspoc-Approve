@@ -18,7 +18,7 @@ ECDSA key fingerprint is ee:6e:ee:00:33:aa:22:88:44:66:44:33:aa:77:42:f5.
 Are you sure you want to continue connecting (yes/no)? <!>
 Enter Password:<!>
 banner motd managed by NetSPoC
->
+router>
 # sh ver
 Cisco IOS Software, C800 Software (C800-UNIVERSALK9-M), Version 15.4(3)M4, RELEASE SOFTWARE (fc1)
 Technical Support: http://www.cisco.com/techsupport
@@ -36,7 +36,7 @@ Are you sure you want to continue connecting (yes/no)? yes
 Enter Password:secret
 
 banner motd managed by NetSPoC
->enable
+router>enable
 router#
 router#term len 0
 router#term width 512
@@ -63,7 +63,7 @@ $title = "SSH login + enable password";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd managed by NetSPoC
->
+router>
 # enable
 Password:<!>
 # sh ver
@@ -78,7 +78,7 @@ $out = <<'END';
 Enter Password:secret
 
 banner motd managed by NetSPoC
->enable
+router>enable
 Password:secret
 
 router#
@@ -210,7 +210,7 @@ $title = "SSH login + enable password failed";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd managed by NetSPoC
->
+router>
 # enable
 Password:<!>
 Password:<!>
@@ -319,7 +319,7 @@ $title = "Unknown device version";
 ############################################################
 $scenario = <<'END';
 Enter Password:<!>
->
+router>
 END
 
 $in = '';
@@ -335,7 +335,7 @@ $title = "Missing banner";
 ############################################################
 $scenario = <<'END';
 Enter Password:<!>
->
+router>
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
 END
@@ -358,7 +358,7 @@ banner motd ===                                                           ===
 banner motd ===              -----  managed by NetSPoC  ----              ===
 banner motd ===                                                           ===
 banner motd =================================================================
->
+router>
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
 END
@@ -374,7 +374,7 @@ banner motd ===                                                           ===
 banner motd ===              -----  managed by NetSPoC  ----              ===
 banner motd ===                                                           ===
 banner motd =================================================================
->enable
+router>enable
 router#
 router#term len 0
 router#term width 512
@@ -398,12 +398,65 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "Banner contains prompt character";
+############################################################
+$scenario = <<'END';
+ ###################################
+ # Login for authorized users only #
+ ###################################
+Password:<!>
+router>
+# enable
+Password:<!>
+ ###########################
+ # All commands are logged #
+ # managed by NetSPoC      #
+ ###########################
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
+END
+
+$in = '';
+
+$out = <<'END';
+--router.login
+ ###################################
+ # Login for authorized users only #
+ ###################################
+Password:secret
+
+router>enable
+Password:secret
+
+ ###########################
+ # All commands are logged #
+ # managed by NetSPoC      #
+ ###########################
+router#
+router#term len 0
+router#term width 512
+router#sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
+router#
+router#configure terminal
+router#no logging console
+router#line vty 0 15
+router#logging synchronous level all
+router#ip subnet-zero
+router#ip classless
+router#end
+router#
+END
+
+simul_run($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 $title = "Conf mode, reload banner, small change, write mem";
 ############################################################
 $scenario = <<'END';
 Enter Password:<!>
 banner motd  managed by NetSPoC
->
+router>
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
 # sh run
@@ -468,7 +521,7 @@ $out = <<'END';
 Enter Password:secret
 
 banner motd  managed by NetSPoC
->enable
+router>enable
 router#
 router#term len 0
 router#term width 512
@@ -567,7 +620,7 @@ $title = "Unexpected command output while reload is scheduled";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd  managed by NetSPoC
->
+router>
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
 # reload in 5
@@ -604,7 +657,7 @@ $title = "write mem: overwrite previous NVRAM";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd  managed by NetSPoC
->
+router>
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
 # sh run
@@ -638,7 +691,7 @@ $out = <<'END';
 Enter Password:secret
 
 banner motd  managed by NetSPoC
->enable
+router>enable
 router#
 router#term len 0
 router#term width 512
@@ -694,7 +747,7 @@ $title = "write mem: abort on too large config";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd  managed by NetSPoC
->
+router>
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
 # sh run
@@ -734,7 +787,7 @@ $title = "write mem: retry if startup-config open failed";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd  managed by NetSPoC
->
+router>
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
 # sh run
@@ -774,7 +827,7 @@ $title = "write mem: unexpected output";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd  managed by NetSPoC
->
+router>
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
 # sh run
@@ -867,7 +920,7 @@ $title = "Must not move ACL line permitting device access";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd  managed by NetSPoC
->
+router>
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
 # sh run
@@ -922,7 +975,7 @@ $out = <<'END';
 Enter Password:secret
 
 banner motd  managed by NetSPoC
->enable
+router>enable
 router#
 router#term len 0
 router#term width 512

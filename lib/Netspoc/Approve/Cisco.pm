@@ -759,7 +759,10 @@ sub get_identity {
 
 sub login_enable {
     my ($self) = @_;
-    my $std_prompt = qr/[\>\#]/;
+
+    # Look for prompt. Ignore prompt lines with whitespace or multiple
+    # hash that may occur in lines of banner.
+    my $std_prompt = qr/\r\n\r?[^#> ]+[>#] ?$/;
 
     # If running as privileged user, try to get user and password
     # for login. Otherwise get current user or user from option
@@ -780,32 +783,34 @@ sub login_enable {
     $result = $con->con_issue_cmd($pass, $prompt);
     $self->{PRE_LOGIN_LINES} .= $result->{BEFORE};
 
-    if ($result->{MATCH} eq '>') {
+    my $ena_prompt = qr/\r\n\r?[^#> ]+# ?/;
+    if ($result->{MATCH} =~ />/) {
 
         # Enter enable mode.
-        my $prompt = qr/password:|\#/i;
+        my $prompt = qr/password:|$ena_prompt/i;
         $result = $con->con_issue_cmd('enable', $prompt);
-        if ($result->{MATCH} ne '#') {
+        if ($result->{MATCH} !~ /#/) {
 
             # Enable password required.
             # Use login password as enable password.
             $result = $con->con_issue_cmd($pass, $prompt);
+            $self->{PRE_LOGIN_LINES} .= $result->{BEFORE};
         }
-        if ($result->{MATCH} ne '#') {
+        if ($result->{MATCH} !~ /#/) {
             abort("Authentication for enable mode failed");
         }
     }
-    elsif ($result->{MATCH} ne '#') {
+    elsif ($result->{MATCH} !~ /#/) {
         abort("Authentication failed");
     }
 
     # Force new prompt by issuing empty command.
     # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/\r\n.*\#[ ]?$/;
+    $self->{ENAPROMPT} = $ena_prompt;
     $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^(\r\n\s?\S+)\#[ ]?$/;
+    $result->{MATCH} =~ m/^(\r\n\r?\S+)#[ ]?$/;
     my $prefix = $1;
-    $self->{ENAPROMPT} = qr/$prefix\S*\#[ ]?/;
+    $self->{ENAPROMPT} = qr/$prefix\S*#[ ]?/;
 }
 
 sub check_device_IP {
