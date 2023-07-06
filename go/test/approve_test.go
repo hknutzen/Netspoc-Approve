@@ -31,22 +31,22 @@ func runTestFiles(t *testing.T) {
 		file := file // capture range variable
 		base := path.Base(file)
 		prefix, _, _ := strings.Cut(strings.TrimSuffix(base, ".t"), "_")
+		var realDev device.RealDevice
+		switch prefix {
+		case "nsx":
+			realDev = &nsx.State{}
+		case "panos":
+			realDev = &panos.State{}
+		default:
+			t.Fatal(fmt.Errorf("Unexpected test file %s with prefix '%s'",
+				base, prefix))
+		}
 		t.Run(base, func(t *testing.T) {
 			l, err := tstdata.ParseFile(file)
 			if err != nil {
 				t.Fatal(err)
 			}
 			for _, descr := range l {
-				var realDev device.RealDevice
-				switch prefix {
-				case "nsx":
-					realDev = &nsx.State{}
-				case "panos":
-					realDev = &panos.State{}
-				default:
-					t.Fatal(fmt.Errorf("Unexpected test file %s with prefix '%s'",
-						base, prefix))
-				}
 				descr := descr // capture range variable
 				t.Run(descr.Title, func(t *testing.T) {
 					runTest(t, descr, realDev)
