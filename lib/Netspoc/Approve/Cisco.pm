@@ -807,8 +807,18 @@ sub login_enable {
     # Force new prompt by issuing empty command.
     # Set prompt again because of performance impact of standard prompt.
     $self->{ENAPROMPT} = $ena_prompt;
+    my $before1 = $result->{BEFORE};
+    my $match1 = $result->{MATCH};
     $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^(\r\n\r?\S+)#[ ]?$/;
+    my $before2 = $result->{BEFORE};
+    my $match2 = $result->{MATCH};
+    $con->{EXPECT}->expect(0);
+    if (my $extra = $con->{EXPECT}->before()) {
+        my $text = "$before1$match1$before2$match2$extra";
+        $text =~ s/\r//g;
+        abort("Parsing of device output is out of sync:\n>>$text<<")
+    }
+    $match2 =~ m/^(\r\n\r?\S+)#[ ]?$/;
     my $prefix = $1;
     $self->{ENAPROMPT} = qr/$prefix\S*#[ ]?/;
 }

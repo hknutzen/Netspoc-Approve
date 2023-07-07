@@ -451,6 +451,41 @@ END
 simul_run($title, 'IOS', $scenario, $in, $out);
 
 ############################################################
+$title = "Out of sync with banner containing valid prompt";
+############################################################
+$scenario = <<'END';
+ ###################################
+ # Login for authorized users only #
+ ###################################
+Password:<!>
+router>
+# enable
+Password:<!>
+ ###########################
+ # All commands are logged #
+ # managed by NetSPoC      #
+ ###########################
+end-of-banner#
+END
+
+$in = '';
+
+$out = <<'END';
+ERROR>>> Parsing of device output is out of sync:
+>>secret
+
+ ###########################
+ # All commands are logged #
+ # managed by NetSPoC      #
+ ###########################
+end-of-banner#
+router#
+router#<<
+END
+
+simul_err($title, 'IOS', $scenario, $in, $out);
+
+############################################################
 $title = "Conf mode, reload banner, small change, write mem";
 ############################################################
 $scenario = <<'END';
