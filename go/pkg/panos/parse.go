@@ -36,7 +36,9 @@ func parseResponse(data []byte) (string, []byte, error) {
 	return v.Msg, b, nil
 }
 
-func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
+func (s *State) ParseConfig(data []byte, fName string) (
+	device.DeviceConfig, error) {
+
 	if len(data) == 0 {
 		var v *PanConfig
 		return v, nil

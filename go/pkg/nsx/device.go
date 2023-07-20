@@ -114,7 +114,7 @@ func (s *State) LoadDevice(
 	}
 	device.DoLog(logConfig, string(out))
 
-	config, err := s.ParseConfig(out)
+	config, err := s.ParseConfig(out, "<device>")
 	if err != nil {
 		return nil, fmt.Errorf("While reading device: %v", err)
 	}
