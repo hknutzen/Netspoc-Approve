@@ -320,6 +320,7 @@ END
     $ENV{HOME} = $dir;
 
     my ($status, $stdout, $stderr) = run("bin/drc3.pl -q $spoc_file");
+    $stderr =~ s/\Q$dir\E\/code\///g;
     eq_or_diff($stderr, $expected, $title);
 }
 

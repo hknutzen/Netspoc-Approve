@@ -127,40 +127,52 @@ sub get_user_password {
     return ($pass);
 }
 
-# Read type and IP addresses from header of spoc file.
+# Read type from header of spoc file.
 # ! [ Model = IOS ]
-# ! [ IP = 10.1.13.80,10.1.14.77 ]
-sub get_spoc_data {
-    my ($spocfile) = @_;
+sub get_spoc_type {
+    my ($path) = @_;
+    my $path6 = get_ipv6_path($path);
     my $type;
-    my @ip = ();
-    my $fh;
-    my $dir = File::Basename::dirname($spocfile);
-    my $filename =  File::Basename::basename($spocfile);
-    my $msg = "Can not get IP from file(s):";
-
-    for my $file ($filename, "ipv6/$filename") {
-
-        -e "$dir/$file" or next;
-        $msg .= " $file,";
-        open($fh, '<', "$dir/$file") or abort("Can't open $file: $!");
+    for my $file ($path, $path6) {
+        -e $file or next;
+        open(my $fh, '<', $file) or abort("Can't open $file: $!");
         while (my $line = <$fh>) {
             if ($line =~ /\[ Model = (\S+) ]/) {
                 $type = $1;
             }
-            if ($line =~ /\[ IP = (\S+) ]/) {
-                @ip = split(/,/, $1);
-                last;
-            }
         }
         close $fh;
     }
+    return $type
+}
 
-    substr($msg,-1,1,'.');
-    @ip > 0 and $msg = undef;
-
-    return($type, \@ip, $msg);
-
+# Read IP addresses and optional proxy from header of spoc file.
+# ! [ IP = 10.1.13.80,10.1.14.77 ]
+# ! [ Proxy = 10.11.12.13 ]
+sub set_ip_and_proxy {
+    my ($self, $path) = @_;
+    my $path6 = get_ipv6_path($path);
+    my @checked;
+    my @ip;
+    my $proxy;
+    for my $file ($path, $path6) {
+        -e $file or next;
+        push @checked, $file;
+        open(my $fh, '<', $file) or abort("Can't open $file: $!");
+        while (my $line = <$fh>) {
+            if ($line =~ /\[ IP = (\S+) ]/) {
+                @ip = split(/,/, $1);
+            }
+            elsif ($line =~ /\[ Proxy = (\S+) ]/) {
+                $proxy = $1;
+            }
+        }
+        close $fh;
+        last if @ip;
+    }
+    @ip or abort("Can't get IP from file(s): ". join(", ", @checked));
+    $self->{IP} = shift @ip;
+    $self->{PROXY} = $proxy;
 }
 
 #########################################################################
@@ -266,7 +278,7 @@ sub prepare_config {
 }
 
 sub get_ipv6_path {
-    my ($self, $path) = @_;
+    my ($path) = @_;
     my $dir = dirname($path);
     my $filename = basename($path);
     return "$dir/ipv6/$filename";
@@ -275,7 +287,7 @@ sub get_ipv6_path {
 # Mark IPv4 only device. Use of 'any' is assumed to be equivalent to 'any4'.
 sub mark_IPv4_only {
     my ($self, $path) = @_;
-    my $path6 = $self->get_ipv6_path($path);
+    my $path6 = get_ipv6_path($path);
     $self->{IPv4_only} = not (-e $path6 or -e "$path6.raw");
 }
 
@@ -288,7 +300,7 @@ sub mark_IPv4_only {
 # Returns    : Combined ipv4/ipv6 config hash from all input files.
 sub load_spoc {
     my ($self, $path) = @_;
-    my $path6 = $self->get_ipv6_path($path);
+    my $path6 = get_ipv6_path($path);
 
     my $conf = $self->prepare_config($path, 'ipv4');
     my $conf6 = $self->prepare_config($path6, 'ipv6');
@@ -1021,12 +1033,16 @@ sub connect_ssh {
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
     my $expect = $con->{EXPECT};
     info("Trying SSH for login");
-    if (my $cmd = $ENV{SIMULATE_ROUTER}) {
-        $expect->spawn("$^X $cmd")
+    if (my $simul_cmd = $ENV{SIMULATE_ROUTER}) {
+        $expect->spawn("$^X $simul_cmd")
             or abort("Cannot spawn simulation': $!");
     }
     else {
-        $expect->spawn('ssh', '-l', $user, $ip)
+        my @proxy = ();
+        if (my $p = $self->{PROXY}) {
+            @proxy = ('-o', "ProxyCommand ssh $p -W %h:%p");
+        }
+        $expect->spawn('ssh', '-l', $user, @proxy, $ip)
             or abort("Cannot spawn ssh: $!");
     }
     return $con, $ip;
@@ -1082,6 +1098,7 @@ sub compare_common  {
 sub compare {
     my ($self, $spoc_path) = @_;
     $self->{COMPARE} = 1;
+    $self->set_ip_and_proxy($spoc_path);
     $self->con_setup();
     $self->prepare_device();
     $self->mark_IPv4_only($spoc_path);
@@ -1095,6 +1112,7 @@ sub compare {
 sub compare_files {
     my ($self, $path1, $path2) = @_;
     $self->{COMPARE} = 1;
+    $self->set_ip_and_proxy($path2);
     $self->mark_IPv4_only($path2);
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
@@ -1103,6 +1121,7 @@ sub compare_files {
 
 sub approve {
     my ($self, $spoc_path) = @_;
+    $self->set_ip_and_proxy($spoc_path);
     $self->con_setup();
     $self->prepare_device();
     $self->mark_IPv4_only($spoc_path);

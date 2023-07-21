@@ -11,6 +11,28 @@ use Test_Approve;
 my($spoc, $out, $title);
 
 ############################################################
+$title = "Missing device type";
+############################################################
+
+$spoc = {
+spoc4 => <<END
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
+END
+,
+hdr4 => <<END
+! [ BEGIN router:r1 ]
+
+END
+};
+
+$out = <<END;
+ERROR>>> Can't get device type from router
+END
+
+drc3_err($title, 'ASA', $spoc, $out);
+
+############################################################
 $title = "No IP address in both IPv4 and IPv6";
 ############################################################
 
@@ -39,7 +61,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can not get IP from file(s): router, ipv6/router.
+ERROR>>> Can't get IP from file(s): router, ipv6/router
 END
 
 drc3_err($title, 'ASA', $spoc, $out);
@@ -62,7 +84,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can not get IP from file(s): router.
+ERROR>>> Can't get IP from file(s): router
 END
 
 drc3_err($title, 'ASA', $spoc, $out);
@@ -85,7 +107,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can not get IP from file(s): ipv6/router.
+ERROR>>> Can't get IP from file(s): ipv6/router
 END
 
 drc3_err($title, 'ASA', $spoc, $out);
