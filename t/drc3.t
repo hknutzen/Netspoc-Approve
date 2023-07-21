@@ -91,42 +91,6 @@ END
 drc3_err($title, 'ASA', $spoc, $out);
 
 ############################################################
-$title = "Different device types for same device";
-############################################################
-
-$spoc = {
-spoc4 => <<END
-route inside 10.20.0.0 255.255.255.0 10.1.2.3
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
-END
-,
-spoc6 => <<END
-ipv6 route inside 10::3:0/120 10::2:2
-ipv6 route inside 10::2:0/1 10::2:5
-END
-,
-hdr4 => <<END
-! [ BEGIN router:r1 ]
-! [ Model = ASA ]
-! [ IP = 10.12.13.14 ]
-
-END
-,
-hdr6 => <<END
-! [ BEGIN router:r1 ]
-! [ Model = IOS ]
-! [ IP = 10::13 ]
-
-END
-};
-
-$out = <<END;
-ERROR>>> Ambiguous model specification for device router: ASA, IOS.
-END
-
-drc3_err($title, 'ASA', $spoc, $out);
-
-############################################################
 $title = "Invalid option";
 ############################################################
 

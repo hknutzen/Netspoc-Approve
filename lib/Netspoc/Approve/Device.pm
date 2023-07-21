@@ -146,11 +146,6 @@ sub get_spoc_data {
         open($fh, '<', "$dir/$file") or abort("Can't open $file: $!");
         while (my $line = <$fh>) {
             if ($line =~ /\[ Model = (\S+) ]/) {
-                if ($type) {
-                    $type ne $1 and
-                        abort ("Ambiguous model specification " .
-                               "for device $filename: $type, $1.");
-                }
                 $type = $1;
             }
             if ($line =~ /\[ IP = (\S+) ]/) {
