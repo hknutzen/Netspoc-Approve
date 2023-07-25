@@ -6,7 +6,7 @@ Base class for all supported devices
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2020 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2023 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -146,15 +146,16 @@ sub get_spoc_type {
     return $type
 }
 
-# Read IP addresses and optional proxy from header of spoc file.
+# Read IP addresses and optional Policy_distribution_point
+# from header of spoc file.
 # ! [ IP = 10.1.13.80,10.1.14.77 ]
-# ! [ Proxy = 10.11.12.13 ]
-sub set_ip_and_proxy {
+# ! [ Policy_distribution_point = 10.11.12.13 ]
+sub set_ip_and_pdp {
     my ($self, $path) = @_;
     my $path6 = get_ipv6_path($path);
     my @checked;
     my @ip;
-    my $proxy;
+    my $pdp;
     for my $file ($path, $path6) {
         -e $file or next;
         push @checked, $file;
@@ -163,8 +164,8 @@ sub set_ip_and_proxy {
             if ($line =~ /\[ IP = (\S+) ]/) {
                 @ip = split(/,/, $1);
             }
-            elsif ($line =~ /\[ Proxy = (\S+) ]/) {
-                $proxy = $1;
+            elsif ($line =~ /\[ Policy_distribution_point = (\S+) ]/) {
+                $pdp = $1;
             }
         }
         close $fh;
@@ -172,7 +173,7 @@ sub set_ip_and_proxy {
     }
     @ip or abort("Can't get IP from file(s): ". join(", ", @checked));
     $self->{IP} = shift @ip;
-    $self->{PROXY} = $proxy;
+    $self->{PDP} = $pdp;
 }
 
 #########################################################################
@@ -1039,13 +1040,30 @@ sub connect_ssh {
     }
     else {
         my @proxy = ();
-        if (my $p = $self->{PROXY}) {
-            @proxy = ('-o', "ProxyCommand ssh $p -W %h:%p");
+        if (my $p = $self->{PDP}) {
+            if (not $self->is_this_server($p)) {
+                @proxy = ('-o', "ProxyCommand ssh $p -W %h:%p");
+            }
         }
         $expect->spawn('ssh', '-l', $user, @proxy, $ip)
             or abort("Cannot spawn ssh: $!");
     }
     return $con, $ip;
+}
+
+# Check if $ip is located on this server.
+sub is_this_server {
+    my ($self, $ip) = @_;
+    if (my $conf = $self->{CONFIG}->{server_ip_list}) {
+        for my $server_ip (split /\s*,\s*/, $conf) {
+            if ($ip eq $server_ip) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+    # If 'server_ip_list' isn't configured, never use a proxy server.
+    return 1;
 }
 
 sub prepare_device {
@@ -1098,7 +1116,7 @@ sub compare_common  {
 sub compare {
     my ($self, $spoc_path) = @_;
     $self->{COMPARE} = 1;
-    $self->set_ip_and_proxy($spoc_path);
+    $self->set_ip_and_pdp($spoc_path);
     $self->con_setup();
     $self->prepare_device();
     $self->mark_IPv4_only($spoc_path);
@@ -1112,7 +1130,7 @@ sub compare {
 sub compare_files {
     my ($self, $path1, $path2) = @_;
     $self->{COMPARE} = 1;
-    $self->set_ip_and_proxy($path2);
+    $self->set_ip_and_pdp($path2);
     $self->mark_IPv4_only($path2);
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
@@ -1121,7 +1139,7 @@ sub compare_files {
 
 sub approve {
     my ($self, $spoc_path) = @_;
-    $self->set_ip_and_proxy($spoc_path);
+    $self->set_ip_and_pdp($spoc_path);
     $self->con_setup();
     $self->prepare_device();
     $self->mark_IPv4_only($spoc_path);

@@ -2,7 +2,7 @@
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2020 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2023 by Heinz Knutzen <heinz.knutzen@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ my $config = {
     checkbanner     => undef,   # regex
     aaa_credentials => undef,   # path
     systemuser      => undef,   # username
+    server_ip_list  => undef,   # list of IP addresses of this server
     timeout         => 60,
     login_timeout   => 3,
     keep_history    => 365,     # delete history older than this (in days)
