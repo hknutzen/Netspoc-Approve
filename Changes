@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+3.012     2023-08-01 11:34:11+02:00 Europe/Berlin
+
  - New config option server_ip_list, an optional space separated list
    of IP addresses.
    Each address in server_ip_list is compared with value of
