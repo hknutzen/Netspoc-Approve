@@ -1043,6 +1043,7 @@ sub connect_ssh {
         if (my $p = $self->{PDP}) {
             if (not $self->is_this_server($p)) {
                 @proxy = ('-o', "ProxyCommand ssh $p -W %h:%p");
+                info("Using $proxy[1]");
             }
         }
         $expect->spawn('ssh', '-l', $user, @proxy, $ip)
