@@ -40,7 +40,7 @@ statusdir   = /home/diamonds/status
 # Create a log file for each approved or compared device.
 historydir  = /home/diamonds/history
 
-# List of IP addresses of this server.
+# Space delimited list of IP addresses of this server.
 # Each address is compared with value of policy_distribution_point from Netspoc
 # to decide, if a proxy server must be used to reach a destination.
 #server_ip_list = 10.1.2.3, 10.3.4.5, 2001:db8::3
