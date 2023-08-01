@@ -1055,7 +1055,7 @@ sub connect_ssh {
 sub is_this_server {
     my ($self, $ip) = @_;
     if (my $conf = $self->{CONFIG}->{server_ip_list}) {
-        for my $server_ip (split /\s*,\s*/, $conf) {
+        for my $server_ip (split ' ', $conf) {
             if ($ip eq $server_ip) {
                 return 1;
             }
