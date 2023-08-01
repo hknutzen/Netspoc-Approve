@@ -230,7 +230,7 @@ $title = "SSH login without enable";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd managed by NetSPoC
-(router)#
+router#
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
 END
@@ -242,7 +242,7 @@ $out = <<'END';
 Enter Password:secret
 
 banner motd managed by NetSPoC
-(router)#
+router#
 router#term len 0
 router#term width 512
 router#sh ver
@@ -266,7 +266,7 @@ $title = "Compare unchanged";
 $scenario = <<'END';
 Enter Password:<!>
 banner motd managed by NetSPoC
-(router)#
+router#
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
 # sh run
@@ -300,7 +300,7 @@ $title = "Compare with missing banner";
 ############################################################
 $scenario = <<'END';
 Enter Password:<!>
-(router)#
+router#
 # sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
 END
@@ -472,15 +472,7 @@ $in = '';
 
 $out = <<'END';
 ERROR>>> Parsing of device output is out of sync:
->>secret
-
- ###########################
- # All commands are logged #
- # managed by NetSPoC      #
- ###########################
-end-of-banner#
-router#
-router#<<
+Got unexpected different prompts: 'end-of-banner#' vs 'router#'
 END
 
 simul_err($title, 'IOS', $scenario, $in, $out);
