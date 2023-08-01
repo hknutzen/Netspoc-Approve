@@ -164,7 +164,7 @@ sub set_ip_and_pdp {
             if ($line =~ /\[ IP = (\S+) ]/) {
                 @ip = split(/,/, $1);
             }
-            elsif ($line =~ /\[ Policy_distribution_point = (\S+) ]/) {
+            elsif ($line =~ /\[ Policy_distribution_point = (\S+) ]/i) {
                 $pdp = $1;
             }
         }
