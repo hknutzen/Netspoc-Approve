@@ -1,5 +1,13 @@
 {{$NEXT}}
 
+ - New config option server_ip_list, an optional space separated list
+   of IP addresses.
+   Each address in server_ip_list is compared with value of
+   Policy_distribution_point in code file from Netspoc, to decide
+   if the policy distribution point will be used as a proxy server
+   to reach a destination.
+   If server_ip_list is not set, no proxy server is used or will
+   be configured in .ssh/config .
  - Prevent finding of prompt in banner message.
 
 3.011     2023-03-16 13:40:13+01:00 Europe/Berlin
