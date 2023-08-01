@@ -6,7 +6,7 @@ Base class for the different varieties of Cisco devices.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2020 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2023 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -759,7 +759,10 @@ sub get_identity {
 
 sub login_enable {
     my ($self) = @_;
-    my $std_prompt = qr/[\>\#]/;
+
+    # Look for prompt. Ignore prompt lines with whitespace or multiple
+    # hash that may occur in lines of banner.
+    my $std_prompt = qr/\r\n\r?[^#> ]+[>#] ?$/;
 
     # If running as privileged user, try to get user and password
     # for login. Otherwise get current user or user from option
@@ -780,32 +783,44 @@ sub login_enable {
     $result = $con->con_issue_cmd($pass, $prompt);
     $self->{PRE_LOGIN_LINES} .= $result->{BEFORE};
 
-    if ($result->{MATCH} eq '>') {
+    my $ena_prompt = qr/\r\n\r?[^#> ]+# ?/;
+    if ($result->{MATCH} =~ />/) {
 
         # Enter enable mode.
-        my $prompt = qr/password:|\#/i;
+        my $prompt = qr/password:|$ena_prompt/i;
         $result = $con->con_issue_cmd('enable', $prompt);
-        if ($result->{MATCH} ne '#') {
+        if ($result->{MATCH} !~ /#/) {
 
             # Enable password required.
             # Use login password as enable password.
             $result = $con->con_issue_cmd($pass, $prompt);
+            $self->{PRE_LOGIN_LINES} .= $result->{BEFORE};
         }
-        if ($result->{MATCH} ne '#') {
+        if ($result->{MATCH} !~ /#/) {
             abort("Authentication for enable mode failed");
         }
     }
-    elsif ($result->{MATCH} ne '#') {
+    elsif ($result->{MATCH} !~ /#/) {
         abort("Authentication failed");
     }
 
     # Force new prompt by issuing empty command.
     # Set prompt again because of performance impact of standard prompt.
-    $self->{ENAPROMPT} = qr/\r\n.*\#[ ]?$/;
+    $self->{ENAPROMPT} = $ena_prompt;
+    my $before1 = $result->{BEFORE};
+    my $match1 = $result->{MATCH};
     $result = $self->issue_cmd('');
-    $result->{MATCH} =~ m/^(\r\n\s?\S+)\#[ ]?$/;
+    my $before2 = $result->{BEFORE};
+    my $match2 = $result->{MATCH};
+    $con->{EXPECT}->expect(0);
+    if (my $extra = $con->{EXPECT}->before()) {
+        my $text = "$before1$match1$before2$match2$extra";
+        $text =~ s/\r//g;
+        abort("Parsing of device output is out of sync:\n>>$text<<")
+    }
+    $match2 =~ m/^(\r\n\r?\S+)#[ ]?$/;
     my $prefix = $1;
-    $self->{ENAPROMPT} = qr/$prefix\S*\#[ ]?/;
+    $self->{ENAPROMPT} = qr/$prefix\S*#[ ]?/;
 }
 
 sub check_device_IP {

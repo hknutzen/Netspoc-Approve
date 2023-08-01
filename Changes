@@ -1,3 +1,24 @@
+3.012     2023-08-01 11:34:11+02:00 Europe/Berlin
+
+ - New config option server_ip_list, an optional space separated list
+   of IP addresses.
+   Each address in server_ip_list is compared with value of
+   Policy_distribution_point in code file from Netspoc, to decide
+   if the policy distribution point will be used as a proxy server
+   to reach a destination.
+   If server_ip_list is not set, no proxy server is used or will
+   be configured in .ssh/config .
+ - Prevent finding of prompt in banner message.
+
+3.011     2023-03-16 13:40:13+01:00 Europe/Berlin
+
+ - PAN-OS: Check high availability state before approving a device.
+   If HA is enabled, device is only touched if state is
+   - "active"         for mode "Active-Passive"
+   - "active-primary" for mode "Active-Active"
+ - NSX, PAN-OS: Sent and received packets for login are logged to
+   file DEVICENAME.login .
+
 3.010     2023-01-11 11:24:17+01:00 Europe/Berlin
 
  - NSX: Support attribute "tag" in rules for logging purpose.

@@ -37,9 +37,9 @@ func parseResponse(data []byte) (string, []byte, error) {
 }
 
 func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
+	config := &PanConfig{}
 	if len(data) == 0 {
-		var v *PanConfig
-		return v, nil
+		return config, nil
 	}
 	// Also handle saved config of device:
 	// - starting with http address and
@@ -48,9 +48,8 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		i := bytes.IndexByte(data, byte('\n'))
 		return parseResponseConfig(data[i+1:])
 	}
-	v := new(PanConfig)
-	err := xml.Unmarshal(data, v)
-	return v, err
+	err := xml.Unmarshal(data, config)
+	return config, err
 }
 
 func parseResponseConfig(body []byte) (*PanConfig, error) {
@@ -87,9 +86,10 @@ type PanResultDevices struct {
 }
 
 type PanConfig struct {
-	XMLName xml.Name    `xml:"config"`
-	Devices *panDevices `xml:"devices"`
-	origin  string
+	XMLName      xml.Name    `xml:"config"`
+	Devices      *panDevices `xml:"devices"`
+	expectedName string
+	origin       string
 }
 
 type panDevices struct {
@@ -188,12 +188,11 @@ type panService struct {
 }
 
 type panServiceGroup struct {
-	XMLName      xml.Name  `xml:"entry"`
-	Name         string    `xml:"name,attr"`
-	Members      []string  `xml:"members>member"`
-	Unknown      OtherAttr `xml:",any"`
-	needed       bool
-	nameOnDevice string
+	XMLName xml.Name  `xml:"entry"`
+	Name    string    `xml:"name,attr"`
+	Members []string  `xml:"members>member"`
+	Unknown OtherAttr `xml:",any"`
+	needed  bool
 }
 
 type panProtocol struct {

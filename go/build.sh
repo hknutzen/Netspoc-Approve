@@ -16,3 +16,6 @@ done
 # Do static analysis of source code.
 cd $dir
 go vet ./...
+
+# Execute tests.
+( cd test; go test )

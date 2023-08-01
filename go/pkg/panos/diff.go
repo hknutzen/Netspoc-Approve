@@ -303,6 +303,9 @@ func (ab *rulesPair) markServices(l []string) {
 			ab.markServices(g.Members)
 			if sA := ab.a.sGroups[name]; sA != nil {
 				sA.needed = true
+				if ab.servicesEq(g.Members, sA.Members) {
+					g.needed = false
+				}
 			}
 			continue
 		}

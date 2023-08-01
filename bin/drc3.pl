@@ -4,7 +4,7 @@
 # Approving device with netspoc configuration.
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2022 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2023 by Heinz Knutzen <heinz.knutzen@gmail.com>
 # (c) 2007 by Arne Spetzler
 #
 # This program is free software; you can redistribute it and/or modify
@@ -35,7 +35,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '3.010'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '3.012'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -107,11 +107,10 @@ $file2 and keys %opts and usage;
 # Take basename of file as device name.
 (my $name = $file1) =~ s|^.*/||;
 
-# Get type and IP addresses from spoc file.
+# Get type from spoc file.
 my $spoc_file = $file2 || $file1;
-my ($type, $ip, $err) = Netspoc::Approve::Device::get_spoc_data($spoc_file);
-
-$type or abort("Can't get device type from $spoc_file");
+my $type = Netspoc::Approve::Device::get_spoc_type($spoc_file)
+    or abort("Can't get device type from $spoc_file");
 
 # Enable logging.
 if (my $logfile = $opts{LOGFILE}) {
@@ -161,7 +160,6 @@ if ($class_or_prog !~ /^Netspoc::Approve::/) {
 my $job = $class_or_prog->new(
     NAME   => $name,
     OPTS   => \%opts,
-    IP     => shift(@$ip),
 );
 
 # Handle file compare first, which can be run
@@ -172,7 +170,6 @@ if ($file2) {
 }
 
 $job->{USER} = delete $opts{u} || getpwuid($>);
-$job->{IP} or abort($err);
 $job->{CONFIG} = $config;
 
 # Start compare / approve.

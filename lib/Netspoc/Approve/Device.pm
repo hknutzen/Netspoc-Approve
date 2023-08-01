@@ -6,7 +6,7 @@ Base class for all supported devices
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2020 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2023 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2009 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -127,45 +127,53 @@ sub get_user_password {
     return ($pass);
 }
 
-# Read type and IP addresses from header of spoc file.
+# Read type from header of spoc file.
 # ! [ Model = IOS ]
-# ! [ IP = 10.1.13.80,10.1.14.77 ]
-sub get_spoc_data {
-    my ($spocfile) = @_;
+sub get_spoc_type {
+    my ($path) = @_;
+    my $path6 = get_ipv6_path($path);
     my $type;
-    my @ip = ();
-    my $fh;
-    my $dir = File::Basename::dirname($spocfile);
-    my $filename =  File::Basename::basename($spocfile);
-    my $msg = "Can not get IP from file(s):";
-
-    for my $file ($filename, "ipv6/$filename") {
-
-        -e "$dir/$file" or next;
-        $msg .= " $file,";
-        open($fh, '<', "$dir/$file") or abort("Can't open $file: $!");
+    for my $file ($path, $path6) {
+        -e $file or next;
+        open(my $fh, '<', $file) or abort("Can't open $file: $!");
         while (my $line = <$fh>) {
             if ($line =~ /\[ Model = (\S+) ]/) {
-                if ($type) {
-                    $type ne $1 and
-                        abort ("Ambiguous model specification " .
-                               "for device $filename: $type, $1.");
-                }
                 $type = $1;
-            }
-            if ($line =~ /\[ IP = (\S+) ]/) {
-                @ip = split(/,/, $1);
-                last;
             }
         }
         close $fh;
     }
+    return $type
+}
 
-    substr($msg,-1,1,'.');
-    @ip > 0 and $msg = undef;
-
-    return($type, \@ip, $msg);
-
+# Read IP addresses and optional Policy_distribution_point
+# from header of spoc file.
+# ! [ IP = 10.1.13.80,10.1.14.77 ]
+# ! [ Policy_distribution_point = 10.11.12.13 ]
+sub set_ip_and_pdp {
+    my ($self, $path) = @_;
+    my $path6 = get_ipv6_path($path);
+    my @checked;
+    my @ip;
+    my $pdp;
+    for my $file ($path, $path6) {
+        -e $file or next;
+        push @checked, $file;
+        open(my $fh, '<', $file) or abort("Can't open $file: $!");
+        while (my $line = <$fh>) {
+            if ($line =~ /\[ IP = (\S+) ]/) {
+                @ip = split(/,/, $1);
+            }
+            elsif ($line =~ /\[ Policy_distribution_point = (\S+) ]/i) {
+                $pdp = $1;
+            }
+        }
+        close $fh;
+        last if @ip;
+    }
+    @ip or abort("Can't get IP from file(s): ". join(", ", @checked));
+    $self->{IP} = shift @ip;
+    $self->{PDP} = $pdp;
 }
 
 #########################################################################
@@ -271,7 +279,7 @@ sub prepare_config {
 }
 
 sub get_ipv6_path {
-    my ($self, $path) = @_;
+    my ($path) = @_;
     my $dir = dirname($path);
     my $filename = basename($path);
     return "$dir/ipv6/$filename";
@@ -280,7 +288,7 @@ sub get_ipv6_path {
 # Mark IPv4 only device. Use of 'any' is assumed to be equivalent to 'any4'.
 sub mark_IPv4_only {
     my ($self, $path) = @_;
-    my $path6 = $self->get_ipv6_path($path);
+    my $path6 = get_ipv6_path($path);
     $self->{IPv4_only} = not (-e $path6 or -e "$path6.raw");
 }
 
@@ -293,7 +301,7 @@ sub mark_IPv4_only {
 # Returns    : Combined ipv4/ipv6 config hash from all input files.
 sub load_spoc {
     my ($self, $path) = @_;
-    my $path6 = $self->get_ipv6_path($path);
+    my $path6 = get_ipv6_path($path);
 
     my $conf = $self->prepare_config($path, 'ipv4');
     my $conf6 = $self->prepare_config($path6, 'ipv6');
@@ -1026,15 +1034,37 @@ sub connect_ssh {
     my($con, $ip) = @{$self}{qw(CONSOLE IP)};
     my $expect = $con->{EXPECT};
     info("Trying SSH for login");
-    if (my $cmd = $ENV{SIMULATE_ROUTER}) {
-        $expect->spawn("$^X $cmd")
+    if (my $simul_cmd = $ENV{SIMULATE_ROUTER}) {
+        $expect->spawn("$^X $simul_cmd")
             or abort("Cannot spawn simulation': $!");
     }
     else {
-        $expect->spawn('ssh', '-l', $user, $ip)
+        my @proxy = ();
+        if (my $p = $self->{PDP}) {
+            if (not $self->is_this_server($p)) {
+                @proxy = ('-o', "ProxyCommand ssh $p -W %h:%p");
+                info("Using $proxy[1]");
+            }
+        }
+        $expect->spawn('ssh', '-l', $user, @proxy, $ip)
             or abort("Cannot spawn ssh: $!");
     }
     return $con, $ip;
+}
+
+# Check if $ip is located on this server.
+sub is_this_server {
+    my ($self, $ip) = @_;
+    if (my $conf = $self->{CONFIG}->{server_ip_list}) {
+        for my $server_ip (split ' ', $conf) {
+            if ($ip eq $server_ip) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+    # If 'server_ip_list' isn't configured, never use a proxy server.
+    return 1;
 }
 
 sub prepare_device {
@@ -1087,6 +1117,7 @@ sub compare_common  {
 sub compare {
     my ($self, $spoc_path) = @_;
     $self->{COMPARE} = 1;
+    $self->set_ip_and_pdp($spoc_path);
     $self->con_setup();
     $self->prepare_device();
     $self->mark_IPv4_only($spoc_path);
@@ -1100,6 +1131,7 @@ sub compare {
 sub compare_files {
     my ($self, $path1, $path2) = @_;
     $self->{COMPARE} = 1;
+    $self->set_ip_and_pdp($path2);
     $self->mark_IPv4_only($path2);
     my $conf1 = $self->load_spoc($path1);
     my $conf2 = $self->load_spoc($path2);
@@ -1108,6 +1140,7 @@ sub compare_files {
 
 sub approve {
     my ($self, $spoc_path) = @_;
+    $self->set_ip_and_pdp($spoc_path);
     $self->con_setup();
     $self->prepare_device();
     $self->mark_IPv4_only($spoc_path);

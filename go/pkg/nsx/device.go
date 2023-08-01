@@ -28,34 +28,44 @@ type change struct {
 }
 
 func (s *State) LoadDevice(
-	name, ip, user, pass string,
-	client *http.Client,
-	logFH *os.File,
-) (device.DeviceConfig, error) {
+	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
+	device.DeviceConfig, error) {
 
-	prefix := fmt.Sprintf("https://%s", ip)
-	device.DoLog(logFH, "#"+prefix)
-	s.client = client
-	s.prefix = prefix
-	jar, err := cookiejar.New(nil)
+	devName := ""
+	err := device.TryReachableHTTPLogin(spocFile, cfg,
+		func(name, ip, user, pass string) error {
+			s.prefix = fmt.Sprintf("https://%s", ip)
+			s.client = device.GetHTTPClient(cfg)
+			jar, err := cookiejar.New(nil)
+			if err != nil {
+				return err
+			}
+			s.client.Jar = jar
+
+			uri := s.prefix + "/api/session/create"
+			device.DoLog(logLogin, "POST "+uri)
+			v := url.Values{}
+			v.Set("j_username", user)
+			v.Set("j_password", "xxx")
+			device.DoLog(logLogin, v.Encode())
+			v.Set("j_password", pass)
+			resp, err := s.client.PostForm(uri, v)
+			device.DoLog(logLogin, resp.Status)
+			if err != nil {
+				return err
+			}
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("status code: %d", resp.StatusCode)
+			}
+			s.token = resp.Header.Get("x-xsrf-token")
+			devName = name
+			return nil
+		})
 	if err != nil {
 		return nil, err
 	}
-	client.Jar = jar
 
-	uri := prefix + "/api/session/create"
-	v := url.Values{}
-	v.Set("j_username", user)
-	v.Set("j_password", pass)
-	resp, err := client.PostForm(uri, v)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status code: %d", resp.StatusCode)
-	}
-	s.token = resp.Header.Get("x-xsrf-token")
-
+	device.DoLog(logConfig, "#"+s.prefix)
 	path := "/policy/api/v1/infra/domains/default/gateway-policies"
 	data, err := s.sendRequest("GET", path, nil)
 	if err != nil {
@@ -80,7 +90,6 @@ func (s *State) LoadDevice(
 			continue
 		}
 		data, err := s.sendRequest("GET", path+"/"+result.Id, nil)
-		//data, err := s.getRawJSON(path+"/"+result.Id, logFH)
 		if err != nil {
 			return nil, err
 		}
@@ -88,13 +97,13 @@ func (s *State) LoadDevice(
 	}
 
 	path = "/policy/api/v1/infra/services"
-	rawConf.Services, err = s.getRawJSON(path, logFH)
+	rawConf.Services, err = s.getRawJSON(path)
 	if err != nil {
 		return nil, err
 	}
 
 	path = "/policy/api/v1/infra/domains/default/groups"
-	rawConf.Groups, err = s.getRawJSON(path, logFH)
+	rawConf.Groups, err = s.getRawJSON(path)
 	if err != nil {
 		return nil, err
 	}
@@ -103,16 +112,17 @@ func (s *State) LoadDevice(
 	if err != nil {
 		return nil, err
 	}
-	device.DoLog(logFH, string(out))
+	device.DoLog(logConfig, string(out))
 
 	config, err := s.ParseConfig(out)
 	if err != nil {
 		err = fmt.Errorf("While reading device: %v", err)
 	}
+	config.SetExpectedDeviceName(devName)
 	return config, err
 }
 
-func (s *State) getRawJSON(path string, logFH *os.File) ([]json.RawMessage, error) {
+func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
 	var data []json.RawMessage
 	var cursor string
 	for {
@@ -126,6 +136,9 @@ func (s *State) getRawJSON(path string, logFH *os.File) ([]json.RawMessage, erro
 			return nil, err
 		}
 		err = json.Unmarshal(out, &results)
+		if err != nil {
+			return nil, err
+		}
 		for _, result := range results.Results {
 			err = json.Unmarshal(result, &id)
 			if err != nil {
@@ -188,7 +201,7 @@ func (s *State) ShowChanges() string {
 	return collect.String()
 }
 
-func (s *State) ApplyCommands(cl *http.Client, logFh *os.File) error {
+func (s *State) ApplyCommands(logFh *os.File) error {
 	for _, c := range s.changes {
 		device.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
 		device.DoLog(logFh, "DATA: "+string(c.postData))

@@ -17,27 +17,26 @@ import (
 )
 
 type RealDevice interface {
-	LoadDevice(n, i, u, p string, c *http.Client, l *os.File) (DeviceConfig, error)
+	LoadDevice(path string, c *Config, l1, l2 *os.File) (DeviceConfig, error)
 	ParseConfig(data []byte) (DeviceConfig, error)
 	GetChanges(c1, c2 DeviceConfig) ([]error, error)
-	ApplyCommands(*http.Client, *os.File) error
+	ApplyCommands(*os.File) error
 	HasChanges() bool
 	ShowChanges() string
 }
 
 type DeviceConfig interface {
 	MergeSpoc(DeviceConfig) DeviceConfig
-	CheckDeviceName(string) error
+	SetExpectedDeviceName(string)
+	CheckDeviceName() error
 	CheckRulesFromRaw() error
 }
 
 type state struct {
 	RealDevice
-	config     *Config
-	httpClient *http.Client
-	logPath    string
-	quiet      bool
-	devName    string
+	config  *Config
+	logPath string
+	quiet   bool
 }
 
 func Main(device RealDevice) int {
@@ -137,48 +136,17 @@ func (s *state) approve(path string) error {
 }
 
 func (s *state) loadDevice(path string) (DeviceConfig, error) {
-	nameList, ipList, err := getHostnameIPList(path)
+	logConfig, err := s.getLogFH(".config")
 	if err != nil {
 		return nil, err
 	}
-	logFH, err := s.getLogFH(".config")
+	defer closeLogFH(logConfig)
+	logLogin, err := s.getLogFH(".login")
 	if err != nil {
 		return nil, err
 	}
-	defer closeLogFH(logFH)
-	var client = &http.Client{
-		Timeout: time.Duration(s.config.Timeout) * time.Second,
-		Transport: &http.Transport{
-			Dial: (&net.Dialer{
-				// Set low connection timeout, so we can better switch to
-				// backup device.
-				Timeout: time.Duration(s.config.LoginTimeout) * time.Second,
-			}).Dial,
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
-	s.httpClient = client
-	for i, name := range nameList {
-		s.devName = name
-		ip := ipList[i]
-		user, pass, err := s.config.GetAAAPassword(name)
-		if err != nil {
-			return nil, err
-		}
-		conf, err := s.LoadDevice(name, ip, user, pass, client, logFH)
-		if err != nil {
-			var urlErr *url.Error
-			if errors.As(err, &urlErr) {
-				if urlErr.Timeout() {
-					continue
-				}
-			}
-			return nil, err
-		}
-		return conf, nil
-	}
-	return nil, fmt.Errorf(
-		"Devices unreachable: %s", strings.Join(nameList, ", "))
+	defer closeLogFH(logLogin)
+	return s.LoadDevice(path, s.config, logLogin, logConfig)
 }
 
 func (s *state) applyCommands() error {
@@ -190,8 +158,7 @@ func (s *state) applyCommands() error {
 	if !s.HasChanges() {
 		DoLog(logFH, "No changes applied")
 	}
-	client := s.httpClient
-	return s.ApplyCommands(client, logFH)
+	return s.ApplyCommands(logFH)
 }
 
 func (s *state) showCompare(conf1 DeviceConfig, path string) error {
@@ -235,17 +202,15 @@ func (s *state) getCompare(c1 DeviceConfig, path string, chk warnOrErr) error {
 			return warnings[0]
 		}
 		for _, w := range warnings {
-			fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", w)
+			warning("%v", w)
 		}
 	}
 	// Check hostname only after config has been validated in GetChanges.
-	if s.devName != "" {
-		if err := c1.CheckDeviceName(s.devName); err != nil {
-			if chk == errT {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "WARNING>>> %v\n", err)
+	if err := c1.CheckDeviceName(); err != nil {
+		if chk == errT {
+			return err
 		}
+		warning("%v", err)
 	}
 	return nil
 }
@@ -350,16 +315,55 @@ func closeLogFH(fh *os.File) {
 	}
 }
 
-var apiRE = regexp.MustCompile(`^(.*[?&]key=).*?(&.*)$`)
-
-func DoLog(fh *os.File, t string) {
+func DoLog(fh *os.File, s string) {
 	if fh != nil {
-		if strings.HasPrefix(t, "http") {
-			t = apiRE.ReplaceAllString(t, "$1***$2")
-			t, _ = url.QueryUnescape(t)
-		} else if strings.HasPrefix(t, "action=") {
-			t, _ = url.QueryUnescape(t)
+		if strings.HasPrefix(s, "http") || strings.HasPrefix(s, "action=") {
+			s, _ = url.QueryUnescape(s)
 		}
-		fmt.Fprintln(fh, t)
+		fmt.Fprintln(fh, s)
 	}
+}
+
+func GetHTTPClient(cfg *Config) *http.Client {
+	return &http.Client{
+		Timeout: time.Duration(cfg.Timeout) * time.Second,
+		Transport: &http.Transport{
+			Dial: (&net.Dialer{
+				// Set low connection timeout, so we can better switch to
+				// backup device.
+				Timeout: time.Duration(cfg.LoginTimeout) * time.Second,
+			}).Dial,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+}
+
+func TryReachableHTTPLogin(
+	path string,
+	cfg *Config,
+	login func(name, ip, user, pass string) error,
+) error {
+
+	nameList, ipList, err := getHostnameIPList(path)
+	if err != nil {
+		return err
+	}
+	for i, name := range nameList {
+		ip := ipList[i]
+		user, pass, err := cfg.GetAAAPassword(name)
+		if err != nil {
+			return err
+		}
+		if err := login(name, ip, user, pass); err != nil {
+			warning("%v", err)
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf(
+		"Devices unreachable: %s", strings.Join(nameList, ", "))
+}
+
+func warning(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "WARNING>>> "+format+"\n", args...)
 }
