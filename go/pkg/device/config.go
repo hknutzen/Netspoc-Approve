@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/netip"
 	"os"
 	"path"
 	"regexp"
@@ -33,6 +34,7 @@ type Config struct {
 	checkBanner    *regexp.Regexp
 	aaaCredentials string
 	systemUser     string
+	serverIPList   []netip.Addr
 	Timeout        int
 	LoginTimeout   int
 	keepHistory    int
@@ -74,6 +76,18 @@ func LoadConfig() (*Config, error) {
 			}
 			return i, nil
 		}
+		getIPList := func() ([]netip.Addr, error) {
+			var result []netip.Addr
+			for _, s := range strings.Fields(val) {
+				ip, err := netip.ParseAddr(s)
+				if err != nil {
+					return nil, fmt.Errorf("Expected IP address in '%s' of %s: %v",
+						key, file, err)
+				}
+				result = append(result, ip)
+			}
+			return result, nil
+		}
 		var err error
 		switch key {
 		case "netspocdir":
@@ -90,6 +104,8 @@ func LoadConfig() (*Config, error) {
 			c.aaaCredentials = val
 		case "systemuser":
 			c.systemUser = val
+		case "server_ip_list":
+			c.serverIPList, err = getIPList()
 		case "timeout":
 			c.Timeout, err = getInt()
 		case "login_timeout":

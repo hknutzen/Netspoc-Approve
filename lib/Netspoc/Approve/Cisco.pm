@@ -812,11 +812,13 @@ sub login_enable {
     $result = $self->issue_cmd('');
     my $before2 = $result->{BEFORE};
     my $match2 = $result->{MATCH};
-    $con->{EXPECT}->expect(0);
-    if (my $extra = $con->{EXPECT}->before()) {
-        my $text = "$before1$match1$before2$match2$extra";
-        $text =~ s/\r//g;
-        abort("Parsing of device output is out of sync:\n>>$text<<")
+    # Strip leading newlines from banner.
+    $match1 =~ s/^[\r\n]*\r\n/\r\n/;
+    if ($match1 ne $match2) {
+        my $text = "'$match1' vs '$match2'";
+        $text =~ s/[\r\n]//g;
+        abort("Parsing of device output is out of sync:\n" .
+              "Got unexpected different prompts: $text")
     }
     $match2 =~ m/^(\r\n\r?\S+)#[ ]?$/;
     my $prefix = $1;

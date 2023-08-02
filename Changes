@@ -1,3 +1,7 @@
+3.013     2023-08-02 11:30:50+02:00 Europe/Berlin
+
+ - Ignore config option server_ip_list for NSX and PAN-OS.
+
 3.012     2023-08-01 11:34:11+02:00 Europe/Berlin
 
  - New config option server_ip_list, an optional space separated list
