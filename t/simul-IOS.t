@@ -461,10 +461,11 @@ Password:<!>
 router>
 # enable
 Password:<!>
- ###########################
- # All commands are logged #
- # managed by NetSPoC      #
- ###########################
+===========================
+= All commands are logged =
+= managed by NetSPoC      =
+===========================
+
 end-of-banner#
 END
 
@@ -472,7 +473,7 @@ $in = '';
 
 $out = <<'END';
 ERROR>>> Parsing of device output is out of sync:
-Got unexpected different prompts: 'end-of-banner#' vs 'router#'
+Got unexpected different prompts: '\r\nend-of-banner#' vs '\r\nrouter#'
 END
 
 simul_err($title, 'IOS', $scenario, $in, $out);

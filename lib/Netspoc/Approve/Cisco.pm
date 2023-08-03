@@ -783,7 +783,7 @@ sub login_enable {
     $result = $con->con_issue_cmd($pass, $prompt);
     $self->{PRE_LOGIN_LINES} .= $result->{BEFORE};
 
-    my $ena_prompt = qr/\r\n\r?[^#> ]+# ?/;
+    my $ena_prompt = qr/\r\n\r?[^#> \n\r]+# ?/;
     if ($result->{MATCH} =~ />/) {
 
         # Enter enable mode.
@@ -812,11 +812,12 @@ sub login_enable {
     $result = $self->issue_cmd('');
     my $before2 = $result->{BEFORE};
     my $match2 = $result->{MATCH};
-    # Strip leading newlines from banner.
-    $match1 =~ s/^[\r\n]*\r\n/\r\n/;
-    if ($match1 ne $match2) {
+    # First prompt may contain additional characters from banner,
+    # hence check that second prompt is suffix of first prompt.
+    if ($match1 !~ /.*\Q$match2\E$/) {
         my $text = "'$match1' vs '$match2'";
-        $text =~ s/[\r\n]//g;
+        $text =~ s/\n/\\n/g;
+        $text =~ s/\r/\\r/g;
         abort("Parsing of device output is out of sync:\n" .
               "Got unexpected different prompts: $text")
     }
