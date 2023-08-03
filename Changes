@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+3.014     2023-08-03 11:48:59+02:00 Europe/Berlin
+
+ - Better check for out of sync from unexpected text in banner.
+
 3.013     2023-08-02 11:30:50+02:00 Europe/Berlin
 
  - Ignore config option server_ip_list for NSX and PAN-OS.
