@@ -33,6 +33,10 @@ sub write_file {
 sub prepare_spoc {
     my ($type, $spoc) = @_;
 
+    my $code_dir = "$dir/code";
+    `rm -rf $code_dir`;
+    mkdir($code_dir) or die "Can't create $code_dir: $!\n";
+
     # Header for Netspoc input
     my $comment = $type eq 'Linux' ? '#' : '!';
     my $header = <<"END";
@@ -46,9 +50,6 @@ END
         $spoc = $header . $spoc;
         my $spoc_file = "$code_dir/$device_name";
         write_file($spoc_file, $spoc);
-        -e "$spoc_file.raw" and `rm $spoc_file.raw`;
-        -e "$code_dir/ipv6/"
-            and `rm -r "$code_dir/ipv6/"`;
         return $spoc_file;
     }
 
@@ -71,16 +72,9 @@ END
             $spec->{$v}->{file} = $spec->{$v}->{header} . $spec->{$v}->{file};
         $spec->{$v}->{file} and write_file($spec->{$v}->{filename},
                                            $spec->{$v}->{file});
-        not $spec->{$v}->{file} and -e $spec->{$v}->{filename} and
-            `rm $spec->{$v}->{filename}`;
         $spec->{$v}->{raw} and write_file("$spec->{$v}->{filename}.raw",
                                           $spec->{$v}->{raw});
-        not $spec->{$v}->{raw} and -e "$spec->{$v}->{filename}.raw" and
-            `rm $spec->{$v}->{filename}.raw`;
     }
-
-    (defined $spoc->{spoc6} or defined $spoc->{raw6}) or
-        `rmdir "$code_dir/ipv6/"`;
 
     return "$code_dir/$device_name";
 }
