@@ -109,8 +109,7 @@ $file2 and keys %opts and usage;
 
 # Get type from spoc file.
 my $spoc_file = $file2 || $file1;
-my $type = Netspoc::Approve::Device::get_spoc_type($spoc_file)
-    or abort("Can't get device type from $spoc_file");
+my $type = Netspoc::Approve::Device::get_spoc_type($spoc_file);
 
 # Enable logging.
 if (my $logfile = $opts{LOGFILE}) {

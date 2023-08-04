@@ -21,13 +21,13 @@ route inside 10.22.0.0 255.255.0.0 10.1.2.4
 END
 ,
 hdr4 => <<END
-! [ BEGIN router:r1 ]
+! [ IP = 1.2.3.4 ]
 
 END
 };
 
 $out = <<END;
-ERROR>>> Can't get device type from router
+ERROR>>> Can't get device type from file router
 END
 
 drc3_err($title, 'ASA', $spoc, $out);
@@ -47,21 +47,17 @@ ipv6 route inside 10::3:0/120 10::2:2
 ipv6 route inside 10::2:0/1 10::2:5
 END
 ,
-hdr4 => <<END
-! [ BEGIN router:r1 ]
-! [ Model = ASA ]
-
+info4 => <<END
+{ "model": "ASA" }
 END
 ,
-hdr6 => <<END
-! [ BEGIN router:r1 ]
-! [ Model = ASA ]
-
+info6 => <<END
+{ "model": "ASA" }
 END
 };
 
 $out = <<END;
-ERROR>>> Can't get IP from file(s): router, ipv6/router
+ERROR>>> Can't get IP from file(s): router.info, ipv6/router.info
 END
 
 drc3_err($title, 'ASA', $spoc, $out);

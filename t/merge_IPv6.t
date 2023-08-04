@@ -497,6 +497,42 @@ ipv6 route inside 10::3:0/120 10::2:2
 ipv6 route inside 10::2:0/1 10::2:5
 END
 ,
+info4 => <<END
+{ "model": "ASA" }
+END
+,
+info6 => <<END
+{
+ "model": "ASA",
+ "ip_list": ["10::33"]
+}
+END
+};
+
+$out = <<END;
+ipv6 route inside 10::3:0/120 10::2:2
+ipv6 route inside 10::2:0/1 10::2:5
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
+END
+
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
+
+############################################################
+$title = "Only IPv6 address known for device (header)";
+############################################################
+
+$spoc = {
+spoc4 => <<END
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
+END
+,
+spoc6 => <<END
+ipv6 route inside 10::3:0/120 10::2:2
+ipv6 route inside 10::2:0/1 10::2:5
+END
+,
 hdr4 => <<END
 ! [ BEGIN router:r1 ]
 ! [ Model = ASA ]

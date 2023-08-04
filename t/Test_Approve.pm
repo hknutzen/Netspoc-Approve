@@ -52,6 +52,7 @@ END
 
     my $spoc_file = "$code_dir/$device_name";
     mkdir("$code_dir/ipv6");
+    $header = '' if $spoc->{info4} || $spoc->{info6};
     for my $v (4, 6) {
         my $fname = $spoc_file;
         if ($v == 6) {
@@ -63,6 +64,9 @@ END
         }
         if (my $raw = $spoc->{"raw$v"}) {
             write_file("$fname.raw", $raw);
+        }
+        if (my $info = $spoc->{"info$v"}) {
+            write_file("$fname.info", $info);
         }
     }
 
