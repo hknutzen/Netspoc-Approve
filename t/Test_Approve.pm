@@ -47,36 +47,26 @@ $comment [ IP = 10.1.13.33 ]
 END
 
     if (ref($spoc) ne 'HASH') {
-        $spoc = $header . $spoc;
-        my $spoc_file = "$code_dir/$device_name";
-        write_file($spoc_file, $spoc);
-        return $spoc_file;
+        $spoc = { spoc4 => $spoc };
     }
 
-    my $spec = {
-        ipv4 => {
-            filename => "$code_dir/$device_name",
-            file  => $spoc->{spoc4},
-            raw => $spoc->{raw4},
-            header => $spoc->{hdr4}? $spoc->{hdr4} : $header },
-        ipv6 => {
-            filename => "$code_dir/ipv6/$device_name",
-            file  => $spoc->{spoc6},
-            raw => $spoc->{raw6},
-            header => $spoc->{hdr6}? $spoc->{hdr6} : $header },
-    };
-
-    -e "$code_dir/ipv6/" or `mkdir "$code_dir/ipv6/"`;
-    for my $v (qw(ipv4 ipv6)) {
-        defined $spec->{$v}->{file} and
-            $spec->{$v}->{file} = $spec->{$v}->{header} . $spec->{$v}->{file};
-        $spec->{$v}->{file} and write_file($spec->{$v}->{filename},
-                                           $spec->{$v}->{file});
-        $spec->{$v}->{raw} and write_file("$spec->{$v}->{filename}.raw",
-                                          $spec->{$v}->{raw});
+    my $spoc_file = "$code_dir/$device_name";
+    mkdir("$code_dir/ipv6");
+    for my $v (4, 6) {
+        my $fname = $spoc_file;
+        if ($v == 6) {
+            $fname = "$code_dir/ipv6/$device_name"
+        }
+        if (defined(my $code = $spoc->{"spoc$v"})) {
+            $code = ($spoc->{"hdr$v"} || $header) . $code;
+            write_file($fname, $code);
+        }
+        if (my $raw = $spoc->{"raw$v"}) {
+            write_file("$fname.raw", $raw);
+        }
     }
 
-    return "$code_dir/$device_name";
+    return $spoc_file;
 }
 
 sub run {
