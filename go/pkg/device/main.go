@@ -2,6 +2,7 @@ package device
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -9,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"time"
 
@@ -265,29 +265,34 @@ func getIPv6Path(p string) string {
 	return dir + "/ipv6/" + base
 }
 
+type codeInfo struct {
+	GeneratedBy             string   `json:"generated_by"`
+	Model                   string   `json:"model"`
+	IPList                  []string `json:"ip_list,omitempty"`
+	NameList                []string `json:"name_list,omitempty"`
+	PolicyDistributionPoint string   `json:"policy_distribution_point,omitempty"`
+}
+
 func getHostnameIPList(path string) ([]string, []string, error) {
-	data, err := os.ReadFile(path)
+	path += ".info"
+	info := &codeInfo{}
+	fd, err := os.Open(path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Can't %v", err)
+		panic(err)
 	}
-	reName := regexp.MustCompile(`\[ BEGIN (.+) \]`)
-	reIP := regexp.MustCompile(`\[ IP = (.+) \]`)
-	find := func(re *regexp.Regexp) string {
-		if l := re.FindSubmatch(data); l != nil {
-			return string(l[1])
-		}
-		return ""
+	defer fd.Close()
+	dec := json.NewDecoder(fd)
+	if err := dec.Decode(&info); err != nil {
+		panic(err)
 	}
-	names := find(reName)
-	ips := find(reIP)
-	if names == "" {
+	nameList := info.NameList
+	ipList := info.IPList
+	if len(nameList) == 0 {
 		return nil, nil, fmt.Errorf("Missing device name in %s", path)
 	}
-	if ips == "" {
+	if len(ipList) == 0 {
 		return nil, nil, fmt.Errorf("Missing IP address in %s", path)
 	}
-	ipList := strings.Split(ips, ", ")
-	nameList := strings.Split(names, ", ")
 	if len(nameList) != len(ipList) {
 		return nil, nil, fmt.Errorf(
 			"Number of device names and IP addresses don't match in %s", path)

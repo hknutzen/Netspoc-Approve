@@ -132,8 +132,9 @@ sub get_user_password {
 # Read type from spoc info file.
 sub get_spoc_type {
     my ($path) = @_;
-    my $model = get_device_info($path)->{model} or
-        abort("Can't get device type from file $path");
+    my($info, $checked) = get_device_info($path);
+    my $model =$info->{model} or
+        abort("Can't get device type from file(s): @$checked");
     return $model;
 }
 
@@ -141,12 +142,13 @@ sub get_spoc_type {
 # from spoc info file.
 sub set_ip_and_pdp {
     my ($self, $path) = @_;
-    my $info = get_device_info($path);
-    $self->{IP} = shift(@{$info->{ip_list}});
+    my($info, $checked) = get_device_info($path);
+    $self->{IP} = shift(@{$info->{ip_list}}) or
+        abort("Can't get IP from file(s): ". join(", ", @$checked));
     $self->{PDP} = $info->{policy_distribution_point};
 }
 
-# Read data from info file or from header of spoc file.
+# Read data from info file.
 sub get_device_info {
     my ($path) = @_;
     my $path6 = get_ipv6_path($path);
@@ -161,30 +163,13 @@ sub get_device_info {
             $result = decode_json(<$fh>);
             close($fh);
         }
-        elsif (-e $file) {
-            push @checked, $file;
-            open(my $fh, '<', $file) or die("Can't open $file: $!");
-            while (my $line = <$fh>) {
-                if (my($key, $val) = $line =~ /\[ (\w+) = (\S+) ]/) {
-                    $key = lc($key);
-                    if ($key eq 'ip') {
-                        $key = 'ip_list';
-                        $val = [ split(/,/, $val) ];
-                    }
-                    $result->{$key} = $val;
-                }
-            }
-            close $fh;
-        }
         else {
             next;
         }
         # Must also read IPv6 file if v4 file has no IP.
         last if $result->{ip_list};
     }
-    $result->{ip_list} or
-        abort("Can't get IP from file(s): ". join(", ", @checked));
-    return $result
+    return $result, \@checked;
 }
 
 #########################################################################

@@ -37,13 +37,13 @@ sub prepare_spoc {
     `rm -rf $code_dir`;
     mkdir($code_dir) or die "Can't create $code_dir: $!\n";
 
-    # Header for Netspoc input
-    my $comment = $type eq 'Linux' ? '#' : '!';
-    my $header = <<"END";
-$comment [ BEGIN router:$device_name ]
-$comment [ Model = $type ]
-$comment [ IP = 10.1.13.33 ]
-
+    # Default info file for code file from Netspoc.
+    my $default_info = <<"END";
+{
+ "model": "$type",
+ "name_list": [ "$device_name" ],
+ "ip_list": [ "10.1.13.33" ]
+}
 END
 
     if (ref($spoc) ne 'HASH') {
@@ -52,21 +52,18 @@ END
 
     my $spoc_file = "$code_dir/$device_name";
     mkdir("$code_dir/ipv6");
-    $header = '' if $spoc->{info4} || $spoc->{info6};
     for my $v (4, 6) {
         my $fname = $spoc_file;
         if ($v == 6) {
             $fname = "$code_dir/ipv6/$device_name"
         }
         if (defined(my $code = $spoc->{"spoc$v"})) {
-            $code = ($spoc->{"hdr$v"} || $header) . $code;
             write_file($fname, $code);
+            my $info = $spoc->{"info$v"} || $default_info;
+            write_file("$fname.info", $info);
         }
         if (my $raw = $spoc->{"raw$v"}) {
             write_file("$fname.raw", $raw);
-        }
-        if (my $info = $spoc->{"info$v"}) {
-            write_file("$fname.info", $info);
         }
     }
 
