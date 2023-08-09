@@ -24,6 +24,8 @@
 
 use strict;
 use warnings;
+use Cwd 'abs_path';
+use File::Basename;
 use Fcntl qw/:flock/;    # import LOCK_* constants
 use Fcntl;
 use Getopt::Long;
@@ -129,7 +131,9 @@ my $class_or_prog = $type2class{$type}
 
 # Exec external program and then terminate.
 if ($class_or_prog !~ /^Netspoc::Approve::/) {
-    my $prog = $class_or_prog;
+    # Search program in directoy of current program.
+    my $dir = (fileparse(abs_path(__FILE__)))[1];
+    my $prog = "$dir/$class_or_prog";
     my @args = ($prog);
     # Remove two parameters '--LOGFILE FILE'
     my $file = 0;
