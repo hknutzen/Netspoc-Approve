@@ -24,6 +24,8 @@
 
 use strict;
 use warnings;
+use Cwd 'abs_path';
+use File::Basename;
 use Fcntl qw/:flock/;    # import LOCK_* constants
 use Fcntl;
 use Getopt::Long;
@@ -35,7 +37,7 @@ use Netspoc::Approve::ASA;
 use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '3.014'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '3.015'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
@@ -109,8 +111,7 @@ $file2 and keys %opts and usage;
 
 # Get type from spoc file.
 my $spoc_file = $file2 || $file1;
-my $type = Netspoc::Approve::Device::get_spoc_type($spoc_file)
-    or abort("Can't get device type from $spoc_file");
+my $type = Netspoc::Approve::Device::get_spoc_type($spoc_file);
 
 # Enable logging.
 if (my $logfile = $opts{LOGFILE}) {
@@ -130,7 +131,9 @@ my $class_or_prog = $type2class{$type}
 
 # Exec external program and then terminate.
 if ($class_or_prog !~ /^Netspoc::Approve::/) {
-    my $prog = $class_or_prog;
+    # Search program in directoy of current program.
+    my $dir = (fileparse(abs_path(__FILE__)))[1];
+    my $prog = "$dir/$class_or_prog";
     my @args = ($prog);
     # Remove two parameters '--LOGFILE FILE'
     my $file = 0;

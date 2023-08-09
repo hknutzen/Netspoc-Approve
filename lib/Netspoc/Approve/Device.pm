@@ -32,6 +32,8 @@ use strict;
 use warnings;
 use Fcntl qw/:flock/;    # import LOCK_* constants
 use File::Basename;
+use JSON;
+use JSON::XS;
 use Netspoc::Approve::Helper;
 use Netspoc::Approve::Console;
 use Netspoc::Approve::Parse_Cisco;
@@ -127,53 +129,47 @@ sub get_user_password {
     return ($pass);
 }
 
-# Read type from header of spoc file.
-# ! [ Model = IOS ]
+# Read type from spoc info file.
 sub get_spoc_type {
     my ($path) = @_;
-    my $path6 = get_ipv6_path($path);
-    my $type;
-    for my $file ($path, $path6) {
-        -e $file or next;
-        open(my $fh, '<', $file) or abort("Can't open $file: $!");
-        while (my $line = <$fh>) {
-            if ($line =~ /\[ Model = (\S+) ]/) {
-                $type = $1;
-            }
-        }
-        close $fh;
-    }
-    return $type
+    my($info, $checked) = get_device_info($path);
+    my $model =$info->{model} or
+        abort("Can't get device type from file(s): @$checked");
+    return $model;
 }
 
-# Read IP addresses and optional Policy_distribution_point
-# from header of spoc file.
-# ! [ IP = 10.1.13.80,10.1.14.77 ]
-# ! [ Policy_distribution_point = 10.11.12.13 ]
+# Read IP address and optional Policy_distribution_point
+# from spoc info file.
 sub set_ip_and_pdp {
     my ($self, $path) = @_;
+    my($info, $checked) = get_device_info($path);
+    $self->{IP} = shift(@{$info->{ip_list}}) or
+        abort("Can't get IP from file(s): ". join(", ", @$checked));
+    $self->{PDP} = $info->{policy_distribution_point};
+}
+
+# Read data from info file.
+sub get_device_info {
+    my ($path) = @_;
     my $path6 = get_ipv6_path($path);
     my @checked;
-    my @ip;
-    my $pdp;
+    my $result = {};
     for my $file ($path, $path6) {
-        -e $file or next;
-        push @checked, $file;
-        open(my $fh, '<', $file) or abort("Can't open $file: $!");
-        while (my $line = <$fh>) {
-            if ($line =~ /\[ IP = (\S+) ]/) {
-                @ip = split(/,/, $1);
-            }
-            elsif ($line =~ /\[ Policy_distribution_point = (\S+) ]/i) {
-                $pdp = $1;
-            }
+        my $i_file = "$file.info";
+        if (-e $i_file) {
+            push @checked, $i_file;
+            local $/;
+            open(my $fh, '<', $i_file) or die("Can't open $i_file: $!");
+            $result = decode_json(<$fh>);
+            close($fh);
         }
-        close $fh;
-        last if @ip;
+        else {
+            next;
+        }
+        # Must also read IPv6 file if v4 file has no IP.
+        last if $result->{ip_list};
     }
-    @ip or abort("Can't get IP from file(s): ". join(", ", @checked));
-    $self->{IP} = shift @ip;
-    $self->{PDP} = $pdp;
+    return $result, \@checked;
 }
 
 #########################################################################

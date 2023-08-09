@@ -33,56 +33,41 @@ sub write_file {
 sub prepare_spoc {
     my ($type, $spoc) = @_;
 
-    # Header for Netspoc input
-    my $comment = $type eq 'Linux' ? '#' : '!';
-    my $header = <<"END";
-$comment [ BEGIN router:$device_name ]
-$comment [ Model = $type ]
-$comment [ IP = 10.1.13.33 ]
+    my $code_dir = "$dir/code";
+    `rm -rf $code_dir`;
+    mkdir($code_dir) or die "Can't create $code_dir: $!\n";
 
+    # Default info file for code file from Netspoc.
+    my $default_info = <<"END";
+{
+ "model": "$type",
+ "name_list": [ "$device_name" ],
+ "ip_list": [ "10.1.13.33" ]
+}
 END
 
     if (ref($spoc) ne 'HASH') {
-        $spoc = $header . $spoc;
-        my $spoc_file = "$code_dir/$device_name";
-        write_file($spoc_file, $spoc);
-        -e "$spoc_file.raw" and `rm $spoc_file.raw`;
-        -e "$code_dir/ipv6/"
-            and `rm -r "$code_dir/ipv6/"`;
-        return $spoc_file;
+        $spoc = { spoc4 => $spoc };
     }
 
-    my $spec = {
-        ipv4 => {
-            filename => "$code_dir/$device_name",
-            file  => $spoc->{spoc4},
-            raw => $spoc->{raw4},
-            header => $spoc->{hdr4}? $spoc->{hdr4} : $header },
-        ipv6 => {
-            filename => "$code_dir/ipv6/$device_name",
-            file  => $spoc->{spoc6},
-            raw => $spoc->{raw6},
-            header => $spoc->{hdr6}? $spoc->{hdr6} : $header },
-    };
-
-    -e "$code_dir/ipv6/" or `mkdir "$code_dir/ipv6/"`;
-    for my $v (qw(ipv4 ipv6)) {
-        defined $spec->{$v}->{file} and
-            $spec->{$v}->{file} = $spec->{$v}->{header} . $spec->{$v}->{file};
-        $spec->{$v}->{file} and write_file($spec->{$v}->{filename},
-                                           $spec->{$v}->{file});
-        not $spec->{$v}->{file} and -e $spec->{$v}->{filename} and
-            `rm $spec->{$v}->{filename}`;
-        $spec->{$v}->{raw} and write_file("$spec->{$v}->{filename}.raw",
-                                          $spec->{$v}->{raw});
-        not $spec->{$v}->{raw} and -e "$spec->{$v}->{filename}.raw" and
-            `rm $spec->{$v}->{filename}.raw`;
+    my $spoc_file = "$code_dir/$device_name";
+    mkdir("$code_dir/ipv6");
+    for my $v (4, 6) {
+        my $fname = $spoc_file;
+        if ($v == 6) {
+            $fname = "$code_dir/ipv6/$device_name"
+        }
+        if (defined(my $code = $spoc->{"spoc$v"})) {
+            write_file($fname, $code);
+            my $info = $spoc->{"info$v"} || $default_info;
+            write_file("$fname.info", $info);
+        }
+        if (my $raw = $spoc->{"raw$v"}) {
+            write_file("$fname.raw", $raw);
+        }
     }
 
-    (defined $spoc->{spoc6} or defined $spoc->{raw6}) or
-        `rmdir "$code_dir/ipv6/"`;
-
-    return "$code_dir/$device_name";
+    return $spoc_file;
 }
 
 sub run {

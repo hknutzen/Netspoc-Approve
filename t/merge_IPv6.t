@@ -497,17 +497,15 @@ ipv6 route inside 10::3:0/120 10::2:2
 ipv6 route inside 10::2:0/1 10::2:5
 END
 ,
-hdr4 => <<END
-! [ BEGIN router:r1 ]
-! [ Model = ASA ]
-
+info4 => <<END
+{ "model": "ASA" }
 END
 ,
-hdr6 => <<END
-! [ BEGIN router:r1 ]
-! [ Model = ASA ]
-! [ IP = 10::33 ]
-
+info6 => <<END
+{
+ "model": "ASA",
+ "ip_list": ["10::33"]
+}
 END
 };
 
