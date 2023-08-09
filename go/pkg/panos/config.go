@@ -116,10 +116,11 @@ func (c *PanConfig) getDevName() string {
 }
 
 func (c *PanConfig) CheckDeviceName() error {
-	name := c.getDevName()
-	expected := c.expectedName
-	if name != expected {
-		return fmt.Errorf("Wrong device name: %s, expected: %s", name, expected)
+	if exp := c.expectedName; exp != "" {
+		name := c.getDevName()
+		if name != exp {
+			return fmt.Errorf("Wrong device name: %s, expected: %s", name, exp)
+		}
 	}
 	return nil
 }
