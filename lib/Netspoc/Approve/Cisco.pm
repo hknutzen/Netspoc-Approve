@@ -650,6 +650,19 @@ sub merge_acls {
             }
             splice(@$spoc_entries, $index, 0, @$add_entries);
         }
+        elsif ($mode eq 'dual_stack') {
+            # Prepend ipv6 to ipv4 lines,
+            # but append terminating 'deny ip any6 any6' line.
+            my $last_line = pop @$add_entries;
+            if ($last_line->{MODE} eq 'deny') {
+                push @$spoc_entries, $last_line;
+            }
+            else {
+                push @$add_entries, $last_line
+            }
+            $msg = 'Prepending';
+            unshift(@$spoc_entries, @$add_entries);
+        }
         else {
             $msg = 'Prepending';
             unshift(@$spoc_entries, @$add_entries);

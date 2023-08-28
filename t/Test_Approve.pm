@@ -62,9 +62,9 @@ END
             my $info = $spoc->{"info$v"} || $default_info;
             write_file("$fname.info", $info);
         }
-        if (my $raw = $spoc->{"raw$v"}) {
-            write_file("$fname.raw", $raw);
-        }
+    }
+    if (my $raw = $spoc->{"raw"}) {
+        write_file("$spoc_file.raw", $raw);
     }
 
     return $spoc_file;
