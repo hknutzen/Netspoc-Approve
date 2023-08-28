@@ -258,18 +258,6 @@ sub prepare_config {
     $lines = $self->load_spocfile($path) if -f $path;
     $lines and $conf = $self->parse_config($lines);
 
-    # Merge rawdata into config
-    my ($prepend, $append, $raw_prepend, $raw_append);
-    if (-f "$path.raw") {
-        ($prepend, $append) = $self->load_raw($path);
-        $raw_prepend = $self->parse_config($prepend, $ip_version);
-        $raw_append  = $self->parse_config($append, $ip_version);
-    }
-
-    if ($raw_prepend or $raw_append) {
-        $conf ||= {};
-        $self->merge($conf, $raw_prepend, $raw_append);
-    }
 
     return $conf;
 }
@@ -289,8 +277,8 @@ sub mark_IPv4_only {
 }
 
 #########################################################################
-# Purpose    : Loads and parses all netspoc input files for a device (<file>,
-#              <file>.raw, ipv6/<file>, ipv6/<file>.raw, into a common
+# Purpose    : Loads and parses all netspoc input files for a device
+#              (<file>, ipv6/<file>, <file>.raw), into a common
 #              config hash. Structure of config hash is given by device
 #              specific parse_info subroutine.
 # Parameters : $path - $path of netspoc ipv4 config file.
@@ -305,11 +293,24 @@ sub load_spoc {
     # Check whether both IPv4 and IPv6 config exist. Merge if so.
     if ($conf and $conf6) {
         $self->merge($conf, $conf6, undef, 'ipv6');
-        return($conf);
     }
-    else {
-        return $conf || $conf6;
+    elsif ($conf6) {
+        $conf = $conf6;
     }
+
+    # Merge rawdata into config
+    my ($prepend, $append, $raw_prepend, $raw_append);
+    if (-f "$path.raw") {
+        ($prepend, $append) = $self->load_raw($path);
+        $raw_prepend = $self->parse_config($prepend, 1);
+        $raw_append  = $self->parse_config($append, 1);
+    }
+
+    if ($raw_prepend or $raw_append) {
+        $conf ||= {};
+        $self->merge($conf, $raw_prepend, $raw_append);
+    }
+    return($conf);
 }
 
 sub load_device {
@@ -596,16 +597,15 @@ sub parse_config1 {
 #              pairs as given by 'parse' directions of parse_info.
 #              Caution: Hash structure is modified by postprocess_config.
 # Parameters : $lines - Array containing config file lines as entries.
-#            : $strict - flag / string
-#              - If set, aborts on unknown commands in input from raw files.
-#              - Value 'ipv4' / 'ipv6' restricts allowed addresses in ACLs.
+#            : $strict - flag
+#              If set, aborts on unknown commands in input from raw files.
 # Returns    : $result hash storing all config commands ordered by type.
 sub parse_config {
     my ($self, $lines, $strict) = @_;
     my $parse_info = $self->get_parse_info();
     my $config = $self->analyze_conf_lines($lines, $parse_info, $strict);
     my $result = $self->parse_config1($config);
-    $self->postprocess_config($result, $strict);
+    $self->postprocess_config($result);
     return $result;
 }
 

@@ -114,7 +114,7 @@ END
 test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
-$title = "ASA - ipv4 and ipv6 configs and raws";
+$title = "ASA - ipv4 and ipv6 configs and raw with ipv4 and ipv6";
 ############################################################
 $spoc = {
 
@@ -122,12 +122,6 @@ spoc4 => <<END
 route inside 10.20.0.0 255.255.255.0 10.1.2.3
 access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in extended deny ip any4 any4
-access-group inside_in in interface inside
-END
-,
-raw4 => <<END
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
-access-list inside_in extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-group inside_in in interface inside
 END
 ,
@@ -138,8 +132,10 @@ access-list inside_in extended deny ip any6 any6
 access-group inside_in in interface inside
 END
 ,
-raw6 => <<END
+raw => <<END
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
 ipv6 route inside 10::4:0/120 10::2:2
+access-list inside_in extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
 access-group inside_in in interface inside
 END
@@ -150,19 +146,19 @@ ipv6 route inside 10::4:0/120 10::2:2
 ipv6 route inside 10::3:0/120 10::2:2
 route inside 10.20.0.0 255.255.255.0 10.1.2.3
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
+access-list inside_in-DRC-0 extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in-DRC-0 extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
 access-list inside_in-DRC-0 extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
-access-list inside_in-DRC-0 extended deny ip any6 any6
-access-list inside_in-DRC-0 extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in-DRC-0 extended deny ip any4 any4
+access-list inside_in-DRC-0 extended deny ip any6 any6
 access-group inside_in-DRC-0 in interface inside
 END
 
 test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
-$title = "ASA - ipv4 config and ipv6 raw only";
+$title = "ASA - ipv4 config and raw with ipv6 ";
 ############################################################
 $spoc = {
 spoc4 => <<END
@@ -172,7 +168,7 @@ access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 END
 ,
-raw6 => <<END
+raw => <<END
 ipv6 route inside 10::4:0/120 10::2:2
 access-list inside_in extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
 access-group inside_in in interface inside
@@ -191,10 +187,10 @@ END
 test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
-$title = "ASA - ipv6 config and ipv4 raw only";
+$title = "ASA - ipv6 config and raw with ipv4";
 ############################################################
 $spoc = {
-raw4 => <<END
+raw => <<END
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
 access-list inside_in extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-group inside_in in interface inside
@@ -211,65 +207,16 @@ END
 $out = <<END;
 ipv6 route inside 10::3:0/120 10::2:2
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
+access-list inside_in-DRC-0 extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in-DRC-0 extended permit tcp 1000::abcd:1:0/112 1000::abcd:9:0/112 range 80 90
 access-list inside_in-DRC-0 extended deny ip any6 any6
-access-list inside_in-DRC-0 extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-group inside_in-DRC-0 in interface inside
 END
 
 test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
-$title = "ASA - Invalid IPv6 address in IPv4 raw ACL";
-############################################################
-$spoc = {
-
-spoc4 => <<END
-access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
-access-list inside_in extended deny ip any4 any4
-access-group inside_in in interface inside
-END
-,
-raw4 => <<END
-access-list inside_in extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
-access-group inside_in in interface inside
-END
-};
-
-$out = <<END;
-ERROR>>> IPv6 address not allowed in IPv4 raw file:
-ERROR>>> access-list inside_in extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
-END
-
-test_err($title, 'ASA', $minimal_ASA, $spoc, $out);
-
-############################################################
-$title = "ASA - Invalid IPv4 address in IPv6 raw ACL";
-############################################################
-$spoc = {
-spoc6 => <<END
-ipv6 route inside 10::3:0/120 10::2:2
-access-list inside_in extended permit tcp 1000::abcd:1:0/112 1000::abcd:9:0/112 range 80 90
-access-list inside_in extended deny ip any6 any6
-access-group inside_in in interface inside
-END
-,
-raw6 => <<END
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
-access-list inside_in extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
-access-group inside_in in interface inside
-END
-};
-
-$out = <<END;
-ERROR>>> IPv4 address not allowed in IPv6 raw file:
-ERROR>>> access-list inside_in extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
-END
-
-test_err($title, 'ASA', $minimal_ASA, $spoc, $out);
-
-############################################################
-$title = "ASA - any allowed in ipv4 raw with ipv4 config";
+$title = "ASA - any allowed in raw with ipv4 config";
 ############################################################
 # Any will never be generated by Netspoc compiler.
 # It can only appear within a raw file.
@@ -282,7 +229,7 @@ access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 END
 ,
-raw4 => <<END
+raw => <<END
 access-list inside_in extended permit ip any any
 access-group inside_in in interface inside
 END
@@ -299,7 +246,7 @@ END
 test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
-$title = "ASA - any not allowed in ipv4 raw with ipv6 config";
+$title = "ASA - any allowed in raw with ipv6 config";
 ############################################################
 $spoc = {
 spoc6 => <<END
@@ -308,41 +255,20 @@ access-list inside_in extended deny ip any6 any6
 access-group inside_in in interface inside
 END
 ,
-raw4 => <<END
+raw => <<END
 access-list inside_in extended permit ip any any
 access-group inside_in in interface inside
 END
 };
 
 $out = <<END;
-ERROR>>> Bare 'any' only allowed in raw file for IPv4-only device:
-ERROR>>> access-list inside_in extended permit ip any any
+access-list inside_in-DRC-0 extended permit ip any any
+access-list inside_in-DRC-0 extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
+access-list inside_in-DRC-0 extended deny ip any6 any6
+access-group inside_in-DRC-0 in interface inside
 END
 
-test_err($title, 'ASA', $minimal_ASA, $spoc, $out);
-
-############################################################
-$title = "ASA - any not allowed in ipv6 raw";
-############################################################
-$spoc = {
-spoc6 => <<END
-access-list inside_in extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
-access-list inside_in extended deny ip any6 any6
-access-group inside_in in interface inside
-END
-,
-raw6 => <<END
-access-list inside_in extended permit ip any any
-access-group inside_in in interface inside
-END
-};
-
-$out = <<END;
-ERROR>>> Bare 'any' only allowed in raw file for IPv4-only device:
-ERROR>>> access-list inside_in extended permit ip any any
-END
-
-test_err($title, 'ASA', $minimal_ASA, $spoc, $out);
+test_run($title, 'ASA', $minimal_ASA, $spoc, $out);
 
 ############################################################
 $title = "ASA - any allowed on device";
@@ -374,7 +300,7 @@ END
 test_run($title, 'ASA', $device, $spoc, $out);
 
 ############################################################
-$title = "ASA - do not alter any on device if only ipv4 input exists";
+$title = "ASA - alter any on device even if only ipv4 input exists";
 ############################################################
 $device = $minimal_ASA;
 $device .= <<END;
@@ -390,6 +316,8 @@ END
 };
 
 $out = <<END;
+access-list inside_in line 1 extended permit ip any4 any4
+no access-list inside_in line 2 extended permit ip any any
 END
 
 test_run($title, 'ASA', $device, $spoc, $out);
@@ -428,10 +356,10 @@ $title = "ASA - merge ACL";
 $spoc = {
 spoc4 => <<END
 access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.2.2.0 255.255.255.0 range 80 90
-access-list inside_in extended deny ip any any
+access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 
-access-list outside_in extended deny ip any any
+access-list outside_in extended deny ip any4 any4
 access-group outside_in in interface outside
 END
 ,
@@ -447,12 +375,12 @@ END
 
 $out = <<END;
 access-list inside_in-DRC-0 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
-access-list inside_in-DRC-0 extended deny ip any6 any6
 access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.2.2.0 255.255.255.0 range 80 90
-access-list inside_in-DRC-0 extended deny ip any any
+access-list inside_in-DRC-0 extended deny ip any4 any4
+access-list inside_in-DRC-0 extended deny ip any6 any6
 access-group inside_in-DRC-0 in interface inside
+access-list outside_in-DRC-0 extended deny ip any4 any4
 access-list outside_in-DRC-0 extended deny ip any6 any6
-access-list outside_in-DRC-0 extended deny ip any any
 access-group outside_in-DRC-0 in interface outside
 END
 

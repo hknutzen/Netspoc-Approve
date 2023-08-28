@@ -169,7 +169,7 @@ access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 END
 ,
-raw4 => <<END
+raw => <<END
 access-list inside_in extended permit 1 any4 any4 3 6
 access-group inside_in in interface inside
 END
@@ -196,7 +196,7 @@ access-list inside_in extended deny ip any6 any6
 access-group inside_in in interface inside
 END
 ,
-raw6 => <<END
+raw => <<END
 access-list inside_in extended permit 58 any6 any6 128
 access-group inside_in in interface inside
 END

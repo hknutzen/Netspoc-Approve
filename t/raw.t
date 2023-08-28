@@ -28,7 +28,7 @@ ip route 10.20.0.0 255.248.0.0 10.1.2.3
 ip route 10.23.0.0 255.255.0.0 10.1.2.5
 END
 ,
-raw4 => <<END
+raw => <<END
 ip route 10.22.0.0 255.255.0.0 10.1.2.4
 ip route 10.0.0.0 255.0.0.0 10.1.2.2
 END
@@ -52,7 +52,7 @@ route inside 10.20.0.0 255.248.0.0 10.1.2.3
 route inside 10.23.0.0 255.255.0.0 10.1.2.5
 END
 ,
-raw4 => <<END
+raw => <<END
 route inside 10.22.0.0 255.255.0.0 10.1.2.4
 route inside 10.0.0.0 255.0.0.0 10.1.2.2
 END
@@ -77,7 +77,7 @@ vrf context one
 ip route 10.23.0.0/16 10.1.2.5
 END
 ,
-raw4 => <<END
+raw => <<END
 ip route 10.22.0.0/16 10.1.2.4
 vrf context two
  ip route 10.0.0.0/8 10.1.2.2
@@ -104,7 +104,7 @@ ip route add 10.20.0.0/19 via 10.1.2.3
 ip route add 10.23.0.0/16 via 10.1.2.5
 END
 ,
-raw4 => <<END
+raw => <<END
 ip route add 10.22.0.0/16 via 10.1.2.4
 ip route add 10.0.0.0/8 via 10.1.2.2
 END
@@ -127,7 +127,7 @@ spoc4 => <<END
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 ,
-raw4 => <<END
+raw => <<END
 ip route 10.20.0.0 255.255.0.0 10.1.2.4
 END
 };
@@ -147,7 +147,7 @@ spoc4 => <<END
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 ,
-raw4 => <<END
+raw => <<END
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
 };
@@ -168,7 +168,7 @@ $title = "No routing in [APPEND] part";
 $spoc = {
 spoc4 => '',
 
-raw4 => <<END
+raw => <<END
 [APPEND]
 ip route 10.22.0.0/16 10.1.2.4
 END
@@ -198,7 +198,7 @@ interface Ethernet1
  ip access-group Ethernet1_in in
 END
 ,
-raw4 => <<END
+raw => <<END
 ip access-list extended Ethernet1_in
  permit udp 10.0.6.0 0.0.0.255 host 224.0.1.1 eq 123
 interface Ethernet1
@@ -241,7 +241,7 @@ interface Ethernet1
  ip access-group Ethernet1_in in
 END
 ,
-raw4 => <<END
+raw => <<END
 ip access-list extended Ethernet1_out
  deny ip host 10.0.6.1 any
 interface Ethernet1
@@ -282,7 +282,7 @@ interface Ethernet1
  ip access-group Ethernet1_in in
 END
 ,
-raw4 => <<END
+raw => <<END
 ip access-list extended Ethernet0_in
  deny ip host 10.0.6.1 any
 interface Ethernet0
@@ -314,7 +314,7 @@ interface Ethernet1
  ip access-group Ethernet1_in in
 END
 ,
-raw4 => <<END
+raw => <<END
 ip access-list extended Ethernet1_in
  deny ip host 10.0.6.1 any
 interface Ethernet1
@@ -343,7 +343,7 @@ interface Ethernet1
  ip address 10.1.1.1 255.255.255.0
 END
 ,
-raw4 => <<END
+raw => <<END
 ip access-list extended in_out
  permit ip any host 10.0.6.1
 interface Ethernet1
@@ -383,7 +383,7 @@ interface Ethernet2
  ip access-group acl2 in
 END
 ,
-raw4 => <<END
+raw => <<END
 ip access-list extended foo
  permit ip any host 10.0.1.2
 interface Ethernet1
@@ -416,7 +416,7 @@ interface Ethernet1
  ip access-group Ethernet1_in in
 END
 ,
-raw4 => <<END
+raw => <<END
 interface Ethernet1
  ip access-group Ethernet1_in in
 END
@@ -445,7 +445,7 @@ interface Ethernet1
  ip access-group Ethernet1_in in
 END
 ,
-raw4 => <<END
+raw => <<END
 ip access-list extended Ethernet1_in
  deny ip host 10.0.6.1 any
 ip access-list extended Ethernet0_in
@@ -478,7 +478,7 @@ interface Ethernet0/1
  nameif inside
 END
 ,
-raw4 => <<END
+raw => <<END
 object-group network g1
  network-object host 1.1.1.1
 END
@@ -502,7 +502,7 @@ spoc4 => <<END
 -A INPUT -j DROP
 END
 ,
-raw4 => <<END
+raw => <<END
 *mangle
 :PREROUTING ACCEPT
 -A PREROUTING -j MARK --set-xmark 0x01 -p TCP --dport 80
@@ -552,7 +552,7 @@ spoc4 => <<END
 -A INPUT -i eth0 -p udp -d 224.0.1.1/32 --dport 123 -j c1
 END
 ,
-raw4 => <<END
+raw => <<END
 *filter
 :c1 -
 -A c1 -s 10.0.7.0/24 -j ACCEPT
@@ -582,7 +582,7 @@ crypto dynamic-map outside_dyn_map 20 set ikev1 transform-set abc
 crypto map outside_map 65535 ipsec-isakmp dynamic outside_dyn_map
 END
 ,
-raw4 => <<END
+raw => <<END
 crypto ipsec ikev1 transform-set ESP-3DES-MD5 esp-3des esp-md5-hmac
 crypto ipsec ikev1 transform-set ESP-AES-256-SHA esp-aes-256 esp-sha-hmac
 crypto ipsec ikev1 transform-set ESP-3DES-SHA esp-3des esp-sha-hmac
@@ -640,7 +640,7 @@ crypto map crypto-outside 1 set peer 1.2.3.4
 crypto map crypto-outside 1 match address crypto-1.2.3.4
 END
 ,
-raw4 => <<END
+raw => <<END
 access-list prepend extended permit ip host 10.1.1.10 10.1.7.0 255.255.255.240
 crypto map crypto-outside 1 set peer 1.2.3.4
 crypto map crypto-outside 1 match address prepend
@@ -686,7 +686,7 @@ tunnel-group 1.2.3.4 ipsec-attributes
  peer-id-validate nocheck
 END
 ,
-raw4 => <<END
+raw => <<END
 crypto ipsec ikev2 ipsec-proposal Trans1
  protocol esp encryption 3des
  protocol esp integrity sha-1
@@ -744,7 +744,7 @@ tunnel-group 1.2.3.10 ipsec-attributes
  peer-id-validate nocheck
 END
 ,
-raw4 => <<END
+raw => <<END
 crypto ipsec ikev2 ipsec-proposal Trans2x
  protocol esp encryption aes-256
  protocol esp integrity sha-384
@@ -841,7 +841,7 @@ tunnel-group 1.2.3.10 ipsec-attributes
  peer-id-validate nocheck
 END
 ,
-raw4 => <<END
+raw => <<END
 interface Ethernet0/1
  nameif outside
 crypto map crypto-outside 1 set peer 1.2.3.9

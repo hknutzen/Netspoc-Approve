@@ -217,33 +217,34 @@ func (s *state) getCompare(c1 DeviceConfig, path string, chk warnOrErr) error {
 
 func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
 	v6Path := getIPv6Path(v4Path)
-	conf4, err := s.loadSpocWithRaw(v4Path)
+	conf4, err := s.loadSpocFile(v4Path)
 	if err != nil {
 		return nil, err
 	}
-	conf6, err := s.loadSpocWithRaw(v6Path)
+	conf6, err := s.loadSpocFile(v6Path)
 	if err != nil {
 		return nil, err
 	}
-	return conf4.MergeSpoc(conf6), nil
+	conf := conf4.MergeSpoc(conf6)
+	return s.addRaw(conf, v4Path)
 }
 
-func (s *state) loadSpocWithRaw(pathName string) (DeviceConfig, error) {
-	conf, err := s.loadSpocFile(pathName)
-	if err != nil {
-		return nil, err
-	}
-	rawPath := pathName + ".raw"
-	raw, err := s.loadSpocFile(rawPath)
-	if err != nil {
-		return nil, err
-	}
-	if raw != nil {
-		if err := raw.CheckRulesFromRaw(); err != nil {
+func (s *state) addRaw(conf DeviceConfig, v4Path string) (DeviceConfig, error) {
+	v6Path := getIPv6Path(v4Path)
+	for _, pathName := range []string{v4Path, v6Path} {
+		rawPath := pathName + ".raw"
+		raw, err := s.loadSpocFile(rawPath)
+		if err != nil {
 			return nil, err
 		}
+		if raw != nil {
+			if err := raw.CheckRulesFromRaw(); err != nil {
+				return nil, err
+			}
+		}
+		conf = conf.MergeSpoc(raw)
 	}
-	return conf.MergeSpoc(raw), nil
+	return conf, nil
 }
 
 func (s *state) loadSpocFile(path string) (DeviceConfig, error) {
