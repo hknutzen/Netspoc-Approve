@@ -249,7 +249,7 @@ func (ab *rulesPair) writeRule(method string, r *nsxRule) change {
 }
 
 func getGroup(s string, m map[string]*nsxGroup) *nsxGroup {
-	if g := strings.TrimPrefix(s, "/infra/domains/default/groups/"); g != s {
+	if g, found := strings.CutPrefix(s, "/infra/domains/default/groups/"); found {
 		return m[g]
 	}
 	return nil

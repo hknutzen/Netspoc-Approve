@@ -898,7 +898,6 @@ $out = <<"END";
 --file
 ERROR>>> write mem: unexpected result:
 ERROR>>> foo
-
 END
 
 ($status, $stdout, $stderr) =
@@ -916,7 +915,6 @@ $out = <<"END";
 --d/file
 ERROR>>> write mem: unexpected result:
 ERROR>>> foo
-
 END
 
 ($status, $stdout, $stderr) =

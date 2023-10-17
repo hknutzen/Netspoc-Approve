@@ -134,7 +134,7 @@ sub compare_files {
     my $spoc_file = prepare_spoc($type, $spoc);
 
     # Prepare device file.
-    my $conf_file = "$dir/conf";
+    my $conf_file = "$dir/test-conf";
     write_file($conf_file, $conf);
 
     return run("bin/drc3.pl -q $conf_file $spoc_file");
@@ -161,21 +161,8 @@ sub filter_compare_output {
 
 sub approve_warn {
     my($type, $conf, $spoc) = @_;
-    my ($status, $stdout, $stderr) =
-        compare_files($type, $conf, $spoc);
-
-    # 0: Success, 1: compare found diffs
-    if ($status != 0 && $status != 1) {
-        $stderr ||= '';
-        BAIL_OUT "Unexpected status: $status\n$stderr\n";
-    }
+    my ($status, $stdout, $stderr) = compare_files($type, $conf, $spoc);
     my $changes = filter_compare_output($stdout);
-    if ($changes and $status == 0) {
-        BAIL_OUT "Got status 'unchanged', but changes found:\n$changes";
-    }
-    elsif (not $changes and $status == 1) {
-        BAIL_OUT "Got status 'changed' but no changes found";
-    }
     return ($changes, $stderr);
 }
 
@@ -189,7 +176,9 @@ sub test_warn {
 sub approve {
     my($type, $conf, $spoc) = @_;
     my ($changes, $stderr) = approve_warn($type, $conf, $spoc);
-    $stderr and BAIL_OUT "STDERR:\n$stderr\n";
+    if ($stderr) {
+        return "unexpected STDERR:\n$stderr\n";
+    }
     return $changes;
 }
 
@@ -234,6 +223,7 @@ sub check_output {
         }
         close($out_fh);
         $output =~ s/\r\n/\n/g;
+        chomp $output;
 
         eq_or_diff($output, $block, "$title: $fname");
     }
@@ -284,8 +274,10 @@ sub check_parse_and_unchanged {
     eq_or_diff(approve( $type, $minimal_device, $in ), $out, $title);
 
     $out = '';
-    $title =~ /^Parse (.*)/ or
-	BAIL_OUT "Need title starting with 'Parse' as argument!";
+    if ($title !~ /^Parse (.*)/) {
+        fail("Title must start with 'Parse':\n$title");
+        return;
+    }
     $title = "Empty out on identical in ($1)";
     eq_or_diff(approve( $type, $in, $in ), $out, $title);
 }

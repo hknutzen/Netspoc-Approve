@@ -36,7 +36,9 @@ func parseResponse(data []byte) (string, []byte, error) {
 	return v.Msg, b, nil
 }
 
-func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
+func (s *State) ParseConfig(data []byte, fName string) (
+	device.DeviceConfig, error) {
+
 	config := &PanConfig{}
 	if len(data) == 0 {
 		return config, nil
@@ -49,6 +51,7 @@ func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
 		return parseResponseConfig(data[i+1:])
 	}
 	err := xml.Unmarshal(data, config)
+	config.origin = "netspoc"
 	return config, err
 }
 
@@ -86,10 +89,9 @@ type PanResultDevices struct {
 }
 
 type PanConfig struct {
-	XMLName      xml.Name    `xml:"config"`
-	Devices      *panDevices `xml:"devices"`
-	expectedName string
-	origin       string
+	XMLName xml.Name    `xml:"config"`
+	Devices *panDevices `xml:"devices"`
+	origin  string
 }
 
 type panDevices struct {

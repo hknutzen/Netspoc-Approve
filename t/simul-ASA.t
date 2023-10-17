@@ -70,6 +70,8 @@ router#
 --router.config
 write term
 router#
+--router.change
+No changes applied
 END
 
 simul_run($title, 'ASA', $scenario, $in, $out);
@@ -79,6 +81,8 @@ $title = "Change routing, move ACL with two commands in one line";
 ############################################################
 $scenario = $login_scenario . <<'END';
 # write term
+interface Ethernet0/0
+ nameif inside
 route inside 0.0.0.0 0.0.0.0 10.1.2.3
 access-list inside extended permit ip host 1.1.1.1 any
 access-list inside extended permit ip host 2.2.2.2 any
@@ -105,11 +109,11 @@ END
 # Two commands to change route and access-list
 # are send in one packet.
 # This results in two prompts received in one packet.
-# Expect library is expected to stop on first prompt
-# (see Bug #100342 for Expect). Otherwise this test should fail.
 $out = <<'END';
 --router.config
 write term
+interface Ethernet0/0
+ nameif inside
 route inside 0.0.0.0 0.0.0.0 10.1.2.3
 access-list inside extended permit ip host 1.1.1.1 any
 access-list inside extended permit ip host 2.2.2.2 any
@@ -121,8 +125,6 @@ router#
 configure terminal
 router#no route inside 0.0.0.0 0.0.0.0 10.1.2.3
 router#route inside 0.0.0.0 0.0.0.0 10.1.2.4
-router#end
-router#configure terminal
 router#no access-list inside line 4 extended permit ip host 4.4.4.4 any
 router#access-list inside line 2 extended permit ip host 4.4.4.4 any
 router#end
@@ -138,14 +140,18 @@ END
 simul_run($title, 'ASA', $scenario, $in, $out);
 
 ############################################################
-$title = "Expected command output";
+$title = "Expected WARNING with object-group";
 ############################################################
 $scenario = $login_scenario . <<'END';
 # write term
+interface Ethernet0/0
+ nameif inside
 access-list inside extended deny ip any any
 access-group inside in interface inside
-# access-list inside line 1 extended permit ip object-group g1-DRC-0 object-group g1-DRC-0
+# access-list inside-DRC-0 extended permit ip object-group g1-DRC-0 object-group g1-DRC-0
 WARNING: Same object-group is used more than once in one config line. This config is redundant. Please use seperate object-groups
+# write memory
+[OK]
 END
 
 $in = <<'END';
@@ -160,11 +166,105 @@ $out = <<'END';
 configure terminal
 router#object-group network g1-DRC-0
 router#network-object host 1.1.1.1
-router#access-list inside line 1 extended permit ip object-group g1-DRC-0 object-group g1-DRC-0
+router#access-list inside-DRC-0 extended permit ip object-group g1-DRC-0 object-group g1-DRC-0
 WARNING: Same object-group is used more than once in one config line. This config is redundant. Please use seperate object-groups
-router#no access-list inside line 2 extended deny ip any any
+router#access-group inside-DRC-0 in interface inside
+router#clear configure access-list inside
 router#end
 router#write memory
+[OK]
+router#
+END
+
+simul_run($title, 'ASA', $scenario, $in, $out);
+
+############################################################
+$title = "Expected WARNING with tunnel-group l2l";
+############################################################
+$scenario = $login_scenario . <<'END';
+# tunnel-group some-name-DRC-0 type ipsec-l2l
+WARNING: For IKEv1, L2L tunnel-groups that have names which are not an IP
+address may only be used if the tunnel authentication
+method is Digital Certificates and/or The peer is
+configured to use Aggressive Mode
+# write memory
+[OK]
+END
+
+$in = <<'END';
+crypto ca certificate map some-name 10
+ subject-name attr ea eq some-name
+tunnel-group some-name type ipsec-l2l
+tunnel-group some-name ipsec-attributes
+ peer-id-validate nocheck
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+tunnel-group-map some-name 10 some-name
+END
+
+$out = <<'END';
+--router.change
+configure terminal
+router#crypto ca certificate map some-name-DRC-0 10
+router#subject-name attr ea eq some-name
+router#tunnel-group some-name-DRC-0 type ipsec-l2l
+WARNING: For IKEv1, L2L tunnel-groups that have names which are not an IP
+address may only be used if the tunnel authentication
+method is Digital Certificates and/or The peer is
+configured to use Aggressive Mode
+router#tunnel-group some-name-DRC-0 ipsec-attributes
+router#peer-id-validate nocheck
+router#ikev2 local-authentication certificate Trustpoint2
+router#ikev2 remote-authentication certificate
+router#tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
+router#end
+router#write memory
+[OK]
+router#
+END
+
+simul_run($title, 'ASA', $scenario, $in, $out);
+
+############################################################
+$title = "Expected command output: INFO";
+############################################################
+$scenario = $login_scenario . <<'END';
+# certificate-group-map map-1-DRC-0 10 tunnel-1-DRC-0
+INFO: If a certificate map is configured ASA  will ask all users loading the logon page for a client certificate.
+# write memory
+[OK]
+END
+
+$in = <<'END';
+crypto ca certificate map map-1 10
+ subject-name attr ea co @SUB.EXAMPLE.com
+tunnel-group tunnel-1 type remote-access
+tunnel-group tunnel-1 general-attributes
+tunnel-group tunnel-1 ipsec-attributes
+ peer-id-validate req
+ isakmp ikev1-user-authentication none
+ trust-point ASDM_TrustPoint1
+webvpn
+ certificate-group-map map-1 10 tunnel-1
+END
+
+$out = <<'END';
+--router.change
+configure terminal
+router#crypto ca certificate map map-1-DRC-0 10
+router#subject-name attr ea co @sub.example.com
+router#tunnel-group tunnel-1-DRC-0 type remote-access
+router#tunnel-group tunnel-1-DRC-0 general-attributes
+router#tunnel-group tunnel-1-DRC-0 ipsec-attributes
+router#peer-id-validate req
+router#isakmp ikev1-user-authentication none
+router#trust-point ASDM_TrustPoint1
+router#webvpn
+router#certificate-group-map map-1-DRC-0 10 tunnel-1-DRC-0
+INFO: If a certificate map is configured ASA  will ask all users loading the logon page for a client certificate.
+router#end
+router#write memory
+[OK]
 router#
 END
 
@@ -175,7 +275,9 @@ $title = "Unexpected warning";
 ############################################################
 $scenario = $login_scenario . <<'END';
 # route inside 0.0.0.0 0.0.0.0 10.1.2.4
-WARNING: foo
+WARNING: Route already exists
+# write memory
+[OK]
 END
 
 $in = <<'END';
@@ -183,7 +285,8 @@ route inside 0.0.0.0 0.0.0.0 10.1.2.4
 END
 
 $out = <<'END';
-WARNING>>> WARNING: foo
+WARNING>>> Got unexpected output from 'route inside 0.0.0.0 0.0.0.0 10.1.2.4':
+WARNING>>> WARNING: Route already exists
 END
 
 simul_run($title, 'ASA', $scenario, $in, $out);
@@ -201,7 +304,7 @@ route inside 0.0.0.0 0.0.0.0 10.1.2.4
 END
 
 $out = <<'END';
-ERROR>>> Unexpected output of 'configure terminal'
+ERROR>>> Got unexpected output from 'configure terminal':
 ERROR>>> foo
 END
 

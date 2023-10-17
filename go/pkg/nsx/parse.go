@@ -106,7 +106,9 @@ type NsxConfig struct {
 	Services []*nsxService
 }
 
-func (s *State) ParseConfig(data []byte) (device.DeviceConfig, error) {
+func (s *State) ParseConfig(data []byte, fName string) (
+	device.DeviceConfig, error) {
+
 	config := &NsxConfig{}
 	if len(data) == 0 {
 		return config, nil

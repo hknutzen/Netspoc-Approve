@@ -46,8 +46,9 @@ my %type2class = (
     IOS     => 'Netspoc::Approve::IOS',
     ASA     => 'Netspoc::Approve::ASA',
     'NX-OS' => 'Netspoc::Approve::NX_OS',
+    'ASA-go' => 'drc-asa',
     'PAN-OS' => 'drc-pan-os',
-    'NSX'    => 'drc-nsx',
+    NSX      => 'drc-nsx',
 );
 
 ####################################################################
@@ -123,6 +124,14 @@ my $config;
 if (not $file2) {
     $config = Netspoc::Approve::Load_Config::load();
     Netspoc::Approve::Device::set_lock($name, $config->{lockfiledir});
+}
+
+# Change to new code for selected devices of type ASA.
+if ($type eq 'ASA') {
+    if ($name eq 'test-conf' or $name eq 'router' # Names used in tests
+        or $name =~ /special-name/) {
+        $type = 'ASA-go'
+    }
 }
 
 # Get class or program name from type.

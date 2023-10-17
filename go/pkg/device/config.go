@@ -31,10 +31,10 @@ type Config struct {
 	lockfileDir    string
 	historyDir     string
 	statusDir      string
-	checkBanner    *regexp.Regexp
+	CheckBanner    *regexp.Regexp
 	aaaCredentials string
 	systemUser     string
-	serverIPList   []netip.Addr
+	ServerIPList   []netip.Addr
 	Timeout        int
 	LoginTimeout   int
 	keepHistory    int
@@ -99,13 +99,16 @@ func LoadConfig() (*Config, error) {
 		case "statusdir":
 			c.statusDir = val
 		case "checkbanner":
-			c.checkBanner, err = regexp.Compile(val)
+			c.CheckBanner, err = regexp.Compile(val)
+			if err != nil {
+				err = fmt.Errorf("Invalid regexp in '%s' of %s: %v", key, file, err)
+			}
 		case "aaa_credentials":
 			c.aaaCredentials = val
 		case "systemuser":
 			c.systemUser = val
 		case "server_ip_list":
-			c.serverIPList, err = getIPList()
+			c.ServerIPList, err = getIPList()
 		case "timeout":
 			c.Timeout, err = getInt()
 		case "login_timeout":
