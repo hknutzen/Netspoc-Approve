@@ -14,6 +14,14 @@ interface Ethernet0/0
 interface Ethernet0/1
  nameif outside
 END
+my $minimal_device1 = <<END;
+interface Ethernet0/0
+ nameif inside
+END
+my $crypto_ASA = <<END;
+interface Ethernet0/1
+ nameif outside
+END
 
 # Input from Netspoc.
 # Input from device.
@@ -31,19 +39,19 @@ $device = $minimal_device;
 $in = {
 spoc6 => <<END
 access-list inside_in extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
-access-list inside_in extended deny ip any any
+access-list inside_in extended deny ip any6 any6
 access-group inside_in in interface inside
 
-access-list outside_in extended deny ip any any
+access-list outside_in extended deny ip any6 any6
 access-group outside_in in interface outside
 END
 };
 
 $out = <<END;
 access-list inside_in-DRC-0 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
-access-list inside_in-DRC-0 extended deny ip any any
+access-list inside_in-DRC-0 extended deny ip any6 any6
 access-group inside_in-DRC-0 in interface inside
-access-list outside_in-DRC-0 extended deny ip any any
+access-list outside_in-DRC-0 extended deny ip any6 any6
 access-group outside_in-DRC-0 in interface outside
 END
 
@@ -52,29 +60,28 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Add and delete IPV6-access list";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = $minimal_device . <<'END';
 access-list inside_in extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
-access-list inside_in extended deny ip any any
+access-list inside_in extended deny ip any6 any6
 access-group inside_in in interface inside
-access-list outside_in extended deny ip any any
+access-list outside_in extended deny ip any6 any6
 access-group outside_in in interface outside
 END
 
 $in = {
 spoc6 => <<END
 access-list inside_in extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
-access-list inside_in extended deny ip any any
+access-list inside_in extended deny ip any6 any6
 access-group inside_in in interface inside
 
-access-list outside_in extended deny ip any any
+access-list outside_in extended deny ip any6 any6
 access-group outside_in in interface outside
 END
 };
 
 $out = <<END;
-access-list inside_in line 1 extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
-no access-list inside_in line 2 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
+access-list inside_in line 2 extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
+no access-list inside_in line 1 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -82,31 +89,72 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "IPv6 routing - add new route";
 ############################################################
-$device = $minimal_device;
 
 $in = {
 spoc6 => <<END
-ipv6 route outside 10::3:0/112 10::2:2
+ipv6 route outside 10::3:0/120 10::2:2
 END
 };
 
 $out = <<END;
-ipv6 route outside 10::3:0/112 10::2:2
+ipv6 route outside 10::3:0/120 10::2:2
+END
+
+test_run($title, 'ASA', '', $in, $out);
+
+############################################################
+$title = "IPv4 + v6 routing - no routes from Netspoc";
+############################################################
+
+$device = <<'END';
+route outside 10.1.3.0 255.255.255.0 10.1.1.1
+route outside 10.1.4.0 255.255.255.0 10.1.1.2
+ipv6 route outside 10::3:0/120 10::2:2
+ipv6 route outside 10::4:0/120 10::2:2
+ipv6 route outside 10::8:0/117 10::2:2
+END
+
+$out = <<END;
+END
+
+test_run($title, 'ASA', $device, '', $out);
+
+############################################################
+$title = "IPv6 routing - unchanged";
+############################################################
+$device = <<'END';
+ipv6 route outside 10::3:0/120 10::2:2 1
+ipv6 route outside 10::4:0/120 10::2:2 2
+ipv6 route outside 10::8:0/117 10::2:2
+END
+
+$in = {
+spoc6 => <<END
+ipv6 route outside 10::4:0/120 10::2:2
+ipv6 route outside 10::8:0/117 10::2:2
+ipv6 route outside 10::3:0/120 10::2:2 3
+END
+};
+
+$out = <<END;
 END
 
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
-$title = "IPv6 routing - network of equal size";
+$title = "IPv4 routing - unchanged";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
-ipv6 route outside 10::3:0/112 10::2:2
+$device = <<'END';
+route outside 10.1.3.0 255.255.255.0 10.1.1.1 44
+route outside 10.1.4.0 255.255.255.0 10.1.1.2
+route outside 10.1.8.0 255.255.248.0 10.1.1.1 55
 END
 
 $in = {
-spoc6 => <<END
-ipv6 route outside 10::3:0/112 10::2:2
+spoc4 => <<END
+route outside 10.1.8.0 255.255.248.0 10.1.1.1
+route outside 10.1.4.0 255.255.255.0 10.1.1.2
+route outside 10.1.3.0 255.255.255.0 10.1.1.1 8
 END
 };
 
@@ -118,9 +166,8 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "IPv6 routing - replace network with smaller one.";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
-ipv6 route outside 10::3:0/112 10::2:2
+$device = <<'END';
+ipv6 route outside 10::/112 10::2:2
 END
 
 $in = {
@@ -131,7 +178,7 @@ END
 
 $out = <<END;
 ipv6 route outside 10::3:0/120 10::2:2
-no ipv6 route outside 10::3:0/112 10::2:2
+no ipv6 route outside 10::/112 10::2:2
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -139,28 +186,114 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "IPv6 routing - replace network with bigger one.";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 ipv6 route outside 10::3:0/120 10::2:2
 END
 
 $in = {
 spoc6 => <<END
-ipv6 route outside 10::3:0/112 10::2:2
+ipv6 route outside 10::/112 10::2:2
 END
 };
 
 $out = <<END;
-ipv6 route outside 10::3:0/112 10::2:2
+ipv6 route outside 10::/112 10::2:2
 no ipv6 route outside 10::3:0/120 10::2:2
 END
 
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
-$title = "Abort on 1 instead of icmp in raw file";
+$title = "IPv6 routing - change gateway";
 ############################################################
-$device = $minimal_device;
+$device = <<'END';
+ipv6 route outside 10::3:0/120 10::2:2
+END
+
+$in = {
+spoc6 => <<END
+ipv6 route outside 10::3:0/120 10::2:3
+END
+};
+
+$out = <<'END';
+no ipv6 route outside 10::3:0/120 10::2:2\N ipv6 route outside 10::3:0/120 10::2:3
+END
+
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "IPv4 routing - change gateway";
+############################################################
+$device = <<'END';
+route outside 10.1.3.0 255.255.255.0 10.1.2.2
+END
+
+$in = {
+spoc4 => <<END
+route outside 10.1.3.0 255.255.255.0 10.1.2.3
+END
+};
+
+$out = <<'END';
+no route outside 10.1.3.0 255.255.255.0 10.1.2.2\N route outside 10.1.3.0 255.255.255.0 10.1.2.3
+END
+
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "IPv6 routing - change default route";
+############################################################
+$device = <<'END';
+ipv6 route outside ::/0 10::1.1
+ipv6 route outside 10::3:0/120 10::2:2
+END
+
+$in = {
+spoc6 => <<END
+ipv6 route outside ::/0 10::2.2
+ipv6 route outside 10::1:0/120 10::1.1
+END
+};
+
+$out = <<'END';
+ipv6 route outside 10::1:0/120 10::1.1
+no ipv6 route outside ::/0 10::1.1\N ipv6 route outside ::/0 10::2.2
+no ipv6 route outside 10::3:0/120 10::2:2
+END
+
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "IPv4 routing - change default route";
+############################################################
+$device = <<'END';
+route outside 0.0.0.0 0.0.0.0 10.1.1.1
+route outside 10.1.3.0 255.255.255.0 10.1.2.2
+END
+
+$in = {
+spoc4 => <<END
+route outside 0.0.0.0 0.0.0.0 10.1.2.2
+route outside 10.1.1.0 255.255.255.0 10.1.1.1
+END
+};
+
+$out = <<'END';
+route outside 10.1.1.0 255.255.255.0 10.1.1.1
+no route outside 0.0.0.0 0.0.0.0 10.1.1.1\N route outside 0.0.0.0 0.0.0.0 10.1.2.2
+no route outside 10.1.3.0 255.255.255.0 10.1.2.2
+END
+
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Handle protocol 1 as icmp in raw file";
+############################################################
+$device = <<'END';
+interface Ethernet0/0
+ nameif inside
+END
 
 $in = {
 spoc4 => <<END
@@ -176,18 +309,21 @@ END
 };
 
 $out = <<END;
-ERROR>>> Don\'t use numeric proto for
-ERROR>>>  icmp|tcp|udp|icmp6: \'1\'
-ERROR>>>  at line 1, pos 5:
-ERROR>>> >>access-list inside_in extended permit 1 any4 any4 3 6<<
+access-list inside_in-DRC-0 extended permit icmp any4 any4 3 6
+access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
+access-list inside_in-DRC-0 extended deny ip any4 any4
+access-group inside_in-DRC-0 in interface inside
 END
 
-test_err($title, 'ASA', $device, $in, $out);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
-$title = "Abort on 58 instead of icmp6 in raw file";
+$title = "Handle protocol 58 as icmp6 in raw file";
 ############################################################
-$device = $minimal_device;
+$device = <<'END';
+interface Ethernet0/0
+ nameif inside
+END
 
 $in = {
 spoc6 => <<END
@@ -203,19 +339,20 @@ END
 };
 
 $out = <<END;
-ERROR>>> Don\'t use numeric proto for
-ERROR>>>  icmp|tcp|udp|icmp6: \'58\'
-ERROR>>>  at line 1, pos 5:
-ERROR>>> >>access-list inside_in extended permit 58 any6 any6 128<<
+access-list inside_in-DRC-0 extended permit icmp6 any6 any6 128
+access-list inside_in-DRC-0 extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
+access-list inside_in-DRC-0 extended deny ip any6 any6
+access-group inside_in-DRC-0 in interface inside
 END
 
-test_err($title, 'ASA', $device, $in, $out);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
-$title = "Substitute numeric icmp6 type with appropriate name";
+$title = "Handle numeric icmp6 named type";
 ############################################################
-$device = $minimal_device;
-$device .= <<END;
+$device = <<END;
+interface Ethernet0/0
+ nameif inside
 access-list inside_in extended permit icmp6 any6 any6 echo
 access-list inside_in extended permit icmp6 any6 any6 echo-reply
 access-group inside_in in interface inside
@@ -235,19 +372,23 @@ END
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
-$title = "Interface with and without IP address";
+$title = "Handle named log level";
 ############################################################
-
-$device = <<'END';
+$device = <<END;
 interface Ethernet0/0
  nameif inside
- ip address 10.1.1.0 255.255.255.0
+access-list inside_in extended permit tcp any4 any4 log critical
+access-list inside_in extended permit udp any4 any4 log debugging
+access-group inside_in in interface inside
 END
 
-$in = <<'END';
-interface Ethernet0/0
- nameif inside
+$in = {
+spoc4 => <<END
+access-list inside_in extended permit tcp any4 any4 log 2
+access-list inside_in extended permit udp any4 any4 log 7
+access-group inside_in in interface inside
 END
+};
 
 $out = <<END;
 END
@@ -268,8 +409,8 @@ interface Ethernet0/1
 END
 
 $in = <<'END';
-interface Ethernet0/0
- nameif inside
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
 END
 
 $out = <<END;
@@ -289,10 +430,10 @@ interface Ethernet0/0
 END
 
 $in = <<'END';
-interface Ethernet0/0
- nameif inside
-interface Ethernet0/1
- nameif outside
+access-list outside_in extended deny ip any4 any4
+access-group outside_in in interface outside
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
 END
 
 $out = <<END;
@@ -339,9 +480,11 @@ test_run($title, 'ASA', $device, $in, $out);
 $title = "Increment index of names";
 ############################################################
 $device = <<END;
+interface Ethernet0/1
+ nameif outside
 object-group network g0-DRC-0
  network-object 10.0.6.0 255.255.255.0
-access-list outside_in extended permit udp object-group g0-DRC-0 any eq 80
+access-list outside_in extended permit udp object-group g0-DRC-0 any4 eq 80
 access-group outside_in in interface outside
 END
 
@@ -350,15 +493,15 @@ object-group network g0
  network-object 10.0.5.0 255.255.255.0
 object-group network g1
  network-object 10.0.6.0 255.255.255.0
-access-list outside_in extended permit udp object-group g0 any eq 79
-access-list outside_in extended permit udp object-group g1 any eq 80
+access-list outside_in extended permit udp object-group g0 any4 eq 79
+access-list outside_in extended permit udp object-group g1 any4 eq 80
 access-group outside_in in interface outside
 END
 
 $out = <<END;
 object-group network g0-DRC-1
 network-object 10.0.5.0 255.255.255.0
-access-list outside_in line 1 extended permit udp object-group g0-DRC-1 any eq 79
+access-list outside_in line 1 extended permit udp object-group g0-DRC-1 any4 eq 79
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -366,11 +509,11 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Parse routing and ACL with object-groups";
 ############################################################
-$in = <<END;
+$in = $minimal_device . <<END;
 
 route outside 10.20.0.0 255.255.0.0 10.1.2.3
 
-access-list inside_in extended deny ip any any
+access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 
 object-group network g0
@@ -380,21 +523,21 @@ object-group network g0
 
 access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
 access-list outside_in extended permit tcp any host 10.0.1.11 range 7937 8999
-access-list outside_in extended deny ip any any
+access-list outside_in extended deny ip any4 any4
 access-group outside_in in interface outside
 END
 
 $out = <<END;
 route outside 10.20.0.0 255.255.0.0 10.1.2.3
-object-group network g0-DRC-0
-network-object 10.0.6.0 255.255.255.0
-network-object 10.0.5.0 255.255.255.0
-network-object host 10.0.12.3
-access-list inside_in-DRC-0 extended deny ip any any
+access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
-access-list outside_in-DRC-0 extended permit udp object-group g0-DRC-0 host 10.0.1.11 eq sip
+object-group network g0-DRC-0
+network-object 10.0.5.0 255.255.255.0
+network-object 10.0.6.0 255.255.255.0
+network-object host 10.0.12.3
+access-list outside_in-DRC-0 extended permit udp object-group g0-DRC-0 host 10.0.1.11 eq 5060
 access-list outside_in-DRC-0 extended permit tcp any host 10.0.1.11 range 7937 8999
-access-list outside_in-DRC-0 extended deny ip any any
+access-list outside_in-DRC-0 extended deny ip any4 any4
 access-group outside_in-DRC-0 in interface outside
 END
 
@@ -403,150 +546,245 @@ END
 check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
 
 ############################################################
-$title = "Abort on unknown sub command of object-group";
+$title = "Parse object-group of type tcp-udp";
 ############################################################
-
-$device = $minimal_device . <<'END';
-object-group network g0
- network-object 10.0.3.0 255.255.255.0
- unknown command
-access-list outside_in extended permit udp object-group g0 host 10.0.1.11 eq sip
-access-group outside_in in interface ethernet0
-END
-
-$in = <<'END';
-END
-
-$out = <<END;
-ERROR>>> Unexpected command in line 7:
->>unknown command<<
-END
-
-test_err($title, 'ASA', $device, $in, $out);
-
-############################################################
-$title = "object-group of type tcp-udp";
-############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$in = $minimal_device1 . <<END;
 object-group service g1 tcp-udp
  port-object eq domain
  port-object eq http
-access-list outside_in extended permit object-group g1 any any
-access-list outside_in extended deny ip any any
-access-group outside_in in interface outside
+access-list inside_in extended permit object-group g1 any4 any4
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
 END
 
 $out = <<'END';
-ERROR>>> Expected port number or port name
-ERROR>>>  at line 7, pos 3:
-ERROR>>> >>port-object eq http<<
+object-group service g1-DRC-0 tcp-udp
+port-object eq domain
+port-object eq http
+access-list inside_in-DRC-0 extended permit object-group g1-DRC-0 any4 any4
+access-list inside_in-DRC-0 extended deny ip any4 any4
+access-group inside_in-DRC-0 in interface inside
 END
-test_err($title, 'ASA', $device, $device, $out);
+check_parse_and_unchanged($title, $device_type, $minimal_device1, $in, $out);
 
 ############################################################
-$title = "Port specifer 'neq'";
+$title = "Parse unknown port specifier";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
-access-list outside_in extended permit tcp any any neq 22
-access-list outside_in extended deny ip any any
-access-group outside_in in interface outside
-END
-
-$out = <<'END';
-ERROR>>> port specifier 'neq' not implemented
-END
-test_err($title, 'ASA', $device, $device, $out);
-
-############################################################
-$title = "Unknown port specifier";
-############################################################
-$device = $minimal_device;
-$device .= <<'END';
-access-list outside_in extended permit tcp any any foo 22
-access-list outside_in extended deny ip any any
-access-group outside_in in interface outside
+$in = $minimal_device1 . <<END;
+access-list inside_in extended permit tcp any4 any4 foo 22
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
 END
 
 $out = <<'END';
-ERROR>>> Unexpected token 'foo'
-ERROR>>>  at line 5, pos 8:
-ERROR>>> >>access-list outside_in extended permit tcp any any foo 22<<
+access-list inside_in-DRC-0 extended permit tcp any4 any4 foo 22
+access-list inside_in-DRC-0 extended deny ip any4 any4
+access-group inside_in-DRC-0 in interface inside
 END
-test_err($title, 'ASA', $device, $device, $out);
+check_parse_and_unchanged($title, $device_type, $minimal_device1, $in, $out);
 
 ############################################################
-$title = "Different port specifers";
+$title = "Parse different port specifers";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
-access-list outside_in extended permit tcp any any eq 22
-access-list outside_in extended permit tcp any any gt 1023
-access-list outside_in extended permit tcp any any lt 9
-access-list outside_in extended permit tcp any any range www 90
-access-list outside_in extended deny ip any any
-access-group outside_in in interface outside
+$in = $minimal_device1 . <<END;
+access-list inside_in extended permit tcp any4 any4 eq 22
+access-list inside_in extended permit tcp any4 any4 neq 23
+access-list inside_in extended permit tcp any4 any4 gt 1023
+access-list inside_in extended permit tcp any4 any4 lt 9
+access-list inside_in extended permit tcp any4 any4 range www 90
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
 END
 
 $out = <<'END';
+access-list inside_in-DRC-0 extended permit tcp any4 any4 eq 22
+access-list inside_in-DRC-0 extended permit tcp any4 any4 neq 23
+access-list inside_in-DRC-0 extended permit tcp any4 any4 gt 1023
+access-list inside_in-DRC-0 extended permit tcp any4 any4 lt 9
+access-list inside_in-DRC-0 extended permit tcp any4 any4 range 80 90
+access-list inside_in-DRC-0 extended deny ip any4 any4
+access-group inside_in-DRC-0 in interface inside
 END
 
-test_run($title, 'ASA', $device, $device, $out);
+check_parse_and_unchanged($title, $device_type, $minimal_device1, $in, $out);
 
 ############################################################
-$title = "Unsupported global ACL ";
+$title = "Parse named port specifers";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
-access-list outside_in extended deny ip any any
-access-group outside_in in interface outside
-access-list global_ACL extended permit tcp any any eq 22
+$in = $minimal_device1 . <<END;
+access-list inside_in extended permit tcp any4 any4 eq ssh
+access-list inside_in extended permit tcp any4 any4 neq telnet
+access-list inside_in extended permit udp any4 any4 eq snmp
+access-list inside_in extended permit tcp any4 any4 lt echo
+access-list inside_in extended permit tcp any4 any4 range www 90
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+END
+
+$out = <<'END';
+access-list inside_in-DRC-0 extended permit tcp any4 any4 eq 22
+access-list inside_in-DRC-0 extended permit tcp any4 any4 neq 23
+access-list inside_in-DRC-0 extended permit udp any4 any4 eq 161
+access-list inside_in-DRC-0 extended permit tcp any4 any4 lt 7
+access-list inside_in-DRC-0 extended permit tcp any4 any4 range 80 90
+access-list inside_in-DRC-0 extended deny ip any4 any4
+access-group inside_in-DRC-0 in interface inside
+END
+
+check_parse_and_unchanged($title, $device_type, $minimal_device1, $in, $out);
+
+############################################################
+$title = "Parse named port specifers used together with object-group";
+############################################################
+$in = $minimal_device1 . <<'END';
+object-group network g0
+ network-object 10.0.6.0 255.255.255.0
+access-list inside_in extended permit tcp host 10.11.9.1 object-group g0 range ftp telnet
+access-group inside_in in interface inside
+END
+
+$out = <<'END';
+object-group network g0-DRC-0
+network-object 10.0.6.0 255.255.255.0
+access-list inside_in-DRC-0 extended permit tcp host 10.11.9.1 object-group g0-DRC-0 range 21 23
+access-group inside_in-DRC-0 in interface inside
+END
+
+check_parse_and_unchanged($title, $device_type, $minimal_device1, $in, $out);
+
+############################################################
+$title = "Parse rule referencing 4 object-groups";
+############################################################
+$in = $minimal_device1 . <<'END';
+object-group network g1
+ network-object 10.0.6.0 255.255.255.0
+object-group network g3
+ network-object 10.0.7.0 255.255.255.0
+object-group service g2
+ service-object udp source eq 123
+object-group service g4
+ service-object udp destination eq 123
+access-list inside_in extended permit udp object-group g1 object-group g2 object-group g3 object-group g4
+access-group inside_in in interface inside
+END
+
+$out = <<'END';
+object-group network g1-DRC-0
+network-object 10.0.6.0 255.255.255.0
+object-group service g2-DRC-0
+service-object udp source eq 123
+object-group network g3-DRC-0
+network-object 10.0.7.0 255.255.255.0
+object-group service g4-DRC-0
+service-object udp destination eq 123
+access-list inside_in-DRC-0 extended permit udp object-group g1-DRC-0 object-group g2-DRC-0 object-group g3-DRC-0 object-group g4-DRC-0
+access-group inside_in-DRC-0 in interface inside
+END
+
+check_parse_and_unchanged($title, $device_type, $minimal_device1, $in, $out);
+
+############################################################
+$title = "Parse rule with src/dst port and 2 object-group";
+############################################################
+$in = $minimal_device1 . <<'END';
+object-group network g1
+ network-object 10.0.6.0 255.255.255.0
+object-group network g2
+ network-object 10.0.7.0 255.255.255.0
+access-list inside_in extended permit udp object-group g1 eq ntp object-group g2 eq ntp
+access-group inside_in in interface inside
+END
+
+$out = <<'END';
+object-group network g1-DRC-0
+network-object 10.0.6.0 255.255.255.0
+object-group network g2-DRC-0
+network-object 10.0.7.0 255.255.255.0
+access-list inside_in-DRC-0 extended permit udp object-group g1-DRC-0 eq 123 object-group g2-DRC-0 eq 123
+access-group inside_in-DRC-0 in interface inside
+END
+
+check_parse_and_unchanged($title, $device_type, $minimal_device1, $in, $out);
+
+############################################################
+$title = "Leave object-group unchanged if found multiple times on device";
+############################################################
+$device = $minimal_device1 . <<'END';
+object-group network DM_INLINE_NETWORK_5
+ network-object 10.0.6.0 255.255.255.0
+object-group network g1-DRC-0
+ network-object 10.0.6.0 255.255.255.0
+access-list inside_in-DRC-0 extended permit udp any4 object-group g1-DRC-0 eq 161
+access-group inside_in-DRC-0 in interface inside
+END
+
+$in = <<'END';
+object-group network g1
+ network-object 10.0.6.0 255.255.255.0
+access-list inside_in extended permit udp any4 object-group g1 eq 161
+access-group inside_in in interface inside
+END
+
+test_run($title, 'ASA', $device, $in, '');
+
+############################################################
+$title = "Remove global ACL from device";
+############################################################
+$device = <<'END';
+access-list global_ACL extended permit tcp any4 any4 eq 22
 access-group global_ACL global
 END
 
 $out = <<'END';
-ERROR>>> Global access-list not supported
-ERROR>>>  at line 8, pos 1:
-ERROR>>> >>access-group global_ACL global<<
+no access-group global_ACL global
+clear configure access-list global_ACL
 END
-test_err($title, 'ASA', $device, $device, $out);
+test_run($title, 'ASA', $device, '', $out);
 
 ############################################################
-$title = "Reference same ACL from two interfaces";
+$title = "Change ACL referenced from two interfaces";
 ############################################################
 $device = $minimal_device;
 $device .= <<'END';
-access-list outside_in extended permit tcp any any eq 22
+access-list outside_in extended permit tcp any4 any4 eq 22
+access-group outside_in in interface inside
+access-group outside_in in interface outside
+END
+
+$in = <<'END';
+access-list outside_in extended permit tcp any4 any4 eq 22
+access-list outside_in extended permit tcp any4 any4 eq 25
 access-group outside_in in interface inside
 access-group outside_in in interface outside
 END
 
 $out = <<'END';
-ERROR>>> Multiple occurrences of command not allowed
-ERROR>>>  at line 7, pos 5:
-ERROR>>> >>access-group outside_in in interface outside<<
+access-list outside_in line 2 extended permit tcp any4 any4 eq 25
 END
-test_err($title, 'ASA', $device, $device, $out);
+
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
-$title = "Ignore ASA pre 8.4 static, global, nat";
+$title = "Change only one ACL referenced from two interfaces";
 ############################################################
-# Differences are ignored.
-
-$device = $minimal_device;
-$device .= <<'END';
-global (outside) 1 10.48.56.5 netmask 255.255.255.255
-nat (inside) 1 10.48.48.0 255.255.248.0
-static (outside,inside) 10.9.0.0 172.31.0.0 netmask 255.255.0.0
-END
-$in = <<END;
-global (outside) 1 10.4.56.5 netmask 255.255.255.255
-nat (inside) 1 10.4.8.0 255.255.248.0
-static (outside,inside) 10.1.0.0 172.1.0.0 netmask 255.255.0.0
+$device = $minimal_device . <<'END';
+access-list outside_in extended permit tcp any4 any4 eq 22
+access-group outside_in in interface inside
+access-group outside_in in interface outside
 END
 
-$out = <<END;
+$in = <<'END';
+access-list outside_in extended permit tcp any4 any4 eq 22
+access-list outside_in extended permit tcp any4 any4 eq 25
+access-list inside_in extended permit tcp any4 any4 eq 22
+access-group outside_in in interface inside
+access-group inside_in in interface outside
+END
+
+$out = <<'END';
+access-list outside_in line 2 extended permit tcp any4 any4 eq 25
+access-list inside_in-DRC-0 extended permit tcp any4 any4 eq 22
+access-group inside_in-DRC-0 in interface outside
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -554,9 +792,9 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Parse crypto map, dynamic map with tunnel-group";
 ############################################################
-$in = <<END;
-access-list crypto-acl1 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
-access-list crypto-acl2 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
+$in = $crypto_ASA . <<END;
+access-list crypto-acl1 extended permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
+access-list crypto-acl2 extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 
 crypto ipsec ikev1 transform-set trans esp-3des esp-sha-hmac
 crypto dynamic-map some-name 10 match address crypto-acl2
@@ -564,7 +802,8 @@ crypto map map-outside 10 match address crypto-acl1
 crypto map map-outside 10 set pfs group2
 crypto map map-outside 10 set peer 97.98.99.100
 crypto map map-outside 10 set ikev1 transform-set trans
-crypto map map-outside 10 set security-association lifetime seconds 43200 kilobytes 4608000
+crypto map map-outside 10 set security-association lifetime seconds 43200
+crypto map map-outside 10 set security-association lifetime kilobytes 4608000
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside interface outside
 crypto ca certificate map some-name 10
@@ -579,29 +818,29 @@ tunnel-group-map some-name 10 some-name
 END
 
 $out = <<END;
-tunnel-group some-name-DRC-0 type ipsec-l2l
-tunnel-group some-name-DRC-0 ipsec-attributes
-ikev2 local-authentication certificate Trustpoint2
-ikev2 remote-authentication certificate
-peer-id-validate nocheck
 crypto ca certificate map some-name-DRC-0 10
 subject-name attr ea eq some-name
 extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group some-name-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
 tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
-access-list crypto-acl1-DRC-0 permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
-crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
+access-list crypto-acl1-DRC-0 extended permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
+crypto map map-outside 10 match address crypto-acl1-DRC-0
+crypto map map-outside 10 set pfs
 crypto map map-outside 10 set peer 97.98.99.100
-crypto map map-outside 10 set pfs group2
+crypto ipsec ikev1 transform-set trans-DRC-0 esp-3des esp-sha-hmac
+crypto map map-outside 10 set ikev1 transform-set trans-DRC-0
 crypto map map-outside 10 set security-association lifetime seconds 43200
 crypto map map-outside 10 set security-association lifetime kilobytes 4608000
-crypto map map-outside 10 match address crypto-acl1-DRC-0
-no crypto map map-outside 10 set ikev1 transform-set
-crypto map map-outside 10 set ikev1 transform-set trans-DRC-0
-access-list crypto-acl2-DRC-0 permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
+access-list crypto-acl2-DRC-0 extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 crypto dynamic-map some-name 10 match address crypto-acl2-DRC-0
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
+crypto map map-outside interface outside
 END
-check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
+check_parse_and_unchanged($title, $device_type, $crypto_ASA, $in, $out);
 
 ############################################################
 $title = "Parse default tunnel-group-map";
@@ -619,10 +858,10 @@ tunnel-group VPN-single-DRC-0 webvpn-attributes
 authentication certificate
 tunnel-group-map default-group VPN-single-DRC-0
 END
-check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
+check_parse_and_unchanged($title, $device_type, '', $in, $out);
 
 ############################################################
-$title = "Must not change type of tunnel-group";
+$title = "Change type of tunnel-group";
 ############################################################
 $device = <<END;
 tunnel-group VPN-single type remote-access
@@ -641,10 +880,16 @@ tunnel-group-map default-group some-name
 END
 
 $out = <<"END";
-ERROR>>> Can't change type of TUNNEL_GROUP_DEFINE VPN-single
+tunnel-group some-name-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+tunnel-group-map default-group some-name-DRC-0
+clear configure tunnel-group VPN-single
 END
 
-test_err($title, 'ASA', $device, $in, $out);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Don't touch tunnel-group-map referencing built in";
@@ -659,7 +904,7 @@ END
 $out = <<"END";
 END
 
-test_err($title, 'ASA', $device, $in, $out);
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Parse username, group-policy";
@@ -667,7 +912,7 @@ $title = "Parse username, group-policy";
 $in = <<'END';
 access-list split-tunnel standard permit 10.2.42.0 255.255.255.224
 access-list vpn-filter extended permit ip host 10.1.1.67 10.2.42.0 255.255.255.224
-access-list vpn-filter extended deny ip any any
+access-list vpn-filter extended deny ip any4 any4
 group-policy VPN-group internal
 group-policy VPN-group attributes
  banner value Willkommen!
@@ -685,27 +930,25 @@ username jon.doe@token.example.com attributes
 END
 
 $out = <<'END';
-access-list split-tunnel-DRC-0 standard permit 10.2.42.0 255.255.255.224
+username jon.doe@token.example.com nopassword
+access-list vpn-filter-DRC-0 extended permit ip host 10.1.1.67 10.2.42.0 255.255.255.224
+access-list vpn-filter-DRC-0 extended deny ip any4 any4
 group-policy VPN-group-DRC-0 internal
+access-list split-tunnel-DRC-0 standard permit 10.2.42.0 255.255.255.224
 group-policy VPN-group-DRC-0 attributes
-anyconnect-custom perapp value SomeName
 banner value Willkommen!
 dns-server 10.1.2.3 10.44.55.66
+anyconnect-custom perapp value SomeName
+split-tunnel-network-list value split-tunnel-DRC-0
 split-tunnel-policy tunnelspecified
 vpn-idle-timeout 60
-group-policy VPN-group-DRC-0 attributes
-split-tunnel-network-list value split-tunnel-DRC-0
-access-list vpn-filter-DRC-0 extended permit ip host 10.1.1.67 10.2.42.0 255.255.255.224
-access-list vpn-filter-DRC-0 extended deny ip any any
-username jon.doe@token.example.com nopassword
 username jon.doe@token.example.com attributes
-service-type remote-access
 vpn-framed-ip-address 10.1.1.67 255.255.254.0
-username jon.doe@token.example.com attributes
+service-type remote-access
 vpn-filter value vpn-filter-DRC-0
 vpn-group-policy VPN-group-DRC-0
 END
-check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
+check_parse_and_unchanged($title, $device_type, '', $in, $out);
 
 ############################################################
 $title = "Parse group-policy DfltGrpPolicy";
@@ -726,7 +969,7 @@ vpn-simultaneous-logins 1
 vpn-tunnel-protocol ikev2
 END
 
-check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
+check_parse_and_unchanged($title, $device_type, '', $in, $out);
 
 ############################################################
 $title = "Parse tunnel-group of type ipsec-l2l (IP as name)";
@@ -752,31 +995,30 @@ tunnel-group 193.155.130.3 ipsec-attributes
 crypto ca certificate map cert-map 10
  subject-name attr ea eq cert@example.com
 tunnel-group-map cert-map 10 193.155.130.3
-crypto map crypto-outside interface outside
 END
 
 $out = <<'END';
-tunnel-group 193.155.130.3 type ipsec-l2l
-tunnel-group 193.155.130.3 ipsec-attributes
-ikev2 local-authentication certificate ASDM_TrustPoint1
-ikev2 remote-authentication certificate
-peer-id-validate nocheck
 crypto ca certificate map cert-map-DRC-0 10
 subject-name attr ea eq cert@example.com
+tunnel-group 193.155.130.3 type ipsec-l2l
+tunnel-group 193.155.130.3 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate ASDM_TrustPoint1
+ikev2 remote-authentication certificate
 tunnel-group-map cert-map-DRC-0 10 193.155.130.3
 tunnel-group 193.155.130.1 type ipsec-l2l
 tunnel-group 193.155.130.1 ipsec-attributes
 peer-id-validate nocheck
 tunnel-group 193.155.130.2 type ipsec-l2l
+tunnel-group 193.155.130.2 ipsec-attributes
 END
-check_parse_and_unchanged($title, $device_type, $minimal_device, $in, $out);
+check_parse_and_unchanged($title, $device_type, '', $in, $out);
 
 
 ############################################################
 $title = "Modify username attributes";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 username jon.doe@token.example.com nopassword
 username jon.doe@token.example.com attributes
  service-type remote-access
@@ -795,11 +1037,11 @@ END
 
 $out = <<'END';
 username jon.doe@token.example.com attributes
+no vpn-framed-ip-address 10.1.2.3 255.0.0.0
+no vpn-simultaneous-logins 4
+no password-storage enable
 vpn-framed-ip-address 10.11.22.33 255.255.0.0
 vpn-idle-timeout 60
-username jon.doe@token.example.com attributes
-no password-storage
-no vpn-simultaneous-logins
 END
 test_run($title, 'ASA', $device, $in, $out);
 
@@ -807,8 +1049,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Modify group-policy attributes";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 group-policy VPN-group internal
 group-policy VPN-group attributes
  banner value Welcome!
@@ -836,23 +1077,23 @@ END
 
 $out = <<'END';
 group-policy VPN-group attributes
-no banner
+no banner value Welcome!
+no dns-server value 10.1.2.3 10.44.55.66
+no split-tunnel-policy tunnelspecified
+no vpn-idle-timeout 60
+no pfs
+no anyconnect-custom perapp value SomeName
 banner value Willkommen!
 dns-server value 10.1.2.3
 split-tunnel-policy tunnelall
 vpn-session-timeout 40
-group-policy VPN-group attributes
-no anyconnect-custom perapp
-no pfs
-no vpn-idle-timeout
 END
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Remove group-policy and username";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 group-policy VPN-group internal
 group-policy VPN-group attributes
  banner value Welcome!
@@ -878,7 +1119,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Clear group-policy DfltGrpPolicy";
 ############################################################
-$device = $minimal_device . <<'END';
+$device = <<'END';
 group-policy DfltGrpPolicy attributes
  banner value Willkommen!
  vpn-idle-timeout 240
@@ -889,26 +1130,10 @@ END
 $in = '';
 
 $out = <<'END';
-clear configure group-policy DfltGrpPolicy
+no group-policy DfltGrpPolicy attributes
 END
 
 test_run($title, 'ASA', $device, $in, $out);
-
-############################################################
-$title = "Duplicate ca certificate map";
-############################################################
-$device = $minimal_device . <<'END';
-crypto ca certificate map map1 10
- subject-name attr ea co @sub.example.com
-crypto ca certificate map map2 10
- subject-name attr ea co @sub.example.com
-END
-
-$out = <<'END';
-ERROR>>> Two ca cert map items use identical subject-name: 'map1', 'map2'
-END
-
-test_err($title, 'ASA', $device, $device, $out);
 
 ############################################################
 $title = "Parse tunnel-group, group-policy, ca cert map, pool";
@@ -916,7 +1141,7 @@ $title = "Parse tunnel-group, group-policy, ca cert map, pool";
 $in = <<'END';
 access-list split-tunnel standard permit 10.1.0.0 255.255.255.0
 access-list vpn-filter extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
-access-list vpn-filter extended deny ip any any
+access-list vpn-filter extended deny ip any4 any4
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
 ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
@@ -937,49 +1162,130 @@ tunnel-group VPN-tunnel ipsec-attributes
  trust-point ASDM_TrustPoint4
 tunnel-group VPN-tunnel webvpn-attributes
  authentication aaa certificate
-! TODO: parse sequence number
 tunnel-group-map ca-map 20 VPN-tunnel
 webvpn
  certificate-group-map ca-map 20 VPN-tunnel
 END
 
 $out = <<'END';
+crypto ca certificate map ca-map-DRC-0 10
+subject-name attr ea co @sub.example.com
 tunnel-group VPN-tunnel-DRC-0 type remote-access
-access-list vpn-filter-DRC-0 extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
-access-list vpn-filter-DRC-0 extended deny ip any any
-access-list split-tunnel-DRC-0 standard permit 10.1.0.0 255.255.255.0
-ip local pool pool-DRC-0 10.1.219.192-10.1.219.255 mask 0.0.0.63
 group-policy VPN-group-DRC-0 internal
-group-policy VPN-group-DRC-0 attributes
-banner value Willkommen beim Zugang per VPN
-split-tunnel-policy tunnelspecified
-vpn-idle-timeout 60
+ip local pool pool-DRC-0 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list split-tunnel-DRC-0 standard permit 10.1.0.0 255.255.255.0
+access-list vpn-filter-DRC-0 extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
+access-list vpn-filter-DRC-0 extended deny ip any4 any4
 group-policy VPN-group-DRC-0 attributes
 address-pools value pool-DRC-0
+banner value Willkommen beim Zugang per VPN
 split-tunnel-network-list value split-tunnel-DRC-0
+split-tunnel-policy tunnelspecified
 vpn-filter value vpn-filter-DRC-0
-tunnel-group VPN-tunnel-DRC-0 general-attributes
+vpn-idle-timeout 60
 tunnel-group VPN-tunnel-DRC-0 general-attributes
 default-group-policy VPN-group-DRC-0
 tunnel-group VPN-tunnel-DRC-0 ipsec-attributes
-isakmp ikev1-user-authentication none
 peer-id-validate req
+isakmp ikev1-user-authentication none
 trust-point ASDM_TrustPoint4
 tunnel-group VPN-tunnel-DRC-0 webvpn-attributes
 authentication aaa certificate
-crypto ca certificate map ca-map-DRC-0 10
-subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
+tunnel-group-map ca-map-DRC-0 20 VPN-tunnel-DRC-0
 webvpn
-certificate-group-map ca-map-DRC-0 10 VPN-tunnel-DRC-0
+certificate-group-map ca-map-DRC-0 20 VPN-tunnel-DRC-0
 END
-check_parse_and_unchanged($title, 'ASA', $minimal_device, $in, $out);
+check_parse_and_unchanged($title, 'ASA', '', $in, $out);
+
+############################################################
+$title = "Match tunnel-group-map by subject-name of ca-cert-map";
+############################################################
+$device = <<'END';
+tunnel-group VPN-tunnel1 type remote-access
+tunnel-group VPN-tunnel1 general-attributes
+tunnel-group VPN-tunnel1 ipsec-attributes
+ trust-point ASDM_TrustPoint1
+tunnel-group VPN-tunnel2 type remote-access
+tunnel-group VPN-tunnel2 general-attributes
+tunnel-group VPN-tunnel2 ipsec-attributes
+ trust-point ASDM_TrustPoint2
+crypto ca certificate map ca-map1 10
+ subject-name attr ea co @b.example.com
+crypto ca certificate map ca-map2 10
+ subject-name attr ea eq x@a.example.com
+ extended-key-usage co clientauth
+tunnel-group-map default-group DefaultL2LGroup
+tunnel-group-map ca-map1 20 VPN-tunnel1
+tunnel-group-map ca-map2 20 VPN-tunnel2
+END
+
+$in = <<'END';
+tunnel-group tunnel-a type remote-access
+tunnel-group tunnel-a general-attributes
+tunnel-group tunnel-a ipsec-attributes
+ trust-point ASDM_TrustPoint2
+tunnel-group tunnel-b type remote-access
+tunnel-group tunnel-b general-attributes
+tunnel-group tunnel-b ipsec-attributes
+ peer-id-validate req
+ isakmp ikev1-user-authentication none
+ trust-point ASDM_TrustPoint1
+crypto ca certificate map map-a 11
+ extended-key-usage co clientauth
+ subject-name attr ea eq X@A.example.com
+crypto ca certificate map map-b 12
+ subject-name attr ea co @b.EXAMPLE.com
+tunnel-group-map map-a 20 tunnel-a
+tunnel-group-map map-b 20 tunnel-b
+END
+
+$out = <<'END';
+tunnel-group VPN-tunnel1 ipsec-attributes
+peer-id-validate req
+isakmp ikev1-user-authentication none
+END
+
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Ignore ca certificate map with duplicate subject";
+############################################################
+$device = <<'END';
+crypto ca certificate map map1 10
+ subject-name attr ea co @sub.example.com
+crypto ca certificate map map2 10
+ subject-name attr ea co @sub.example.com
+tunnel-group VPN-tunnel1 type remote-access
+tunnel-group VPN-tunnel1 general-attributes
+tunnel-group VPN-tunnel1 ipsec-attributes
+ trust-point ASDM_TrustPoint1
+tunnel-group-map map2 10 VPN-tunnel1
+END
+
+$in = <<'END';
+crypto ca certificate map map-b 12
+ subject-name attr ea co @SUB.EXAMPLE.com
+tunnel-group tunnel-b type remote-access
+tunnel-group tunnel-b general-attributes
+tunnel-group tunnel-b ipsec-attributes
+ peer-id-validate req
+ isakmp ikev1-user-authentication none
+ trust-point ASDM_TrustPoint1
+tunnel-group-map map-b 12 tunnel-b
+END
+
+$out = <<'END';
+tunnel-group VPN-tunnel1 ipsec-attributes
+peer-id-validate req
+isakmp ikev1-user-authentication none
+END
+
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Remove tunnel-group, crypto-ca-cert-map, tunnel-group-map";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel general-attributes
 tunnel-group VPN-tunnel ipsec-attributes
@@ -993,8 +1299,8 @@ $in = <<'END';
 END
 
 $out = <<'END';
+no tunnel-group-map ca-map 20 VPN-tunnel
 clear configure crypto ca certificate map ca-map
-no tunnel-group VPN-tunnel ipsec-attributes
 clear configure tunnel-group VPN-tunnel
 END
 
@@ -1003,8 +1309,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Modify tunnel-group ipsec-attributes";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel general-attributes
 tunnel-group VPN-tunnel ipsec-attributes
@@ -1026,18 +1331,188 @@ END
 
 $out = <<'END';
 tunnel-group VPN-tunnel ipsec-attributes
+no trust-point ASDM_TrustPoint4
 trust-point ASDM_TrustPoint5
+END
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Break up identical references to group-policy";
+############################################################
+$device = <<'END';
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list vpn-filter extended permit ip host 10.1.2.2 host 10.1.0.2
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ address-pools value pool
+ vpn-filter value vpn-filter
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy VPN-group
+tunnel-group 1.1.1.2 type ipsec-l2l
+tunnel-group 1.1.1.2 general-attributes
+ default-group-policy VPN-group
+END
+
+$in = <<'END';
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list vpn-filter1 extended permit ip host 10.1.2.2 host 10.1.0.2
+access-list vpn-filter2 extended permit ip host 10.1.2.3 host 10.1.0.3
+group-policy VPN-group1 internal
+group-policy VPN-group1 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter1
+group-policy VPN-group2 internal
+group-policy VPN-group2 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter2
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy VPN-group1
+tunnel-group 1.1.1.2 type ipsec-l2l
+tunnel-group 1.1.1.2 general-attributes
+ default-group-policy VPN-group2
+END
+
+$out = <<'END';
+group-policy VPN-group2-DRC-0 internal
+access-list vpn-filter2-DRC-0 extended permit ip host 10.1.2.3 host 10.1.0.3
+group-policy VPN-group2-DRC-0 attributes
+address-pools value pool
+vpn-filter value vpn-filter2-DRC-0
+tunnel-group 1.1.1.2 general-attributes
+default-group-policy VPN-group2-DRC-0
+END
+
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Remove group-policy from Netspoc left over on device";
+############################################################
+$device = <<'END';
+ip local pool pool-DRC-0 10.1.23.0-10.1.23.127 mask 255.255.255.128
+group-policy VPN-group-DRC-0 internal
+group-policy VPN-group-DRC-0 attributes
+ vpn-idle-timeout 120
+ address-pools value pool-DRC-0
+group-policy VPN-group-DRC-1 internal
+group-policy VPN-group-DRC-1 attributes
+ banner value Willkommen beim Dataport VPN Service XCS-Admin
+ vpn-idle-timeout 120
+ address-pools value pool-DRC-0
+END
+
+$in = '';
+
+$out = <<'END';
+clear configure group-policy VPN-group-DRC-0
+clear configure group-policy VPN-group-DRC-1
+no ip local pool pool-DRC-0 10.1.23.0-10.1.23.127 mask 255.255.255.128
+END
+
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Remove tunnel- and certificate-group-map with all refs";
+############################################################
+$device = <<'END';
+access-list vpn-filter extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ address-pools value pool
+ vpn-filter value vpn-filter
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ default-group-policy VPN-group
+tunnel-group-map ca-map 20 VPN-tunnel
+webvpn
+ certificate-group-map ca-map 20 VPN-tunnel
+END
+
+$in = <<'END';
+END
+
+$out = <<'END';
+webvpn
+no certificate-group-map ca-map 20 VPN-tunnel
+no tunnel-group-map ca-map 20 VPN-tunnel
+clear configure crypto ca certificate map ca-map
+clear configure tunnel-group VPN-tunnel
+clear configure group-policy VPN-group
+clear configure access-list vpn-filter
+no ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+END
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Break up identical references to tunnel-group";
+############################################################
+$device = <<'END';
+access-list vpn-filter extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ address-pools value pool
+ vpn-filter value vpn-filter
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ default-group-policy VPN-group
+tunnel-group-map ca-map 20 VPN-tunnel
+webvpn
+ certificate-group-map ca-map 20 VPN-tunnel
+END
+
+$in = <<'END';
+access-list vpn-filter1 extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
+access-list vpn-filter2 extended permit ip 10.1.2.192 255.255.255.192 10.2.0.0 255.255.255.0
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+group-policy VPN-group1 internal
+group-policy VPN-group1 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter1
+group-policy VPN-group2 internal
+group-policy VPN-group2 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter2
+tunnel-group VPN-tunnel1 type remote-access
+tunnel-group VPN-tunnel1 general-attributes
+ default-group-policy VPN-group1
+tunnel-group VPN-tunnel2 type remote-access
+tunnel-group VPN-tunnel2 general-attributes
+ default-group-policy VPN-group2
+tunnel-group-map ca-map 20 VPN-tunnel1
+webvpn
+ certificate-group-map ca-map 20 VPN-tunnel2
+END
+
+$out = <<'END';
+tunnel-group VPN-tunnel2-DRC-0 type remote-access
+group-policy VPN-group2-DRC-0 internal
+access-list vpn-filter2-DRC-0 extended permit ip 10.1.2.192 255.255.255.192 10.2.0.0 255.255.255.0
+group-policy VPN-group2-DRC-0 attributes
+address-pools value pool
+vpn-filter value vpn-filter2-DRC-0
+tunnel-group VPN-tunnel2-DRC-0 general-attributes
+default-group-policy VPN-group2-DRC-0
+webvpn
+certificate-group-map ca-map 20 VPN-tunnel2-DRC-0
 END
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Change IP tunnel-group to mapped tunnel-group";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 tunnel-group 193.155.130.20 type ipsec-l2l
 tunnel-group 193.155.130.20 ipsec-attributes
- pre-shared-key *
+ ikev1 pre-shared-key *
  peer-id-validate nocheck
 END
 
@@ -1053,47 +1528,28 @@ tunnel-group-map ca-map 20 193.155.130.20
 END
 
 $out = <<'END';
-tunnel-group 193.155.130.20 type ipsec-l2l
-tunnel-group 193.155.130.20 ipsec-attributes
-ikev2 local-authentication certificate Trustpoint2
-ikev2 remote-authentication certificate
-trust-point ASDM_TrustPoint5
 crypto ca certificate map ca-map-DRC-0 10
 subject-name attr ea eq some@example.com
-tunnel-group-map ca-map-DRC-0 10 193.155.130.20
-no tunnel-group 193.155.130.20 ipsec-attributes
-clear configure tunnel-group 193.155.130.20
+tunnel-group 193.155.130.20 ipsec-attributes
+no peer-id-validate nocheck
+trust-point ASDM_TrustPoint5
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+tunnel-group-map ca-map-DRC-0 20 193.155.130.20
 END
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
-$title = "Missing type definition for tunnel-group";
-############################################################
-
-$device = $minimal_device;
-$device .= <<'END';
-tunnel-group tunnel1 ipsec-attributes
- ikev2 local-authentication certificate Trustpoint2
- ikev2 remote-authentication certificate
-END
-
-$out = <<'END';
-ERROR>>> Missing type definition for tunnel-group tunnel1
-END
-test_err($title, 'ASA', $device, $device, $out);
-
-############################################################
 $title = "tunnelgroup-map references unknown tunnel-group";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 crypto ca certificate map ca-map 10
  subject-name attr ea eq some@example.com
 tunnel-group-map ca-map 20 193.155.130.20
 END
 
 $out = <<'END';
-ERROR>>> 'tunnel-group-map ca-map 20 193.155.130.20' references unknown tunnel-group 193.155.130.20
+ERROR>>> While reading test-conf: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'tunnel-group 193.155.130.20'
 END
 test_err($title, 'ASA', $device, $device, $out);
 
@@ -1101,8 +1557,7 @@ test_err($title, 'ASA', $device, $device, $out);
 $title = "Must not delete default tunnel-group";
 ############################################################
 
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 tunnel-group DefaultRAGroup ipsec-attributes
  ikev2 local-authentication certificate Trustpoint2
  ikev2 remote-authentication certificate
@@ -1119,8 +1574,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Modify ip local pool";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
 group-policy VPN-group internal
 group-policy VPN-group attributes
@@ -1157,8 +1611,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Add webvpn-attributes, delete ipsec-attributes";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 tunnel-group NAME type remote-access
 tunnel-group NAME ipsec-attributes
  trust-point ASDM_TrustPoint5
@@ -1177,17 +1630,16 @@ tunnel-group-map ca-map 20 VPN-tunnel
 END
 
 $out = <<'END';
+no tunnel-group NAME ipsec-attributes
 tunnel-group NAME webvpn-attributes
 authentication aaa
-no tunnel-group NAME ipsec-attributes
 END
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Add extended-key-usage";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 tunnel-group NAME type remote-access
 tunnel-group NAME ipsec-attributes
  trust-point ASDM_TrustPoint5
@@ -1215,8 +1667,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Remove extended-key-usage";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 tunnel-group NAME type remote-access
 tunnel-group NAME ipsec-attributes
  trust-point ASDM_TrustPoint5
@@ -1244,8 +1695,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Change extended-key-usage";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 tunnel-group NAME type remote-access
 tunnel-group NAME ipsec-attributes
  trust-point ASDM_TrustPoint5
@@ -1265,12 +1715,9 @@ crypto ca certificate map ca-map 10
 tunnel-group-map ca-map 20 VPN-tunnel
 END
 
-# ToDo:
-# Old value should be removed first:
-# no extended-key-usage co 1.3.6.1.4.1.311.20.2.2
-# This has to be done manually now.
 $out = <<'END';
 crypto ca certificate map ca-map 10
+no extended-key-usage co 1.3.6.1.4.1.311.20.2.2
 extended-key-usage co clientauth
 END
 test_run($title, 'ASA', $device, $in, $out);
@@ -1278,8 +1725,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Add certificate-group-map";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = <<'END';
 tunnel-group NAME type remote-access
 tunnel-group NAME ipsec-attributes
  trust-point ASDM_TrustPoint5
@@ -1301,15 +1747,14 @@ END
 
 $out = <<'END';
 webvpn
-certificate-group-map ca-map 10 NAME
+certificate-group-map ca-map 20 NAME
 END
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Delete tunnel-group";
 ############################################################
-$device  = $minimal_device;
-$device .= <<'END';
+$device  = <<'END';
 tunnel-group 193.155.130.20 type ipsec-l2l
 tunnel-group 193.155.130.20 ipsec-attributes
  pre-shared-key *
@@ -1320,7 +1765,6 @@ $in = <<'END';
 END
 
 $out = <<'END';
-no tunnel-group 193.155.130.20 ipsec-attributes
 clear configure tunnel-group 193.155.130.20
 END
 test_run($title, 'ASA', $device, $in, $out);
@@ -1328,99 +1772,156 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Insert and delete entries from crypto map sequence";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = $crypto_ASA . <<'END';
 crypto ipsec ikev1 transform-set Trans1a esp-3des esp-md5-hmac
 crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 crypto ipsec ikev1 transform-set Trans2 esp-aes-192 esp-sha-hmac
 crypto ipsec ikev2 ipsec-proposal Proposal1
- protocol esp encryption aes192 aes 3des
- protocol esp integrity  sha
-access-list crypto-outside-1 extended permit ip any 10.0.1.0 255.255.255.0
+ protocol esp encryption aes-192 aes 3des
+ protocol esp integrity sha-1
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.1
 crypto map crypto-outside 1 set ikev1 transform-set Trans1b
-access-list crypto-outside-3 extended permit ip any 10.0.3.0 255.255.255.0
+access-list crypto-outside-3 extended permit ip any4 10.0.3.0 255.255.255.0
 crypto map crypto-outside 3 match address crypto-outside-3
 crypto map crypto-outside 3 set peer 10.0.0.3
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1
-crypto map crypto-outside 3 set pfs group2
+crypto map crypto-outside 3 set pfs
+crypto map crypto-outside interface outside
 END
 
 $in = <<'END';
 crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
 crypto ipsec ikev2 ipsec-proposal Proposal1
- protocol esp encryption aes192 aes256
- protocol esp integrity  sha
-access-list crypto-outside-1 extended permit ip any 10.0.2.0 255.255.255.0
+ protocol esp encryption aes-192 aes-256
+ protocol esp integrity  sha-1
+access-list crypto-outside-1 extended permit ip any4 10.0.2.0 255.255.255.0
 crypto map crypto-outside 1 match address crypto-outside-1
 crypto map crypto-outside 1 set peer 10.0.0.2
 crypto map crypto-outside 1 set ikev1 transform-set Trans1
-crypto map crypto-outside 1 set pfs group1
+crypto map crypto-outside 1 set pfs group5
 crypto map crypto-outside 3 set peer 10.0.0.3
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1
-crypto map crypto-outside 3 set pfs group1
+crypto map crypto-outside 3 set pfs group2
+crypto map crypto-outside interface outside
 END
 
 $out = <<'END';
-access-list crypto-outside-1-DRC-0 extended permit ip any 10.0.2.0 255.255.255.0
-crypto map crypto-outside 2 set peer 10.0.0.2
-crypto map crypto-outside 2 set pfs group1
-crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
-no crypto map crypto-outside 2 set ikev1 transform-set
-crypto map crypto-outside 2 set ikev1 transform-set Trans1a
-crypto ipsec ikev2 ipsec-proposal Proposal1-DRC-0
-protocol esp encryption aes192 aes256
-protocol esp integrity sha
-no crypto map crypto-outside 3 set ikev2 ipsec-proposal
-crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1-DRC-0
-crypto map crypto-outside 3 set pfs group1
-clear configure crypto map crypto-outside 1
 no crypto map crypto-outside 3 match address crypto-outside-3
-no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
-no crypto ipsec ikev2 ipsec-proposal Proposal1
-clear configure access-list crypto-outside-1
+crypto ipsec ikev2 ipsec-proposal Proposal1-DRC-0
+protocol esp encryption aes-192 aes-256
+protocol esp integrity sha-1
+no crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1
+crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1-DRC-0
+access-list crypto-outside-1-DRC-0 extended permit ip any4 10.0.2.0 255.255.255.0
+crypto map crypto-outside 2 match address crypto-outside-1-DRC-0
+crypto map crypto-outside 2 set peer 10.0.0.2
+crypto map crypto-outside 2 set ikev1 transform-set Trans1a
+crypto map crypto-outside 2 set pfs group5
 clear configure access-list crypto-outside-3
+no crypto ipsec ikev2 ipsec-proposal Proposal1
+no crypto map crypto-outside 1 match address crypto-outside-1
+no crypto map crypto-outside 1 set peer 10.0.0.1
+no crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+clear configure access-list crypto-outside-1
+no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 END
 
 test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
-$title = "Too many encryption types";
+$title = "Incorporate unreferenced crypto map entry on device";
 ############################################################
-$device = <<'END';
-crypto ipsec ikev2 ipsec-proposal Proposal1
- protocol esp encryption aes192 aes 3des des
+$device = $crypto_ASA . <<'END';
+crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
+crypto ipsec ikev1 transform-set Trans3 esp-aes-192 esp-sha-hmac
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1
+crypto map crypto-outside 1 set pfs group5
+crypto map crypto-outside 3 set peer 10.0.0.3
+crypto map crypto-outside 3 set ikev1 transform-set Trans3
+crypto map crypto-outside 3 set pfs
+END
+
+$in = <<'END';
+crypto ipsec ikev1 transform-set Trans2 esp-3des esp-md5-hmac
+crypto map crypto-outside 1 set peer 10.0.0.2
+crypto map crypto-outside 1 set ikev1 transform-set Trans2
+crypto map crypto-outside 1 set pfs group5
+crypto map crypto-outside 3 set peer 10.0.0.3
+crypto map crypto-outside 3 set ikev1 transform-set Trans2
+crypto map crypto-outside 3 set pfs group5
+crypto map crypto-outside interface outside
 END
 
 $out = <<'END';
-ERROR>>> Unexpected token 'des'
-ERROR>>>  at line 2, pos 7:
-ERROR>>> >>protocol esp encryption aes192 aes 3des des<<
+no crypto map crypto-outside 3 set pfs
+no crypto map crypto-outside 3 set ikev1 transform-set Trans3
+crypto map crypto-outside 3 set ikev1 transform-set Trans1
+crypto map crypto-outside 3 set pfs group5
+crypto map crypto-outside 2 set peer 10.0.0.2
+crypto map crypto-outside 2 set ikev1 transform-set Trans1
+crypto map crypto-outside 2 set pfs group5
+crypto map crypto-outside interface outside
+no crypto ipsec ikev1 transform-set Trans3 esp-aes-192 esp-sha-hmac
+no crypto map crypto-outside 1 set peer 10.0.0.1
+no crypto map crypto-outside 1 set ikev1 transform-set Trans1
+no crypto map crypto-outside 1 set pfs group5
 END
 
-test_err($title, 'ASA', $device, $device, $out);
+test_run($title, 'ASA', $device, $in, $out);
+
+############################################################
+$title = "Remove crypto map";
+############################################################
+$device = $crypto_ASA . <<'END';
+crypto ipsec ikev1 transform-set Trans1b-DRC-0 esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1b-DRC-0
+crypto map crypto-outside interface outside
+END
+
+$in = <<'END';
+access-list outside_in extended deny ip any4 any4
+access-group outside_in in interface outside
+END
+
+$out = <<'END';
+access-list outside_in-DRC-0 extended deny ip any4 any4
+access-group outside_in-DRC-0 in interface outside
+no crypto map crypto-outside interface outside
+no crypto map crypto-outside 1 match address crypto-outside-1
+no crypto map crypto-outside 1 set peer 10.0.0.1
+no crypto map crypto-outside 1 set ikev1 transform-set Trans1b-DRC-0
+clear configure access-list crypto-outside-1
+no crypto ipsec ikev1 transform-set Trans1b-DRC-0 esp-3des esp-md5-hmac
+END
+
+test_run($title, 'ASA', $device, $in, $out);
 
 ############################################################
 $title = "Insert, change and delete dynamic crypto map";
 ############################################################
-$device = $minimal_device;
-$device .= <<'END';
+$device = $crypto_ASA . <<'END';
 crypto ipsec ikev1 transform-set Trans1a esp-3des esp-md5-hmac
 crypto ipsec ikev1 transform-set Trans1b esp-3des esp-sha-hmac
 crypto ipsec ikev1 transform-set Trans3 esp-aes-256 esp-md5-hmac
 access-list crypto-outside-65535 extended permit ip 10.1.1.0 255.255.255.0 10.99.2.0 255.255.255.0
 access-list crypto-outside-65534 extended permit ip 10.1.3.0 255.255.255.0 10.99.2.0 255.255.255.0
 access-list crypto-outside-65533 extended permit ip 10.1.4.0 255.255.255.0 10.99.2.0 255.255.255.0
-crypto dynamic-map name1@example.com 20 match address crypto-outside-65535
-crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a Trans3
-crypto dynamic-map name1@example.com 20 set pfs group2
-crypto dynamic-map name3@example.com 20 match address crypto-outside-65534
 crypto dynamic-map name4@example.com 40 match address crypto-outside-65533
 crypto dynamic-map name4@example.com 40 set ikev1 transform-set Trans1a Trans1b
-crypto map crypto-outside 65535 ipsec-isakmp dynamic name1@example.com
-crypto map crypto-outside 65534 ipsec-isakmp dynamic name3@example.com
+crypto dynamic-map name3@example.com 20 match address crypto-outside-65534
+crypto dynamic-map name1@example.com 20 match address crypto-outside-65535
+crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a Trans3
+crypto dynamic-map name1@example.com 20 set pfs
 crypto map crypto-outside 65533 ipsec-isakmp dynamic name4@example.com
+crypto map crypto-outside 65534 ipsec-isakmp dynamic name3@example.com
+crypto map crypto-outside 65535 ipsec-isakmp dynamic name1@example.com
+crypto map crypto-outside interface outside
 END
 
 $in = <<'END';
@@ -1429,31 +1930,32 @@ crypto ipsec ikev1 transform-set Trans2 esp-aes esp-md5-hmac
 access-list crypto-outside-1 extended permit ip 10.1.1.0 255.255.255.0 10.99.2.0 255.255.255.0
 access-list crypto-outside-2 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
 access-list crypto-outside-3 extended permit ip 10.1.3.0 255.255.255.0 10.99.2.0 255.255.255.0
-crypto dynamic-map name1@example.com 20 match address crypto-outside-1
-crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
-crypto dynamic-map name2@example.com 20 match address crypto-outside-2
 crypto dynamic-map name3@example.com 20 match address crypto-outside-3
 crypto dynamic-map name3@example.com 20 set ikev1 transform-set Trans1 Trans2
-crypto map crypto-outside 65534 ipsec-isakmp dynamic name1@example.com
-crypto map crypto-outside 65533 ipsec-isakmp dynamic name2@example.com
+crypto dynamic-map name2@example.com 20 match address crypto-outside-2
+crypto dynamic-map name1@example.com 20 match address crypto-outside-1
+crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
 crypto map crypto-outside 65532 ipsec-isakmp dynamic name3@example.com
+crypto map crypto-outside 65533 ipsec-isakmp dynamic name2@example.com
+crypto map crypto-outside 65534 ipsec-isakmp dynamic name1@example.com
+crypto map crypto-outside interface outside
 END
 
 $out = <<'END';
 crypto ipsec ikev1 transform-set Trans2-DRC-0 esp-aes esp-md5-hmac
-no crypto dynamic-map name3@example.com 20 set ikev1 transform-set
 crypto dynamic-map name3@example.com 20 set ikev1 transform-set Trans1a Trans2-DRC-0
+no crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a Trans3
+no crypto dynamic-map name1@example.com 20 set pfs
+crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
 access-list crypto-outside-2-DRC-0 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
 crypto dynamic-map name2@example.com 20 match address crypto-outside-2-DRC-0
-crypto map crypto-outside 65532 ipsec-isakmp dynamic name2@example.com
-crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
-clear configure crypto map crypto-outside 65533
-no crypto dynamic-map name1@example.com 20 set pfs group2
-no crypto dynamic-map name1@example.com 20 set ikev1 transform-set Trans1a Trans3
-clear configure crypto dynamic-map name4@example.com 40
-no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-sha-hmac
+crypto map crypto-outside 1 ipsec-isakmp dynamic name2@example.com
 no crypto ipsec ikev1 transform-set Trans3 esp-aes-256 esp-md5-hmac
+no crypto map crypto-outside 65533 ipsec-isakmp dynamic name4@example.com
+no crypto dynamic-map name4@example.com 40 match address crypto-outside-65533
+no crypto dynamic-map name4@example.com 40 set ikev1 transform-set Trans1a Trans1b
 clear configure access-list crypto-outside-65533
+no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-sha-hmac
 END
 
 test_run($title, 'ASA', $device, $in, $out);
@@ -1514,10 +2016,10 @@ test_run($title, 'ASA', $in, $in, $out);
 ############################################################
 $title = "Transfer aaa-server manually";
 ############################################################
-$device = $minimal_device;
+$device = '';
 
 $out = <<'END';
-ERROR>>> AUTH_SERVER LDAP_KV must be transferred manually
+ERROR>>> 'aaa-server LDAP_KV' must be transferred manually
 END
 
 test_err($title, 'ASA', $device, $in, $out);
@@ -1525,7 +2027,7 @@ test_err($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Transfer ldap map manually";
 ############################################################
-$device = $minimal_device. <<'END';
+$device = <<'END';
 ! vpn-filter-G1
 crypto ca certificate map ca-map-G1 10
  subject-name attr cn co G1
@@ -1549,7 +2051,7 @@ aaa-server LDAP_KV (inside) host 10.2.8.16
 END
 
 $out = <<'END';
-ERROR>>> LDAP_MAP LDAPMAP-DRC-0 must be transferred manually
+ERROR>>> 'ldap attribute-map LDAPMAP' must be transferred manually
 END
 
 test_err($title, 'ASA', $device, $in, $out);
@@ -1557,7 +2059,7 @@ test_err($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Reject aaa-server with different ldap maps";
 ############################################################
-$device = $minimal_device. <<'END';
+$device = <<'END';
 ! vpn-filter-G1
 crypto ca certificate map ca-map-G1 10
  subject-name attr cn co G1
@@ -1587,7 +2089,7 @@ test_err($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Find existant aaa-server and ldap-map on device";
 ############################################################
-$device = $minimal_device. <<'END';
+$device = <<'END';
 aaa-server ABC protocol ldap
 aaa-server ABC (inside) host 1.2.8.15
  ldap-attribute-map OTHER
@@ -1606,28 +2108,27 @@ ldap attribute-map LDAPMAP
 END
 
 $out = <<'END';
+crypto ca certificate map ca-map-G1-DRC-0 10
+subject-name attr cn co g1
 tunnel-group VPN-tunnel-G1-DRC-0 type remote-access
+group-policy VPN-group-G1-DRC-0 internal
+ip local pool pool-G1-DRC-0 10.3.4.8-10.3.4.15 mask 255.255.255.248
 access-list vpn-filter-G1-DRC-0 extended permit ip 10.3.4.8 255.255.255.248 any4
 access-list vpn-filter-G1-DRC-0 extended deny ip any4 any4
-ip local pool pool-G1-DRC-0 10.3.4.8-10.3.4.15 mask 255.255.255.248
-group-policy VPN-group-G1-DRC-0 internal
-group-policy VPN-group-G1-DRC-0 attributes
 group-policy VPN-group-G1-DRC-0 attributes
 address-pools value pool-G1-DRC-0
 vpn-filter value vpn-filter-G1-DRC-0
 ldap attribute-map LDAPMAP
 map-value memberOf "CN=g-m1,OU=VPN,OU=group,DC=example,DC=com" VPN-group-G1-DRC-0
+group-policy VPN-group-G2-DRC-0 internal
+ip local pool pool-G2-DRC-0 10.3.4.16-10.3.4.23 mask 255.255.255.248
 access-list vpn-filter-G2-DRC-0 extended permit ip 10.3.4.16 255.255.255.248 any4
 access-list vpn-filter-G2-DRC-0 extended deny ip any4 any4
-ip local pool pool-G2-DRC-0 10.3.4.16-10.3.4.23 mask 255.255.255.248
-group-policy VPN-group-G2-DRC-0 internal
-group-policy VPN-group-G2-DRC-0 attributes
 group-policy VPN-group-G2-DRC-0 attributes
 address-pools value pool-G2-DRC-0
 vpn-filter value vpn-filter-G2-DRC-0
 ldap attribute-map LDAPMAP
 map-value memberOf "CN=g-m2,OU=VPN,OU=local group,DC=example,DC=com" VPN-group-G2-DRC-0
-tunnel-group VPN-tunnel-G1-DRC-0 general-attributes
 tunnel-group VPN-tunnel-G1-DRC-0 general-attributes
 authentication-server-group LDAP_KV
 tunnel-group VPN-tunnel-G1-DRC-0 ipsec-attributes
@@ -1635,8 +2136,6 @@ ikev1 trust-point ASDM_TrustPoint1
 ikev1 user-authentication none
 tunnel-group VPN-tunnel-G1-DRC-0 webvpn-attributes
 authentication aaa certificate
-crypto ca certificate map ca-map-G1-DRC-0 10
-subject-name attr cn co g1
 tunnel-group-map ca-map-G1-DRC-0 10 VPN-tunnel-G1-DRC-0
 webvpn
 certificate-group-map ca-map-G1-DRC-0 10 VPN-tunnel-G1-DRC-0
@@ -1647,7 +2146,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Change authentication server at tunnel-group";
 ############################################################
-$device = $minimal_device. <<'END';
+$device = <<'END';
 
 access-list vpn-filter-G1 extended permit ip 10.3.4.8 255.255.255.248 any4
 access-list vpn-filter-G1 extended deny ip any4 any4
@@ -1712,7 +2211,7 @@ test_run($title, 'ASA', $device, $in, $out);
 ############################################################
 $title = "Insert, unchanged and remove ldap map-value";
 ############################################################
-$device = $minimal_device. <<'END';
+$device = <<'END';
 
 access-list vpn-filter-G2 extended permit ip 10.3.4.16 255.255.255.248 any4
 access-list vpn-filter-G2 extended deny ip any4 any4
@@ -1751,18 +2250,21 @@ aaa-server LDAP_KV (inside) host 10.2.8.16
  ldap-login-dn CN=VPN,OU=Admin,DC=example,DC=com
  ldap-attribute-map LDAPMAP
 
+! With two spaces of indentation and indented first argument
+! Also two spaces in strings argument.
 ldap attribute-map LDAPMAP
- map-name memberOf Group-Policy
- map-value memberOf "CN=g-m3,OU=VPN,OU=hi  h\"o\" x,DC=example,DC=com" VPN-group-G3
- map-value memberOf "CN=g-m2,OU=VPN,OU=local group,DC=example,DC=com" VPN-group-G2
+  map-name  memberOf Group-Policy
+  map-value memberOf "CN=g-m3,OU=VPN,OU=hi  h\"o\" x,DC=example,DC=com" VPN-group-G3
+  map-value memberOf "CN=g-m2,OU=VPN,OU=local group,DC=example,DC=com" VPN-group-G2
 END
 
 $out = <<'END';
+ldap attribute-map LDAPMAP
+no map-value memberOf "CN=g-m3,OU=VPN,OU=hi h\"o\" x,DC=example,DC=com" VPN-group-G3
+group-policy VPN-group-G1-DRC-0 internal
+ip local pool pool-G1-DRC-0 10.3.4.8-10.3.4.15 mask 255.255.255.248
 access-list vpn-filter-G1-DRC-0 extended permit ip 10.3.4.8 255.255.255.248 any4
 access-list vpn-filter-G1-DRC-0 extended deny ip any4 any4
-ip local pool pool-G1-DRC-0 10.3.4.8-10.3.4.15 mask 255.255.255.248
-group-policy VPN-group-G1-DRC-0 internal
-group-policy VPN-group-G1-DRC-0 attributes
 group-policy VPN-group-G1-DRC-0 attributes
 address-pools value pool-G1-DRC-0
 vpn-filter value vpn-filter-G1-DRC-0
@@ -1771,13 +2273,30 @@ map-value memberOf "CN=g-m1,OU=VPN,OU=group,DC=example,DC=com" VPN-group-G1-DRC-
 webvpn
 certificate-group-map ca-map-G1 10 VPN-tunnel-G1
 clear configure group-policy VPN-group-G3
-ldap attribute-map LDAPMAP
-no map-value memberOf "CN=g-m3,OU=VPN,OU=hi  h\"o\" x,DC=example,DC=com" VPN-group-G3
 clear configure access-list vpn-filter-G3
 no ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
 END
 
 test_run($title, 'ASA', $device, $in, $out);
 
+############################################################
+$title = "Mixed indentation of ldap map-value";
+############################################################
+$device = <<'END';
+
+! With mixed indentation
+ldap attribute-map LDAPMAP
+  map-name memberOf Group-Policy
+ map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com" VPN-group-G1
+  map-value memberOf "CN=g-m2,OU=VPN,DC=example,DC=com" VPN-group-G2
+END
+
+$out = <<'END';
+ERROR>>> While reading test-conf: Bad indentation in subcommands:
+>>  map-name memberOf Group-Policy<<
+>> map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com" VPN-group-G1<<
+END
+
+test_err($title, 'ASA', $device, '', $out);
 ############################################################
 done_testing;

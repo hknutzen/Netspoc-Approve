@@ -17,27 +17,28 @@ import (
 )
 
 type RealDevice interface {
-	LoadDevice(path string, c *Config, l1, l2 *os.File) (DeviceConfig, error)
-	ParseConfig(data []byte) (DeviceConfig, error)
-	GetChanges(c1, c2 DeviceConfig) ([]error, error)
+	LoadDevice(fname string, c *Config, l1, l2 *os.File) (DeviceConfig, error)
+	ParseConfig(data []byte, fName string) (DeviceConfig, error)
+	GetChanges(c1, c2 DeviceConfig) error
+	GetErrUnmanaged() []error
 	ApplyCommands(*os.File) error
 	HasChanges() bool
 	ShowChanges() string
+	CloseConnection()
 }
 
 type DeviceConfig interface {
 	MergeSpoc(DeviceConfig) DeviceConfig
-	SetExpectedDeviceName(string)
-	CheckDeviceName() error
 	CheckRulesFromRaw() error
 }
 
 type state struct {
 	RealDevice
-	config  *Config
-	logPath string
-	quiet   bool
+	config   *Config
+	logFname string
 }
+
+var quiet bool
 
 func Main(device RealDevice) int {
 	fs := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
@@ -52,7 +53,7 @@ func Main(device RealDevice) int {
 	}
 
 	// Command line flags
-	quiet := fs.BoolP("quiet", "q", false, "No info messages")
+	fs.BoolVarP(&quiet, "quiet", "q", false, "No info messages")
 	compare := fs.BoolP("compare", "C", false, "Compare only")
 	logDir := fs.StringP("logdir", "L", "", "Path for saving session logs")
 	//user := fs.StringP("user", "u", "", "Username for login to remote device")
@@ -67,7 +68,6 @@ func Main(device RealDevice) int {
 
 	var err error
 	s := &state{RealDevice: device}
-	s.quiet = *quiet
 
 	// Argument processing
 	args := fs.Args()
@@ -89,53 +89,67 @@ func Main(device RealDevice) int {
 			fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
 			return 1
 		}
-		path := args[0]
-		s.setLogDir(*logDir, path)
+		fname := args[0]
+		s.setLogDir(*logDir, fname)
 		if *compare {
-			err = s.compare(path)
+			err = s.compare(fname)
 		} else {
-			err = s.approve(path)
+			err = s.approve(fname)
 		}
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
 		return 1
 	}
+	s.CloseConnection()
 	return 0
 }
 
-func (s *state) compareFiles(path1, path2 string) error {
-	conf1, err := s.loadSpoc(path1)
+func (s *state) compareFiles(fname1, fname2 string) error {
+	conf1, err := s.loadSpoc(fname1)
 	if err != nil {
 		return err
 	}
-	return s.showCompare(conf1, path2)
-}
-
-func (s *state) compare(path string) error {
-	conf1, err := s.loadDevice(path)
+	err = s.getCompare(conf1, fname2)
 	if err != nil {
 		return err
 	}
-	if err := s.showCompare(conf1, path); err != nil {
-		return err
-	}
+	s.showCompare()
 	return nil
 }
 
-func (s *state) approve(path string) error {
-	conf1, err := s.loadDevice(path)
+func (s *state) compare(fname string) error {
+	err := s.compareDevice(fname)
 	if err != nil {
 		return err
 	}
-	err = s.getCompare(conf1, path, errT)
+	for _, w := range s.GetErrUnmanaged() {
+		Warning("%v", w)
+	}
+	s.showCompare()
+	return nil
+}
+
+func (s *state) approve(fname string) error {
+	err := s.compareDevice(fname)
 	if err != nil {
 		return err
+	}
+	if l := s.GetErrUnmanaged(); err != nil {
+		return l[0]
 	}
 	return s.applyCommands()
 }
 
-func (s *state) loadDevice(path string) (DeviceConfig, error) {
+func (s *state) compareDevice(fname string) error {
+	conf1, err := s.loadDevice(fname)
+	if err != nil {
+		return err
+	}
+	return s.getCompare(conf1, fname)
+}
+
+func (s *state) loadDevice(fname string) (DeviceConfig, error) {
 	logConfig, err := s.getLogFH(".config")
 	if err != nil {
 		return nil, err
@@ -146,7 +160,7 @@ func (s *state) loadDevice(path string) (DeviceConfig, error) {
 		return nil, err
 	}
 	defer closeLogFH(logLogin)
-	return s.LoadDevice(path, s.config, logLogin, logConfig)
+	return s.LoadDevice(fname, s.config, logLogin, logConfig)
 }
 
 func (s *state) applyCommands() error {
@@ -157,66 +171,30 @@ func (s *state) applyCommands() error {
 	defer closeLogFH(logFH)
 	if !s.HasChanges() {
 		DoLog(logFH, "No changes applied")
+		return nil
 	}
 	return s.ApplyCommands(logFH)
 }
 
-func (s *state) showCompare(conf1 DeviceConfig, path string) error {
-	err := s.getCompare(conf1, path, warnT)
-	if err != nil {
-		return err
-	}
+func (s *state) showCompare() {
 	if !s.HasChanges() {
-		s.info("comp: device unchanged\n")
+		Info("comp: device unchanged")
 	} else {
-		s.info("comp: *** device changed ***\n")
+		Info("comp: *** device changed ***")
 		fmt.Print(s.ShowChanges())
 	}
-	return nil
 }
 
-func (s *state) info(format string, args ...interface{}) {
-	if !s.quiet {
-		fmt.Fprintf(os.Stderr, format, args...)
-	}
-}
-
-type warnOrErr int
-
-const (
-	errT = iota
-	warnT
-)
-
-func (s *state) getCompare(c1 DeviceConfig, path string, chk warnOrErr) error {
-	c2, err := s.loadSpoc(path)
+func (s *state) getCompare(c1 DeviceConfig, fname string) error {
+	c2, err := s.loadSpoc(fname)
 	if err != nil {
 		return err
 	}
-	warnings, err := s.GetChanges(c1, c2)
-	if err != nil {
-		return err
-	}
-	if warnings != nil {
-		if chk == errT {
-			return warnings[0]
-		}
-		for _, w := range warnings {
-			warning("%v", w)
-		}
-	}
-	// Check hostname only after config has been validated in GetChanges.
-	if err := c1.CheckDeviceName(); err != nil {
-		if chk == errT {
-			return err
-		}
-		warning("%v", err)
-	}
-	return nil
+	return s.GetChanges(c1, c2)
 }
 
 func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
-	v6Path := getIPv6Path(v4Path)
+	v6Path := getIPv6Fname(v4Path)
 	conf4, err := s.loadSpocFile(v4Path)
 	if err != nil {
 		return nil, err
@@ -230,37 +208,34 @@ func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
 }
 
 func (s *state) addRaw(conf DeviceConfig, v4Path string) (DeviceConfig, error) {
-	v6Path := getIPv6Path(v4Path)
-	for _, pathName := range []string{v4Path, v6Path} {
-		rawPath := pathName + ".raw"
-		raw, err := s.loadSpocFile(rawPath)
-		if err != nil {
+	rawPath := v4Path + ".raw"
+	raw, err := s.loadSpocFile(rawPath)
+	if err != nil {
+		return nil, err
+	}
+	if raw != nil {
+		if err := raw.CheckRulesFromRaw(); err != nil {
 			return nil, err
 		}
-		if raw != nil {
-			if err := raw.CheckRulesFromRaw(); err != nil {
-				return nil, err
-			}
-		}
-		conf = conf.MergeSpoc(raw)
 	}
+	conf = conf.MergeSpoc(raw)
 	return conf, nil
 }
 
-func (s *state) loadSpocFile(path string) (DeviceConfig, error) {
-	data, err := os.ReadFile(path)
+func (s *state) loadSpocFile(fname string) (DeviceConfig, error) {
+	data, err := os.ReadFile(fname)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("Can't %v", err)
 	}
-	c, err := s.ParseConfig(data)
-	//c.origin = "Netspoc"
+	c, err := s.ParseConfig(data, fname)
 	if err != nil {
-		return nil, fmt.Errorf("Can't parse %s: %v", path, err)
+		b := path.Base(fname)
+		return nil, fmt.Errorf("While reading %s: %v", b, err)
 	}
 	return c, nil
 }
 
-func getIPv6Path(p string) string {
+func getIPv6Fname(p string) string {
 	dir := path.Dir(p)
 	base := path.Base(p)
 	return dir + "/ipv6/" + base
@@ -275,44 +250,73 @@ type codeInfo struct {
 }
 
 func getHostnameIPList(path string) ([]string, []string, error) {
-	path += ".info"
-	info := &codeInfo{}
-	fd, err := os.Open(path)
-	if err != nil {
-		panic(err)
-	}
-	defer fd.Close()
-	dec := json.NewDecoder(fd)
-	if err := dec.Decode(&info); err != nil {
-		panic(err)
-	}
+	info, checked := loadInfoFile(path)
 	nameList := info.NameList
 	ipList := info.IPList
 	if len(nameList) == 0 {
-		return nil, nil, fmt.Errorf("Missing device name in %s", path)
+		return nil, nil, fmt.Errorf("Missing device name in %v", checked)
 	}
 	if len(ipList) == 0 {
-		return nil, nil, fmt.Errorf("Missing IP address in %s", path)
+		return nil, nil, fmt.Errorf("Missing IP address in %v", checked)
 	}
 	if len(nameList) != len(ipList) {
 		return nil, nil, fmt.Errorf(
-			"Number of device names and IP addresses don't match in %s", path)
+			"Number of device names and IP addresses don't match in %v", checked)
 	}
 	return nameList, ipList, nil
 }
 
+func GetIPPDP(fName string) (string, string, error) {
+	info, checked := loadInfoFile(fName)
+	ipList := info.IPList
+	if len(ipList) == 0 {
+		return "", "", fmt.Errorf("Missing IP address in %v", checked)
+	}
+	return ipList[0], info.PolicyDistributionPoint, nil
+}
+
+func GetHostname(fName string) string {
+	return path.Base(fName)
+}
+
+func loadInfoFile(path string) (*codeInfo, []string) {
+	path6 := getIPv6Fname(path)
+	info := &codeInfo{}
+	var checked []string
+	for _, file := range []string{path, path6} {
+		file += ".info"
+		fd, err := os.Open(file)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			panic(err)
+		}
+		checked = append(checked, file)
+		defer fd.Close()
+		if err := json.NewDecoder(fd).Decode(&info); err != nil {
+			panic(err)
+		}
+		// Must also read IPv6 file if v4 file has no IP.
+		if len(info.IPList) > 0 {
+			break
+		}
+	}
+	return info, checked
+}
+
 func (s *state) setLogDir(logDir, file string) {
 	if logDir != "" {
-		s.logPath = path.Join(logDir, path.Base(file))
+		s.logFname = path.Join(logDir, path.Base(file))
 	}
 }
 
 func (s *state) getLogFH(ext string) (*os.File, error) {
-	if s.logPath == "" {
+	if s.logFname == "" {
 		return nil, nil
 	}
-	file := s.logPath + ext
-	return os.Create(file)
+	fname := s.logFname + ext
+	return os.Create(fname)
 }
 
 func closeLogFH(fh *os.File) {
@@ -345,12 +349,12 @@ func GetHTTPClient(cfg *Config) *http.Client {
 }
 
 func TryReachableHTTPLogin(
-	path string,
+	fname string,
 	cfg *Config,
 	login func(name, ip, user, pass string) error,
 ) error {
 
-	nameList, ipList, err := getHostnameIPList(path)
+	nameList, ipList, err := getHostnameIPList(fname)
 	if err != nil {
 		return err
 	}
@@ -361,7 +365,7 @@ func TryReachableHTTPLogin(
 			return err
 		}
 		if err := login(name, ip, user, pass); err != nil {
-			warning("%v", err)
+			Warning("%v", err)
 			continue
 		}
 		return nil
@@ -370,6 +374,24 @@ func TryReachableHTTPLogin(
 		"Devices unreachable: %s", strings.Join(nameList, ", "))
 }
 
-func warning(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "WARNING>>> "+format+"\n", args...)
+func Info(format string, args ...interface{}) {
+	if !quiet {
+		fmt.Fprintf(os.Stderr, format+"\n", args...)
+	}
+}
+
+func Warning(format string, args ...interface{}) {
+	printWithMarker("WARNING>>> ", format, args...)
+}
+
+func Abort(format string, args ...interface{}) {
+	printWithMarker("ERROR>>> ", format, args...)
+	os.Exit(1)
+}
+
+func printWithMarker(m string, format string, args ...interface{}) {
+	out := fmt.Sprintf(format, args...)
+	out = strings.TrimSuffix(out, "\n")
+	out = strings.ReplaceAll(out, "\n", "\n"+m)
+	fmt.Fprintln(os.Stderr, m+out)
 }

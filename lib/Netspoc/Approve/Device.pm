@@ -299,13 +299,10 @@ sub load_spoc {
     }
 
     # Merge rawdata into config
-    for my $file ($path, $path6) {
-        my ($prepend, $append, $raw_prepend, $raw_append);
-        if (-f "$file.raw") {
-            ($prepend, $append) = $self->load_raw($file);
-            $raw_prepend = $self->parse_config($prepend, 1);
-            $raw_append  = $self->parse_config($append, 1);
-        }
+    if (-f "$path.raw") {
+        my ($prepend, $append) = $self->load_raw($path);
+        my $raw_prepend = $self->parse_config($prepend, 1);
+        my $raw_append  = $self->parse_config($append, 1);
         if ($raw_prepend or $raw_append) {
             $conf ||= {};
             $self->merge($conf, $raw_prepend, $raw_append);

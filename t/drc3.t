@@ -56,7 +56,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can't get IP from file(s): router.info, ipv6/router.info
+ERROR>>> Missing IP address in [router.info ipv6/router.info]
 END
 
 drc3_err($title, 'ASA', $spoc, $out);
@@ -77,7 +77,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can't get IP from file(s): router.info
+ERROR>>> Missing IP address in [router.info]
 END
 
 drc3_err($title, 'ASA', $spoc, $out);
@@ -98,7 +98,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can't get IP from file(s): ipv6/router.info
+ERROR>>> Missing IP address in [ipv6/router.info]
 END
 
 drc3_err($title, 'ASA', $spoc, $out);

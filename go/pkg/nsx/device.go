@@ -31,7 +31,6 @@ func (s *State) LoadDevice(
 	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
-	devName := ""
 	err := device.TryReachableHTTPLogin(spocFile, cfg,
 		func(name, ip, user, pass string) error {
 			s.prefix = fmt.Sprintf("https://%s", ip)
@@ -58,7 +57,6 @@ func (s *State) LoadDevice(
 				return fmt.Errorf("status code: %d", resp.StatusCode)
 			}
 			s.token = resp.Header.Get("x-xsrf-token")
-			devName = name
 			return nil
 		})
 	if err != nil {
@@ -114,12 +112,11 @@ func (s *State) LoadDevice(
 	}
 	device.DoLog(logConfig, string(out))
 
-	config, err := s.ParseConfig(out)
+	config, err := s.ParseConfig(out, "<device>")
 	if err != nil {
-		err = fmt.Errorf("While reading device: %v", err)
+		return nil, fmt.Errorf("While reading device: %v", err)
 	}
-	config.SetExpectedDeviceName(devName)
-	return config, err
+	return config, nil
 }
 
 func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
@@ -181,11 +178,11 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) ([]error, error) {
+func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
 	p1 := c1.(*NsxConfig)
 	p2 := c2.(*NsxConfig)
 	s.changes = diffConfig(p1, p2)
-	return nil, nil
+	return nil
 }
 
 func (s *State) HasChanges() bool {
@@ -213,3 +210,6 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 	}
 	return nil
 }
+
+func (s *State) CloseConnection()         {}
+func (s *State) GetErrUnmanaged() []error { return nil }

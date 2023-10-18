@@ -25,9 +25,6 @@ POLICY:
 	return n1
 }
 
-func (c *NsxConfig) SetExpectedDeviceName(name string) {}
-func (n *NsxConfig) CheckDeviceName() error            { return nil }
-
 func (n *NsxConfig) CheckRulesFromRaw() error {
 	if n == nil || n.Policies == nil {
 		return nil

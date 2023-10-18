@@ -9,6 +9,8 @@ trap 'echo Failed: $BASH_COMMAND >&2; exit 1' ERR
 dir=$(dirname $(readlink -f $0))
 
 # Compile all commands.
+# Prevent error: /lib64/libc.so.6: version `GLIBC_2.34' not found
+export CGO_ENABLED=0
 for d in $dir/cmd/*; do
     ( cd $d; go build )
 done

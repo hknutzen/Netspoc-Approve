@@ -11,6 +11,7 @@ bin/approve.pl
 bin/compare-all
 bin/compress-policies
 bin/delete-old-policies
+bin/drc-asa
 bin/drc-nsx
 bin/drc-pan-os
 bin/drc3.pl
@@ -22,10 +23,16 @@ bin/start-jobs
 dist.ini
 etc/netspoc-approve
 go/build.sh
+go/cmd/drc-asa/main.go
 go/cmd/drc-nsx/main.go
 go/cmd/drc-pan-os/main.go
 go/go.mod
 go/go.sum
+go/pkg/asa/config.go
+go/pkg/asa/device.go
+go/pkg/asa/diff.go
+go/pkg/asa/parse.go
+go/pkg/console/console.go
 go/pkg/device/config.go
 go/pkg/device/main.go
 go/pkg/device/password.go
@@ -37,6 +44,7 @@ go/pkg/panos/config.go
 go/pkg/panos/device.go
 go/pkg/panos/diff.go
 go/pkg/panos/parse.go
+go/pkg/sorted/keys.go
 go/test/approve_test.go
 go/test/capture/capture.go
 go/test/tstdata/testdata.go

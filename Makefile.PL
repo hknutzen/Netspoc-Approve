@@ -19,6 +19,7 @@ my %WriteMakefileArgs = (
     "bin/compare-all",
     "bin/compress-policies",
     "bin/delete-old-policies",
+    "bin/drc-asa",
     "bin/drc-nsx",
     "bin/drc-pan-os",
     "bin/drc3.pl",
@@ -59,7 +60,7 @@ my %WriteMakefileArgs = (
     "Time::HiRes" => 0,
     "lib" => 0
   },
-  "VERSION" => "3.016",
+  "VERSION" => "3.017",
   "test" => {
     "TESTS" => "t/*.t"
   }

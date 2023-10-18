@@ -16,10 +16,11 @@ import (
 )
 
 type State struct {
-	client    *http.Client
-	devUser   string
-	urlPrefix string
-	changes   []change
+	client       *http.Client
+	devUser      string
+	urlPrefix    string
+	changes      []change
+	errUnmanaged []error
 }
 
 type change struct {
@@ -64,9 +65,9 @@ func (s *State) LoadDevice(
 	}
 	config, err := parseResponseConfig(body)
 	if err != nil {
-		err = fmt.Errorf("While reading device: %v", err)
+		return config, fmt.Errorf("While reading device: %v", err)
 	}
-	config.SetExpectedDeviceName(devName)
+	err = config.checkDeviceName(devName)
 	return config, err
 }
 
@@ -149,13 +150,10 @@ func (s *State) checkHA(logFH *os.File) bool {
 	return false
 }
 
-func (s *State) GetChanges(
-	c1, c2 device.DeviceConfig) ([]error, error) {
+func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
 
 	p1 := c1.(*PanConfig)
 	p2 := c2.(*PanConfig)
-	isRealDev := p1.expectedName != ""
-	var warnings []error
 	err := processVsysPairs(p1, p2, func(v1, v2 *panVsys) error {
 		if v1 == nil {
 			return fmt.Errorf(
@@ -164,11 +162,7 @@ func (s *State) GetChanges(
 		if v2 == nil {
 			return nil
 		}
-		if isRealDev {
-			if w := vsysOK(v1); w != nil {
-				warnings = append(warnings, w)
-			}
-		}
+		s.checkUnmanaged(v1)
 		dev := p1.Devices.Entries[0].Name
 		devPath := "/config/devices/entry" + nameAttr(dev)
 		xPath := devPath + "/vsys/entry" + nameAttr(v2.Name)
@@ -178,15 +172,19 @@ func (s *State) GetChanges(
 		}
 		return nil
 	})
-	return warnings, err
+	return err
 }
 
-func vsysOK(v *panVsys) error {
+func (s *State) checkUnmanaged(v *panVsys) {
 	name := strings.ToLower(v.DisplayName)
 	if !strings.Contains(name, "netspoc") {
-		return fmt.Errorf("Missing NetSPoC in name of %s", v.Name)
+		s.errUnmanaged = append(s.errUnmanaged,
+			fmt.Errorf("Missing NetSPoC in name of %s", v.Name))
 	}
-	return nil
+}
+
+func (s *State) GetErrUnmanaged() []error {
+	return s.errUnmanaged
 }
 
 func (s *State) ApplyCommands(logFH *os.File) error {
@@ -311,3 +309,5 @@ func (s *State) ShowChanges() string {
 	}
 	return collect.String()
 }
+
+func (s *State) CloseConnection() {}
