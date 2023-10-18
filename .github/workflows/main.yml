@@ -10,12 +10,12 @@ jobs:
     container:
       image: perldocker/perl-tester:5.32
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
-          go-version: 1.19.x
+          go-version: stable
+      - name: Checkout code
+        uses: actions/checkout@v3
       - name: Calc Go coverage
         run: >
           go test
@@ -24,7 +24,7 @@ jobs:
           -coverprofile=coverage.out
         working-directory: go/test
       - name: Convert coverage to lcov
-        uses: jandelgado/gcov2lcov-action@v1.0.8
+        uses: jandelgado/gcov2lcov-action@v1.0.9
         with:
           working-directory: go/test
       - name: Get dependencies
@@ -43,7 +43,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cover -report Coveralls
       - name: Upload Go coverage
-        uses: coverallsapp/github-action@v1.1.2
+        uses: coverallsapp/github-action@v1.1.3
         with:
           github-token: ${{ secrets.github_token }}
           path-to-lcov: go/test/coverage.lcov
