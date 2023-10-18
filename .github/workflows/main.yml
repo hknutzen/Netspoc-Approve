@@ -27,6 +27,10 @@ jobs:
         uses: jandelgado/gcov2lcov-action@v1.0.9
         with:
           working-directory: go/test
+      - name: Compile go binaries
+        run: |
+          for d in *; do ( cd $d; go build ) done
+        working-directory: go/cmd
       - name: Get dependencies
         run: >
           cpanm -n
