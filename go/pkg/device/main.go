@@ -66,43 +66,45 @@ func Main(device RealDevice) int {
 		return 1
 	}
 
-	var err error
-	s := &state{RealDevice: device}
+	return handleBailout(func() int {
+		var err error
+		s := &state{RealDevice: device}
 
-	// Argument processing
-	args := fs.Args()
-	switch len(args) {
-	case 0:
-		fallthrough
-	default:
-		fs.Usage()
-		return 1
-	case 2:
-		if *logDir != "" {
+		// Argument processing
+		args := fs.Args()
+		switch len(args) {
+		case 0:
+			fallthrough
+		default:
 			fs.Usage()
 			return 1
+		case 2:
+			if *logDir != "" {
+				fs.Usage()
+				return 1
+			}
+			err = s.compareFiles(args[0], args[1])
+		case 1:
+			s.config, err = LoadConfig()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
+				return 1
+			}
+			fname := args[0]
+			s.setLogDir(*logDir, fname)
+			if *compare {
+				err = s.compare(fname)
+			} else {
+				err = s.approve(fname)
+			}
 		}
-		err = s.compareFiles(args[0], args[1])
-	case 1:
-		s.config, err = LoadConfig()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
 			return 1
 		}
-		fname := args[0]
-		s.setLogDir(*logDir, fname)
-		if *compare {
-			err = s.compare(fname)
-		} else {
-			err = s.approve(fname)
-		}
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
-		return 1
-	}
-	s.CloseConnection()
-	return 0
+		s.CloseConnection()
+		return 0
+	})
 }
 
 func (s *state) compareFiles(fname1, fname2 string) error {
@@ -384,9 +386,23 @@ func Warning(format string, args ...interface{}) {
 	printWithMarker("WARNING>>> ", format, args...)
 }
 
+type bailout struct{}
+
+func handleBailout(f func() int) (exitCode int) {
+	defer func() {
+		if e := recover(); e != nil {
+			if _, ok := e.(bailout); !ok {
+				panic(e) // Resume same panic if it's not a bailout.
+			}
+			exitCode = 1
+		}
+	}()
+	return f()
+}
+
 func Abort(format string, args ...interface{}) {
 	printWithMarker("ERROR>>> ", format, args...)
-	os.Exit(1)
+	panic(bailout{})
 }
 
 func printWithMarker(m string, format string, args ...interface{}) {
