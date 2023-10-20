@@ -278,6 +278,116 @@ no network-object host 4.4.4.4
 =END=
 
 ############################################################
+=TITLE=Modify object-group once if referenced twice (1)
+=DEVICE=
+[[minimal_device]]
+object-group network g1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+access-list inside extended permit ip object-group g1 host 10.0.1.1
+access-list inside extended permit ip object-group g1 host 10.0.1.2
+access-group inside in interface inside
+=NETSPOC=
+object-group network g1a
+ network-object host 1.1.1.1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+object-group network g1b
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+ network-object host 5.5.5.5
+access-list inside extended permit ip object-group g1a host 10.0.1.1
+access-list inside extended permit ip object-group g1b host 10.0.1.2
+access-group inside in interface inside
+=OUTPUT=
+object-group network g1
+network-object host 1.1.1.1
+object-group network g1b-DRC-0
+network-object host 2.2.2.2
+network-object host 3.3.3.3
+network-object host 4.4.4.4
+network-object host 5.5.5.5
+access-list inside line 2 extended permit ip object-group g1b-DRC-0 host 10.0.1.2
+no access-list inside line 3 extended permit ip object-group g1 host 10.0.1.2
+=END=
+
+############################################################
+=TITLE=Modify object-group once if referenced twice (2)
+=DEVICE=
+[[minimal_device]]
+object-group network g1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+object-group network g2
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+ network-object host 5.5.5.5
+access-list inside extended permit ip object-group g1 host 10.0.1.1
+access-list inside extended permit ip object-group g1 host 10.0.1.2
+access-list inside extended permit ip object-group g2 host 10.0.1.3
+access-group inside in interface inside
+=NETSPOC=
+object-group network g1a
+ network-object host 1.1.1.1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+object-group network g1b
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+ network-object host 5.5.5.5
+access-list inside extended permit ip object-group g1a host 10.0.1.1
+access-list inside extended permit ip object-group g1b host 10.0.1.2
+access-group inside in interface inside
+=OUTPUT=
+object-group network g1
+network-object host 1.1.1.1
+access-list inside line 2 extended permit ip object-group g2 host 10.0.1.2
+no access-list inside line 3 extended permit ip object-group g1 host 10.0.1.2
+no access-list inside line 3 extended permit ip object-group g2 host 10.0.1.3
+=END=
+
+############################################################
+=TITLE=object-group referenced twice but only equal once
+=DEVICE=
+[[minimal_device]]
+object-group network g1
+ network-object host 1.1.1.1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+access-list inside extended permit ip object-group g1 host 10.0.1.1
+access-list inside extended permit ip object-group g1 host 10.0.1.2
+access-group inside in interface inside
+=NETSPOC=
+object-group network g1a
+ network-object host 1.1.1.1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+object-group network g1b
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+access-list inside extended permit ip object-group g1a host 10.0.1.1
+access-list inside extended permit ip object-group g1b host 10.0.1.2
+access-group inside in interface inside
+=OUTPUT=
+object-group network g1b-DRC-0
+network-object host 2.2.2.2
+network-object host 3.3.3.3
+network-object host 4.4.4.4
+access-list inside line 2 extended permit ip object-group g1b-DRC-0 host 10.0.1.2
+no access-list inside line 3 extended permit ip object-group g1 host 10.0.1.2
+=END=
+
+############################################################
 =TITLE=Add object-group referenced twice in ACL
 =DEVICE=
 [[minimal_device]]
