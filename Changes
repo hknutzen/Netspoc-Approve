@@ -1,3 +1,12 @@
+3.018     2023-10-23 15:38:38+02:00 Europe/Berlin
+
+ - Bug fix in migrated code for ASA.
+   The bug could occur in this situation:
+   Two rules on device reference the same object-group A. These rules
+   are changed to reference two different object-groups B and C.  In
+   this case the original object-group A may get changed to values of
+   both B and C.
+
 3.017     2023-10-18 13:42:00+02:00 Europe/Berlin
 
  - Migrated approve for ASA from Perl to Go.

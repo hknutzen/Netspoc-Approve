@@ -286,8 +286,9 @@ func checkReferences(lookup objLookup) error {
 				for i, name := range c.ref {
 					prefix := c.typ.ref[i]
 					if _, found := lookup[prefix][name]; !found {
-						if v, found := defaultObjects[[2]string{prefix, name}]; found {
-							addDefaultObject(lookup, prefix, name, v)
+						if vl, found := defaultObjects[[2]string{prefix, name}]; found {
+
+							addDefaultObject(lookup, prefix, name, vl)
 						} else {
 							return fmt.Errorf("'%s' references unknown '%s %s'",
 								c.orig, prefix, name)
@@ -311,39 +312,41 @@ func checkReferences(lookup objLookup) error {
 	return nil
 }
 
-var defaultObjects = map[[2]string]string{
-	[2]string{"group-policy", "DfltGrpPolicy"}:      "internal",
-	[2]string{"tunnel-group", "DefaultL2LGroup"}:    "type ipsec-l2l",
-	[2]string{"tunnel-group", "DefaultRAGroup"}:     "type remote-access",
-	[2]string{"tunnel-group", "DefaultWEBVPNGroup"}: "type webvpn",
-	[2]string{"tunnel-group", "DefaultL2LGroup"}:    "general-attributes",
-	[2]string{"tunnel-group", "DefaultRAGroup"}:     "general-attributes",
-	[2]string{"tunnel-group", "DefaultWEBVPNGroup"}: "general-attributes",
+var defaultObjects = map[[2]string][]string{
+	{"group-policy", "DfltGrpPolicy"}: {"internal"},
+	{"tunnel-group", "DefaultL2LGroup"}: {
+		"type ipsec-l2l", "general-attributes"},
+	{"tunnel-group", "DefaultRAGroup"}: {
+		"type remote-access", "general-attributes"},
+	{"tunnel-group", "DefaultWEBVPNGroup"}: {"type webvpn", "general-attributes"},
 }
 
-func addDefaultObject(lookup objLookup, prefix, name, typ string) {
+func addDefaultObject(lookup objLookup, prefix, name string, vl []string) {
 	m := lookup[prefix]
 	if m == nil {
 		m = make(map[string][]*cmd)
 		lookup[prefix] = m
 	}
-	c := lookupCmd(prefix + " " + name + " " + typ)
-	c.fixedName = true
-	l := m[name]
-	// Do not add again, if already parsed previously.
-	for _, c2 := range l {
-		if c.parsed == c2.parsed {
-			return
+	for _, arg := range vl {
+		c := lookupCmd(prefix + " " + name + " " + arg)
+		l := m[name]
+		// Do only add, if not already parsed previously.
+		if !slices.ContainsFunc(l, func(c2 *cmd) bool {
+			return c2.parsed == c.parsed
+		}) {
+
+			l = append(l, c)
 		}
+		l[0].fixedName = true
+		m[name] = l
 	}
-	m[name] = append([]*cmd{c}, l...)
 }
 
 // Add definitions of default group-policy and default tunnel-groups.
 func addDefaults(cf *ASAConfig) {
 	lookup := cf.lookup
-	for k, v := range defaultObjects {
-		addDefaultObject(lookup, k[0], k[1], v)
+	for k, vl := range defaultObjects {
+		addDefaultObject(lookup, k[0], k[1], vl)
 	}
 }
 

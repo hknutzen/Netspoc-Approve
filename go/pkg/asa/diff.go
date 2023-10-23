@@ -507,8 +507,12 @@ func (s *State) equalizedGroups(aName, bName string) bool {
 		// Type of object-group differs.
 		return false
 	}
-	if ga.needed && gb.ready && ga.name == gb.name {
-		return true
+	if ga.needed {
+		if gb.ready {
+			return ga.name == gb.name
+		}
+		s.findGroupOnDevice(bName)
+		return false
 	}
 	la := ga.sub
 	lb := gb.sub

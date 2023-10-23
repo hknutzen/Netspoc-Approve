@@ -158,11 +158,11 @@ func (s *State) ShowChanges() string {
 
 func (s *State) ApplyCommands(logFh *os.File) error {
 	s.conn.SetLogFH(logFh)
-	s.Cmd("configure terminal")
+	s.cmd("configure terminal")
 	for _, chg := range s.changes {
-		s.Cmd(chg)
+		s.cmd(chg)
 	}
-	s.Cmd("end")
+	s.cmd("end")
 	out := s.conn.GetCmdOutput("write memory")
 	if !strings.Contains(out, "[OK]") {
 		device.Abort("Command 'write memory' failed, missing [OK] in output:\n%s",
@@ -174,7 +174,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 // Send 1 or 2 commands in one data packet to device.
 // No output expected from commands.
 // Exceptions are given in map cmd2validOutput
-func (s *State) Cmd(cmd string) {
+func (s *State) cmd(cmd string) {
 	c1, c2, _ := strings.Cut(cmd, "\n")
 	s.conn.Send(cmd)
 	check := func(ci string) {

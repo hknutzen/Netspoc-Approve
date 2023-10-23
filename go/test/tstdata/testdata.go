@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 	"path"
 	"regexp"
 	"strings"
 	"text/template"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Descr struct {
@@ -324,7 +325,7 @@ func (s *state) doTemplSubst(text string) (string, error) {
 		}
 		t := s.templates[name]
 		if t == nil {
-			log.Fatalf("Calling unknown template %s", name)
+			log.Fatalf("Calling unknown template [[%s]]", name)
 		}
 		var b strings.Builder
 		if err := t.Execute(&b, data); err != nil {

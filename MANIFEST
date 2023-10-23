@@ -48,6 +48,9 @@ go/pkg/sorted/keys.go
 go/test/approve_test.go
 go/test/capture/capture.go
 go/test/tstdata/testdata.go
+go/testdata/asa_acl.t
+go/testdata/asa_parse.t
+go/testdata/asa_raw.t
 go/testdata/nsx.t
 go/testdata/panos.t
 lib/Netspoc/Approve/ASA.pm
@@ -68,7 +71,6 @@ suid-support/diamonds.c
 suid-support/sudo-newpolicy
 suid-support/sudoers
 suid-support/suid-newpolicy.c
-t/ASA-modify-ACL.t
 t/Linux.t
 t/Test_Approve.pm
 t/drc3.t
@@ -76,7 +78,6 @@ t/get-conf.t
 t/merge_IPv6.t
 t/missing-approve.t
 t/newpolicy.t
-t/parse-ASA.t
 t/parse-IOS.t
 t/parse-NX-OS.t
 t/raw.t

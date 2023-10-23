@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
@@ -39,6 +40,8 @@ func runTestFiles(t *testing.T) {
 			for _, descr := range l {
 				var realDev device.RealDevice
 				switch prefix {
+				case "asa":
+					realDev = &asa.State{}
 				case "nsx":
 					realDev = &nsx.State{}
 				case "panos":
