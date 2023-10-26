@@ -1607,7 +1607,7 @@ no crypto dynamic-map name1@example.com 20 set pfs
 crypto dynamic-map name1@example.com 20 set security-association lifetime seconds 3600
 access-list crypto-outside-2-DRC-0 extended permit ip 10.1.2.0 255.255.255.0 10.99.2.0 255.255.255.0
 crypto dynamic-map name2@example.com 20 match address crypto-outside-2-DRC-0
-crypto map crypto-outside 1 ipsec-isakmp dynamic name2@example.com
+crypto map crypto-outside 65532 ipsec-isakmp dynamic name2@example.com
 no crypto ipsec ikev1 transform-set Trans3 esp-aes-256 esp-md5-hmac
 no crypto map crypto-outside 65533 ipsec-isakmp dynamic name4@example.com
 no crypto dynamic-map name4@example.com 40 match address crypto-outside-65533

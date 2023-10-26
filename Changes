@@ -1,3 +1,8 @@
+3.019     2023-10-26 15:16:42+02:00 Europe/Berlin
+
+ - Use sequence number from 65535 downwards for crypto map dynamic in
+   code for ASA. This matches the behaviour of the previous Perl version.
+
 3.018     2023-10-23 15:38:38+02:00 Europe/Berlin
 
  - Bug fix in migrated code for ASA.

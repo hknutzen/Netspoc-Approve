@@ -238,7 +238,7 @@ crypto ipsec ikev1 transform-set ESP-AES-256-SHA-DRC-0 esp-aes-256 esp-sha-hmac
 crypto ipsec ikev1 transform-set ESP-3DES-MD5-DRC-0 esp-3des esp-md5-hmac
 crypto dynamic-map raw_dyn_map 1 set ikev1 transform-set ESP-AES-256-SHA-DRC-0 ESP-3DES-MD5-DRC-0
 crypto dynamic-map raw_dyn_map 1 set reverse-route
-crypto map outside_map 1 ipsec-isakmp dynamic raw_dyn_map
+crypto map outside_map 65535 ipsec-isakmp dynamic raw_dyn_map
 crypto map outside_map interface outside
 group-policy DfltGrpPolicy attributes
 vpn-tunnel-protocol ikev1

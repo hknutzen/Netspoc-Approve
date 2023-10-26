@@ -917,17 +917,26 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 		}
 	}
 	// Use fresh sequence numbers for added commands.
-	seq := 1
+	static := 1
+	dynamic := 65535
 	for _, bSeq := range sorted.Keys(bSeqMap) {
-		// Get next free seq num.
-		for ; aSeqMap[seq] != nil; seq++ {
-		}
 		bSeqL := bSeqMap[bSeq]
+		seq := &dynamic
+		incr := -1
+		if slices.ContainsFunc(bSeqL, func(c *cmd) bool {
+			return strings.Contains(c.parsed, "set peer")
+		}) {
+			seq = &static
+			incr = 1
+		}
+		// Get next free seq num.
+		for ; aSeqMap[*seq] != nil; *seq += incr {
+		}
 		for _, bCmd := range bSeqL {
-			bCmd.seq = seq
+			bCmd.seq = *seq
 		}
 		f(nil, bSeqL)
-		seq++
+		*seq += incr
 	}
 }
 
