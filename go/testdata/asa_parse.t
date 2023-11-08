@@ -166,9 +166,7 @@ no route outside 10.1.3.0 255.255.255.0 10.1.2.2
 
 ############################################################
 =TITLE=Handle protocol 1 as icmp in raw file
-=DEVICE=
-interface Ethernet0/0
- nameif inside
+=DEVICE=[[minimal_device1]]
 =NETSPOC=
 --router
 access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
@@ -186,9 +184,7 @@ access-group inside_in-DRC-0 in interface inside
 
 ############################################################
 =TITLE=Handle protocol 58 as icmp6 in raw file
-=DEVICE=
-interface Ethernet0/0
- nameif inside
+=DEVICE=[[minimal_device1]]
 =NETSPOC=
 --ipv6/router
 access-list inside_in extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
@@ -207,8 +203,7 @@ access-group inside_in-DRC-0 in interface inside
 ############################################################
 =TITLE=Handle numeric icmp6 named type
 =DEVICE=
-interface Ethernet0/0
- nameif inside
+[[minimal_device1]]
 access-list inside_in extended permit icmp6 any6 any6 echo
 access-list inside_in extended permit icmp6 any6 any6 echo-reply
 access-group inside_in in interface inside
@@ -222,8 +217,7 @@ access-group inside_in in interface inside
 ############################################################
 =TITLE=Handle named log level
 =DEVICE=
-interface Ethernet0/0
- nameif inside
+[[minimal_device1]]
 access-list inside_in extended permit tcp any4 any4 log critical
 access-list inside_in extended permit udp any4 any4 log debugging
 access-group inside_in in interface inside
@@ -265,6 +259,20 @@ ERROR>>> Interface 'outside' from Netspoc not known on device
 =END=
 
 ############################################################
+=TITLE=Check device interfaces, both configs from Netspoc
+=DEVICE=
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=NETSPOC=
+access-list outside_in extended deny ip any4 any4
+access-group outside_in in interface outside
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=ERROR=
+ERROR>>> Interface 'outside' from Netspoc not known on device
+=END=
+
+############################################################
 =TITLE=Add sysopt
 =DEVICE=NONE
 =NETSPOC=
@@ -285,24 +293,23 @@ sysopt connection permit-vpn
 ############################################################
 =TITLE=Increment index of names
 =DEVICE=
-interface Ethernet0/1
- nameif outside
+[[minimal_device1]]
 object-group network g0-DRC-0
  network-object 10.0.6.0 255.255.255.0
-access-list outside_in extended permit udp object-group g0-DRC-0 any4 eq 80
-access-group outside_in in interface outside
+access-list inside_in extended permit udp object-group g0-DRC-0 any4 eq 80
+access-group inside_in in interface inside
 =NETSPOC=
 object-group network g0
  network-object 10.0.5.0 255.255.255.0
 object-group network g1
  network-object 10.0.6.0 255.255.255.0
-access-list outside_in extended permit udp object-group g0 any4 eq 79
-access-list outside_in extended permit udp object-group g1 any4 eq 80
-access-group outside_in in interface outside
+access-list inside_in extended permit udp object-group g0 any4 eq 79
+access-list inside_in extended permit udp object-group g1 any4 eq 80
+access-group inside_in in interface inside
 =OUTPUT=
 object-group network g0-DRC-1
 network-object 10.0.5.0 255.255.255.0
-access-list outside_in line 1 extended permit udp object-group g0-DRC-1 any4 eq 79
+access-list inside_in line 1 extended permit udp object-group g0-DRC-1 any4 eq 79
 =END=
 
 ############################################################
