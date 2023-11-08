@@ -230,29 +230,34 @@ func (s *State) CloseConnection() {
 
 func (s *State) checkInterfaces() error {
 
-	// Collect named interfaces from Netspoc.
+	// Collect interfaces from Netspoc.
 	// These are defined implicitly by commands
 	// - "access-group $access-list in|out interface INTF".
 	// - "crypto map $crypto_map interface INTF"
 	// Ignore "access-group $access-list global".
-	bIntf := make(map[string]bool)
-	for _, l := range s.b.lookup["access-group"] {
-		for _, c := range l {
-			tokens := strings.Fields(c.parsed)
-			if len(tokens) == 5 {
-				bIntf[tokens[4]] = true
+	getImplicitInterfaces := func(cfg *ASAConfig) map[string]bool {
+		m := make(map[string]bool)
+		for _, l := range cfg.lookup["access-group"] {
+			for _, c := range l {
+				tokens := strings.Fields(c.parsed)
+				if len(tokens) == 5 {
+					m[tokens[4]] = true
+				}
 			}
 		}
-	}
-	for _, l := range s.b.lookup["crypto map interface"] {
-		for _, c := range l {
-			tokens := strings.Fields(c.parsed)
-			bIntf[tokens[4]] = true
+		for _, l := range cfg.lookup["crypto map interface"] {
+			for _, c := range l {
+				tokens := strings.Fields(c.parsed)
+				m[tokens[4]] = true
+			}
 		}
+		return m
 	}
+	bIntf := getImplicitInterfaces(s.b)
 
 	// Collect and check named interfaces from device.
-	aIntf := make(map[string]bool)
+	// Add implicit interfaces when comparing two Netspoc generated configs.
+	aIntf := getImplicitInterfaces(s.a)
 	for _, l := range s.a.lookup["interface"] {
 		for _, c := range l {
 			name := ""
