@@ -16,17 +16,6 @@ jobs:
           go-version: stable
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Calc Go coverage
-        run: >
-          go test
-          -coverpkg ../pkg/...
-          -covermode=count
-          -coverprofile=coverage.out
-        working-directory: go/test
-      - name: Convert coverage to lcov
-        uses: jandelgado/gcov2lcov-action@v1.0.9
-        with:
-          working-directory: go/test
       - name: Compile go binaries
         run: |
           for d in *; do ( cd $d; go build ) done
@@ -46,15 +35,23 @@ jobs:
           COVERALLS_PARALLEL: 1
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cover -report Coveralls
+      - name: Calc Go coverage
+        run: >
+          go test
+          -coverpkg ../pkg/...
+          -covermode=count
+          -coverprofile=coverage.out
+        working-directory: go/test
       - name: Upload Go coverage
         uses: coverallsapp/github-action@v2.2.3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          file: go/test/coverage.lcov
+          file: go/test/coverage.out
+          format: golang
           flag-name: Go
           parallel: true
       - name: Coveralls Finished
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@v2.2.3
         with:
-          github-token: ${{ secrets.github_token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           parallel-finished: true
