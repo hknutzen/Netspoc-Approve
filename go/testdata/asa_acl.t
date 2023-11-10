@@ -349,8 +349,8 @@ access-group inside in interface inside
 object-group network g1
 network-object host 1.1.1.1
 access-list inside line 2 extended permit ip object-group g2 host 10.0.1.2
+no access-list inside line 4 extended permit ip object-group g2 host 10.0.1.3
 no access-list inside line 3 extended permit ip object-group g1 host 10.0.1.2
-no access-list inside line 3 extended permit ip object-group g2 host 10.0.1.3
 =END=
 
 ############################################################
@@ -496,6 +496,35 @@ access-group outside in interface outside
 =OUTPUT=
 no access-list inside line 3 extended permit tcp object-group g3 object-group g4\N access-list inside line 1 extended permit tcp object-group g3 object-group g4
 no access-list inside line 2 extended permit tcp object-group g1 object-group g2\N access-list inside line 3 extended permit tcp object-group g1 object-group g2
+=END=
+
+############################################################
+=TITLE=Two matching lines with object-groups
+=TEMPL=groups
+object-group network g1
+ network-object host 10.1.1.1
+ network-object host 10.1.2.1
+object-group network g2
+ network-object host 10.1.1.2
+ network-object host 10.1.2.2
+=DEVICE=
+[[groups]]
+access-list a1 extended permit tcp any4 any4 eq 80
+access-list a1 extended permit tcp object-group g1 any4 eq 81
+access-list a1 extended permit tcp any4 any4 eq 82
+access-list a1 extended permit tcp any4 any4 eq 90
+access-group a1 in interface outside
+=NETSPOC=
+[[groups]]
+access-list a1 extended permit tcp object-group g2 any4 eq 81
+access-list a1 extended permit tcp object-group g1 any4 eq 81
+access-list a1 extended permit tcp any4 any4 eq 82
+access-group a1 in interface outside
+=OUTPUT=
+access-list a1 line 2 extended permit tcp object-group g2 any4 eq 81
+no access-list a1 line 3 extended permit tcp object-group g1 any4 eq 81\N access-list a1 line 3 extended permit tcp object-group g1 any4 eq 81
+no access-list a1 line 5 extended permit tcp any4 any4 eq 90
+no access-list a1 line 1 extended permit tcp any4 any4 eq 80
 =END=
 
 ############################################################

@@ -433,14 +433,20 @@ func (s *State) diffACLs(al, bl []*cmd, diff []edit.Range) {
 			}
 		}
 	}
+	// Check for identical groups early and equalize groups later.
+	for _, r := range diff {
+		if r.IsInsert() {
+			for _, c := range bl[r.LowB:r.HighB] {
+				for _, bName := range c.ref {
+					s.findGroupOnDevice(bName)
+				}
+			}
+		}
+	}
 	for _, r := range diff {
 		if r.IsInsert() {
 			for _, c := range bl[r.LowB:r.HighB] {
 				pos[c] = r.LowA
-				// Check for identical groups early and equalize groups later.
-				for _, bName := range c.ref {
-					s.findGroupOnDevice(bName)
-				}
 			}
 			add = append(add, bl[r.LowB:r.HighB]...)
 		} else if r.IsDelete() {
@@ -448,10 +454,7 @@ func (s *State) diffACLs(al, bl []*cmd, diff []edit.Range) {
 				pos[c] = i + r.LowA
 			}
 			del = append(del, al[r.LowA:r.HighA]...)
-		}
-	}
-	for _, r := range diff {
-		if r.IsEqual() {
+		} else if r.IsEqual() {
 			equalizeACLs(al[r.LowA:r.HighA], bl[r.LowB:r.HighB], r.LowA)
 		}
 	}
