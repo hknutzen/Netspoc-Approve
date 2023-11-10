@@ -47,10 +47,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cover -report Coveralls
       - name: Upload Go coverage
-        uses: coverallsapp/github-action@1.1.3
+        uses: coverallsapp/github-action@2.2.3
         with:
-          github-token: ${{ secrets.github_token }}
-          path-to-lcov: go/test/coverage.lcov
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: go/test/coverage.lcov
           flag-name: Go
           parallel: true
       - name: Coveralls Finished
