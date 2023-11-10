@@ -493,7 +493,10 @@ func (s *State) diffACLs(al, bl []*cmd, diff []edit.Range) {
 	// traffic for a short time range.
 	slices.Reverse(del)
 	for _, a := range del {
-		delACL(a)
+		// Must not delete cmd again, if it already was moved.
+		if !a.needed {
+			delACL(a)
+		}
 	}
 }
 
