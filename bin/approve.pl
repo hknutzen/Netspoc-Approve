@@ -152,7 +152,8 @@ my ($warnings, $errors, $changes);
 $errors++ if $failed;
 if (open(my $log, '<', $logfile)) {
     my @lines = <$log>;
-    my $silent = $brief && grep { $_ =~ /^ERROR>>> TIMEOUT$/ } @lines;
+    my $silent = $brief &&
+        grep { $_ =~ /^ERROR>>> (TIMEOUT|.*timer expired.*)$/ } @lines;
     for (@lines) {
         if (/^WARNING>>>/) {
             $warnings++;

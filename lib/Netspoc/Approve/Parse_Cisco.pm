@@ -40,11 +40,10 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT =
     qw(err_at_line
-       get_token get_string get_regex get_int get_ip get_eol unread
-       get_ip_pair get_ip_prefix get_ipv6_prefix
-       check_token check_regex check_int check_loglevel check_ip
-       get_sorted_encr_list get_token_list
-       get_name_in_out get_paren_token skip get_to_eol
+       get_token get_regex get_int get_ip get_eol unread
+       get_ip_prefix get_ipv6_prefix
+       check_token check_regex check_int check_ip
+       skip get_to_eol
  );
 
 sub err_at_line {
@@ -80,18 +79,6 @@ sub get_token {
     my $result = check_token($arg);
     defined($result) or err_at_line($arg, 'Missing token');
     return $result;
-}
-
-# Strip "" from token.
-sub get_string {
-    my($arg) = @_;
-    my $token = get_token($arg);
-    if ($token =~ /^"(.*)"$/) {
-        return $1;
-    }
-    else {
-        return $token;
-    }
 }
 
 sub get_eol {
@@ -131,32 +118,6 @@ sub check_int {
     return check_regex(qr/\d+/, $arg);
 }
 
-my %log2level = (
-    emergencies => 0,
-    alerts  => 1,
-    critical => 2,
-    errors => 3,
-    warnings => 4,
-    notifications => 5,
-    informational => 6,
-    debugging => 7,
-);
-
-sub check_loglevel {
-    my($arg) = @_;
-    defined(my $token = check_token($arg)) or return;
-    if ($token =~ /^\d+$/) {
-        return $token;
-    }
-    elsif (defined(my $level = $log2level{$token})) {
-        return $level;
-    }
-    else {
-        unread($arg);
-        return;
-    }
-}
-
 sub get_ip {
     my($arg) = @_;
     my $ip_string = get_token($arg);
@@ -178,21 +139,6 @@ sub check_ip {
     return $ip if defined $ip;
     unread($arg);
     return;
-}
-
-# <ip>[-<ip>]
-sub get_ip_pair {
-    my($arg) = @_;
-    my $pair = get_token($arg);
-    my($from, $to) = split(/-/, $pair, 2);
-    my $ip1 = quad2bitstr($from);
-    defined $ip1 or err_at_line($arg, "Expected IP: $from");
-    my $ip2 = $ip1;
-    if($to) {
-	$ip2 = quad2bitstr($to);
-	defined $ip2 or err_at_line($arg, "Expected IP: $to");
-    }
-    return($ip1, $ip2);
 }
 
 # <ip>[/<prefix>] | default
@@ -241,35 +187,6 @@ sub get_ip_prefix {
         }
     }
     return($base, $mask);
-}
-
-# Read list of auth. and encr. methods.
-# Read up to 3 values, sort and return as space separated string.
-# Sorting is needed to make different definitions comparable.
-sub get_sorted_encr_list {
-    my($arg) = @_;
-    my @result;
-    my $v1 = get_token($arg);
-    push @result, $v1;
-    if (my $v2 = check_token($arg)) {
-        push @result, $v2;
-        if (my $v3 = check_token($arg)) {
-            push @result, $v3;
-        }
-    }
-    return join ' ', sort @result;
-
-}
-
-# Read list of one or more tokens.
-# Return as array reference.
-sub get_token_list {
-    my($arg) = @_;
-    my @result = (get_token($arg));
-    while (defined(my $v = check_token($arg))) {
-        push @result, $v;
-    }
-    return \@result;
 }
 
 # Ignore remaining arguments.

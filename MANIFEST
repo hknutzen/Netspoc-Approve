@@ -53,7 +53,6 @@ go/testdata/asa_parse.t
 go/testdata/asa_raw.t
 go/testdata/nsx.t
 go/testdata/panos.t
-lib/Netspoc/Approve/ASA.pm
 lib/Netspoc/Approve/Cisco.pm
 lib/Netspoc/Approve/Cisco_Router.pm
 lib/Netspoc/Approve/Console.pm

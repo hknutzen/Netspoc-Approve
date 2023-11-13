@@ -52,9 +52,7 @@ func (a *ASAConfig) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
 					bl = bl[:j]
 					bMap[name] = bl
 				}
-				break
 			case "route", "ipv6 route", "username", "crypto map interface":
-				break
 			case "group-policy", "tunnel-group":
 				if bCmd.fixedName {
 					break

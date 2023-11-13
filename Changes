@@ -1,3 +1,13 @@
+3.020     2023-11-13 11:21:42+01:00 Europe/Berlin
+
+ - Fixed issues in code for ASA:
+   - Order of two adjacent ACL lines accidentally was swapped if first
+     line was moved and second one was inserted.
+   - An inserted or deleted ACL entry accidentally used a decremented
+     line number if a leading ACL entry was already moved.
+   - Timeout message is ignored if device is unreachable and
+     'diamonds compare' was called with parameter '--brief'.
+
 3.019     2023-10-26 15:16:42+02:00 Europe/Berlin
 
  - Use sequence number from 65535 downwards for crypto map dynamic in
