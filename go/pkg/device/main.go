@@ -137,7 +137,7 @@ func (s *state) approve(fname string) error {
 	if err != nil {
 		return err
 	}
-	if l := s.GetErrUnmanaged(); err != nil {
+	if l := s.GetErrUnmanaged(); l != nil {
 		return l[0]
 	}
 	return s.applyCommands()

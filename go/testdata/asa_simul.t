@@ -287,3 +287,28 @@ Connection to 172.20.82.1 closed by remote host.
 =ERROR=
 ERROR>>> while waiting for prompt '[>#]': expect: timer expired after 1 seconds
 =END=
+
+############################################################
+=TITLE=Wrong hostname
+=SCENARIO=
+netspoc@10.1.2.3's password: <!>
+router#
+# show hostname
+wrong
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> Wrong device name: "wrong", expected: "router"
+=END=
+
+############################################################
+=TITLE=Missing NetSPoC banner
+=SCENARIO=
+netspoc@10.1.2.3's password: <!>
+router#
+# show hostname
+router
+=NETSPOC=
+route inside 0.0.0.0 0.0.0.0 10.1.2.4
+=ERROR=
+ERROR>>> Missing banner at NetSPoC managed device
+=END=
