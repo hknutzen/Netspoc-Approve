@@ -61,7 +61,6 @@ func (s *State) loginEnable(hostName string, cfg *device.Config) {
 	out := conn.ShortWait(`(?i)password:|\(yes/no.*\)\?`)
 	if strings.HasSuffix(out, "?") {
 		out = conn.IssueCmd("yes", `(?i)password:`)
-		device.Info("SSH key permanently added to known hosts")
 	}
 	bannerLines += out
 	out = conn.IssueCmd(pass, `[>#]`)
