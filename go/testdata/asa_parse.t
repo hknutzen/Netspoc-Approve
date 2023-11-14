@@ -232,16 +232,31 @@ access-group inside_in in interface inside
 =DEVICE=
 interface Ethernet0/0
  nameif inside
- ip address 10.1.1.0 255.255.255.0
+ ip address 10.1.1.1 255.255.255.0
 interface Ethernet0/1
  nameif outside
- ip address 10.1.1.0 255.255.255.0
+ ip address 10.1.2.1 255.255.255.0
 =NETSPOC=
 access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 =WARNING=
 WARNING>>> Interface 'outside' on device is not known by Netspoc
 =END=
+
+############################################################
+=TITLE=Ignore shutdown interface
+=DEVICE=
+interface Ethernet0/0
+ nameif inside
+ ip address 10.1.1.1 255.255.255.0
+interface Ethernet0/1
+ nameif outside
+ shutdown
+ ip address 10.1.2.1 255.255.255.0
+=NETSPOC=
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=WARNING=NONE
 
 ############################################################
 =TITLE=Check device interfaces
