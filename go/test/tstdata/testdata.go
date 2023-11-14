@@ -17,6 +17,7 @@ import (
 type Descr struct {
 	Title    string
 	Device   string
+	Scenario string
 	Netspoc  string
 	Options  string
 	Param    string
@@ -142,6 +143,8 @@ func (s *state) parse() ([]*Descr, error) {
 			switch name {
 			case "DEVICE":
 				d.Device = text
+			case "SCENARIO":
+				d.Scenario = text
 			case "NETSPOC":
 				d.Netspoc = text
 			case "OPTIONS":
