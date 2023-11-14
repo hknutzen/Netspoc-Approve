@@ -262,7 +262,6 @@ ERROR>>> Got unexpected output from 'configure terminal':
 ERROR>>> foo
 =END=
 
-
 ############################################################
 =TITLE=Invalid reference in device config
 =SCENARIO=
@@ -276,4 +275,15 @@ access-list inside extended permit ip host 1.1.1.1 any
 access-group inside in interface inside
 =ERROR=
 ERROR>>> While reading device: 'access-group inside in interface inside' references unknown 'access-list inside'
+=END=
+
+############################################################
+=TITLE=Can't login
+=SCENARIO=
+netspoc@10.1.2.3's password: <!>
+netspoc@10.1.2.3's password: <!>
+Connection to 172.20.82.1 closed by remote host.
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> while waiting for prompt '[>#]': expect: timer expired after 1 seconds
 =END=
