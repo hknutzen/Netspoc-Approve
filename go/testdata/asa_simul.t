@@ -312,3 +312,20 @@ route inside 0.0.0.0 0.0.0.0 10.1.2.4
 =ERROR=
 ERROR>>> Missing banner at NetSPoC managed device
 =END=
+
+############################################################
+=TITLE=Write memory failed
+=SCENARIO=
+** managed by NetSPoC **
+netspoc@10.1.2.3's password: <!>
+router#
+# show hostname
+router
+# write memory
+FAILED
+=NETSPOC=
+route inside 0.0.0.0 0.0.0.0 10.1.2.4
+=ERROR=
+ERROR>>> Command 'write memory' failed, missing [OK] in output:
+ERROR>>> FAILED
+=END=
