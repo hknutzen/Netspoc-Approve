@@ -118,7 +118,7 @@ func (s *State) checkDeviceName(name string) {
 	out := s.conn.GetCmdOutput("show hostname")
 	out = strings.TrimSuffix(out, "\n")
 	if name != out {
-		device.Abort("Wrong device name: %s, expected: %s", out, name)
+		device.Abort("Wrong device name: %q, expected: %q", out, name)
 	}
 }
 
