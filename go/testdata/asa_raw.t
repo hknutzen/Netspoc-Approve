@@ -156,7 +156,7 @@ ERROR>>> Name clash for 'access-list inside_in' from raw
 =END=
 
 ############################################################
-=TITLE=Must not bind same ACL multiple times, ASA
+=TITLE=Must not bind same ACL multiple times (1)
 =DEVICE=NONE
 =NETSPOC=
 --router.raw
@@ -165,6 +165,23 @@ access-group in_out in interface inside
 access-group in_out out interface inside
 =ERROR=
 ERROR>>> Name clash for 'access-list in_out' from raw
+=END=
+
+############################################################
+=TITLE=Must not bind same ACL multiple times (2)
+=DEVICE=NONE
+=NETSPOC=
+--router
+access-list in extended permit ip any4 host 10.0.1.1
+access-group in in interface inside
+access-list out extended permit ip host 10.0.1.1 any4
+access-group out out interface inside
+--router.raw
+access-list in_out extended permit ip any4 host 10.0.6.1
+access-group in_out in interface inside
+access-group in_out out interface inside
+=ERROR=
+ERROR>>> Must reference 'access-list in_out' only once in raw
 =END=
 
 ############################################################
@@ -525,4 +542,18 @@ tunnel-group name2 ipsec-attributes
 tunnel-group-map name1 10 name2
 =ERROR=
 ERROR>>> Command 'tunnel-group-map' not supported in raw file
+=END=
+
+############################################################
+=TITLE=Ignore non referenced tunnel-group
+=DEVICE=NONE
+=NETSPOC=
+--router.raw
+tunnel-group name2 type ipsec-l2l
+tunnel-group name2 ipsec-attributes
+ peer-id-validate nocheck
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+=WARNING=
+WARNING>>> Ignoring unused 'tunnel-group name2' in raw
 =END=
