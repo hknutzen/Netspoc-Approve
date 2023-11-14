@@ -1,4 +1,5 @@
 =TEMPL=login_scenario
+Are you sure you want to continue connecting (yes/no)?<!>
 ***********************************************************
 **                 managed by NetSPoC                    **
 ***********************************************************
@@ -27,6 +28,8 @@ Configuration last modified by netspoc at 10:40:44.291 CEDT Thu Oct 19 2017
 =NETSPOC=NONE
 =OUTPUT=
 --router.login
+Are you sure you want to continue connecting (yes/no)?yes
+
 ***********************************************************
 **                 managed by NetSPoC                    **
 ***********************************************************
@@ -248,7 +251,6 @@ WARNING>>> WARNING: Route already exists
 
 ############################################################
 =TITLE=Unexpected command output
-############################################################
 =SCENARIO=
 [[login_scenario]]
 # configure terminal
@@ -258,4 +260,20 @@ route inside 0.0.0.0 0.0.0.0 10.1.2.4
 =ERROR=
 ERROR>>> Got unexpected output from 'configure terminal':
 ERROR>>> foo
+=END=
+
+
+############################################################
+=TITLE=Invalid reference in device config
+=SCENARIO=
+[[login_scenario]]
+# write term
+interface Ethernet0/0
+ nameif inside
+access-group inside in interface inside
+=NETSPOC=
+access-list inside extended permit ip host 1.1.1.1 any
+access-group inside in interface inside
+=ERROR=
+ERROR>>> While reading device: 'access-group inside in interface inside' references unknown 'access-list inside'
 =END=
