@@ -70,6 +70,19 @@ route inside 10.22.0.0 255.255.0.0 10.1.2.4
 =END=
 
 ############################################################
+=TITLE=Add ipv6 route from raw
+=DEVICE=NONE
+=NETSPOC=
+--router
+route inside 10.20.0.0 255.255.0.0 10.1.2.3
+--router.raw
+ipv6 route inside 10::3:0/120 10::2:2
+=OUTPUT=
+route inside 10.20.0.0 255.255.0.0 10.1.2.3
+ipv6 route inside 10::3:0/120 10::2:2
+=END=
+
+############################################################
 =TITLE=Merge ACL, duplicate access-group in raw
 =DEVICE=
 interface Ethernet0/1
@@ -494,4 +507,22 @@ peer-id-validate nocheck
 tunnel-group 1.2.3.9 type ipsec-l2l
 tunnel-group 1.2.3.9 ipsec-attributes
 peer-id-validate nocheck
+=END=
+
+############################################################
+=TITLE=tunnel-group-map not supported in raw
+=DEVICE=NONE
+=NETSPOC=
+--router.raw
+crypto ca certificate map name1 10
+ subject-name attr ea eq some-name
+ extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group name2 type ipsec-l2l
+tunnel-group name2 ipsec-attributes
+ peer-id-validate nocheck
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+tunnel-group-map name1 10 name2
+=ERROR=
+ERROR>>> Command 'tunnel-group-map' not supported in raw file
 =END=
