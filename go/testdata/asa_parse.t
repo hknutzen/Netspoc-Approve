@@ -1077,6 +1077,40 @@ isakmp ikev1-user-authentication none
 =END=
 
 ############################################################
+=TITLE=Don't match ca certificate map without subject
+=DEVICE=
+crypto ca certificate map map1 10
+tunnel-group VPN-tunnel1 type remote-access
+tunnel-group VPN-tunnel1 general-attributes
+tunnel-group VPN-tunnel1 ipsec-attributes
+ trust-point ASDM_TrustPoint1
+tunnel-group-map map1 10 VPN-tunnel1
+=NETSPOC=
+crypto ca certificate map map-b 12
+ subject-name attr ea co @SUB.EXAMPLE.com
+tunnel-group tunnel-b type remote-access
+tunnel-group tunnel-b general-attributes
+tunnel-group tunnel-b ipsec-attributes
+ peer-id-validate req
+ isakmp ikev1-user-authentication none
+ trust-point ASDM_TrustPoint1
+tunnel-group-map map-b 12 tunnel-b
+=OUTPUT=
+crypto ca certificate map map-b-DRC-0 12
+subject-name attr ea co @sub.example.com
+tunnel-group tunnel-b-DRC-0 type remote-access
+tunnel-group tunnel-b-DRC-0 general-attributes
+tunnel-group tunnel-b-DRC-0 ipsec-attributes
+peer-id-validate req
+isakmp ikev1-user-authentication none
+trust-point ASDM_TrustPoint1
+tunnel-group-map map-b-DRC-0 12 tunnel-b-DRC-0
+no tunnel-group-map map1 10 VPN-tunnel1
+clear configure crypto ca certificate map map1
+clear configure tunnel-group VPN-tunnel1
+=END=
+
+############################################################
 =TITLE=Remove tunnel-group, crypto-ca-cert-map, tunnel-group-map
 =DEVICE=
 tunnel-group VPN-tunnel type remote-access
