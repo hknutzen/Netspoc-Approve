@@ -6,6 +6,8 @@ Are you sure you want to continue connecting (yes/no)?<!>
 netspoc@10.1.2.3's password: <!>
 Type help or '?' for a list of available commands.
 router>
+# enable
+Password: <!>
 # sh pager
 pager lines 24
 
@@ -37,6 +39,8 @@ netspoc@10.1.2.3's password: secret
 
 Type help or '?' for a list of available commands.
 router>enable
+Password: secret
+
 router#
 router#sh pager
 pager lines 24
@@ -281,11 +285,25 @@ ERROR>>> While reading device: 'access-group inside in interface inside' referen
 =TITLE=Can't login
 =SCENARIO=
 netspoc@10.1.2.3's password: <!>
-netspoc@10.1.2.3's password: <!>
+netspoc@10.1.2.3's password:
 Connection to 172.20.82.1 closed by remote host.
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> while waiting for prompt '[>#]': expect: timer expired after 1 seconds
+=END=
+
+############################################################
+=TITLE=Enable password fails
+=SCENARIO=
+netspoc@10.1.2.3's password: <!>
+Type help or '?' for a list of available commands.
+router>
+# enable
+password: <!>
+password:
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> Authentication for enable mode failed
 =END=
 
 ############################################################
