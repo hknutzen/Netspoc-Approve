@@ -17,10 +17,6 @@ var isReferenced map[*cmd]bool
 func (a *ASAConfig) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
 	b := d.(*ASAConfig)
 	lookup := a.lookup
-	if lookup == nil {
-		lookup = make(objLookup)
-		a.lookup = lookup
-	}
 	for prefix := range b.lookup {
 		if lookup[prefix] == nil {
 			lookup[prefix] = make(map[string][]*cmd)
