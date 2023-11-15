@@ -78,8 +78,6 @@ func (s *State) loginEnable(hostName string, cfg *device.Config) {
 				device.Abort("Authentication for enable mode failed")
 			}
 		}
-	} else if !strings.HasSuffix(out, "#") {
-		device.Abort("Authentication failed")
 	}
 	// Force new prompt by issuing empty command.
 	// Use this prompt because of performance impact of standard prompt.
