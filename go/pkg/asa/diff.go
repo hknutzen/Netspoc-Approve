@@ -325,9 +325,7 @@ func findSimpleObject(bl []*cmd, a *ASAConfig) []*cmd {
 }
 
 func simpleObjEqual(al, bl []*cmd) bool {
-	if len(al) != len(bl) {
-		return false
-	}
+	// Simple objects are known to have exactly one toplevel command.
 	ac, bc := al[0], bl[0]
 	sortedSub := func(c *cmd) []string {
 		l := make([]string, len(c.sub))
