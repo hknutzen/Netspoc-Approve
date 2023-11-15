@@ -557,3 +557,108 @@ tunnel-group name2 ipsec-attributes
 =WARNING=
 WARNING>>> Ignoring unused 'tunnel-group name2' in raw
 =END=
+
+############################################################
+=TITLE=Add subcommands
+=DEVICE=NONE
+=NETSPOC=
+--router
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list vpn-filter extended permit ip host 10.1.1.2 host 10.1.0.2
+group-policy VPN-group1 internal
+group-policy VPN-group1 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy VPN-group1
+--router.raw
+ip local pool pool2 10.1.219.64-10.1.219.127 mask 0.0.0.63
+access-list vpn-filter2 extended permit ip host 10.1.2.2 host 10.1.0.2
+group-policy VPN-group2 internal
+group-policy VPN-group2 attributes
+ address-pools value pool2
+ vpn-filter value vpn-filter2
+tunnel-group 1.1.1.2 type ipsec-l2l
+tunnel-group 1.1.1.2 general-attributes
+ default-group-policy VPN-group2
+=OUTPUT=
+tunnel-group 1.1.1.1 type ipsec-l2l
+group-policy VPN-group1-DRC-0 internal
+ip local pool pool-DRC-0 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list vpn-filter-DRC-0 extended permit ip host 10.1.1.2 host 10.1.0.2
+group-policy VPN-group1-DRC-0 attributes
+address-pools value pool-DRC-0
+vpn-filter value vpn-filter-DRC-0
+tunnel-group 1.1.1.1 general-attributes
+default-group-policy VPN-group1-DRC-0
+tunnel-group 1.1.1.2 type ipsec-l2l
+group-policy VPN-group2-DRC-0 internal
+ip local pool pool2-DRC-0 10.1.219.64-10.1.219.127 mask 0.0.0.63
+access-list vpn-filter2-DRC-0 extended permit ip host 10.1.2.2 host 10.1.0.2
+group-policy VPN-group2-DRC-0 attributes
+address-pools value pool2-DRC-0
+vpn-filter value vpn-filter2-DRC-0
+tunnel-group 1.1.1.2 general-attributes
+default-group-policy VPN-group2-DRC-0
+=END=
+
+############################################################
+=TITLE=Merge subcommands
+=DEVICE=NONE
+=NETSPOC=
+--router
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ address-pools value pool
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy VPN-group
+--router.raw
+access-list raw-filter extended permit ip host 10.1.2.2 host 10.1.0.2
+group-policy raw-group internal
+group-policy raw-group attributes
+ vpn-filter value raw-filter
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy raw-group
+=OUTPUT=
+tunnel-group 1.1.1.1 type ipsec-l2l
+group-policy VPN-group-DRC-0 internal
+ip local pool pool-DRC-0 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list raw-filter-DRC-0 extended permit ip host 10.1.2.2 host 10.1.0.2
+group-policy VPN-group-DRC-0 attributes
+address-pools value pool-DRC-0
+vpn-filter value raw-filter-DRC-0
+tunnel-group 1.1.1.1 general-attributes
+default-group-policy VPN-group-DRC-0
+=END=
+
+############################################################
+=TITLE=Name clash in simple object
+=DEVICE=NONE
+=NETSPOC=
+--router
+ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list vpn-filter extended permit ip host 10.1.1.2 host 10.1.0.2
+group-policy VPN-group1 internal
+group-policy VPN-group1 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy VPN-group1
+--router.raw
+ip local pool pool 10.1.219.64-10.1.219.127 mask 0.0.0.63
+access-list vpn-filter extended permit ip host 10.1.2.2 host 10.1.0.2
+group-policy VPN-group2 internal
+group-policy VPN-group2 attributes
+ address-pools value pool
+ vpn-filter value vpn-filter
+tunnel-group 1.1.1.2 type ipsec-l2l
+tunnel-group 1.1.1.2 general-attributes
+ default-group-policy VPN-group2
+=ERROR=
+ERROR>>> Name clash for 'ip local pool pool' from raw
+=END=

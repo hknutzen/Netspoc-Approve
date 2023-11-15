@@ -114,14 +114,31 @@ func mergeCmds(ab *cmdsPair, name, prefix string) {
 	}
 	for _, b := range bl {
 		if a, found := m[b.parsed]; found {
-			//c.mergeSubCmds(a, b)
+			mergeSubCmds(ab, a, b)
 			mergeRefs(ab, a, b)
 		} else {
-			al = append(al, b)
+			for _, bs := range b.sub {
+				mergeRefs(ab, nil, bs)
+			}
 			mergeRefs(ab, nil, b)
+			al = append(al, b)
 		}
 	}
 	ab.a.lookup[prefix][name] = al
+}
+
+func mergeSubCmds(ab *cmdsPair, a, b *cmd) {
+	m := make(map[string]*cmd)
+	for _, as := range a.sub {
+		m[as.parsed] = as
+	}
+	for _, bs := range b.sub {
+		as := m[bs.parsed]
+		mergeRefs(ab, as, bs)
+		if as == nil {
+			a.sub = append(a.sub, bs)
+		}
+	}
 }
 
 func mergeRefs(ab *cmdsPair, a, b *cmd) {
