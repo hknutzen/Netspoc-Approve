@@ -92,9 +92,6 @@ func byCertMapKey(cf *ASAConfig, c *cmd) string {
 	name := c.ref[0]
 	prefix := c.typ.ref[0]
 	l := cf.lookup[prefix][name]
-	if l == nil {
-		return ""
-	}
 	for _, sc := range l[0].sub {
 		if strings.HasPrefix(sc.parsed, "subject-name attr") {
 			return sc.parsed
