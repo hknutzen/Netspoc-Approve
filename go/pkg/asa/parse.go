@@ -265,7 +265,7 @@ func (s *State) ParseConfig(data []byte, fName string) (
 				continue
 			}
 			// Get arguments.  Use strings.Fields, not strings.Split to
-			// remove extra indentationbetween arguments.
+			// remove extra indentation between arguments.
 			// Example:  "map-name  memberOf ..."
 			words := strings.Fields(line)
 			if c := matchCmd("", words, prev.typ.sub); c != nil {
