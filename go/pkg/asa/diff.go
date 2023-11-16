@@ -858,10 +858,7 @@ func (s *State) diffCryptoMap(al, bl []*cmd) string {
 	matchCryptoMap(al, bl, func(aSeqL, bSeqL []*cmd) {
 		s.diffCmds(aSeqL, bSeqL, byParsedCmd)
 	})
-	if len(al) > 0 {
-		return al[0].name
-	}
-	return bl[0].name
+	return al[0].name
 }
 
 func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
