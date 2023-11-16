@@ -1621,6 +1621,58 @@ no crypto ipsec ikev1 transform-set Trans1b-DRC-0 esp-3des esp-md5-hmac
 =END=
 
 ############################################################
+=TITLE=Missing peer in crypto map
+=DEVICE=
+[[crypto_ASA]]
+crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+crypto map crypto-outside interface outside
+=NETSPOC=
+crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+crypto map crypto-outside interface outside
+=ERROR=
+ERROR>>> Missing peer or dynamic in crypto map crypto-outside 1
+=END=
+
+############################################################
+=TITLE=Remove duplicate peer in crypto map on device
+=DEVICE=
+[[crypto_ASA]]
+crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+access-list crypto-outside-2 extended permit ip any4 10.0.2.0 255.255.255.0
+crypto map crypto-outside 2 match address crypto-outside-2
+crypto map crypto-outside 2 set peer 10.0.0.1
+crypto map crypto-outside 2 set ikev1 transform-set Trans1b
+crypto map crypto-outside interface outside
+=NETSPOC=
+crypto ipsec ikev1 transform-set Trans1 esp-aes esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1
+crypto map crypto-outside interface outside
+=OUTPUT=
+crypto ipsec ikev1 transform-set Trans1-DRC-0 esp-aes esp-md5-hmac
+no crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+crypto map crypto-outside 1 set ikev1 transform-set Trans1-DRC-0
+no crypto map crypto-outside 2 match address crypto-outside-2
+no crypto map crypto-outside 2 set peer 10.0.0.1
+no crypto map crypto-outside 2 set ikev1 transform-set Trans1b
+clear configure access-list crypto-outside-2
+no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+=END=
+
+############################################################
 =TITLE=Insert, change and delete dynamic crypto map
 =DEVICE=
 [[crypto_ASA]]
