@@ -890,13 +890,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 	mapPeerToSeq := func(seqMap map[int][]*cmd) map[string]int {
 		m := make(map[string]int)
 		for seq, l := range seqMap {
-			peer := getPeer(l)
-			if seq, found := m[peer]; found {
-				device.Abort(
-					"Duplicate peer or dynamic peer %s in crypto map %s %d and %d",
-					peer, l[0].name, l[0].seq, seq)
-			}
-			m[peer] = seq
+			m[getPeer(l)] = seq
 		}
 		return m
 	}
