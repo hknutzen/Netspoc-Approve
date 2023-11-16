@@ -688,6 +688,11 @@ func (s *State) markDeleted(al []*cmd) {
 		}
 	}
 	del = func(al []*cmd) {
+		switch al[0].typ.prefix {
+		// Leave these commands unchanged on device:
+		case "aaa-server", "ldap attribute-map", "interface":
+			return
+		}
 		for _, c := range al {
 			if !c.toDelete {
 				c.toDelete = true
@@ -750,10 +755,6 @@ func (s *State) deleteUnused() {
 				continue
 			}
 			prefix := pair[0]
-			switch prefix {
-			case "aaa-server", "ldap attribute-map", "interface":
-				continue
-			}
 			l := toDelete[pair]
 			delete(toDelete, pair)
 			if l[0].typ.canClearConf {

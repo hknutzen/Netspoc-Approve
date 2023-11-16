@@ -1729,6 +1729,18 @@ ERROR>>> 'aaa-server LDAP_KV' must be transferred manually
 =END=
 
 ############################################################
+=TITLE=Leave aaa-server and ldap attribute-map unchanged
+=DEVICE=[[input]]
+=NETSPOC=NONE
+=OUTPUT=
+webvpn
+no certificate-group-map ca-map-G1 10 VPN-tunnel-G1
+no tunnel-group-map ca-map-G1 10 VPN-tunnel-G1
+clear configure crypto ca certificate map ca-map-G1
+clear configure tunnel-group VPN-tunnel-G1
+=END=
+
+############################################################
 =TITLE=Transfer ldap map manually
 =DEVICE=
 ! vpn-filter-G1
