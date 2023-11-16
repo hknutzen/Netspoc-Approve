@@ -527,7 +527,7 @@ func (s *State) equalizedGroups(aName, bName string) bool {
 		}
 	}
 	ins, del := script.Stat()
-	if ins+del >= len(lb) {
+	if ins+del > len(lb) {
 		return false
 	}
 	ga.needed = true
