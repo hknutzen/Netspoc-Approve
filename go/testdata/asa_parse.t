@@ -1338,6 +1338,37 @@ ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' refer
 =END=
 
 ############################################################
+=TITLE=Subcommand of tunnel-group references unknown group-policy
+=DEVICE=
+tunnel-group 193.155.130.20 type ipsec-l2l
+tunnel-group 193.155.130.20 general-attributes
+ default-group-policy VPN-group1
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: 'default-group-policy VPN-group1' references unknown 'group-policy VPN-group1'
+=END=
+
+############################################################
+=TITLE=Ignore incomplete command
+=DEVICE=
+crypto ca certificate map ca-map
+tunnel-group-map ca-map 20 193.155.130.20
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'crypto ca certificate map ca-map'
+=END=
+
+############################################################
+=TITLE=Ignore command with extra arguments
+=DEVICE=
+crypto ca certificate map ca-map 10 11 12 13
+tunnel-group-map ca-map 20 193.155.130.20
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'crypto ca certificate map ca-map'
+=END=
+
+############################################################
 =TITLE=Must not delete default tunnel-group
 =DEVICE=
 tunnel-group DefaultRAGroup type remote-access
@@ -1962,6 +1993,38 @@ authentication-server-group LDAP_KV
 =END=
 
 ############################################################
+=TITLE=Change type of authentication server at tunnel-group
+=DEVICE=
+ldap attribute-map OTHER
+ map-name memberOf Group-Policy
+aaa-server TACACS protocol tacacs+
+aaa-server TACACS (inside) host 10.11.8.36
+ key *****
+aaa-server TACACS (inside) host 10.11.8.37
+ key *****
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ authentication-server-group TACACS
+crypto ca certificate map ca-map 10
+ subject-name attr cn co G1
+tunnel-group-map ca-map 10 VPN-tunnel
+=NETSPOC=
+aaa-server ABC protocol ldap
+aaa-server ABC (inside) host 1.2.8.15
+ ldap-attribute-map OTHER
+ldap attribute-map OTHER
+ map-name memberOf Group-Policy
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ authentication-server-group ABC
+crypto ca certificate map ca-map 10
+ subject-name attr cn co G1
+tunnel-group-map ca-map 10 VPN-tunnel
+=ERROR=
+ERROR>>> 'aaa-server ABC' must be transferred manually
+=END=
+
+############################################################
 =TITLE=Insert, unchanged and remove ldap map-value
 =DEVICE=
 access-list vpn-filter-G2 extended permit ip 10.3.4.16 255.255.255.248 any4
@@ -2042,3 +2105,23 @@ ERROR>>> While reading device: Bad indentation in subcommands:
 >>  map-name memberOf Group-Policy<<
 >> map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com" VPN-group-G1<<
 =END=
+
+############################################################
+=TITLE=Incomplete string
+=DEVICE=
+ldap attribute-map LDAPMAP
+ map-name memberOf Group-Policy
+ map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com VPN-group-G1
+=NETSPOC=NONE
+=ERROR=
+panic: Incomplete string in: [map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com VPN-group-G1]
+=END=
+
+############################################################
+=TITLE=Ignore unknown command, its subcommands and sub-sub-cmds
+=DEVICE=
+policy-map global_policy
+ class inspection_default
+  inspect ftp
+=NETSPOC=NONE
+=OUTPUT=NONE

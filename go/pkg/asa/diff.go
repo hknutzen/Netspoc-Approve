@@ -584,33 +584,41 @@ func (s *State) addCmds(l []*cmd) {
 	follow := func(c *cmd) {
 		for i, name := range c.ref {
 			prefix := c.typ.ref[i]
-			if s.b.lookup[prefix][name][0].fixedName {
+			bl := s.b.lookup[prefix][name]
+			if bl[0].fixedName {
 				if al, found := s.a.lookup[prefix][name]; found {
 					if prefix == "crypto map" {
-						s.diffCryptoMap(al, s.b.lookup[prefix][name])
+						s.diffCryptoMap(al, bl)
 					} else {
-						s.diffCmds(al, s.b.lookup[prefix][name], byParsedCmd)
+						s.diffCmds(al, bl, byParsedCmd)
 					}
 					continue
 				}
+			}
+			add(bl)
+		}
+	}
+	add = func(bl []*cmd) {
+		b0 := bl[0]
+		if b0.ready {
+			return
+		}
+		b0.ready = true
+		if b0.typ.simpleObject {
+			if al := s.findSimpleObjOnDevice(bl); al != nil {
+				al[0].needed = true
+				b0.name = al[0].name
+				return
+			}
+		}
+		if b0.fixedName {
+			prefix := b0.typ.prefix
+			name := b0.name
+			if _, found := s.a.lookup[prefix][name]; !found {
 				switch prefix {
 				case "aaa-server", "ldap attribute-map":
 					device.Abort("'%s %s' must be transferred manually", prefix, name)
 				}
-			}
-			add(s.b.lookup[prefix][name])
-		}
-	}
-	add = func(bl []*cmd) {
-		if bl[0].ready {
-			return
-		}
-		bl[0].ready = true
-		if bl[0].typ.simpleObject {
-			if al := s.findSimpleObjOnDevice(bl); al != nil {
-				al[0].needed = true
-				bl[0].name = al[0].name
-				return
 			}
 		}
 		for _, c := range bl {
