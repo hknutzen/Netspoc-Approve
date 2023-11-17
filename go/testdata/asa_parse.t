@@ -165,42 +165,6 @@ no route outside 10.1.3.0 255.255.255.0 10.1.2.2
 =END=
 
 ############################################################
-=TITLE=Handle protocol 1 as icmp in raw file
-=DEVICE=[[minimal_device1]]
-=NETSPOC=
---router
-access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
-access-list inside_in extended deny ip any4 any4
-access-group inside_in in interface inside
---router.raw
-access-list inside_in extended permit 1 any4 any4 3 6
-access-group inside_in in interface inside
-=OUTPUT=
-access-list inside_in-DRC-0 extended permit icmp any4 any4 3 6
-access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
-access-list inside_in-DRC-0 extended deny ip any4 any4
-access-group inside_in-DRC-0 in interface inside
-=END=
-
-############################################################
-=TITLE=Handle protocol 58 as icmp6 in raw file
-=DEVICE=[[minimal_device1]]
-=NETSPOC=
---ipv6/router
-access-list inside_in extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
-access-list inside_in extended deny ip any6 any6
-access-group inside_in in interface inside
---router.raw
-access-list inside_in extended permit 58 any6 any6 128
-access-group inside_in in interface inside
-=OUTPUT=
-access-list inside_in-DRC-0 extended permit icmp6 any6 any6 128
-access-list inside_in-DRC-0 extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
-access-list inside_in-DRC-0 extended deny ip any6 any6
-access-group inside_in-DRC-0 in interface inside
-=END=
-
-############################################################
 =TITLE=Handle numeric icmp6 named type
 =DEVICE=
 [[minimal_device1]]

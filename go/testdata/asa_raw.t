@@ -141,6 +141,19 @@ access-group inside in interface inside
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Recognize prefixlen /0 as any6
+=DEVICE=
+interface Ethernet0/1
+ nameif inside
+access-list inside extended permit ip host 1000::abcd:1:1 any6
+access-group inside in interface inside
+=NETSPOC=
+--router.raw
+access-list inside extended permit ip host 1000::abcd:1:1 0.0.0.0/0
+access-group inside in interface inside
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Name clash with ACL
 =DEVICE=NONE
 =NETSPOC=
@@ -661,4 +674,69 @@ tunnel-group 1.1.1.2 general-attributes
  default-group-policy VPN-group2
 =ERROR=
 ERROR>>> Name clash for 'ip local pool pool' from raw
+=END=
+
+############################################################
+=TITLE=Parse object as protocol
+=DEVICE=
+access-list inside_in extended permit object x any4 any4
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=NETSPOC=
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=OUTPUT=
+no access-list inside_in line 1 extended permit object x any4 any4
+=END=
+
+############################################################
+=TITLE=Handle protocol 1 as icmp
+=DEVICE=
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=NETSPOC=
+--router
+access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+--router.raw
+access-list inside_in extended permit 1 any4 any4 3 6
+access-group inside_in in interface inside
+=OUTPUT=
+access-list inside_in line 1 extended permit icmp any4 any4 3 6
+access-list inside_in line 2 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
+=END=
+
+############################################################
+=TITLE=Handle protocol 58 as icmp6
+=DEVICE=
+access-list inside_in extended deny ip any6 any6
+access-group inside_in in interface inside
+=NETSPOC=
+--ipv6/router
+access-list inside_in extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
+access-list inside_in extended deny ip any6 any6
+access-group inside_in in interface inside
+--router.raw
+access-list inside_in extended permit 58 any6 any6 128
+access-group inside_in in interface inside
+=OUTPUT=
+access-list inside_in line 1 extended permit icmp6 any6 any6 128
+access-list inside_in line 2 extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
+=END=
+
+############################################################
+=TITLE=Leave port of non udp/tcp protocol unchanged
+=DEVICE=
+access-list inside_in extended permit sctp any4 any4 eq 1234
+access-list inside_in extended permit sctp any4 any4 eq foo
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=NETSPOC=
+--router.raw
+access-list inside_in extended permit 132 any4 any4 eq 1234
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=OUTPUT=
+no access-list inside_in line 2 extended permit sctp any4 any4 eq foo
 =END=
