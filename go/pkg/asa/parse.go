@@ -934,8 +934,6 @@ func postprocessACL(c *cmd) {
 			convNamed(tcpNames)
 		case "udp":
 			convNamed(udpNames)
-		default:
-			parts = parts[1:]
 		}
 	}
 	convObjectGroup := func() {
