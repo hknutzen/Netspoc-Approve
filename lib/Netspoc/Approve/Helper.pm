@@ -6,7 +6,7 @@ Helper functions
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2023 by Heinz Knutzen <heinz.knutzen@gmail.com>
 (c) 2010 by Daniel Brunkhorst <daniel.brunkhorst@web.de>
 (c) 2007 by Arne Spetzler
 
@@ -37,7 +37,7 @@ use NetAddr::IP::Util;
 
 our @ISA    = qw(Exporter);
 our @EXPORT = qw(info abort warn_info internal_err debug
-                 quiet quad2bitstr is_ip is_ipv6 max unique
+                 quiet quad2bitstr is_ip is_ipv6 unique
 );
 
 my $verbose = 1;
@@ -82,14 +82,6 @@ sub is_ipv6 {
     my ($bitstr) = @_;
     my $bits = split(//, unpack('b*', $bitstr));
     return $bits == 128;
-}
-
-sub max {
-    my $max = shift(@_);
-    for my $el (@_) {
-        $max = $el if $max < $el;
-    }
-    return $max;
 }
 
 # Unique union of all elements.
