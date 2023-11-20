@@ -1313,7 +1313,7 @@ ERROR>>> While reading device: 'default-group-policy VPN-group1' references unkn
 =END=
 
 ############################################################
-=TITLE=Ignore incomplete command
+=TITLE=Ignore incomplete command (1)
 =DEVICE=
 crypto ca certificate map ca-map
 tunnel-group-map ca-map 20 193.155.130.20
@@ -1321,6 +1321,13 @@ tunnel-group-map ca-map 20 193.155.130.20
 =ERROR=
 ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'crypto ca certificate map ca-map'
 =END=
+
+############################################################
+=TITLE=Ignore incomplete command (2)
+=DEVICE=
+crypto
+=NETSPOC=NONE
+=OUTPUT=NONE
 
 ############################################################
 =TITLE=Ignore command with extra arguments
