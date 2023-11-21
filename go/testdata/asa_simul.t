@@ -347,3 +347,57 @@ route inside 0.0.0.0 0.0.0.0 10.1.2.4
 ERROR>>> Command 'write memory' failed, missing [OK] in output:
 ERROR>>> FAILED
 =END=
+
+############################################################
+=TITLE=Only IPv6 address known for device
+=SCENARIO=
+[[login_scenario]]
+# write memory
+[OK]
+=NETSPOC=
+--router
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
+--ipv6/router
+ipv6 route inside 10::3:0/120 10::2:2
+ipv6 route inside 10::2:0/1 10::2:5
+--router.info
+{ "model": "ASA" }
+--ipv6/router.info
+{
+ "model": "ASA",
+ "ip_list": ["10::33"]
+}
+=OUTPUT=
+--router.change
+configure terminal
+router#route inside 10.20.0.0 255.255.255.0 10.1.2.3
+router#route inside 10.22.0.0 255.255.0.0 10.1.2.4
+router#ipv6 route inside 10::3:0/120 10::2:2
+router#ipv6 route inside 10::2:0/1 10::2:5
+router#end
+router#write memory
+[OK]
+router#
+=END=
+
+############################################################
+=TITLE=Missing IP address
+=SCENARIO=
+[[login_scenario]]
+=NETSPOC=
+--router
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
+--ipv6/router
+ipv6 route inside 10::3:0/120 10::2:2
+ipv6 route inside 10::2:0/1 10::2:5
+--router.info
+{ "model": "ASA" }
+--ipv6/router.info
+{
+ "model": "ASA"
+}
+=ERROR=
+ERROR>>> Missing IP address in [code/router.info code/ipv6/router.info]
+=END=
