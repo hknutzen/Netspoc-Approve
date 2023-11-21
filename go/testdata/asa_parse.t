@@ -427,6 +427,28 @@ access-group inside_in in interface inside
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Remove nested object-group
+=DEVICE=
+object-group network g1
+ network-object 10.0.5.0 0.0.0.128
+object-group network g2
+ network-object 10.0.1.0 0.0.0.255
+ group-object g1
+access-list inside_in extended permit ip any4 object-group g2
+access-group inside_in in interface inside
+=NETSPOC=
+object-group network g2
+ network-object 10.0.1.0 0.0.0.255
+ network-object 10.0.2.0 0.0.0.255
+access-list inside_in extended permit ip any4 object-group g2
+access-group inside_in in interface inside
+=OUTPUT=
+object-group network g2
+no group-object g1
+network-object 10.0.2.0 0.0.0.255
+=END=
+
+############################################################
 =TITLE=Remove global ACL from device
 =DEVICE=
 access-list global_ACL extended permit tcp any4 any4 eq 22
