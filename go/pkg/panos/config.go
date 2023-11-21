@@ -73,7 +73,7 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 				if _, ok := m[name]; ok {
 					return nil, nil, fmt.Errorf(
 						"Duplicate name '%s' in VSYS of '%s' configuration",
-						c.origin, name)
+						name, c.origin)
 				}
 				m[name] = v
 			}

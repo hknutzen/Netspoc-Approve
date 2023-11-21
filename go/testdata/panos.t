@@ -2168,3 +2168,17 @@ ERROR>>> Expected exactly one device entry in 'netspoc' configuration
 =ERROR=
 ERROR>>> Missing name in 1. VSYS of 'netspoc' configuration
 =END=
+
+############################################################
+=TITLE=Duplicate VSYS  name
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys2"></entry></vsys>
+  <vsys><entry name="vsys2"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> Duplicate name 'vsys2' in VSYS of 'netspoc' configuration
+=END=
