@@ -2170,7 +2170,7 @@ ERROR>>> Missing name in 1. VSYS of 'netspoc' configuration
 =END=
 
 ############################################################
-=TITLE=Duplicate VSYS  name
+=TITLE=Duplicate VSYS name
 =DEVICE=
 <config><devices>
  <entry name="localhost.localdomain">
@@ -2181,4 +2181,22 @@ ERROR>>> Missing name in 1. VSYS of 'netspoc' configuration
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> Duplicate name 'vsys2' in VSYS of 'netspoc' configuration
+=END=
+
+############################################################
+=TITLE=Different device names
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys2"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=
+<config><devices>
+ <entry name="foo">
+  <vsys><entry name="vsys2"></entry></vsys>
+ </entry>
+</devices></config>
+=ERROR=
+ERROR>>> Different names in <device> of XML: netspoc='localhost.localdomain', netspoc='foo'
 =END=
