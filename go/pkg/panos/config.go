@@ -51,42 +51,19 @@ func (p1 *PanConfig) MergeSpoc(c2 device.DeviceConfig) device.DeviceConfig {
 
 func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 	getDevVsysMap :=
-		func(c *PanConfig) (*panDevice, map[string]*panVsys, error) {
-			if c == nil || c.Devices == nil {
-				return &panDevice{}, nil, nil
+		func(c *PanConfig) (*panDevice, map[string]*panVsys) {
+			if c == nil || c.Devices == nil || len(c.Devices.Entries) == 0 {
+				return &panDevice{}, nil
 			}
-			l := c.Devices.Entries
-			if len(l) != 1 {
-				return nil, nil, fmt.Errorf(
-					"Expected exactly one device entry in '%s' configuration",
-					c.origin)
-			}
-			d := l[0]
+			d := c.Devices.Entries[0]
 			m := make(map[string]*panVsys)
-			for i, v := range d.Vsys {
-				name := v.Name
-				if name == "" {
-					return nil, nil, fmt.Errorf(
-						"Missing name in %d. VSYS of '%s' configuration",
-						i+1, c.origin)
-				}
-				if _, ok := m[name]; ok {
-					return nil, nil, fmt.Errorf(
-						"Duplicate name '%s' in VSYS of '%s' configuration",
-						name, c.origin)
-				}
-				m[name] = v
+			for _, v := range d.Vsys {
+				m[v.Name] = v
 			}
-			return d, m, nil
+			return d, m
 		}
-	d1, m1, err := getDevVsysMap(c1)
-	if err != nil {
-		return err
-	}
-	d2, m2, err := getDevVsysMap(c2)
-	if err != nil {
-		return err
-	}
+	d1, m1 := getDevVsysMap(c1)
+	d2, m2 := getDevVsysMap(c2)
 	if d1.Name != "" && d2.Name != "" && d1.Name != d2.Name {
 		return fmt.Errorf("Different names in <device> of XML: %s='%s', %s='%s'",
 			c1.origin, d1.Name, c2.origin, d2.Name)

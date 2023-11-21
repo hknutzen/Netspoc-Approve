@@ -2141,49 +2141,6 @@ action=set&type=config&
 =END=
 
 ############################################################
-=TITLE=Multiple device entries
-=DEVICE=
-<config><devices>
- <entry name="localhost.localdomain">
-  <vsys><entry name="vsys2"></entry></vsys>
- </entry>
- <entry name="foo">
-  <vsys><entry name="vsys2"></entry></vsys>
- </entry>
-</devices></config>
-=NETSPOC=NONE
-=ERROR=
-ERROR>>> Expected exactly one device entry in 'netspoc' configuration
-=END=
-
-############################################################
-=TITLE=Missing VSYS name
-=DEVICE=
-<config><devices>
- <entry name="localhost.localdomain">
-  <vsys><entry></entry></vsys>
- </entry>
-</devices></config>
-=NETSPOC=NONE
-=ERROR=
-ERROR>>> Missing name in 1. VSYS of 'netspoc' configuration
-=END=
-
-############################################################
-=TITLE=Duplicate VSYS name
-=DEVICE=
-<config><devices>
- <entry name="localhost.localdomain">
-  <vsys><entry name="vsys2"></entry></vsys>
-  <vsys><entry name="vsys2"></entry></vsys>
- </entry>
-</devices></config>
-=NETSPOC=NONE
-=ERROR=
-ERROR>>> Duplicate name 'vsys2' in VSYS of 'netspoc' configuration
-=END=
-
-############################################################
 =TITLE=Different device names
 =DEVICE=
 <config><devices>
