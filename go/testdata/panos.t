@@ -2157,3 +2157,32 @@ action=set&type=config&
 =ERROR=
 ERROR>>> Different names in <device> of XML: netspoc='localhost.localdomain', netspoc='foo'
 =END=
+
+############################################################
+=TITLE=Unknown VSYS on device
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys1"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys2"></entry></vsys>
+ </entry>
+</devices></config>
+=ERROR=
+ERROR>>> Unknown name 'vsys2' in VSYS of device configuration
+=END=
+
+############################################################
+=TITLE=Leave VSYS on device unchanged
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys1"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=NONE
+=OUTPUT=NONE
