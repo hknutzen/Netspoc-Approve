@@ -32,76 +32,25 @@ END
 drc3_err($title, 'ASA', $spoc, $out);
 
 ############################################################
-$title = "No IP address in both IPv4 and IPv6";
-############################################################
-
-$spoc = {
-spoc4 => <<END
-route inside 10.20.0.0 255.255.255.0 10.1.2.3
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
-END
-,
-spoc6 => <<END
-ipv6 route inside 10::3:0/120 10::2:2
-ipv6 route inside 10::2:0/1 10::2:5
-END
-,
-info4 => <<END
-{ "model": "ASA" }
-END
-,
-info6 => <<END
-{ "model": "ASA" }
-END
-};
-
-$out = <<END;
-ERROR>>> Missing IP address in [router.info ipv6/router.info]
-END
-
-drc3_err($title, 'ASA', $spoc, $out);
-
-############################################################
-$title = "No IP address in IPv4";
-############################################################
-
-$spoc = {
-spoc4 => <<END
-route inside 10.20.0.0 255.255.255.0 10.1.2.3
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
-END
-,
-info4 => <<END
-{ "model": "ASA" }
-END
-};
-
-$out = <<END;
-ERROR>>> Missing IP address in [router.info]
-END
-
-drc3_err($title, 'ASA', $spoc, $out);
-
-############################################################
 $title = "No IP address in IPv6";
 ############################################################
 
 $spoc = {
 spoc6 => <<END
-ipv6 route inside 10::3:0/120 10::2:2
-ipv6 route inside 10::2:0/1 10::2:5
+ipv6 route 10::3:0/120 10::2:2
+ipv6 route 10::2:0/1 10::2:5
 END
 ,
 info6 => <<END
-{ "model": "ASA" }
+{ "model": "IOS" }
 END
 };
 
 $out = <<END;
-ERROR>>> Missing IP address in [ipv6/router.info]
+ERROR>>> Can't get IP from file(s): ipv6/router.info
 END
 
-drc3_err($title, 'ASA', $spoc, $out);
+drc3_err($title, 'IOS', $spoc, $out);
 
 ############################################################
 $title = "Invalid option";

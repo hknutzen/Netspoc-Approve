@@ -383,8 +383,7 @@ router#
 
 ############################################################
 =TITLE=Missing IP address
-=SCENARIO=
-[[login_scenario]]
+=SCENARIO=[[login_scenario]]
 =NETSPOC=
 --router
 route inside 10.20.0.0 255.255.255.0 10.1.2.3
@@ -400,4 +399,17 @@ ipv6 route inside 10::2:0/1 10::2:5
 }
 =ERROR=
 ERROR>>> Missing IP address in [code/router.info code/ipv6/router.info]
+=END=
+
+############################################################
+=TITLE=Missing IP address in IPv4
+=SCENARIO=[[login_scenario]]
+=NETSPOC=
+--router
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
+--router.info
+{ "model": "ASA" }
+=ERROR=
+ERROR>>> Missing IP address in [code/router.info]
 =END=
