@@ -2139,3 +2139,32 @@ action=set&type=config&
   <log-end>yes</log-end>
   <rule-type>interzone</rule-type>
 =END=
+
+############################################################
+=TITLE=Multiple device entries
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys2"></entry></vsys>
+ </entry>
+ <entry name="foo">
+  <vsys><entry name="vsys2"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> Expected exactly one device entry in 'netspoc' configuration
+=END=
+
+############################################################
+=TITLE=Missing VSYS name
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> Missing name in 1. VSYS of 'netspoc' configuration
+=END=
