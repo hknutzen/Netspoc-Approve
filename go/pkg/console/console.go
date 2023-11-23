@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	expect "github.com/google/goexpect"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	expect "github.com/tailscale/goexpect"
 )
 
 type Conn struct {
