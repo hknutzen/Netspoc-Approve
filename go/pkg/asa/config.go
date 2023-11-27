@@ -32,23 +32,8 @@ func (a *ASAConfig) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
 			switch prefix {
 			case "tunnel-group-map", "webvpn":
 				device.Abort("Command '%s' not supported in raw file", prefix)
-			case "access-group":
-				if b.isRaw {
-					// Duplicate lines from raw are a leftover from previous version,
-					// where access-group is given in prepend and append part.
-					m := make(map[string]bool)
-					j := 0
-					for _, c := range bl {
-						if !m[c.parsed] {
-							bl[j] = c
-							j++
-							m[c.parsed] = true
-						}
-					}
-					bl = bl[:j]
-					bMap[name] = bl
-				}
-			case "route", "ipv6 route", "username", "crypto map interface":
+			case "access-group", "route", "ipv6 route", "username",
+				"crypto map interface":
 			case "group-policy", "tunnel-group":
 				if bCmd.fixedName {
 					break
