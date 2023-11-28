@@ -1,5 +1,8 @@
 {{$NEXT}}
 
+ - No longer ignore duplicate access-group command in raw files,
+   but abort instead.
+
 3.020     2023-11-13 11:21:42+01:00 Europe/Berlin
 
  - Fixed issues in code for ASA:
