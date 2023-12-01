@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"os"
 	"strings"
 
@@ -33,12 +32,6 @@ func (s *State) LoadDevice(
 		func(name, ip, user, pass string) error {
 			s.prefix = fmt.Sprintf("https://%s", ip)
 			s.client = device.GetHTTPClient(cfg)
-			jar, err := cookiejar.New(nil)
-			if err != nil {
-				return err
-			}
-			s.client.Jar = jar
-
 			uri := s.prefix + "/web_api/login"
 			device.DoLog(logLogin, uri)
 			v := fmt.Sprintf(`{"user":"%s","password":"%s"}`, user, "xxx")
@@ -80,7 +73,7 @@ func (s *State) LoadDevice(
 		if _, found := args["limit"]; !found {
 			args["limit"] = 500
 		}
-		// Read partial result until 'total' is reached.
+		// Read partial results until 'total' is reached.
 		for {
 			apiPath := s.prefix + "/web_api/" + endPoint
 			body, _ := json.Marshal(args)
