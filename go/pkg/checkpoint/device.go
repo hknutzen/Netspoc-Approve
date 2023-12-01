@@ -40,7 +40,7 @@ func (s *State) LoadDevice(
 			s.client.Jar = jar
 
 			uri := s.prefix + "/web_api/login"
-			device.DoLog(logLogin, "POST "+uri)
+			device.DoLog(logLogin, uri)
 			v := fmt.Sprintf(`{"user":"%s","password":"%s"}`, user, "xxx")
 			device.DoLog(logLogin, v)
 			v = fmt.Sprintf(`{"user":"%s","password":"%s"}`, user, pass)
@@ -206,7 +206,7 @@ func (s *State) HasChanges() bool {
 func (s *State) ShowChanges() string {
 	var collect strings.Builder
 	for _, chg := range s.changes {
-		fmt.Fprintf(&collect, "POST %s\n", chg.url)
+		fmt.Fprintln(&collect, chg.url)
 		fmt.Fprintln(&collect, string(chg.postData))
 	}
 	return collect.String()
@@ -214,13 +214,13 @@ func (s *State) ShowChanges() string {
 
 func (s *State) ApplyCommands(logFh *os.File) error {
 	for _, c := range s.changes {
-		device.DoLog(logFh, fmt.Sprintf("URI: POST %s", c.url))
-		device.DoLog(logFh, "DATA: "+string(c.postData))
+		device.DoLog(logFh, c.url)
+		device.DoLog(logFh, string(c.postData))
 		resp, err := s.sendRequest(c.url, bytes.NewReader(c.postData))
 		if err != nil {
 			return err
 		}
-		device.DoLog(logFh, "RESP: "+string(resp))
+		device.DoLog(logFh, string(resp))
 	}
 	return nil
 }
