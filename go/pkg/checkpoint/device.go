@@ -20,7 +20,7 @@ type State struct {
 	changes []change
 }
 type change struct {
-	url      string
+	endpoint string
 	postData []byte
 }
 
@@ -149,6 +149,8 @@ func (s *State) LoadDevice(
 	out, _ := json.Marshal(rawConf)
 	device.DoLog(logConfig, string(out))
 	cf, err := s.ParseConfig(out, "<device>")
+	//out, _ = json.Marshal(cf)
+	//device.DoLog(logConfig, string(out))
 	for _, r := range cf.(*chkpConfig).Rules {
 		if r.Layer == "" {
 			r.Layer = "network"
@@ -199,7 +201,7 @@ func (s *State) HasChanges() bool {
 func (s *State) ShowChanges() string {
 	var collect strings.Builder
 	for _, chg := range s.changes {
-		fmt.Fprintln(&collect, chg.url)
+		fmt.Fprintln(&collect, chg.endpoint)
 		fmt.Fprintln(&collect, string(chg.postData))
 	}
 	return collect.String()
@@ -207,9 +209,10 @@ func (s *State) ShowChanges() string {
 
 func (s *State) ApplyCommands(logFh *os.File) error {
 	for _, c := range s.changes {
-		device.DoLog(logFh, c.url)
+		url := "/web_api/" + c.endpoint
+		device.DoLog(logFh, url)
 		device.DoLog(logFh, string(c.postData))
-		resp, err := s.sendRequest(c.url, bytes.NewReader(c.postData))
+		resp, err := s.sendRequest(url, bytes.NewReader(c.postData))
 		if err != nil {
 			return err
 		}

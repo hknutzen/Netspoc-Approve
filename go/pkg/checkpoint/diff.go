@@ -9,14 +9,16 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+type jsonMap map[string]interface{}
+
 func diffConfig(a, b *chkpConfig) []change {
 	var changes []change
 	aObjects := getObjList(a)
-	a.objMap = getObjMap(aObjects)
+	aObjMap := getObjMap(aObjects)
 	for _, bObj := range getObjList(b) {
 		name := bObj.getName()
 		jb, _ := json.Marshal(bObj)
-		if aObj, found := a.objMap[name]; found {
+		if aObj, found := aObjMap[name]; found {
 			// Object is found on device and marked as needed.
 			aObj.setNeeded()
 			ja, _ := json.Marshal(aObj)
@@ -29,13 +31,13 @@ func diffConfig(a, b *chkpConfig) []change {
 			// Add definition of new object to device.
 			changes = append(changes,
 				change{
-					url:      "add-" + bObj.getAPIObject(),
+					endpoint: "add-" + bObj.getAPIObject(),
 					postData: jb,
 				})
 		}
 	}
 	markDeletable := func(n chkpName) {
-		if aObj, found := a.objMap[n]; found {
+		if aObj, found := aObjMap[n]; found {
 			aObj.setDeletable()
 		}
 	}
@@ -43,10 +45,33 @@ func diffConfig(a, b *chkpConfig) []change {
 	for _, r := range a.Rules {
 		aRuleMap[r.Name] = r
 	}
+	// Find postion for added rules from Netspoc,
+	// - add before exiting rule on device or
+	// - add at bottom of ruleset.
+	addIdx := -1
+	for i, bRule := range b.Rules {
+		if aRule, found := aRuleMap[bRule.Name]; found {
+			if addIdx != -1 {
+				pos := jsonMap{"before": aRule.Name}
+				for j := addIdx; j < i; j++ {
+					b.Rules[j].Position = pos
+				}
+				addIdx = -1
+			}
+		} else if addIdx == -1 {
+			addIdx = i
+		}
+	}
+	if addIdx != -1 {
+		pos := "bottom"
+		for j := addIdx; j < len(b.Rules); j++ {
+			b.Rules[j].Position = pos
+		}
+	}
 	for _, bRule := range b.Rules {
 		if aRule, found := aRuleMap[bRule.Name]; found {
 			aRule.needed = true
-			changed := make(map[string]interface{})
+			changed := make(jsonMap)
 			compareObjects := func(attr string, aL, bL []chkpName) {
 				aMap := getNameMap(aL)
 				bMap := getNameMap(bL)
@@ -91,16 +116,15 @@ func diffConfig(a, b *chkpConfig) []change {
 				data, _ := json.Marshal(changed)
 				changes = append(changes,
 					change{
-						url:      "set-access-rule",
+						endpoint: "set-access-rule",
 						postData: data,
 					})
 			}
 		} else {
-			// TODO: Set correct position.
 			data, _ := json.Marshal(bRule)
 			changes = append(changes,
 				change{
-					url:      "add-access-rule",
+					endpoint: "add-access-rule",
 					postData: data,
 				})
 		}
@@ -119,7 +143,7 @@ func diffConfig(a, b *chkpConfig) []change {
 			data, _ := json.Marshal(chkpRuleID{Name: aRule.Name, Layer: "network"})
 			changes = append(changes,
 				change{
-					url:      "delete-access-rule",
+					endpoint: "delete-access-rule",
 					postData: data,
 				})
 		}
@@ -131,7 +155,7 @@ func diffConfig(a, b *chkpConfig) []change {
 				strings.Contains(strings.ToLower(aObj.getComments()), "netspoc")) {
 			changes = append(changes,
 				change{
-					url:      "delete-" + aObj.getAPIObject(),
+					endpoint: "delete-" + aObj.getAPIObject(),
 					postData: []byte(`{"name": "` + aObj.getName() + `"}`),
 				})
 		}

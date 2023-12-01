@@ -16,7 +16,6 @@ type chkpConfig struct {
 	ICMP6    []*chkpICMP6
 	SvOther  []*chkpSvOther
 	Routes   []*chkpRoute
-	objMap   map[chkpName]object
 }
 
 type chkpRuleID struct {
@@ -25,14 +24,14 @@ type chkpRuleID struct {
 }
 type chkpRule struct {
 	chkpRuleID
-	Comments    string     `json:"comments,omitempty"`
-	Action      chkpName   `json:"action"`
-	Source      []chkpName `json:"source"`
-	Destination []chkpName `json:"destination"`
-	Service     []chkpName `json:"service"`
-	Track       chkpTrack  `json:"track"`
-	InstallOn   []chkpName `json:"install-on"`
-	RuleNumber  int        `json:"rule-number"`
+	Comments    string      `json:"comments,omitempty"`
+	Action      chkpName    `json:"action"`
+	Source      []chkpName  `json:"source"`
+	Destination []chkpName  `json:"destination"`
+	Service     []chkpName  `json:"service"`
+	Track       chkpTrack   `json:"track"`
+	InstallOn   []chkpName  `json:"install-on"`
+	Position    interface{} `json:"position, omitempty"`
 	needed      bool
 }
 
