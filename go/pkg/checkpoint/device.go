@@ -21,7 +21,6 @@ type State struct {
 	changes []change
 }
 type change struct {
-	method   string
 	url      string
 	postData []byte
 }
@@ -101,7 +100,7 @@ func (s *State) LoadDevice(
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
-				msg := fmt.Sprintf("status code: %d, method: POST, uri: %s",
+				msg := fmt.Sprintf("status code: %d, uri: %s",
 					resp.StatusCode, apiPath)
 				if body, _ := io.ReadAll(resp.Body); len(body) != 0 {
 					msg += "\n" + string(body)
@@ -142,10 +141,10 @@ func (s *State) LoadDevice(
 			"details-level":         "standard",
 			"use-object-dictionary": false,
 		})
-	add("networks", "show-networks", apiArgs{})
-	add("hosts", "show-hosts", apiArgs{})
-	add("tcp", "show-services-tcp", apiArgs{})
-	add("udp", "show-services-udp", apiArgs{})
+	add("networks", "show-networks", apiArgs{"details-level": "full"})
+	add("hosts", "show-hosts", apiArgs{"details-level": "full"})
+	add("tcp", "show-services-tcp", apiArgs{"details-level": "full"})
+	add("udp", "show-services-udp", apiArgs{"details-level": "full"})
 	add("icmp", "show-services-icmp", apiArgs{"details-level": "full"})
 	add("icmp6", "show-services-icmp6", apiArgs{"details-level": "full"})
 	add("svOther", "show-services-other", apiArgs{"details-level": "full"})
@@ -158,49 +157,20 @@ func (s *State) LoadDevice(
 	}
 	out, _ := json.Marshal(rawConf)
 	device.DoLog(logConfig, string(out))
-	config, err := s.ParseConfig(out, "<device>")
+	cf, err := s.ParseConfig(out, "<device>")
+	for _, r := range cf.(*chkpConfig).Rules {
+		if r.Layer == "" {
+			r.Layer = "network"
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("While parsing device config: %v", err)
 	}
-	return config, nil
+	return cf, nil
 }
 
-func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
-	var data []json.RawMessage
-	var cursor string
-	for {
-		var results struct {
-			Cursor  string
-			Results []json.RawMessage
-		}
-		var id struct{ Id string }
-		out, err := s.sendRequest("GET", path+"?cursor="+cursor, nil)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(out, &results)
-		if err != nil {
-			return nil, err
-		}
-		for _, result := range results.Results {
-			err = json.Unmarshal(result, &id)
-			if err != nil {
-				return nil, err
-			}
-			if strings.HasPrefix(id.Id, "Netspoc") {
-				data = append(data, result)
-			}
-		}
-		cursor = results.Cursor
-		if cursor == "" {
-			break
-		}
-	}
-	return data, nil
-}
-
-func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte, error) {
-	req, err := http.NewRequest(method, s.prefix+path, body)
+func (s *State) sendRequest(path string, body io.Reader) ([]byte, error) {
+	req, err := http.NewRequest("POST", s.prefix+path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +184,7 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		msg := fmt.Sprintf("status code: %d, method: %s, uri: %s", resp.StatusCode, method, path)
+		msg := fmt.Sprintf("status code: %d, uri: %s", resp.StatusCode, path)
 		if body, _ := io.ReadAll(resp.Body); len(body) != 0 {
 			msg += "\n" + string(body)
 		}
@@ -238,7 +208,7 @@ func (s *State) HasChanges() bool {
 func (s *State) ShowChanges() string {
 	var collect strings.Builder
 	for _, chg := range s.changes {
-		fmt.Fprintf(&collect, "%s %s\n", chg.method, chg.url)
+		fmt.Fprintf(&collect, "POST %s\n", chg.url)
 		fmt.Fprintln(&collect, string(chg.postData))
 	}
 	return collect.String()
@@ -246,9 +216,9 @@ func (s *State) ShowChanges() string {
 
 func (s *State) ApplyCommands(logFh *os.File) error {
 	for _, c := range s.changes {
-		device.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
+		device.DoLog(logFh, fmt.Sprintf("URI: POST %s", c.url))
 		device.DoLog(logFh, "DATA: "+string(c.postData))
-		resp, err := s.sendRequest(c.method, c.url, bytes.NewReader(c.postData))
+		resp, err := s.sendRequest(c.url, bytes.NewReader(c.postData))
 		if err != nil {
 			return err
 		}
