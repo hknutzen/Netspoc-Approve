@@ -70,8 +70,6 @@ func (s *State) LoadDevice(
 		return nil, err
 	}
 
-	device.DoLog(logConfig, "#"+s.prefix)
-
 	rawConf := make(map[string][]json.RawMessage)
 	var addErr error
 	type apiArgs map[string]interface{}

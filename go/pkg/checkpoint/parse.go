@@ -1,7 +1,6 @@
 package checkpoint
 
 import (
-	"bytes"
 	"encoding/json"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
@@ -163,24 +162,6 @@ func (s *State) ParseConfig(data []byte, fName string) (
 	if len(data) == 0 {
 		return config, nil
 	}
-	err := json.Unmarshal(removeHeader(data), config)
+	err := json.Unmarshal(data, config)
 	return config, err
-}
-
-func removeHeader(data []byte) []byte {
-	if bytes.HasPrefix(data, []byte("Generated")) {
-		i := bytes.IndexByte(data, byte('{'))
-		return data[i:]
-	}
-	for {
-		if bytes.HasPrefix(data, []byte("#")) {
-			i := bytes.IndexByte(data, byte('\n'))
-			if i == -1 {
-				return data[len(data):]
-			}
-			data = data[i+1:]
-		} else {
-			return data
-		}
-	}
 }
