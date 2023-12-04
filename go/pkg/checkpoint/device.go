@@ -9,25 +9,30 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
 type State struct {
-	client  *http.Client
-	prefix  string
-	sid     string
-	changes []change
+	client    *http.Client
+	prefix    string
+	sid       string
+	changes   []change
+	installOn []chkpName
 }
 type change struct {
 	endpoint string
-	postData []byte
+	postData interface{}
 }
+
+type jsonMap map[string]interface{}
 
 func (s *State) LoadDevice(
 	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
+	// Login to device and get session ID.
 	err := device.TryReachableHTTPLogin(spocFile, cfg,
 		func(name, ip, user, pass string) error {
 			s.prefix = fmt.Sprintf("https://%s", ip)
@@ -63,6 +68,12 @@ func (s *State) LoadDevice(
 		return nil, err
 	}
 
+	// Discard uncommited changes from previous run.
+	_, err = s.sendRequest("/web_api/discard", bytes.NewReader([]byte("{}")))
+	if err != nil {
+		return nil, err
+	}
+	// Collect configuration of device.
 	rawConf := make(map[string][]json.RawMessage)
 	var addErr error
 	type apiArgs map[string]interface{}
@@ -190,7 +201,7 @@ func (s *State) sendRequest(path string, body io.Reader) ([]byte, error) {
 func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
 	p1 := c1.(*chkpConfig)
 	p2 := c2.(*chkpConfig)
-	s.changes = diffConfig(p1, p2)
+	s.changes, s.installOn = diffConfig(p1, p2)
 	return nil
 }
 
@@ -201,24 +212,81 @@ func (s *State) HasChanges() bool {
 func (s *State) ShowChanges() string {
 	var collect strings.Builder
 	for _, chg := range s.changes {
+		postData, _ := json.Marshal(chg.postData)
 		fmt.Fprintln(&collect, chg.endpoint)
-		fmt.Fprintln(&collect, string(chg.postData))
+		fmt.Fprintln(&collect, string(postData))
 	}
 	return collect.String()
 }
 
 func (s *State) ApplyCommands(logFh *os.File) error {
-	for _, c := range s.changes {
-		url := "/web_api/" + c.endpoint
+	sendCmd := func(endpoint string, args interface{}) ([]byte, error) {
+		url := "/web_api/" + endpoint
+		postData, _ := json.Marshal(args)
 		device.DoLog(logFh, url)
-		device.DoLog(logFh, string(c.postData))
-		resp, err := s.sendRequest(url, bytes.NewReader(c.postData))
+		device.DoLog(logFh, string(postData))
+		resp, err := s.sendRequest(url, bytes.NewReader(postData))
+		device.DoLog(logFh, string(resp))
+		return resp, err
+	}
+	waitTask := func(id string) error {
+		for {
+			time.Sleep(1 * time.Second)
+			resp, err := sendCmd("show-task", jsonMap{"task-id": id})
+			if err != nil {
+				return err
+			}
+			var result struct {
+				Tasks []struct {
+					Status   string
+					TaskName string `json:"task-name"`
+				}
+			}
+			err = json.Unmarshal(resp, &result)
+			if err != nil {
+				return err
+			}
+			task := result.Tasks[0]
+			cmd := task.TaskName
+			status := task.Status
+			switch status {
+			case "in progress", "pending":
+				continue
+			case "succeeded":
+				return nil
+			case "succeeded with warnings":
+				device.Warning("command %q succeeded with warnings", cmd)
+				return nil
+			default:
+				return fmt.Errorf("Unexpected status of command %q: %q",
+					cmd, status)
+			}
+		}
+	}
+	waitCmd := func(endpoint string, args interface{}) error {
+		resp, err := sendCmd(endpoint, args)
 		if err != nil {
 			return err
 		}
-		device.DoLog(logFh, string(resp))
+		var result struct {
+			TaskID string `json:"task-id"`
+		}
+		err = json.Unmarshal(resp, &result)
+		if err != nil {
+			return err
+		}
+		return waitTask(result.TaskID)
 	}
-	return nil
+	for _, c := range s.changes {
+		if _, err := sendCmd(c.endpoint, c.postData); err != nil {
+			return err
+		}
+	}
+	if err := waitCmd("publish", jsonMap{}); err != nil {
+		return err
+	}
+	return waitCmd("install-policy",
+		jsonMap{"policy-package": "standard", "targets": s.installOn})
 }
 
 func (s *State) CloseConnection()         {}

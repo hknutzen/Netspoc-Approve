@@ -6,11 +6,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/sorted"
 	"github.com/pkg/diff/myers"
 	"golang.org/x/exp/slices"
 )
-
-type jsonMap map[string]interface{}
 
 type rulesPair struct {
 	aRules, bRules []*chkpRule
@@ -20,11 +19,21 @@ func (ab *rulesPair) LenA() int { return len(ab.aRules) }
 func (ab *rulesPair) LenB() int { return len(ab.bRules) }
 
 func (ab *rulesPair) Equal(ai, bi int) bool {
-	return ab.aRules[ai].Name == ab.bRules[bi].Name
+	return ab.aRules[ai].Name == ab.bRules[bi].Name &&
+		slices.Equal(ab.aRules[ai].InstallOn, ab.bRules[bi].InstallOn)
 }
 
-func diffConfig(a, b *chkpConfig) []change {
+func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 	var changes []change
+	addChange := func(e string, d interface{}) {
+		changes = append(changes, change{endpoint: e, postData: d})
+	}
+	instMap := make(map[chkpName]bool)
+	setInstallOn := func(l []chkpName) {
+		for _, s := range l {
+			instMap[s] = true
+		}
+	}
 	aObjects := getObjList(a)
 	aObjMap := getObjMap(aObjects)
 	for _, bObj := range getObjList(b) {
@@ -41,11 +50,7 @@ func diffConfig(a, b *chkpConfig) []change {
 			}
 		} else {
 			// Add definition of new object to device.
-			changes = append(changes,
-				change{
-					endpoint: "add-" + bObj.getAPIObject(),
-					postData: jb,
-				})
+			addChange("add-"+bObj.getAPIObject(), bObj)
 		}
 	}
 	markDeletable := func(n chkpName) {
@@ -62,6 +67,7 @@ func diffConfig(a, b *chkpConfig) []change {
 		if r.IsDelete() {
 			// Remove unneeded rules from device.
 			for _, aRule := range a.Rules[r.LowA:r.HighA] {
+				setInstallOn(aRule.InstallOn)
 				setDeletable := func(l []chkpName) {
 					for _, n := range l {
 						markDeletable(n)
@@ -70,32 +76,23 @@ func diffConfig(a, b *chkpConfig) []change {
 				setDeletable(aRule.Source)
 				setDeletable(aRule.Destination)
 				setDeletable(aRule.Service)
-				data, _ := json.Marshal(
-					chkpRuleID{Name: aRule.Name, Layer: "network"})
-				changes = append(changes,
-					change{
-						endpoint: "delete-access-rule",
-						postData: data,
-					})
+				addChange("delete-access-rule",
+					jsonMap{"name": aRule.Name, "layer": "network"})
 			}
 		} else if r.IsInsert() {
-			// Add rules from Netspoc
+			// Add rule from Netspoc
 			// - add before exiting rule on device or
 			// - add at bottom of ruleset.
 			var pos interface{}
 			if r.LowA < len(a.Rules) {
-				pos = jsonMap{"before": a.Rules[r.LowA].Name}
+				pos = jsonMap{"above": a.Rules[r.LowA].Name}
 			} else {
 				pos = "bottom"
 			}
 			for _, bRule := range b.Rules[r.LowB:r.HighB] {
+				setInstallOn(bRule.InstallOn)
 				bRule.Position = pos
-				data, _ := json.Marshal(bRule)
-				changes = append(changes,
-					change{
-						endpoint: "add-access-rule",
-						postData: data,
-					})
+				addChange("add-access-rule", bRule)
 			}
 		} else if r.IsEqual() {
 			// Change attributes of rule remaining at same position.
@@ -137,18 +134,11 @@ func diffConfig(a, b *chkpConfig) []change {
 				compareObjects("source", aRule.Source, bRule.Source)
 				compareObjects("destination", aRule.Destination, bRule.Destination)
 				compareObjects("service", aRule.Service, bRule.Service)
-				if !slices.Equal(aRule.InstallOn, bRule.InstallOn) {
-					changed["install-on"] = bRule.InstallOn
-				}
 				if len(changed) > 0 {
+					setInstallOn(bRule.InstallOn)
 					changed["name"] = bRule.Name
 					changed["layer"] = bRule.Layer
-					data, _ := json.Marshal(changed)
-					changes = append(changes,
-						change{
-							endpoint: "set-access-rule",
-							postData: data,
-						})
+					addChange("set-access-rule", changed)
 				}
 			}
 		}
@@ -158,14 +148,11 @@ func diffConfig(a, b *chkpConfig) []change {
 		if !aObj.getNeeded() && !aObj.getReadOnly() &&
 			(aObj.getDeletable() ||
 				strings.Contains(strings.ToLower(aObj.getComments()), "netspoc")) {
-			changes = append(changes,
-				change{
-					endpoint: "delete-" + aObj.getAPIObject(),
-					postData: []byte(`{"name": "` + aObj.getName() + `"}`),
-				})
+			addChange("delete-"+aObj.getAPIObject(),
+				jsonMap{"name": aObj.getName()})
 		}
 	}
-	return changes
+	return changes, sorted.Keys(instMap)
 }
 
 func getObjMap(l []object) map[chkpName]object {

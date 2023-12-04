@@ -18,12 +18,9 @@ type chkpConfig struct {
 	Routes   []*chkpRoute
 }
 
-type chkpRuleID struct {
-	Name  string `json:"name"`
-	Layer string `json:"layer,omitempty"`
-}
 type chkpRule struct {
-	chkpRuleID
+	Name        string      `json:"name"`
+	Layer       string      `json:"layer,omitempty"`
 	Comments    string      `json:"comments,omitempty"`
 	Action      chkpName    `json:"action"`
 	Source      []chkpName  `json:"source"`
