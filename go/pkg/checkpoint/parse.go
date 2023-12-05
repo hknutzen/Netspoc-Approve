@@ -28,7 +28,7 @@ type chkpRule struct {
 	Service     []chkpName  `json:"service"`
 	Track       chkpTrack   `json:"track"`
 	InstallOn   []chkpName  `json:"install-on"`
-	Position    interface{} `json:"position, omitempty"`
+	Position    interface{} `json:"position,omitempty"`
 	needed      bool
 }
 
