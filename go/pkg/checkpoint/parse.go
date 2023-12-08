@@ -15,7 +15,7 @@ type chkpConfig struct {
 	ICMP     []*chkpICMP
 	ICMP6    []*chkpICMP6
 	SvOther  []*chkpSvOther
-	Routes   []*chkpRoute
+	Routes   map[string][]*chkpRoute
 }
 
 type chkpRule struct {
