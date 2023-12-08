@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/checkpoint"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
@@ -43,6 +44,8 @@ func runTestFiles(t *testing.T) {
 				switch prefix {
 				case "asa":
 					realDev = &asa.State{}
+				case "checkpoint":
+					realDev = &checkpoint.State{}
 				case "nsx":
 					realDev = &nsx.State{}
 				case "panos":

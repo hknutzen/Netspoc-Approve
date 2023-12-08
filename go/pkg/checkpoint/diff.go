@@ -28,10 +28,10 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 	addChange := func(e string, d interface{}) {
 		changes = append(changes, change{endpoint: e, postData: d})
 	}
-	instMap := make(map[chkpName]bool)
-	setInstallOn := func(l []chkpName) {
-		for _, s := range l {
-			instMap[s] = true
+	installMap := make(map[chkpName]bool)
+	setInstallOn := func(r *chkpRule) {
+		for _, s := range r.InstallOn {
+			installMap[s] = true
 		}
 	}
 	aObjects := getObjList(a)
@@ -63,11 +63,21 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 		bRules: b.Rules,
 	}
 	diff := myers.Diff(nil, ab).Ranges
+	// Fix result of myers.Diff.
+	// Insert position is set to 0,0 if edit script is a full replace.
+	// But we need to insert behind deleted rules.
+	if len(diff) == 2 {
+		if diff[0].IsDelete() && diff[0].Len() == len(a.Rules) &&
+			diff[1].IsInsert() && diff[1].Len() == len(b.Rules) {
+			diff[1].LowA = len(a.Rules)
+			diff[1].HighA = len(a.Rules)
+		}
+	}
 	for _, r := range diff {
 		if r.IsDelete() {
 			// Remove unneeded rules from device.
 			for _, aRule := range a.Rules[r.LowA:r.HighA] {
-				setInstallOn(aRule.InstallOn)
+				setInstallOn(aRule)
 				setDeletable := func(l []chkpName) {
 					for _, n := range l {
 						markDeletable(n)
@@ -80,7 +90,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 					jsonMap{"name": aRule.Name, "layer": "network"})
 			}
 		} else if r.IsInsert() {
-			// Add rule from Netspoc
+			// Add rules from Netspoc
 			// - add before exiting rule on device or
 			// - add at bottom of ruleset.
 			var pos interface{}
@@ -90,12 +100,12 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 				pos = "bottom"
 			}
 			for _, bRule := range b.Rules[r.LowB:r.HighB] {
-				setInstallOn(bRule.InstallOn)
+				setInstallOn(bRule)
 				bRule.Position = pos
 				addChange("add-access-rule", bRule)
 			}
 		} else if r.IsEqual() {
-			// Change attributes of rule remaining at same position.
+			// Change attributes of rules remaining at same position.
 			for i, aRule := range a.Rules[r.LowA:r.HighA] {
 				bRule := b.Rules[r.LowB:r.HighB][i]
 				aRule.needed = true
@@ -135,9 +145,8 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 				compareObjects("destination", aRule.Destination, bRule.Destination)
 				compareObjects("service", aRule.Service, bRule.Service)
 				if len(changed) > 0 {
-					setInstallOn(bRule.InstallOn)
+					setInstallOn(bRule)
 					changed["name"] = bRule.Name
-					changed["layer"] = bRule.Layer
 					addChange("set-access-rule", changed)
 				}
 			}
@@ -152,7 +161,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 				jsonMap{"name": aObj.getName()})
 		}
 	}
-	return changes, sorted.Keys(instMap)
+	return changes, sorted.Keys(installMap)
 }
 
 func getObjMap(l []object) map[chkpName]object {

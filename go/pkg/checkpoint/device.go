@@ -162,15 +162,10 @@ func (s *State) LoadDevice(
 	cf, err := s.ParseConfig(out, "<device>")
 	//out, _ = json.Marshal(cf)
 	//device.DoLog(logConfig, string(out))
-	for _, r := range cf.(*chkpConfig).Rules {
-		if r.Layer == "" {
-			r.Layer = "network"
-		}
-	}
 	if err != nil {
-		return nil, fmt.Errorf("While parsing device config: %v", err)
+		err = fmt.Errorf("While parsing device config: %v", err)
 	}
-	return cf, nil
+	return cf, err
 }
 
 func (s *State) sendRequest(path string, body io.Reader) ([]byte, error) {

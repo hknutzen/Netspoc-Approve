@@ -26,7 +26,7 @@ type chkpRule struct {
 	Source      []chkpName  `json:"source"`
 	Destination []chkpName  `json:"destination"`
 	Service     []chkpName  `json:"service"`
-	Track       chkpTrack   `json:"track"`
+	Track       *chkpTrack  `json:"track,omitempty"`
 	InstallOn   []chkpName  `json:"install-on"`
 	Position    interface{} `json:"position,omitempty"`
 	needed      bool
@@ -55,7 +55,7 @@ type chkpTrack struct {
 	EnableFirewallSession bool     `json:"enable-firewall-session,omitempty"`
 	PerConnection         bool     `json:"per-connection,omitempty"`
 	PerSession            bool     `json:"per-session,omitempty"`
-	Type                  chkpName `json:"type"`
+	Type                  chkpName `json:"type,omitempty"`
 }
 
 type object interface {
@@ -154,10 +154,13 @@ type chkpGateway struct {
 func (s *State) ParseConfig(data []byte, fName string) (
 	device.DeviceConfig, error) {
 
-	config := &chkpConfig{}
+	cf := &chkpConfig{}
 	if len(data) == 0 {
-		return config, nil
+		return cf, nil
 	}
-	err := json.Unmarshal(data, config)
-	return config, err
+	err := json.Unmarshal(data, cf)
+	for _, r := range cf.Rules {
+		r.Layer = "network"
+	}
+	return cf, err
 }
