@@ -350,33 +350,6 @@ func addDefaults(cf *ASAConfig) {
 	}
 }
 
-// Ignore default tunnel-group-map referencing built in tunnel-group.
-func ignoreDefaultTunnelGroupMap(cf *ASAConfig) {
-	l := cf.lookup["tunnel-group-map"][""]
-	if l == nil {
-		return
-	}
-	j := 0
-	for _, tgm := range l {
-		if tgm.parsed == "tunnel-group-map default-group $REF" {
-			name := tgm.ref[0]
-			prefix := tgm.typ.ref[0]
-			tg := cf.lookup[prefix][name][0]
-			if tg.fixedName {
-				continue
-			}
-		}
-		l[j] = tgm
-		j++
-	}
-	l = l[:j]
-	if len(l) == 0 {
-		delete(cf.lookup, "tunnel-group-map")
-	} else {
-		cf.lookup["tunnel-group-map"][""] = l
-	}
-}
-
 func init() {
 	convertCmdInfo()
 	setupLookup()

@@ -19,7 +19,6 @@ import (
 func (s *State) diffConfig() {
 	addDefaults(s.a)
 	addDefaults(s.b)
-	ignoreDefaultTunnelGroupMap(s.a)
 	sortGroups(s.a)
 	sortGroups(s.b)
 	sortRoutes(s.a)

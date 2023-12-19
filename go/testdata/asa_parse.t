@@ -598,11 +598,13 @@ clear configure tunnel-group VPN-single
 =END=
 
 ############################################################
-=TITLE=Don't touch tunnel-group-map referencing built in
+=TITLE=Remove tunnel-group-map referencing built in
 =DEVICE=
 tunnel-group-map default-group DefaultL2LGroup
 =NETSPOC=NONE
-=OUTPUT=NONE
+=OUTPUT=
+no tunnel-group-map default-group DefaultL2LGroup
+=END=
 
 ############################################################
 =TITLE=Parse username, group-policy
@@ -894,7 +896,6 @@ crypto ca certificate map ca-map1 10
 crypto ca certificate map ca-map2 10
  subject-name attr ea eq x@a.example.com
  extended-key-usage co clientauth
-tunnel-group-map default-group DefaultL2LGroup
 tunnel-group-map ca-map1 20 VPN-tunnel1
 tunnel-group-map ca-map2 20 VPN-tunnel2
 =NETSPOC=

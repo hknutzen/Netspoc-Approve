@@ -1,5 +1,8 @@
 {{$NEXT}}
 
+ - "tunnel-group-map default-group" referencing predefined
+   tunnel-group like DefaultL2LGroup is no longer silently ignored on device,
+   but removed instead.
  - No longer ignore duplicate access-group command in raw files,
    but abort instead.
  - No longer ignore header in JSON config for NSX.
