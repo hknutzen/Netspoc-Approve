@@ -2186,3 +2186,28 @@ ERROR>>> Unknown name 'vsys2' in VSYS of device configuration
 </devices></config>
 =NETSPOC=NONE
 =OUTPUT=NONE
+
+############################################################
+=TITLE=Invalid XML from device
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+</devices></config>
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: XML syntax error on line 3: element <entry> closed by </devices>
+=END=
+
+############################################################
+=TITLE=Invalid XML from Netspoc
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys1"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=
+<"bad file"
+=ERROR=
+ERROR>>> While reading router: XML syntax error on line 1: expected element name after <
+=END=

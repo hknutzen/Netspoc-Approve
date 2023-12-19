@@ -63,7 +63,6 @@ func (s *State) LoadDevice(
 		return nil, err
 	}
 
-	device.DoLog(logConfig, "#"+s.prefix)
 	path := "/policy/api/v1/infra/domains/default/gateway-policies"
 	data, err := s.sendRequest("GET", path, nil)
 	if err != nil {
