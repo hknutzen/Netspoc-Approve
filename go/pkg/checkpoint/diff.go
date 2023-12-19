@@ -23,15 +23,15 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 		slices.Equal(ab.aRules[ai].InstallOn, ab.bRules[bi].InstallOn)
 }
 
-func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
+func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	var changes []change
 	addChange := func(e string, d interface{}) {
 		changes = append(changes, change{endpoint: e, postData: d})
 	}
-	installMap := make(map[chkpName]bool)
+	installMap := make(map[string]bool)
 	setInstallOn := func(r *chkpRule) {
-		for _, s := range r.InstallOn {
-			installMap[s] = true
+		for _, name := range r.InstallOn {
+			installMap[string(name)] = true
 		}
 	}
 	aObjects := getObjList(a)
@@ -39,7 +39,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 	for _, bObj := range getObjList(b) {
 		name := bObj.getName()
 		jb, _ := json.Marshal(bObj)
-		if aObj, found := aObjMap[name]; found {
+		if aObj, found := aObjMap[string(name)]; found {
 			// Object is found on device and marked as needed.
 			aObj.setNeeded()
 			ja, _ := json.Marshal(aObj)
@@ -53,7 +53,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 			addChange("add-"+bObj.getAPIObject(), bObj)
 		}
 	}
-	markDeletable := func(n chkpName) {
+	markDeletable := func(n string) {
 		if aObj, found := aObjMap[n]; found {
 			aObj.setDeletable()
 		}
@@ -80,7 +80,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 				setInstallOn(aRule)
 				setDeletable := func(l []chkpName) {
 					for _, n := range l {
-						markDeletable(n)
+						markDeletable(string(n))
 					}
 				}
 				setDeletable(aRule.Source)
@@ -110,6 +110,13 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 				bRule := b.Rules[r.LowB:r.HighB][i]
 				aRule.needed = true
 				changed := make(jsonMap)
+				getNameMap := func(l []chkpName) map[chkpName]bool {
+					m := make(map[chkpName]bool)
+					for _, n := range l {
+						m[n] = true
+					}
+					return m
+				}
 				compareObjects := func(attr string, aL, bL []chkpName) {
 					aMap := getNameMap(aL)
 					bMap := getNameMap(bL)
@@ -118,7 +125,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 					for _, aName := range aL {
 						if !bMap[aName] {
 							remove = append(remove, aName)
-							markDeletable(aName)
+							markDeletable(string(aName))
 						}
 					}
 					for _, bName := range bL {
@@ -164,18 +171,10 @@ func diffConfig(a, b *chkpConfig) ([]change, []chkpName) {
 	return changes, sorted.Keys(installMap)
 }
 
-func getObjMap(l []object) map[chkpName]object {
-	m := make(map[chkpName]object)
+func getObjMap(l []object) map[string]object {
+	m := make(map[string]object)
 	for _, o := range l {
 		m[o.getName()] = o
-	}
-	return m
-}
-
-func getNameMap(l []chkpName) map[chkpName]bool {
-	m := make(map[chkpName]bool)
-	for _, n := range l {
-		m[n] = true
 	}
 	return m
 }

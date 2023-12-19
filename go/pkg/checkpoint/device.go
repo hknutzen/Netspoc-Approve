@@ -19,7 +19,7 @@ type State struct {
 	prefix    string
 	sid       string
 	changes   []change
-	installOn []chkpName
+	installOn []string
 }
 type change struct {
 	endpoint string

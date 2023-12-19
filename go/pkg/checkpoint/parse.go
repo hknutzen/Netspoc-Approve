@@ -60,7 +60,7 @@ type chkpTrack struct {
 
 type object interface {
 	getAPIObject() string
-	getName() chkpName
+	getName() string
 	getComments() string
 	getReadOnly() bool
 	getNeeded() bool
@@ -70,14 +70,14 @@ type object interface {
 }
 
 type chkpObject struct {
-	Name      chkpName `json:"name"`
-	Comments  string   `json:"comments,omitempty"`
-	ReadOnly  bool     `json:"read-only,omitempty"`
+	Name      string `json:"name"`
+	Comments  string `json:"comments,omitempty"`
+	ReadOnly  bool   `json:"read-only,omitempty"`
 	needed    bool
 	deletable bool
 }
 
-func (o *chkpObject) getName() chkpName   { return o.Name }
+func (o *chkpObject) getName() string     { return o.Name }
 func (o *chkpObject) getComments() string { return o.Comments }
 func (o *chkpObject) getReadOnly() bool   { return o.ReadOnly }
 func (o *chkpObject) getNeeded() bool     { return o.needed }
