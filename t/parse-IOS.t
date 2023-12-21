@@ -222,51 +222,6 @@ $out = '';
 test_run($title, 'IOS', $device, $device, $out);
 
 ############################################################
-$title = "Parse crypto EZVPN";
-############################################################
-$device = <<END;
-
-crypto ipsec client ezvpn vpn
- connect auto
- mode network-extension
- peer 141.91.129.163
- acl ACL-Split-Tunnel
- virtual-interface 1
- username test pass test
- xauth userid mode local
-
-ip access-list extended ACL-Split-Tunnel
- permit ip 10.0.100.16 0.0.0.15 any
-ip access-list extended ACL-crypto-filter
- permit tcp 10.1.11.0 0.0.0.255 host 10.0.100.17 range 22 23
- deny ip any any
-
-interface Virtual-Template1 type tunnel
- ip access-group ACL-crypto-filter in
-
-ip access-list extended Dialer1_in
- permit 50 host 141.91.129.163 any
- deny ip any any
-
-ip access-list extended Ethernet0_in
- permit icmp any host 10.0.100.17 8
- permit icmp any host 10.0.100.17 0
- deny ip any any
-
-interface Dialer1
- crypto ipsec client ezvpn vpn
- ip address negotiated
- ip access-group Dialer1_in in
-interface Ethernet0
- crypto ipsec client ezvpn vpn inside
- ip access-group Ethernet0_in in
-END
-
-$out = '';
-
-test_run($title, 'IOS', $device, $device, $out);
-
-############################################################
 $title = "Parse crypto map";
 ############################################################
 $device = <<'END';

@@ -1,5 +1,6 @@
 {{$NEXT}}
 
+ -  Removed support for EZVPN at Cisco devices.
  - "tunnel-group-map default-group" referencing predefined
    tunnel-group like DefaultL2LGroup is no longer silently ignored on device,
    but removed instead.

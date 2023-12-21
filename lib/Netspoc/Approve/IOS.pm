@@ -112,15 +112,6 @@ sub get_parse_info {
             #
             'crypto map' => {
                 store => 'CRYPTO_MAP', parse => \&get_token, },
-            'crypto ipsec client ezvpn' => {
-                store => 'EZVPN',
-                parse =>
-                    ['seq',
-                     { store => 'NAME',
-                       parse => \&get_token, },
-                     { store => 'LOCATION',
-                       parse => \&check_token,
-                       default => 'outside', }, ], },
           },
         },
 
@@ -232,14 +223,6 @@ sub get_parse_info {
                 },
 
             },
-        },
-
-        'crypto ipsec client ezvpn' => {
-            store => 'CRYPTO_IPSEC_CLIENT_EZVPN',
-            named => 1,
-            subcmd => {
-                'virtual-interface' => {
-                    store => 'V_INTERFACE', parse => \&get_int, },},
         },
 
 # Ignore, don't try to parse as crypto map with sequence number.
@@ -354,17 +337,6 @@ sub postprocess_config {
         }
     }
 
-    if (my $ezvpn = $p->{CRYPTO_IPSEC_CLIENT_EZVPN}) {
-        for my $ez_name (keys %$ezvpn) {
-            my $entry = $ezvpn->{$ez_name};
-            my $num = $entry->{V_INTERFACE} or
-                abort("EZVPN: virtual-interface missing for $ez_name");
-            my $intf = "Virtual-Template$num";
-            $p->{IF}->{$intf} or
-                abort("EZVPN: virtual-interface $intf not found");
-        }
-    }
-
     if (my $crypto_maps = $p->{CRYPTO_MAP}) {
         for my $cm_name (keys %$crypto_maps) {
             my $cm = $p->{CRYPTO_MAP}->{$cm_name};
@@ -394,12 +366,6 @@ sub postprocess_config {
         if (my $imap = $intf->{CRYPTO_MAP}) {
             $p->{CRYPTO_MAP}->{$imap} or
                 abort("Missing definition for crypto map '$imap' used at"
-                      . " interface '$intf->{name}'");
-        }
-        elsif ($intf->{EZVPN}) {
-            my $ezvpn = $intf->{EZVPN}->{NAME};
-            $p->{CRYPTO_IPSEC_CLIENT_EZVPN}->{$ezvpn} or
-                abort("Missing definition for ezvpn client '$ezvpn' at"
                       . " interface '$intf->{name}'");
         }
     }
