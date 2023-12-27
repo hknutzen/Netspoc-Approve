@@ -1,4 +1,4 @@
-package asa
+package cisco
 
 import (
 	"fmt"
@@ -8,14 +8,14 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
-func (cf *ASAConfig) CheckRulesFromRaw() error { return nil }
+func (cf *Config) CheckRulesFromRaw() error { return nil }
 
 // Check that non anchor commands from raw file are referenced by some
 // anchor and are referenced only once.
 var isReferenced map[*cmd]bool
 
-func (a *ASAConfig) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
-	b := d.(*ASAConfig)
+func (a *Config) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
+	b := d.(*Config)
 	lookup := a.lookup
 	for prefix := range b.lookup {
 		if lookup[prefix] == nil {

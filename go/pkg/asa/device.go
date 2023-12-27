@@ -5,26 +5,23 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"sort"
 	"strings"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/cisco"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"golang.org/x/exp/maps"
 )
 
 type State struct {
+	cisco.State
 	conn         *console.Conn
-	a            *ASAConfig
-	b            *ASAConfig
-	changes      changeList
 	errUnmanaged []error
-	subCmdOf     string
 }
-type changeList []string
 
-func (l *changeList) push(chg ...string) {
-	*l = append(*l, chg...)
+func Setup() *State {
+	s := &State{}
+	s.SetupParser(cmdInfo)
+	return s
 }
 
 func (s *State) LoadDevice(
@@ -130,33 +127,10 @@ func (s *State) GetErrUnmanaged() []error {
 	return s.errUnmanaged
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
-	s.a = c1.(*ASAConfig)
-	s.b = c2.(*ASAConfig)
-	if err := s.checkInterfaces(); err != nil {
-		return err
-	}
-	s.diffConfig()
-	return nil
-}
-
-func (s *State) HasChanges() bool {
-	return len(s.changes) != 0
-}
-
-func (s *State) ShowChanges() string {
-	var collect strings.Builder
-	for _, chg := range s.changes {
-		chg = strings.Replace(chg, "\n", "\\N ", 1)
-		fmt.Fprintln(&collect, chg)
-	}
-	return collect.String()
-}
-
 func (s *State) ApplyCommands(logFh *os.File) error {
 	s.conn.SetLogFH(logFh)
 	s.cmd("configure terminal")
-	for _, chg := range s.changes {
+	for _, chg := range s.Changes {
 		s.cmd(chg)
 	}
 	s.cmd("end")
@@ -223,69 +197,4 @@ func (s *State) CloseConnection() {
 	if c := s.conn; c != nil {
 		s.conn.Close()
 	}
-}
-
-func (s *State) checkInterfaces() error {
-
-	// Collect interfaces from Netspoc.
-	// These are defined implicitly by commands
-	// - "access-group $access-list in|out interface INTF".
-	// - "crypto map $crypto_map interface INTF"
-	// Ignore "access-group $access-list global".
-	getImplicitInterfaces := func(cfg *ASAConfig) map[string]bool {
-		m := make(map[string]bool)
-		for _, l := range cfg.lookup["access-group"] {
-			for _, c := range l {
-				tokens := strings.Fields(c.parsed)
-				if len(tokens) == 5 {
-					m[tokens[4]] = true
-				}
-			}
-		}
-		for _, l := range cfg.lookup["crypto map interface"] {
-			for _, c := range l {
-				tokens := strings.Fields(c.parsed)
-				m[tokens[4]] = true
-			}
-		}
-		return m
-	}
-	bIntf := getImplicitInterfaces(s.b)
-
-	// Collect and check named interfaces from device.
-	// Add implicit interfaces when comparing two Netspoc generated configs.
-	aIntf := getImplicitInterfaces(s.a)
-	for _, l := range s.a.lookup["interface"] {
-		for _, c := range l {
-			name := ""
-			shutdown := false
-			for _, sc := range c.sub {
-				tokens := strings.Fields(sc.parsed)
-				switch tokens[0] {
-				case "shutdown":
-					shutdown = true
-				case "nameif":
-					name = tokens[1]
-				}
-			}
-			if name != "" {
-				aIntf[name] = true
-				if !shutdown && !bIntf[name] {
-					device.Warning(
-						"Interface '%s' on device is not known by Netspoc", name)
-				}
-			}
-		}
-	}
-
-	// Check interfaces from Netspoc
-	bNames := maps.Keys(bIntf)
-	sort.Strings(bNames)
-	for _, name := range bNames {
-		if !aIntf[name] {
-			return fmt.Errorf(
-				"Interface '%s' from Netspoc not known on device", name)
-		}
-	}
-	return nil
 }

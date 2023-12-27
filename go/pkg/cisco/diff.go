@@ -1,6 +1,7 @@
-package asa
+package cisco
 
 import (
+	"fmt"
 	"net"
 	"net/netip"
 	"regexp"
@@ -16,9 +17,44 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+type State struct {
+	*parser
+	a        *Config
+	b        *Config
+	Changes  []string
+	subCmdOf string
+}
+
+func (s *State) addChange(chg string) {
+	s.Changes = append(s.Changes, chg)
+}
+
+func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
+	s.a = c1.(*Config)
+	s.b = c2.(*Config)
+	if err := s.checkInterfaces(); err != nil {
+		return err
+	}
+	s.diffConfig()
+	return nil
+}
+
+func (s *State) HasChanges() bool {
+	return len(s.Changes) != 0
+}
+
+func (s *State) ShowChanges() string {
+	var collect strings.Builder
+	for _, chg := range s.Changes {
+		chg = strings.Replace(chg, "\n", "\\N ", 1)
+		fmt.Fprintln(&collect, chg)
+	}
+	return collect.String()
+}
+
 func (s *State) diffConfig() {
-	addDefaults(s.a)
-	addDefaults(s.b)
+	s.addDefaults(s.a)
+	s.addDefaults(s.b)
 	sortGroups(s.a)
 	sortGroups(s.b)
 	sortRoutes(s.a)
@@ -39,7 +75,7 @@ func (s *State) diffConfig() {
 	s.deleteUnused()
 }
 
-func byParsedCmd(_ *ASAConfig, c *cmd) string {
+func byParsedCmd(_ *Config, c *cmd) string {
 	return c.parsed
 }
 
@@ -83,7 +119,7 @@ func (s *State) diffNamedCmds2(
 }
 
 // Use "subject-name" of referenced "crypto ca certificate map" as key.
-func byCertMapKey(cf *ASAConfig, c *cmd) string {
+func byCertMapKey(cf *Config, c *cmd) string {
 	if len(c.ref) == 1 {
 		// tunnel-group-map default-group $tunnel-group
 		return "default-group"
@@ -125,10 +161,10 @@ func (s *State) diffWebVPN() {
 	}
 }
 
-type keyFunc func(*ASAConfig, *cmd) string
+type keyFunc func(*Config, *cmd) string
 
 type cmdsPair struct {
-	a, b         *ASAConfig
+	a, b         *Config
 	aCmds, bCmds []*cmd
 	key          keyFunc
 }
@@ -284,7 +320,7 @@ func (s *State) makeEqual(al, bl []*cmd) {
 		}
 		if changedRef {
 			if strings.Contains(b.parsed, "$NAME $SEQ set ikev") {
-				s.changes.push("no " + a.orig)
+				s.addChange("no " + a.orig)
 			}
 			s.addCmd(b)
 		}
@@ -310,7 +346,7 @@ func (s *State) findSimpleObjOnDevice(bl []*cmd) []*cmd {
 	return findSimpleObject(bl, s.a)
 }
 
-func findSimpleObject(bl []*cmd, a *ASAConfig) []*cmd {
+func findSimpleObject(bl []*cmd, a *Config) []*cmd {
 	prefix := bl[0].typ.prefix
 	m := a.lookup[prefix]
 	names := sorted.Keys(m)
@@ -376,7 +412,7 @@ func (s *State) diffACLs(al, bl []*cmd, diff []edit.Range) {
 	// Generate move command which sends add and delete command together
 	// as a single command.
 	//
-	// First push delete and add command to s.changes:
+	// First append delete and add command to s.changes:
 	// i  : no access-list ...
 	// i+1: object-group g1 ...
 	// ...: object-group gN ...
@@ -390,14 +426,14 @@ func (s *State) diffACLs(al, bl []*cmd, diff []edit.Range) {
 	// top-1: no access-list ...\n access-list
 	moveACL := func(a, b *cmd) {
 		delACL(a)
-		i := len(s.changes) - 1
+		i := len(s.Changes) - 1
 		addACL(b)
-		top := len(s.changes) - 1
-		del := s.changes[i]
-		add := s.changes[top]
-		copy(s.changes[i:], s.changes[i+1:])
-		s.changes = s.changes[:top]
-		s.changes[top-1] = del + "\n" + add
+		top := len(s.Changes) - 1
+		del := s.Changes[i]
+		add := s.Changes[top]
+		copy(s.Changes[i:], s.Changes[i+1:])
+		s.Changes = s.Changes[:top]
+		s.Changes[top-1] = del + "\n" + add
 	}
 
 	// al and bl are list of access-list commands known to be equal,
@@ -516,7 +552,7 @@ func (s *State) equalizedGroups(aName, bName string) bool {
 	}
 	la := ga.sub
 	lb := gb.sub
-	byOrig := func(_ *ASAConfig, c *cmd) string { return c.orig }
+	byOrig := func(_ *Config, c *cmd) string { return c.orig }
 	ab := &cmdsPair{aCmds: la, bCmds: lb, key: byOrig}
 	script := myers.Diff(nil, ab)
 	if !script.IsIdentity() {
@@ -559,10 +595,10 @@ func (s *State) diffRoutes(al, bl []*cmd, diff []edit.Range) {
 				if del, found := delDst[dstOfRoute(c)]; found {
 					// ASA doesn't allow two routes to identical
 					// destination. Remove and add routes in one transaction.
-					s.changes.push("no " + del.orig + "\n" + add)
+					s.addChange("no " + del.orig + "\n" + add)
 					del.needed = true
 				} else {
-					s.changes.push(add)
+					s.addChange(add)
 				}
 			}
 		}
@@ -648,9 +684,9 @@ func (s *State) addCmd(c *cmd) {
 	} else {
 		s.subCmdOf = ""
 	}
-	s.changes.push(pr)
+	s.addChange(pr)
 	for _, sub := range c.sub {
-		s.changes.push(s.printNetspocCmd(sub))
+		s.addChange(s.printNetspocCmd(sub))
 	}
 }
 
@@ -660,9 +696,9 @@ func (s *State) setCmdConfMode(printedSup string) {
 		// in mode (config-group-policy)
 		// since this mode also has a subcommand "webvpn"
 		if s.subCmdOf != "" {
-			s.changes.push("exit")
+			s.addChange("exit")
 		}
-		s.changes.push(printedSup)
+		s.addChange(printedSup)
 		s.subCmdOf = printedSup
 	}
 }
@@ -679,7 +715,7 @@ func (s *State) delCmds(l []*cmd) {
 			s.subCmdOf = ""
 		}
 		c.needed = true // Don't delete again later.
-		s.changes.push("no " + c.orig)
+		s.addChange("no " + c.orig)
 	}
 	// Mark referenced commands as deleted.
 	s.markDeleted(l)
@@ -766,13 +802,13 @@ func (s *State) deleteUnused() {
 			delete(toDelete, pair)
 			if l[0].typ.canClearConf {
 				name := pair[1]
-				s.changes.push("clear configure " + prefix + " " + name)
+				s.addChange("clear configure " + prefix + " " + name)
 			} else {
 				for _, c := range l {
 					if c2, found := strings.CutPrefix(c.orig, "no "); found {
-						s.changes.push(c2)
+						s.addChange(c2)
 					} else {
-						s.changes.push("no " + c.orig)
+						s.addChange("no " + c.orig)
 					}
 				}
 			}
@@ -784,7 +820,7 @@ func (s *State) printNetspocCmd(c *cmd) string {
 	return getPrintableCmd(c, s.b)
 }
 
-func getPrintableCmd(c *cmd, cf *ASAConfig) string {
+func getPrintableCmd(c *cmd, cf *Config) string {
 	p := c.parsed
 	p = strings.Replace(p, "$NAME", c.name, 1)
 	p = strings.Replace(p, "$SEQ", strconv.Itoa(c.seq), 1)
@@ -822,7 +858,7 @@ func (s *State) generateNamesForTransfer() {
 }
 
 // Sort elements of object-groups for findGroupOnDevice to work.
-func sortGroups(cf *ASAConfig) {
+func sortGroups(cf *Config) {
 	for _, gl := range cf.lookup["object-group"] {
 		l := gl[0].sub
 		sort.Slice(l, func(i, j int) bool { return l[i].parsed < l[j].parsed })
@@ -943,7 +979,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 // Add routes with long mask first. If we switch the default
 // route, this ensures, that we have the new routes available
 // before deleting the old default route.
-func sortRoutes(cf *ASAConfig) {
+func sortRoutes(cf *Config) {
 	for _, prefix := range []string{"route", "ipv6 route"} {
 		l := cf.lookup[prefix][""]
 		sort.Slice(l, func(i, j int) bool {
@@ -1020,4 +1056,69 @@ func diffUnordered(ab *cmdsPair) []edit.Range {
 		}
 	}
 	return result
+}
+
+func (s *State) checkInterfaces() error {
+
+	// Collect interfaces from Netspoc.
+	// These are defined implicitly by commands
+	// - "access-group $access-list in|out interface INTF".
+	// - "crypto map $crypto_map interface INTF"
+	// Ignore "access-group $access-list global".
+	getImplicitInterfaces := func(cfg *Config) map[string]bool {
+		m := make(map[string]bool)
+		for _, l := range cfg.lookup["access-group"] {
+			for _, c := range l {
+				tokens := strings.Fields(c.parsed)
+				if len(tokens) == 5 {
+					m[tokens[4]] = true
+				}
+			}
+		}
+		for _, l := range cfg.lookup["crypto map interface"] {
+			for _, c := range l {
+				tokens := strings.Fields(c.parsed)
+				m[tokens[4]] = true
+			}
+		}
+		return m
+	}
+	bIntf := getImplicitInterfaces(s.b)
+
+	// Collect and check named interfaces from device.
+	// Add implicit interfaces when comparing two Netspoc generated configs.
+	aIntf := getImplicitInterfaces(s.a)
+	for _, l := range s.a.lookup["interface"] {
+		for _, c := range l {
+			name := ""
+			shutdown := false
+			for _, sc := range c.sub {
+				tokens := strings.Fields(sc.parsed)
+				switch tokens[0] {
+				case "shutdown":
+					shutdown = true
+				case "nameif":
+					name = tokens[1]
+				}
+			}
+			if name != "" {
+				aIntf[name] = true
+				if !shutdown && !bIntf[name] {
+					device.Warning(
+						"Interface '%s' on device is not known by Netspoc", name)
+				}
+			}
+		}
+	}
+
+	// Check interfaces from Netspoc
+	bNames := maps.Keys(bIntf)
+	sort.Strings(bNames)
+	for _, name := range bNames {
+		if !aIntf[name] {
+			return fmt.Errorf(
+				"Interface '%s' from Netspoc not known on device", name)
+		}
+	}
+	return nil
 }

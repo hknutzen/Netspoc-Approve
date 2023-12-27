@@ -8,5 +8,5 @@ import (
 )
 
 func main() {
-	os.Exit(device.Main(&asa.State{}))
+	os.Exit(device.Main(asa.Setup()))
 }

@@ -42,7 +42,7 @@ func runTestFiles(t *testing.T) {
 				var realDev device.RealDevice
 				switch prefix {
 				case "asa":
-					realDev = &asa.State{}
+					realDev = asa.Setup()
 				case "nsx":
 					realDev = &nsx.State{}
 				case "panos":
