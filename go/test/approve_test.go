@@ -15,7 +15,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
 	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
-	"github.com/hknutzen/Netspoc-Approve/go/test/tstdata"
+	"github.com/hknutzen/testtxt"
 )
 
 var count int
@@ -27,15 +27,27 @@ func TestApprove(t *testing.T) {
 	t.Logf("Checked %d assertions", count)
 }
 
+type descr struct {
+	Title    string
+	Device   string
+	Scenario string
+	Netspoc  string
+	Options  string
+	Output   string
+	Warning  string
+	Error    string
+	Todo     bool
+}
+
 func runTestFiles(t *testing.T) {
-	dataFiles := tstdata.GetFiles("../testdata")
+	dataFiles := testtxt.GetFiles("../testdata")
 	for _, file := range dataFiles {
 		file := file // capture range variable
 		base := path.Base(file)
 		prefix, _, _ := strings.Cut(strings.TrimSuffix(base, ".t"), "_")
 		t.Run(base, func(t *testing.T) {
-			l, err := tstdata.ParseFile(file)
-			if err != nil {
+			var l []descr
+			if err := testtxt.ParseFile(file, &l); err != nil {
 				t.Fatal(err)
 			}
 			for _, descr := range l {
@@ -60,9 +72,16 @@ func runTestFiles(t *testing.T) {
 	}
 }
 
-func runTest(t *testing.T,
-	d *tstdata.Descr, realDev device.RealDevice, deviceType string) {
-
+func runTest(t *testing.T, d descr, realDev device.RealDevice, devType string) {
+	if d.Netspoc == "" {
+		t.Fatal("missing =NETSPOC= in test")
+	}
+	if d.Output == "" && d.Warning == "" && d.Error == "" {
+		t.Fatal("missing =OUTPUT|WARNING|ERROR= in test")
+	}
+	if d.Error != "" && d.Warning != "" {
+		t.Fatalf("must not define =ERROR= together with =WARNING=")
+	}
 	if d.Todo {
 		t.Skip("skipping TODO test")
 	}
@@ -132,7 +151,7 @@ timeout = 1
 
 	// Prepare directory with files from Netspoc.
 	codeDir := "code"
-	tstdata.PrepareInDir(codeDir, d.Netspoc)
+	testtxt.PrepareInDir(codeDir, deviceName, d.Netspoc)
 	// Add info file if not given above.
 	infoFile := path.Join(codeDir, deviceName+".info")
 	if _, err := os.Stat(infoFile); err != nil {
@@ -142,25 +161,12 @@ timeout = 1
  "name_list": [ "%s" ],
  "ip_list": [ "10.1.13.33" ]
 }
-`, deviceType, deviceName)
+`, devType, deviceName)
 		if err := os.WriteFile(infoFile, []byte(info), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
 	os.Args = append(os.Args, path.Join(codeDir, deviceName))
-
-	// Add other params to command line.
-	if d.Params != "" {
-		os.Args = append(os.Args, strings.Fields(d.Params)...)
-	}
-	if d.Param != "" {
-		os.Args = append(os.Args, d.Param)
-	}
-
-	os.Unsetenv("SHOW_DIAG")
-	if d.ShowDiag {
-		os.Setenv("SHOW_DIAG", "1")
-	}
 
 	// Call main function.
 	var status int
