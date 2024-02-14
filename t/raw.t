@@ -12,34 +12,6 @@ my($spoc, $device, $out, $warn);
 my $title;
 
 ############################################################
-$title = "Merge routing NX-OS";
-############################################################
-$spoc = {
-spoc4 => <<END
-vrf context one
- ip route 10.20.0.0/19 10.1.2.3
-ip route 10.23.0.0/16 10.1.2.5
-END
-,
-raw => <<END
-ip route 10.22.0.0/16 10.1.2.4
-vrf context two
- ip route 10.0.0.0/8 10.1.2.2
-END
-};
-
-$out = <<END;
-ip route 10.22.0.0/16 10.1.2.4
-ip route 10.23.0.0/16 10.1.2.5
-vrf context one
-ip route 10.20.0.0/19 10.1.2.3
-vrf context two
-ip route 10.0.0.0/8 10.1.2.2
-END
-
-test_run($title, 'NX-OS', '', $spoc, $out);
-
-############################################################
 $title = "Merge routing Linux";
 ############################################################
 $spoc = {
@@ -62,24 +34,6 @@ ip route add 10.0.0.0/8 via 10.1.2.2
 END
 
 test_run($title, 'Linux', '', $spoc, $out);
-
-############################################################
-$title = "No routing in [APPEND] part";
-############################################################
-$spoc = {
-spoc4 => '',
-
-raw => <<END
-[APPEND]
-ip route 10.22.0.0/16 10.1.2.4
-END
-};
-
-$out = <<END;
-ERROR>>> Must only use ACLs in [APPEND] part, but found ROUTING_VRF
-END
-
-test_err($title, 'NX-OS', '', $spoc, $out);
 
 ############################################################
 $title = "Merge Linux chains";

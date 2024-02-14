@@ -32,7 +32,6 @@ use Getopt::Long;
 use Netspoc::Approve::Load_Config;
 use Netspoc::Approve::Device;
 use Netspoc::Approve::Linux;
-use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
 # VERSION: inserted by DZP::OurPkgVersion
@@ -42,7 +41,6 @@ $| = 1;    # output char by char
 my %type2class = (
     Linux   => 'Netspoc::Approve::Linux',
     IOS     => 'Netspoc::Approve::IOS',
-    'NX-OS' => 'Netspoc::Approve::NX_OS',
     'ASA'    => 'drc-asa',
     'IOS'    => 'drc-ios',
     'PAN-OS' => 'drc-pan-os',
