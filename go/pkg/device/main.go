@@ -56,7 +56,7 @@ func Main(device RealDevice) int {
 	fs.BoolVarP(&quiet, "quiet", "q", false, "No info messages")
 	compare := fs.BoolP("compare", "C", false, "Compare only")
 	logDir := fs.StringP("logdir", "L", "", "Path for saving session logs")
-	//user := fs.StringP("user", "u", "", "Username for login to remote device")
+	user := fs.StringP("user", "u", "", "Username for login to remote device")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == pflag.ErrHelp {
 			return 1
@@ -90,6 +90,7 @@ func Main(device RealDevice) int {
 				fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
 				return 1
 			}
+			s.config.User = *user
 			fname := args[0]
 			s.setLogDir(*logDir, fname)
 			if *compare {
@@ -362,10 +363,7 @@ func TryReachableHTTPLogin(
 	}
 	for i, name := range nameList {
 		ip := ipList[i]
-		user, pass, err := cfg.GetAAAPassword(name)
-		if err != nil {
-			return err
-		}
+		user, pass := cfg.GetUserPass(name)
 		if err := login(name, ip, user, pass); err != nil {
 			Warning("%v", err)
 			continue

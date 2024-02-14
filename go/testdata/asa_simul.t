@@ -111,10 +111,10 @@ access-group inside in interface inside
 router#
 --router.change
 configure terminal
-router#no route inside 0.0.0.0 0.0.0.0 10.1.2.3
-router#route inside 0.0.0.0 0.0.0.0 10.1.2.4
 router#no access-list inside line 4 extended permit ip host 4.4.4.4 any
 router#access-list inside line 2 extended permit ip host 4.4.4.4 any
+router#no route inside 0.0.0.0 0.0.0.0 10.1.2.3
+router#route inside 0.0.0.0 0.0.0.0 10.1.2.4
 router#end
 router#write memory
 Building configuration...
@@ -371,10 +371,10 @@ ipv6 route inside 10::2:0/1 10::2:5
 =OUTPUT=
 --router.change
 configure terminal
-router#route inside 10.20.0.0 255.255.255.0 10.1.2.3
-router#route inside 10.22.0.0 255.255.0.0 10.1.2.4
 router#ipv6 route inside 10::3:0/120 10::2:2
 router#ipv6 route inside 10::2:0/1 10::2:5
+router#route inside 10.20.0.0 255.255.255.0 10.1.2.3
+router#route inside 10.22.0.0 255.255.0.0 10.1.2.4
 router#end
 router#write memory
 [OK]

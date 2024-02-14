@@ -21,6 +21,7 @@ type State struct {
 func Setup() *State {
 	s := &State{}
 	s.SetupParser(cmdInfo)
+	s.Model = "ASA"
 	return s
 }
 
@@ -28,13 +29,14 @@ func (s *State) LoadDevice(
 	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
+	user, pass := cfg.GetUserPass(device.GetHostname(spocFile))
 	var err error
-	s.conn, err = console.GetSSHConn(spocFile, cfg, logLogin)
+	s.conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
 		return nil, err
 	}
 	hostName := device.GetHostname(spocFile)
-	s.loginEnable(hostName, cfg)
+	s.loginEnable(pass, cfg)
 	s.setTerminal()
 	s.logVersion()
 	s.checkDeviceName(hostName)
@@ -51,10 +53,9 @@ func (s *State) LoadDevice(
 	return config, err
 }
 
-func (s *State) loginEnable(hostName string, cfg *device.Config) {
+func (s *State) loginEnable(pass string, cfg *device.Config) {
 	var bannerLines string
 	conn := s.conn
-	_, pass, _ := cfg.GetAAAPassword(hostName)
 	out := conn.ShortWait(`(?i)password:|\(yes/no.*\)\?`)
 	if strings.HasSuffix(out, "?") {
 		out = conn.IssueCmd("yes", `(?i)password:`)
@@ -149,7 +150,8 @@ func (s *State) cmd(cmd string) {
 	c1, c2, _ := strings.Cut(cmd, "\n")
 	s.conn.Send(cmd)
 	check := func(ci string) {
-		out := s.conn.GetOutput(ci)
+		out := s.conn.GetOutput()
+		out = s.conn.StripEcho(ci, out)
 		if out != "" {
 			if !isValidOutput(ci, out) {
 				device.Abort("Got unexpected output from '%s':\n%s", ci, out)

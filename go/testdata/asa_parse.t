@@ -200,7 +200,6 @@ access-group outside_in in interface outside
 [[minimal_device]]
 =NETSPOC=[[input]]
 =OUTPUT=
-route outside 10.20.0.0 255.255.0.0 10.1.2.3
 access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
 object-group network g0-DRC-0
@@ -211,6 +210,7 @@ access-list outside_in-DRC-0 extended permit udp object-group g0-DRC-0 host 10.0
 access-list outside_in-DRC-0 extended permit tcp any host 10.0.1.11 range 7937 8999
 access-list outside_in-DRC-0 extended deny ip any4 any4
 access-group outside_in-DRC-0 in interface outside
+route outside 10.20.0.0 255.255.0.0 10.1.2.3
 =END=
 
 =TITLE=Unchanged routing and ACL with object-groups
@@ -524,15 +524,6 @@ tunnel-group-map some-name 10 some-name
 [[crypto_ASA]]
 =NETSPOC=[[input]]
 =OUTPUT=
-crypto ca certificate map some-name-DRC-0 10
-subject-name attr ea eq some-name
-extended-key-usage co 1.3.6.1.4.1.311.20.2.2
-tunnel-group some-name-DRC-0 type ipsec-l2l
-tunnel-group some-name-DRC-0 ipsec-attributes
-peer-id-validate nocheck
-ikev2 local-authentication certificate Trustpoint2
-ikev2 remote-authentication certificate
-tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
 access-list crypto-acl1-DRC-0 extended permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto map map-outside 10 match address crypto-acl1-DRC-0
 crypto map map-outside 10 set pfs
@@ -545,6 +536,15 @@ access-list crypto-acl2-DRC-0 extended permit ip 10.1.3.0 255.255.240.0 host 10.
 crypto dynamic-map some-name 10 match address crypto-acl2-DRC-0
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside interface outside
+crypto ca certificate map some-name-DRC-0 10
+subject-name attr ea eq some-name
+extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group some-name-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
 =END=
 
 =TITLE=Unchanged crypto map, dynamic map with tunnel-group
@@ -701,19 +701,19 @@ tunnel-group-map cert-map 10 193.155.130.3
 =DEVICE=NONE
 =NETSPOC=[[input]]
 =OUTPUT=
-crypto ca certificate map cert-map-DRC-0 10
-subject-name attr ea eq cert@example.com
-tunnel-group 193.155.130.3 type ipsec-l2l
-tunnel-group 193.155.130.3 ipsec-attributes
-peer-id-validate nocheck
-ikev2 local-authentication certificate ASDM_TrustPoint1
-ikev2 remote-authentication certificate
-tunnel-group-map cert-map-DRC-0 10 193.155.130.3
 tunnel-group 193.155.130.1 type ipsec-l2l
 tunnel-group 193.155.130.1 ipsec-attributes
 peer-id-validate nocheck
 tunnel-group 193.155.130.2 type ipsec-l2l
 tunnel-group 193.155.130.2 ipsec-attributes
+tunnel-group 193.155.130.3 type ipsec-l2l
+tunnel-group 193.155.130.3 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate ASDM_TrustPoint1
+ikev2 remote-authentication certificate
+crypto ca certificate map cert-map-DRC-0 10
+subject-name attr ea eq cert@example.com
+tunnel-group-map cert-map-DRC-0 10 193.155.130.3
 =END=
 
 =TITLE=Unchanged tunnel-group of type ipsec-l2l (IP as name)
@@ -1110,6 +1110,7 @@ webvpn
 =OUTPUT=
 webvpn
 no certificate-group-map ca-map 20 VPN-tunnel
+exit
 no tunnel-group-map ca-map 20 VPN-tunnel
 clear configure crypto ca certificate map ca-map
 clear configure tunnel-group VPN-tunnel
@@ -1189,14 +1190,13 @@ crypto ca certificate map ca-map 10
  subject-name attr ea eq some@example.com
 tunnel-group-map ca-map 20 193.155.130.20
 =OUTPUT=
-crypto ca certificate map ca-map-DRC-0 10
-subject-name attr ea eq some@example.com
-exit
 tunnel-group 193.155.130.20 ipsec-attributes
 no peer-id-validate nocheck
 trust-point ASDM_TrustPoint5
 ikev2 local-authentication certificate Trustpoint2
 ikev2 remote-authentication certificate
+crypto ca certificate map ca-map-DRC-0 10
+subject-name attr ea eq some@example.com
 tunnel-group-map ca-map-DRC-0 20 193.155.130.20
 =END=
 
@@ -1289,6 +1289,7 @@ tunnel-group-map ca-map 20 VPN-tunnel
 ip local pool pool-DRC-0 10.1.219.192-10.1.219.208 mask 0.0.0.15
 group-policy VPN-group attributes
 address-pools value pool-DRC-0
+exit
 no ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
 =END=
 
@@ -1509,6 +1510,30 @@ no crypto map crypto-outside 1 set pfs group5
 =END=
 
 ############################################################
+=TITLE=Replace crypto map using different name
+=DEVICE=
+[[crypto_ASA]]
+crypto map crypto-x 1 set peer 10.0.0.1
+crypto map crypto-x interface outside
+=NETSPOC=
+crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.2.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.2
+crypto map crypto-outside 1 set ikev1 transform-set Trans1
+crypto map crypto-outside 1 set pfs group5
+crypto map crypto-outside interface outside
+=OUTPUT=
+access-list crypto-outside-1-DRC-0 extended permit ip any4 10.0.2.0 255.255.255.0
+crypto map crypto-x 2 match address crypto-outside-1-DRC-0
+crypto map crypto-x 2 set peer 10.0.0.2
+crypto ipsec ikev1 transform-set Trans1-DRC-0 esp-3des esp-md5-hmac
+crypto map crypto-x 2 set ikev1 transform-set Trans1-DRC-0
+crypto map crypto-x 2 set pfs group5
+no crypto map crypto-x 1 set peer 10.0.0.1
+=END=
+
+############################################################
 =TITLE=Remove crypto map
 =DEVICE=
 [[crypto_ASA]]
@@ -1699,6 +1724,7 @@ ERROR>>> 'aaa-server LDAP_KV' must be transferred manually
 =OUTPUT=
 webvpn
 no certificate-group-map ca-map-G1 10 VPN-tunnel-G1
+exit
 no tunnel-group-map ca-map-G1 10 VPN-tunnel-G1
 clear configure crypto ca certificate map ca-map-G1
 clear configure tunnel-group VPN-tunnel-G1
@@ -1967,6 +1993,7 @@ ldap attribute-map LDAPMAP
 map-value memberOf "CN=g-m1,OU=VPN,OU=group,DC=example,DC=com" VPN-group-G1-DRC-0
 webvpn
 certificate-group-map ca-map-G1 10 VPN-tunnel-G1
+exit
 clear configure group-policy VPN-group-G3
 clear configure access-list vpn-filter-G3
 no ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248

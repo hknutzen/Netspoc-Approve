@@ -24,11 +24,11 @@ access-group inside_in in interface inside
 --ipv6/router
 ipv6 route E2 1000::abcd:3:0/120 1000::abcd:2:2
 =OUTPUT=
-ipv6 route E2 1000::abcd:3:0/120 1000::abcd:2:2
-no ipv6 route outside 10::3:0/112 10::2:2
 access-list inside_in-DRC-0 extended permit tcp host 10.1.1.1 any range 80 90
 access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
+ipv6 route E2 1000::abcd:3:0/120 1000::abcd:2:2
+no ipv6 route outside 10::3:0/112 10::2:2
 =END=
 
 ############################################################
@@ -53,10 +53,10 @@ route inside 10.22.0.0 255.255.0.0 10.1.2.4
 ipv6 route inside 10::3:0/120 10::2:2
 ipv6 route inside 10::2:0/1 10::2:5
 =OUTPUT=
-route inside 10.20.0.0 255.255.255.0 10.1.2.3
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
 ipv6 route inside 10::3:0/120 10::2:2
 ipv6 route inside 10::2:0/1 10::2:5
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
 =END=
 
 ############################################################
@@ -206,10 +206,6 @@ access-list inside_in extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.
 access-list inside_in extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
 access-group inside_in in interface inside
 =OUTPUT=
-route inside 10.20.0.0 255.255.255.0 10.1.2.3
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
-ipv6 route inside 10::3:0/120 10::2:2
-ipv6 route inside 10::4:0/120 10::2:2
 access-list inside_in-DRC-0 extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in-DRC-0 extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
 access-list inside_in-DRC-0 extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
@@ -217,6 +213,10 @@ access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.
 access-list inside_in-DRC-0 extended deny ip any4 any4
 access-list inside_in-DRC-0 extended deny ip any6 any6
 access-group inside_in-DRC-0 in interface inside
+ipv6 route inside 10::3:0/120 10::2:2
+ipv6 route inside 10::4:0/120 10::2:2
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
 =END=
 
 ############################################################
@@ -233,12 +233,12 @@ ipv6 route inside 10::4:0/120 10::2:2
 access-list inside_in extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
 access-group inside_in in interface inside
 =OUTPUT=
-route inside 10.20.0.0 255.255.255.0 10.1.2.3
-ipv6 route inside 10::4:0/120 10::2:2
 access-list inside_in-DRC-0 extended permit tcp 1000::abcd:2:0/112 1000::abcd:9:0/112 range 80 90
 access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
+ipv6 route inside 10::4:0/120 10::2:2
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
 =END=
 
 ############################################################
@@ -255,12 +255,12 @@ access-list inside_in extended permit tcp 1000::abcd:1:0/112 1000::abcd:9:0/112 
 access-list inside_in extended deny ip any6 any6
 access-group inside_in in interface inside
 =OUTPUT=
-route inside 10.22.0.0 255.255.0.0 10.1.2.4
-ipv6 route inside 10::3:0/120 10::2:2
 access-list inside_in-DRC-0 extended permit tcp 10.2.2.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
 access-list inside_in-DRC-0 extended permit tcp 1000::abcd:1:0/112 1000::abcd:9:0/112 range 80 90
 access-list inside_in-DRC-0 extended deny ip any6 any6
 access-group inside_in-DRC-0 in interface inside
+ipv6 route inside 10::3:0/120 10::2:2
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
 =END=
 
 ############################################################

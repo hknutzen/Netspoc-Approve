@@ -32,6 +32,9 @@ type Config struct {
 	LoginTimeout   int
 	keepHistory    int
 	compressAt     int
+	// Is only set by command line option -u.
+	User     string
+	Password string
 }
 
 // Use most specific config file; ignore others.

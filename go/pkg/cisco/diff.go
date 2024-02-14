@@ -1,6 +1,7 @@
 package cisco
 
 import (
+	"cmp"
 	"fmt"
 	"net"
 	"net/netip"
@@ -22,6 +23,7 @@ type State struct {
 	a        *Config
 	b        *Config
 	Changes  []string
+	Model    string
 	subCmdOf string
 }
 
@@ -32,9 +34,11 @@ func (s *State) addChange(chg string) {
 func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
 	s.a = c1.(*Config)
 	s.b = c2.(*Config)
+	s.alignVRFs()
 	if err := s.checkInterfaces(); err != nil {
 		return err
 	}
+	s.ignoreCryptoGDOI()
 	s.diffConfig()
 	return nil
 }
@@ -60,18 +64,27 @@ func (s *State) diffConfig() {
 	sortRoutes(s.a)
 	sortRoutes(s.b)
 	s.generateNamesForTransfer()
-	s.diffNamedCmds("route")
-	s.diffNamedCmds("ipv6 route")
-	s.diffNamedCmds("no sysopt connection permit-vpn")
-	// Use parsed command "access-group $REF interface <NAME>",
-	// effectively using name of interface as key.
-	s.diffNamedCmds("access-group")
-	s.diffTunnelGroupMap()
-	s.diffWebVPN()
-	s.diffNamedCmds("username")
-	s.diffNamedCmds("crypto map interface")
-	s.diffFixedNames("group-policy")
-	s.diffFixedNames("tunnel-group")
+	comb := make(objLookup)
+	maps.Copy(comb, s.a.lookup)
+	maps.Copy(comb, s.b.lookup)
+	for _, prefix := range sorted.Keys(comb) {
+		if prefix == "tunnel-group-map" {
+			s.diffTunnelGroupMap()
+		} else if prefix == "webvpn" {
+			s.diffWebVPN()
+		} else {
+			var anchor bool
+			for _, l := range comb[prefix] {
+				anchor = l[0].typ.anchor
+				break
+			}
+			if anchor {
+				s.diffAnchors(prefix)
+			} else {
+				s.diffSomeAnchors(prefix)
+			}
+		}
+	}
 	s.deleteUnused()
 }
 
@@ -79,7 +92,7 @@ func byParsedCmd(_ *Config, c *cmd) string {
 	return c.parsed
 }
 
-func (s *State) diffNamedCmds(prefix string) {
+func (s *State) diffAnchors(prefix string) {
 	aMap := s.a.lookup[prefix]
 	bMap := s.b.lookup[prefix]
 	aNames := sorted.Keys(aMap)
@@ -87,21 +100,21 @@ func (s *State) diffNamedCmds(prefix string) {
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
-func (s *State) diffFixedNames(prefix string) {
+func (s *State) diffSomeAnchors(prefix string) {
 	aMap := s.a.lookup[prefix]
 	bMap := s.b.lookup[prefix]
-	onlyFixedNames := func(m map[string][]*cmd) []string {
+	onlyAnchorNames := func(m map[string][]*cmd) []string {
 		var result []string
 		for name, l := range m {
-			if l[0].fixedName {
+			if l[0].anchor {
 				result = append(result, name)
 			}
 		}
 		sort.Strings(result)
 		return result
 	}
-	aNames := onlyFixedNames(aMap)
-	bNames := onlyFixedNames(bMap)
+	aNames := onlyAnchorNames(aMap)
+	bNames := onlyAnchorNames(bMap)
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
@@ -197,7 +210,7 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 			return c.name
 		}
 		// Find equal simple object on device or transfer.
-		if c.typ.simpleObject {
+		if c.typ.simpleObj {
 			return s.equalizeSimpleObject(al, bl)
 		}
 	}
@@ -219,11 +232,9 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 		}
 	}
 	if len(al) > 0 {
-		if p := al[0].typ.prefix; p == "route" || p == "ipv6 route" {
-			if len(bl) == 0 {
-				device.Info("No '%s' specified, leaving untouched", p)
-				return ""
-			}
+		if p := al[0].typ.prefix; p == "route" ||
+			p == "ip route" || p == "ipv6 route" {
+
 			s.diffRoutes(al, bl, diff)
 			return ""
 		}
@@ -269,7 +280,13 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 	}
 
 	if al[0].typ.prefix == "access-list" {
-		s.diffACLs(al, bl, diff)
+		s.diffASAACLs(al, bl, diff)
+		return al[0].name
+	}
+	if c := al[0].subCmdOf; c != nil &&
+		c.typ.prefix == "ip access-list extended" {
+
+		s.diffIOSACLs(al, bl, diff)
 		return al[0].name
 	}
 	// Delete commands before adding new ones
@@ -373,7 +390,180 @@ func simpleObjEqual(al, bl []*cmd) bool {
 	return ac.parsed == bc.parsed && slices.Equal(sortedSub(ac), sortedSub(bc))
 }
 
-func (s *State) diffACLs(al, bl []*cmd, diff []edit.Range) {
+func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
+	aclName := al[0].subCmdOf.name
+	// Position where to add or delete a command.
+	pos := make(map[*cmd]int)
+	s.addChange("ip access-list resequence " + aclName + " 10000 10000")
+	chgLen := len(s.Changes)
+	// ACL lines have been sorted; take original position from c.seq
+	for _, c := range al {
+		pos[c] = (c.seq + 1) * 10000
+	}
+	// Collect to be added and to be deleted entries.
+	var add, del []*cmd
+	addACL := func(b *cmd) {
+		b.parsed = strconv.Itoa(pos[b]) + " " + b.parsed
+		s.addCmds([]*cmd{b})
+	}
+	delACL := func(a *cmd) {
+		a.orig = strconv.Itoa(pos[a])
+		s.delCmds([]*cmd{a})
+	}
+
+	// Generate move command which sends add and delete command together
+	// as a single command.
+	moveACL := func(a, b *cmd) {
+		delACL(a)
+		i := len(s.Changes) - 1
+		addACL(b)
+		top := len(s.Changes) - 1
+		del := s.Changes[i]
+		add := s.Changes[top]
+		s.Changes = s.Changes[:top]
+		s.Changes[top-1] = del + "\n" + add
+	}
+
+	// Check if insert position is between first and last line
+	// of a block of permit rules (or deny rules).
+	// Checks both, current and original position.
+	// Returns action and position or empty action, if at border of block.
+	insideBlock := func(pos int) string {
+		var lowAct, highAct string
+		for i := pos - 1; i >= 0; i-- {
+			if a := getIOSAction(al[i]); a != "remark" {
+				lowAct = a
+				break
+			}
+		}
+		for i := pos; i < len(al); i++ {
+			if a := getIOSAction(al[i]); a != "remark" {
+				highAct = a
+				break
+			}
+		}
+		if lowAct == highAct {
+			return lowAct
+		}
+		return ""
+	}
+	// Restore a sorted block of lines to its original order.
+	unsortBlock := func(pos int) {
+		a := getIOSAction(al[pos])
+		var low int
+		for i := pos - 1; i >= 0; i-- {
+			switch getIOSAction(al[i]) {
+			case "remark":
+			case a:
+				low = i
+			default:
+				break
+			}
+		}
+		high := pos
+		for i := pos + 1; i < len(al); i++ {
+			switch getIOSAction(al[i]) {
+			case "remark":
+			case a:
+				high = i
+			default:
+				break
+			}
+		}
+		l := al[low : high+1]
+		slices.SortFunc(l, func(a, b *cmd) int {
+			return cmp.Compare(a.seq, b.seq)
+		})
+	}
+
+	// Check for dangerous case, where block must not be sorted:
+	// A deny rule is inserted into a block of permit rules or
+	// a permit rule is inserted into a block of deny rules.
+	renewDiff := false
+	for _, r := range diff {
+		if r.IsInsert() {
+			if action := insideBlock(r.LowA); action != "" {
+				for _, c := range bl[r.LowB:r.HighB] {
+					if action != getIOSAction(c) {
+						unsortBlock(r.LowA)
+						renewDiff = true
+						break
+					}
+				}
+			}
+		}
+	}
+	if renewDiff {
+		ab := &cmdsPair{
+			a:     s.a,
+			b:     s.b,
+			aCmds: al,
+			bCmds: bl,
+			key:   byParsedCmd,
+		}
+		diff = myers.Diff(nil, ab).Ranges
+	}
+	for _, r := range diff {
+		if r.IsInsert() {
+			if r.HighB-r.LowB >= 10000 {
+				device.Abort("Can't insert more than 9999 ACL lines at once")
+			}
+			for i, c := range bl[r.LowB:r.HighB] {
+				pos[c] = r.LowA*10000 + i + 1
+			}
+			add = append(add, bl[r.LowB:r.HighB]...)
+		} else if r.IsDelete() {
+			del = append(del, al[r.LowA:r.HighA]...)
+		}
+	}
+	// An ACL line which is already present on device can't be added again.
+	// Therefore we need add, delete and move operations.
+	//
+	// Two ACL lines which differ only in 'log' attribute,
+	// can't both be present on a device.
+	// [ log | log-input ]
+	// Hence we must remove one line before we can add the other one.
+	//
+	// Find move operations from commands in 'add' and 'del'.
+	// A command is moved if the same command is deleted and added.
+	// Two commands are equal if they
+	// - have same attribute .parsed,
+	//   but attribute 'log' is ignored during compare.
+	delMap := make(map[string]*cmd)
+	rx := regexp.MustCompile(` log(?:-input)?`)
+	for _, a := range del {
+		p := getPrintableCmd(a, s.a)
+		p = rx.ReplaceAllLiteralString(p, "")
+		delMap[p] = a
+	}
+	for _, b := range add {
+		p := s.printNetspocCmd(b)
+		p = rx.ReplaceAllLiteralString(p, "")
+		if a := delMap[p]; a != nil {
+			moveACL(a, b)
+			continue
+		}
+		addACL(b)
+	}
+	// Delete lines on device.
+	// Work from bottom to top. Otherwise we would permit too much
+	// traffic for a short time range.
+	slices.Reverse(del)
+	for _, a := range del {
+		// Must not delete cmd again, if it already was moved.
+		if !a.needed {
+			delACL(a)
+		}
+	}
+	if len(s.Changes) == chgLen {
+		// No changes found; remove initial resequence command.
+		s.Changes = s.Changes[:chgLen-1]
+	} else {
+		s.addChange("ip access-list resequence " + aclName + " 10 10")
+	}
+}
+
+func (s *State) diffASAACLs(al, bl []*cmd, diff []edit.Range) {
 	// Collect to be added and to be deleted entries.
 	var add, del []*cmd
 	// Position where to add or delete a command.
@@ -578,8 +768,17 @@ func (s *State) equalizedGroups(aName, bName string) bool {
 	return true
 }
 
+type routeDst struct {
+	vrf string
+	dst netip.Prefix
+}
+
 func (s *State) diffRoutes(al, bl []*cmd, diff []edit.Range) {
-	delDst := make(map[netip.Prefix]*cmd)
+	chgVRF := make(map[string]bool)
+	for _, c := range bl {
+		chgVRF[dstOfRoute(c).vrf] = true
+	}
+	delDst := make(map[routeDst]*cmd)
 	for _, r := range diff {
 		if r.IsDelete() {
 			for _, c := range al[r.LowA:r.HighA] {
@@ -603,9 +802,26 @@ func (s *State) diffRoutes(al, bl []*cmd, diff []edit.Range) {
 			}
 		}
 	}
+	seenVRF := make(map[string]bool)
 	for _, r := range diff {
 		if r.IsDelete() {
-			s.delCmds(al[r.LowA:r.HighA])
+			for _, c := range al[r.LowA:r.HighA] {
+				ipv := "IPv4"
+				if strings.Contains(c.parsed, "ipv6") {
+					ipv = "ipv6"
+				}
+				if vrf := dstOfRoute(c).vrf; chgVRF[vrf] {
+					s.delCmds([]*cmd{c})
+				} else if !seenVRF[ipv+vrf] {
+					seenVRF[ipv+vrf] = true
+					forVRF := ""
+					if vrf != "" {
+						forVRF = " for VRF " + vrf
+					}
+					device.Info("No %s routing specified%s, leaving untouched",
+						ipv, forVRF)
+				}
+			}
 		}
 	}
 }
@@ -620,7 +836,7 @@ func (s *State) addCmds(l []*cmd) {
 		for i, name := range c.ref {
 			prefix := c.typ.ref[i]
 			bl := s.b.lookup[prefix][name]
-			if bl[0].fixedName {
+			if bl[0].typ.fixedName || bl[0].fixedName {
 				if al, found := s.a.lookup[prefix][name]; found {
 					if prefix == "crypto map" {
 						s.diffCryptoMap(al, bl)
@@ -639,14 +855,14 @@ func (s *State) addCmds(l []*cmd) {
 			return
 		}
 		b0.ready = true
-		if b0.typ.simpleObject {
+		if b0.typ.simpleObj {
 			if al := s.findSimpleObjOnDevice(bl); al != nil {
 				al[0].needed = true
 				b0.name = al[0].name
 				return
 			}
 		}
-		if b0.fixedName {
+		if b0.typ.fixedName || b0.fixedName {
 			prefix := b0.typ.prefix
 			name := b0.name
 			if _, found := s.a.lookup[prefix][name]; !found {
@@ -669,7 +885,7 @@ func (s *State) addCmds(l []*cmd) {
 
 func (s *State) addCmd(c *cmd) {
 	switch c.typ.prefix {
-	case "aaa-server", "ldap attribute-map":
+	case "aaa-server", "ldap attribute-map", "interface":
 		return
 	}
 	pr := s.printNetspocCmd(c)
@@ -705,6 +921,11 @@ func (s *State) setCmdConfMode(printedSup string) {
 
 // Delete subcommands and parts of multi line command.
 func (s *State) delCmds(l []*cmd) {
+	switch l[0].typ.prefix {
+	// Leave these commands unchanged on device:
+	case "interface":
+		return
+	}
 	for _, c := range l {
 		if c.needed {
 			continue
@@ -769,6 +990,9 @@ func (s *State) deleteUnused() {
 			}
 		}
 	}
+	if len(toDelete) > 0 && s.subCmdOf != "" {
+		s.addChange("exit")
+	}
 	for len(toDelete) > 0 {
 		// Mark commands that are still referenced by other to be
 		// deleted commands.
@@ -800,7 +1024,7 @@ func (s *State) deleteUnused() {
 			prefix := pair[0]
 			l := toDelete[pair]
 			delete(toDelete, pair)
-			if l[0].typ.canClearConf {
+			if l[0].typ.clearConf {
 				name := pair[1]
 				s.addChange("clear configure " + prefix + " " + name)
 			} else {
@@ -849,7 +1073,7 @@ func (s *State) generateNamesForTransfer() {
 	for prefix, m := range s.b.lookup {
 		for _, bl := range m {
 			for _, c := range bl {
-				if !c.fixedName {
+				if !(c.typ.fixedName || c.fixedName) {
 					setName(c, s.a.lookup[prefix])
 				}
 			}
@@ -913,20 +1137,24 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 		return m
 	}
 	getPeer := func(l []*cmd) string {
+		name, seq := l[0].name, l[0].seq
+		// For IOS look into subcommands.
+		if len(l) == 1 && l[0].sub != nil {
+			l = l[0].sub
+		}
 		peer := ""
 		for _, c := range l {
-			if _, p, found := strings.Cut(c.parsed, " set peer "); found {
-				peer = p
+			if _, p, found := strings.Cut(c.parsed, "set peer "); found {
+				peer = "peer " + p
 				break
 			}
-			if strings.Contains(c.parsed, " ipsec-isakmp dynamic ") {
+			if strings.Contains(c.parsed, "ipsec-isakmp dynamic ") {
 				peer = c.ref[0]
 				break
 			}
 		}
 		if peer == "" {
-			device.Abort("Missing peer or dynamic in crypto map %s %d",
-				l[0].name, l[0].seq)
+			device.Abort("Missing peer or dynamic in crypto map %s %d", name, seq)
 		}
 		return peer
 	}
@@ -959,9 +1187,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 		bSeqL := bSeqMap[bSeq]
 		seq := &dynamic
 		incr := -1
-		if slices.ContainsFunc(bSeqL, func(c *cmd) bool {
-			return strings.Contains(c.parsed, "set peer")
-		}) {
+		if strings.HasPrefix(getPeer(bSeqL), "peer ") {
 			seq = &static
 			incr = 1
 		}
@@ -970,6 +1196,10 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 		}
 		for _, bCmd := range bSeqL {
 			bCmd.seq = *seq
+			// Use name of existing crypto map.
+			if len(al) > 0 {
+				bCmd.name = al[0].name
+			}
 		}
 		f(nil, bSeqL)
 		*seq += incr
@@ -980,7 +1210,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 // route, this ensures, that we have the new routes available
 // before deleting the old default route.
 func sortRoutes(cf *Config) {
-	for _, prefix := range []string{"route", "ipv6 route"} {
+	for _, prefix := range []string{"route", "ip route", "ipv6 route"} {
 		l := cf.lookup[prefix][""]
 		sort.Slice(l, func(i, j int) bool {
 			return byMoreSpecificRoute(l[i]) < byMoreSpecificRoute(l[j])
@@ -989,27 +1219,54 @@ func sortRoutes(cf *Config) {
 }
 
 func byMoreSpecificRoute(c *cmd) string {
-	b := 255 - byte(dstOfRoute(c).Bits())
+	// .Bits() has result -1, if .dst is invalid.
+	b := 128 - byte(dstOfRoute(c).dst.Bits())
 	return string([]byte{b}) + c.parsed
 }
 
-func dstOfRoute(c *cmd) netip.Prefix {
+func dstOfRoute(c *cmd) routeDst {
+	vrf := ""
+	var ipp netip.Prefix
 	l := strings.Split(c.parsed, " ")
 	if c.typ.prefix == "ipv6 route" {
-		// ipv6 route intf ip/len gw
-		return netip.MustParsePrefix(l[3])
+		// ASA: ipv6 route intf ip/len gw
+		// IOS: ipv6 route [vrf NAME] ip/len gw
+		i := slices.IndexFunc(l, func(e string) bool { return strings.Contains(e, "/") })
+		ipp, _ = netip.ParsePrefix(l[i])
+		if len(l) >= 6 && l[2] == "vrf" {
+			vrf = l[3]
+		}
+	} else {
+		// ASA: route intf ip mask gw
+		// IOS: ip route [vrf NAME] ip mask gw
+		i := 2
+		if l[0] == "ip" && l[2] == "vrf" {
+			vrf = l[3]
+			i = 4
+		}
+		ip, err1 := netip.ParseAddr(l[i])
+		mask, err2 := netip.ParseAddr(l[i+1])
+		if err1 == nil && err2 == nil {
+			size, _ := net.IPMask(mask.AsSlice()).Size()
+			ipp = netip.PrefixFrom(ip, size)
+		}
 	}
-	// route intf ip mask gw
-	ip := netip.MustParseAddr(l[2])
-	mask := netip.MustParseAddr(l[3])
-	size, _ := net.IPMask(mask.AsSlice()).Size()
-	return netip.PrefixFrom(ip, size)
+	return routeDst{vrf, ipp}
 }
 
 func diffCmdLists(ab *cmdsPair) []edit.Range {
 	al := ab.aCmds
-	if len(al) > 0 && al[0].typ.prefix == "access-list" {
-		return myers.Diff(nil, ab).Ranges
+	if len(al) > 0 {
+		if al[0].typ.prefix == "access-list" {
+			return myers.Diff(nil, ab).Ranges
+		} else {
+			s := al[0].subCmdOf
+			if s != nil && s.typ.prefix == "ip access-list extended" {
+				sortIOSPermitDenyBlocks(al)
+				sortIOSPermitDenyBlocks(ab.bCmds)
+				return myers.Diff(nil, ab).Ranges
+			}
+		}
 	}
 	return diffUnordered(ab)
 }
@@ -1058,28 +1315,73 @@ func diffUnordered(ab *cmdsPair) []edit.Range {
 	return result
 }
 
-func (s *State) checkInterfaces() error {
+func getIOSAction(c *cmd) string {
+	action, _, _ := strings.Cut(c.parsed, " ")
+	return action
+}
 
-	// Collect interfaces from Netspoc.
-	// These are defined implicitly by commands
+// Sort rules inside blocks of successive rules with identical action,
+// because order doesn't matter in this case.
+// This allows to find rules as unchanged if only the order has changed.
+//
+// Traffic from Netspoc is filtered by some rule.
+// It is crucial to never move this rule, because this would lockout
+// Netspoc from device. This is safeguarded by sorting rules before comparing.
+//
+// Original position for each rule c is stored in c.seq.
+func sortIOSPermitDenyBlocks(l []*cmd) {
+	sortBlock := func(i, j int) {
+		block := l[i:j]
+		sort.SliceStable(block, func(i, j int) bool {
+			pi := block[i].parsed
+			pj := block[j].parsed
+			// Leave order of remark lines unchanged.
+			if strings.HasPrefix(pi, "remark") || strings.HasPrefix(pj, "remark") {
+				return false
+			}
+			return pi < pj
+		})
+	}
+	i0 := 0
+	action := "permit"
+	for i, c := range l {
+		c.seq = i
+		a := getIOSAction(c)
+		switch a {
+		case action, "remark":
+		default:
+			sortBlock(i0, i)
+			action = a
+			i0 = i
+		}
+	}
+	sortBlock(i0, len(l))
+}
+
+func (s *State) checkInterfaces() error {
+	if s.Model == "IOS" {
+		return s.checkIOSInterfaces()
+	}
+	return s.checkASAInterfaces()
+}
+
+func (s *State) checkASAInterfaces() error {
+	// For ASA collect implicit interfaces from Netspoc.
+	// These are defined by commands
 	// - "access-group $access-list in|out interface INTF".
 	// - "crypto map $crypto_map interface INTF"
 	// Ignore "access-group $access-list global".
 	getImplicitInterfaces := func(cfg *Config) map[string]bool {
 		m := make(map[string]bool)
-		for _, l := range cfg.lookup["access-group"] {
-			for _, c := range l {
-				tokens := strings.Fields(c.parsed)
-				if len(tokens) == 5 {
-					m[tokens[4]] = true
-				}
-			}
-		}
-		for _, l := range cfg.lookup["crypto map interface"] {
-			for _, c := range l {
-				tokens := strings.Fields(c.parsed)
+		for _, c := range cfg.lookup["access-group"][""] {
+			tokens := strings.Fields(c.parsed)
+			if len(tokens) == 5 {
 				m[tokens[4]] = true
 			}
+		}
+		for _, c := range cfg.lookup["crypto map interface"][""] {
+			tokens := strings.Fields(c.parsed)
+			m[tokens[4]] = true
 		}
 		return m
 	}
@@ -1088,37 +1390,218 @@ func (s *State) checkInterfaces() error {
 	// Collect and check named interfaces from device.
 	// Add implicit interfaces when comparing two Netspoc generated configs.
 	aIntf := getImplicitInterfaces(s.a)
-	for _, l := range s.a.lookup["interface"] {
-		for _, c := range l {
-			name := ""
-			shutdown := false
-			for _, sc := range c.sub {
-				tokens := strings.Fields(sc.parsed)
-				switch tokens[0] {
-				case "shutdown":
-					shutdown = true
-				case "nameif":
-					name = tokens[1]
-				}
+INTF:
+	for _, c := range s.a.lookup["interface"][""] {
+		name := ""
+		for _, sc := range c.sub {
+			tokens := strings.Fields(sc.parsed)
+			switch tokens[0] {
+			case "shutdown":
+				continue INTF
+			case "nameif":
+				name = tokens[1]
 			}
-			if name != "" {
-				aIntf[name] = true
-				if !shutdown && !bIntf[name] {
-					device.Warning(
-						"Interface '%s' on device is not known by Netspoc", name)
-				}
+		}
+		if name != "" {
+			aIntf[name] = true
+			if !bIntf[name] {
+				device.Warning(
+					"Interface '%s' on device is not known by Netspoc", name)
 			}
 		}
 	}
 
 	// Check interfaces from Netspoc
-	bNames := maps.Keys(bIntf)
-	sort.Strings(bNames)
-	for _, name := range bNames {
+	for _, name := range sorted.Keys(bIntf) {
 		if !aIntf[name] {
 			return fmt.Errorf(
 				"Interface '%s' from Netspoc not known on device", name)
 		}
 	}
 	return nil
+}
+
+func (s *State) checkIOSInterfaces() error {
+	type intfInfo struct {
+		shut    bool
+		addr    string
+		inspect string
+		vrf     string
+	}
+	// Read and remove sub commands from interface, that must not be
+	// compared later.
+	extractIntfInfo := func(c *cmd) *intfInfo {
+		info := &intfInfo{
+			shut:    false,
+			addr:    "",
+			inspect: "disabled",
+			vrf:     "<global>",
+		}
+		addrList := []string{}
+		l := c.sub
+		j := 0
+		for _, sc := range l {
+			p := sc.parsed
+			if p == "shutdown" {
+				info.shut = true
+			} else if ip, ok := strings.CutPrefix(p, "ip address "); ok {
+				ip = strings.TrimSuffix(ip, " secondary")
+				addrList = append(addrList, ip)
+			} else if p == "unnumbered" {
+				addrList = append(addrList, p)
+			} else if _, v, ok := strings.Cut(p, "vrf forwarding "); ok {
+				info.vrf = v
+			} else if strings.HasPrefix(p, "ip inspect") {
+				info.inspect = "enabled"
+			} else {
+				// Only leave other commands as sub command.
+				l[j] = sc
+				j++
+			}
+		}
+		c.sub = l[:j]
+		sort.Strings(addrList)
+		info.addr = strings.Join(addrList, ",")
+		return info
+	}
+	aKnown := make(map[string]bool)
+	bIntf := make(map[string]*intfInfo)
+	for _, c := range s.b.lookup["interface"][""] {
+		name := strings.Fields(c.parsed)[1]
+		bIntf[name] = extractIntfInfo(c)
+	}
+	// If config from Netspoc has no interface definitions, it is probably
+	// of type "managed=routing_only", and Netspoc won't change any
+	// interface config.
+	if len(bIntf) == 0 {
+		return nil
+	}
+	for _, c := range s.a.lookup["interface"][""] {
+		name := strings.Fields(c.parsed)[1]
+		aInfo := extractIntfInfo(c)
+		aKnown[name] = true
+		if aInfo.shut {
+			continue
+		}
+		if bInfo := bIntf[name]; bInfo != nil {
+			if aInfo.addr != bInfo.addr && bInfo.addr != "negotiated" {
+				device.Warning(
+					"Different address defined for interface %s:"+
+						" Device: %q, Netspoc: %q", name, aInfo.addr, bInfo.addr)
+			}
+			if aInfo.inspect != bInfo.inspect {
+				return fmt.Errorf(
+					"Different 'ip inspect' defined for interface %s:"+
+						" Device: %s, Netspoc: %s",
+					name, aInfo.inspect, bInfo.inspect)
+			}
+			if aInfo.vrf != bInfo.vrf {
+				return fmt.Errorf(
+					"Different VRFs defined for interface %s:"+
+						" Device: %s, Netspoc: %s", name, aInfo.vrf, bInfo.vrf)
+			}
+		} else if aInfo.addr != "" {
+			device.Warning(
+				"Interface '%s' on device is not known by Netspoc", name)
+		}
+	}
+	for _, c := range s.b.lookup["interface"][""] {
+		name := strings.Fields(c.parsed)[1]
+		if !aKnown[name] {
+			return fmt.Errorf(
+				"Interface '%s' from Netspoc not known on device", name)
+		}
+	}
+	return nil
+}
+
+func (s *State) alignVRFs() {
+	interfaceVRF := func(c *cmd) string {
+		for _, s := range c.sub {
+			if _, v, found := strings.Cut(s.orig, "vrf forwarding "); found {
+				return v
+			}
+		}
+		return ""
+	}
+	routeVRF := func(c *cmd) string {
+		tokens := strings.Fields(c.parsed)
+		if tokens[2] == "vrf" {
+			return tokens[3]
+		}
+		return ""
+	}
+	pairs := []struct {
+		name string
+		get  func(c *cmd) string
+	}{
+		{"interface", interfaceVRF},
+		{"ip route", routeVRF},
+	}
+	// Find VRFs used in Netspoc configuration.
+	bVRF := make(map[string]bool)
+	for _, p := range pairs {
+		for _, c := range s.b.lookup[p.name][""] {
+			bVRF[p.get(c)] = true
+		}
+	}
+	// Leave device config unchanged if approve is run with empty
+	// Netspoc config for testing.
+	if len(bVRF) == 0 {
+		return
+	}
+	// Remove VRFs from device configuration that are not handled by Netspoc.
+	removed := make(map[string]bool)
+	for _, p := range pairs {
+		if l := s.a.lookup[p.name][""]; l != nil {
+			j := 0
+			for _, c := range l {
+				vrf := p.get(c)
+				if bVRF[vrf] {
+					l[j] = c
+					j++
+				} else {
+					removed[vrf] = true
+				}
+			}
+			l = l[:j]
+			if len(l) != 0 {
+				s.a.lookup[p.name][""] = l
+			} else {
+				delete(s.a.lookup[p.name], "")
+			}
+		}
+	}
+	for _, vrf := range sorted.Keys(removed) {
+		if vrf == "" {
+			vrf = "<global>"
+		}
+		device.Info("Leaving VRF %s untouched", vrf)
+	}
+}
+
+// 'crypto map gdoi' is currently not supported by Netspoc.
+// That commands must be left unchanged on device.
+func (s *State) ignoreCryptoGDOI() {
+	rm := make(map[string]bool)
+	for _, c := range s.a.lookup["interface"][""] {
+		l := c.sub
+		j := 0
+		for _, sc := range l {
+			if sc.parsed == "crypto map $REF" {
+				name := sc.ref[0]
+				l2 := s.a.lookup["crypto map"][name]
+				if l2[0].parsed == "crypto map $NAME $SEQ gdoi" {
+					rm[name] = true
+					continue
+				}
+			}
+			l[j] = sc
+			j++
+		}
+		c.sub = l[:j]
+	}
+	for name := range rm {
+		delete(s.a.lookup["crypto map"], name)
+	}
 }

@@ -73,10 +73,7 @@ END
 sub run {
     my ($cmd) = @_;
 
-    # Propagate options to perl process.
-    my $perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
-
-    $cmd = "$^X $perl_opt -I lib $cmd";
+    $cmd = "$^X -I lib $cmd";
     my ($stdout, $stderr);
     run3($cmd, \undef, \$stdout, \$stderr);
 
@@ -97,12 +94,7 @@ sub prepare_simulation {
     $ENV{SIMULATE_ROUTER} = $simulation_cmd;
 }
 
-sub simulate {
-    my ($type, $scenario, $spoc, $options) = @_;
-    $options ||= '';
-
-    my $spoc_file = prepare_spoc($type, $spoc);
-    prepare_simulation($scenario);
+sub prepare_config {
 
     # Prepare credentials file. Declare current user as system user.
     my $id = getpwuid($<);
@@ -124,6 +116,15 @@ END
 
     # Set new HOME directory, because $config_file is searched there.
     $ENV{HOME} = $dir;
+}
+
+sub simulate {
+    my ($type, $scenario, $spoc, $options) = @_;
+    $options ||= '';
+
+    my $spoc_file = prepare_spoc($type, $spoc);
+    prepare_simulation($scenario);
+    prepare_config();
 
     return run("bin/drc3.pl -q -L $dir $options $spoc_file");
 }
@@ -285,22 +286,10 @@ sub check_parse_and_unchanged {
 sub drc3_err {
     my ($title, $type, $spoc, $expected) = @_;
     my $spoc_file = prepare_spoc($type, $spoc);
-
-    # Prepare config file.
-    my $config_file = "$dir/.netspoc-approve";
-    write_file($config_file, <<"END");
-netspocdir = $dir
-lockfiledir = $dir
-checkbanner = NetSPoC
-timeout = 1
-END
-    $ENV{HOME} = $dir;
-
+    prepare_config();
     my ($status, $stdout, $stderr) = run("bin/drc3.pl -q $spoc_file");
     $stderr =~ s/\Q$dir\E\/code\///g;
     eq_or_diff($stderr, $expected, $title);
 }
-
-
 
 1;

@@ -47,7 +47,7 @@ END
 };
 
 $out = <<END;
-ERROR>>> Can't get IP from file(s): ipv6/router.info
+ERROR>>> Missing IP address in [ipv6/router.info]
 END
 
 drc3_err($title, 'IOS', $spoc, $out);

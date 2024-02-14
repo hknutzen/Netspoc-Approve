@@ -78,8 +78,29 @@ route inside 10.20.0.0 255.255.0.0 10.1.2.3
 --router.raw
 ipv6 route inside 10::3:0/120 10::2:2
 =OUTPUT=
-route inside 10.20.0.0 255.255.0.0 10.1.2.3
 ipv6 route inside 10::3:0/120 10::2:2
+route inside 10.20.0.0 255.255.0.0 10.1.2.3
+=END=
+
+############################################################
+=TITLE=Merge ACL using [APPEND]
+=DEVICE=
+interface Ethernet0/1
+ nameif inside
+=NETSPOC=
+--router
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+--router.raw
+access-list inside_in extended permit udp 10.0.6.0 0.0.0.255 host 224.0.1.1 eq 123
+[APPEND]
+access-list inside_in extended deny ip any4 host 224.0.1.1 log
+access-group inside_in in interface inside
+=OUTPUT=
+access-list inside_in-DRC-0 extended permit udp 10.0.6.0 0.0.0.255 host 224.0.1.1 eq 123
+access-list inside_in-DRC-0 extended deny ip any4 host 224.0.1.1 log
+access-list inside_in-DRC-0 extended deny ip any4 any4
+access-group inside_in-DRC-0 in interface inside
 =END=
 
 ############################################################

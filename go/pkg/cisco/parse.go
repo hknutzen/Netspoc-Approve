@@ -29,10 +29,12 @@ type cmdType struct {
 	sub      []*cmdType
 	// Use "clear configure PREFIX NAME [SEQ]" to remove the complete
 	// command
-	canClearConf bool
+	clearConf bool
 	// Do not change object on device but try to find a matching
 	// command on device.
-	simpleObject bool
+	simpleObj bool
+	anchor    bool
+	fixedName bool
 }
 
 type cmd struct {
@@ -42,6 +44,7 @@ type cmd struct {
 	// or is marked as already deleted.
 	needed    bool
 	toDelete  bool // Remove cmd on device if it is not needed
+	anchor    bool
 	fixedName bool
 	append    bool // Command was found after [APPEND] marker in raw file
 
@@ -54,25 +57,6 @@ type cmd struct {
 	ref      []string // Values of $REF, e.g. ["xyz"]
 	sub      []*cmd
 	subCmdOf *cmd
-}
-
-var canClearConf = []string{
-	"crypto ca certificate map",
-	"username",
-	"tunnel-group",
-	"group-policy",
-	"access-list",
-}
-
-var simpleObject = []string{
-	"ip local pool",
-	"crypto ipsec ikev1 transform-set",
-	"crypto ipsec ikev2 ipsec-proposal",
-}
-
-var hasFixedName = []string{
-	"crypto map", "username", "crypto dynamic-map", "aaa-server",
-	"ldap attribute-map", "tunnel-group",
 }
 
 type parser struct {
@@ -163,6 +147,7 @@ func (p *parser) ParseConfig(data []byte, fName string) (
 			if c := matchCmd("", words, prev.typ.sub); c != nil {
 				prev.sub = append(prev.sub, c)
 				c.subCmdOf = prev
+				c.append = isAppend
 			}
 		}
 	}
@@ -219,17 +204,21 @@ func (p *parser) addDefaultObject(lookup objLookup, prefix, name string, vl []st
 		m = make(map[string][]*cmd)
 		lookup[prefix] = m
 	}
+OBJ:
 	for _, arg := range vl {
 		c := p.lookupCmd(prefix + " " + name + " " + arg)
 		l := m[name]
 		// Do only add, if not already parsed previously.
-		if !slices.ContainsFunc(l, func(c2 *cmd) bool {
-			return c2.parsed == c.parsed
-		}) {
-
-			l = append(l, c)
+		for _, c2 := range l {
+			if c2.parsed == c.parsed {
+				c2.fixedName = true
+				c2.anchor = true
+				continue OBJ
+			}
 		}
-		l[0].fixedName = true
+		c.fixedName = true
+		c.anchor = true
+		l = append([]*cmd{c}, l...)
 		m[name] = l
 	}
 }
@@ -238,23 +227,42 @@ func (p *parser) addDefaultObject(lookup objLookup, prefix, name string, vl []st
 func (p *parser) addDefaults(cf *Config) {
 	lookup := cf.lookup
 	for k, vl := range defaultObjects {
-		p.addDefaultObject(lookup, k[0], k[1], vl)
+		prefix, name := k[0], k[1]
+		if p.prefixMap[prefix] != nil { // Ignore ASA defaults for IOS.
+			p.addDefaultObject(lookup, prefix, name, vl)
+		}
 	}
+}
+
+type header struct {
+	anchor    bool
+	fixedName bool
+	clearConf bool
+	simpleObj bool
 }
 
 // Initialize cmdDescr from lines in cmdInfo.
 func (p *parser) setupCmdDescr(info string) {
 	toParse := info
+	sectHead := header{}
 	for toParse != "" {
 		store := &p.cmdDescr
 		line, rest, _ := strings.Cut(toParse, "\n")
 		toParse = rest
 		line = strings.TrimRight(line, " \t\r")
-		if line == "" || line[0] == '#' {
+		if line == "" {
+			sectHead = header{}
 			continue
 		}
 		isSubCmd := false
-		if line[0] == ' ' {
+		ignore := false
+		switch line[0] {
+		case '#':
+			continue
+		case '[':
+			sectHead = parseHeader(line)
+			continue
+		case ' ':
 			line = line[1:]
 			if len(*store) == 0 {
 				panic(fmt.Errorf("first line of cmdInfo must not be indented"))
@@ -267,7 +275,6 @@ func (p *parser) setupCmdDescr(info string) {
 			store = &prev.sub
 			isSubCmd = true
 		}
-		ignore := false
 		if line[0] == '!' {
 			line = line[1:]
 			ignore = true
@@ -304,14 +311,41 @@ func (p *parser) setupCmdDescr(info string) {
 			ref:      ref,
 			ignore:   ignore,
 		}
-		if slices.Contains(canClearConf, prefix) {
-			descr.canClearConf = true
+		if sectHead.anchor {
+			descr.anchor = true
 		}
-		if slices.Contains(simpleObject, prefix) {
-			descr.simpleObject = true
+		if sectHead.fixedName {
+			descr.fixedName = true
+		}
+		if sectHead.clearConf {
+			descr.clearConf = true
+		}
+		if sectHead.simpleObj {
+			descr.simpleObj = true
 		}
 		*store = append(*store, descr)
 	}
+}
+
+func parseHeader(line string) header {
+	h := header{}
+	line = strings.Trim(line, "[]")
+	for _, w := range strings.Split(line, ",") {
+		w = strings.TrimSpace(w)
+		switch w {
+		case "ANCHOR":
+			h.anchor = true
+		case "FIXED_NAME":
+			h.fixedName = true
+		case "SIMPLE_OBJ":
+			h.simpleObj = true
+		case "CLEAR_CONF":
+			h.clearConf = true
+		default:
+			panic(fmt.Errorf("Invalid token %q in section header of cmdInfo", w))
+		}
+	}
+	return h
 }
 
 type cmdLookup struct {
@@ -388,7 +422,7 @@ DESCR:
 				name = w
 				parsed = append(parsed, token)
 			case "$SEQ":
-				num, err := strconv.ParseUint(w, 10, 16)
+				num, err := strconv.ParseUint(w, 10, 0)
 				if err != nil {
 					continue DESCR
 				}
@@ -454,12 +488,17 @@ func postprocessParsed(lookup objLookup) {
 	// and add "NAME" to cmd.ref .
 	for _, l := range lookup["access-list"] {
 		for _, c := range l {
-			postprocessACL(c)
+			postprocessASAACL(c)
 			// access-list may reference up to five object-groups.
 			c.typ.ref = []string{
 				"object-group", "object-group", "object-group",
 				"object-group", "object-group",
 			}
+		}
+	}
+	for _, l := range lookup["ip access-list extended"] {
+		for _, c := range l[0].sub {
+			postprocessIOSACL(c)
 		}
 	}
 	// Move crypto map interface commands to different prefix for
@@ -577,16 +616,12 @@ func postprocessParsed(lookup objLookup) {
 			}
 		}
 	}
-	// Mark commands having fixed name.
-	for _, prefix := range hasFixedName {
-		for name, l := range lookup[prefix] {
-			if prefix == "tunnel-group" {
-				if _, err := netip.ParseAddr(name); err != nil {
-					continue
-				}
-			}
+	// Mark tunnel-group having IP address as name.
+	for name, l := range lookup["tunnel-group"] {
+		if _, err := netip.ParseAddr(name); err == nil {
 			for _, c := range l {
 				c.fixedName = true
+				c.anchor = true
 			}
 		}
 	}
@@ -594,6 +629,7 @@ func postprocessParsed(lookup objLookup) {
 
 var protoNames = map[string]int{
 	"ah":     51,
+	"ahp":    51,
 	"eigrp":  88,
 	"esp":    50,
 	"gre":    47,
@@ -617,58 +653,62 @@ var protoNonNumeric = map[string]string{
 	"17": "udp",
 }
 var tcpNames = map[string]int{
-	"aol":             5190,
-	"bgp":             179,
-	"chargen":         19,
-	"cifs":            3020,
-	"citrix-ica":      1494,
-	"cmd":             514,
-	"ctiqbe":          2748,
-	"daytime":         13,
-	"discard":         9,
-	"domain":          53,
-	"echo":            7,
-	"exec":            512,
-	"finger":          79,
-	"ftp":             21,
-	"ftp-data":        20,
-	"gopher":          70,
-	"h323":            1720,
-	"hostname":        101,
-	"http":            80,
-	"https":           443,
-	"ident":           113,
-	"imap4":           143,
-	"irc":             194,
-	"kerberos":        750,
-	"klogin":          543,
-	"kshell":          544,
-	"ldap":            389,
-	"ldaps":           636,
-	"login":           513,
-	"lotusnotes":      1352,
-	"lpd":             515,
-	"netbios-ssn":     139,
-	"nfs":             2049,
-	"nntp":            119,
-	"pcanywhere-data": 5631,
-	"pim-auto-rp":     496,
-	"pop2":            109,
-	"pop3":            110,
-	"pptp":            1723,
-	"rsh":             514,
-	"rtsp":            554,
-	"sip":             5060,
-	"smtp":            25,
-	"sqlnet":          1521,
-	"ssh":             22,
-	"sunrpc":          111,
-	"tacacs":          49,
-	"talk":            517,
-	"telnet":          23,
-	"uucp":            540,
-	"whois":           43,
-	"www":             80,
+	"aol":                 5190,
+	"bgp":                 179,
+	"chargen":             19,
+	"cifs":                3020,
+	"citrix-ica":          1494,
+	"cmd":                 514,
+	"connectedapps-plain": 15001,
+	"connectedapps-tls":   15002,
+	"ctiqbe":              2748,
+	"daytime":             13,
+	"discard":             9,
+	"domain":              53,
+	"echo":                7,
+	"exec":                512,
+	"finger":              79,
+	"ftp":                 21,
+	"ftp-data":            20,
+	"gopher":              70,
+	"h323":                1720,
+	"hostname":            101,
+	"http":                80,
+	"https":               443,
+	"ident":               113,
+	"imap4":               143,
+	"irc":                 194,
+	"kerberos":            750,
+	"klogin":              543,
+	"kshell":              544,
+	"ldap":                389,
+	"ldaps":               636,
+	"login":               513,
+	"lotusnotes":          1352,
+	"lpd":                 515,
+	"msrpc":               135,
+	"netbios-ssn":         139,
+	"nfs":                 2049,
+	"nntp":                119,
+	"pcanywhere-data":     5631,
+	"pim-auto-rp":         496,
+	"pop2":                109,
+	"pop3":                110,
+	"pptp":                1723,
+	"rsh":                 514,
+	"rtsp":                554,
+	"sip":                 5060,
+	"smtp":                25,
+	"sqlnet":              1521,
+	"ssh":                 22,
+	"sunrpc":              111,
+	"tacacs":              49,
+	"tacacs-ds":           65,
+	"talk":                517,
+	"telnet":              23,
+	"uucp":                540,
+	"whois":               43,
+	"www":                 80,
 }
 
 var udpNames = map[string]int{
@@ -677,6 +717,7 @@ var udpNames = map[string]int{
 	"bootps":            67,
 	"cifs":              3020,
 	"discard":           9,
+	"dns":               53,
 	"dnsix":             195,
 	"domain":            53,
 	"echo":              7,
@@ -687,13 +728,17 @@ var udpNames = map[string]int{
 	"nameserver":        42,
 	"netbios-dgm":       138,
 	"netbios-ns":        137,
+	"netbios-ss":        139,
 	"nfs":               2049,
+	"non500-isakmp":     4500,
 	"ntp":               123,
 	"pcanywhere-status": 5632,
 	"pim-auto-rp":       496,
 	"radius":            1645,
 	"radius-acct":       1646,
 	"rip":               520,
+	"ripng":             521,
+	"ripv6":             521,
 	"secureid-udp":      5510,
 	"sip":               5060,
 	"snmp":              161,
@@ -701,6 +746,7 @@ var udpNames = map[string]int{
 	"sunrpc":            111,
 	"syslog":            514,
 	"tacacs":            49,
+	"tacacs-ds":         65,
 	"talk":              517,
 	"tftp":              69,
 	"time":              37,
@@ -710,28 +756,52 @@ var udpNames = map[string]int{
 	"xdmcp":             177,
 }
 
-var icmpTypes = map[string]int{
-	"alternate-address":    6,
-	"conversion-error":     31,
-	"echo":                 8,
-	"echo-reply":           0,
-	"information-reply":    16,
-	"information-request":  15,
-	"mask-reply":           18,
-	"mask-request":         17,
-	"mobile-redirect":      32,
-	"parameter-problem":    12,
-	"redirect":             5,
-	"router-advertisement": 9,
-	"router-solicitation":  10,
-	"source-quench":        4,
-	"time-exceeded":        11,
-	"timestamp-reply":      14,
-	"timestamp-request":    13,
-	"traceroute":           30,
-	"unreachable":          3,
+var icmpTypeCodes = map[string]string{
+	"administratively-prohibited": "3 13",
+	"alternate-address":           "6",
+	"conversion-error":            "31",
+	"dod-host-prohibited":         "3 10",
+	"dod-net-prohibited":          "3 9",
+	"echo":                        "8",
+	"echo-reply":                  "0",
+	"general-parameter-problem":   "12 0",
+	"host-isolated":               "3 8",
+	"host-precedence-unreachable": "3 14",
+	"host-redirect":               "5 1",
+	"host-tos-redirect":           "5 3",
+	"host-tos-unreachable":        "3 12",
+	"host-unknown":                "3 7",
+	"host-unreachable":            "3 1",
+	"information-reply":           "16",
+	"information-request":         "15",
+	"mask-reply":                  "18",
+	"mask-request":                "17",
+	"mobile-redirect":             "32",
+	"net-redirect":                "5 0",
+	"net-tos-redirect":            "5 2",
+	"net-tos-unreachable":         "3 11",
+	"net-unreachable":             "3 0",
+	"network-unknown":             "3 6",
+	"no-room-for-option":          "12 2",
+	"option-missing":              "12 1",
+	"packet-too-big":              "3 4",
+	"parameter-problem":           "12",
+	"port-unreachable":            "3 3",
+	"precedence-unreachable":      "3 15",
+	"protocol-unreachable":        "3 2",
+	"reassembly-timeout":          "11",
+	"redirect":                    "5",
+	"router-advertisement":        "9",
+	"router-solicitation":         "10",
+	"source-quench":               "4",
+	"source-route-failed":         "3 5",
+	"time-exceeded":               "11",
+	"timestamp-reply":             "14",
+	"timestamp-request":           "13",
+	"traceroute":                  "30",
+	"ttl-exceeded":                "11 0",
+	"unreachable":                 "3",
 }
-
 var icmp6Types = map[string]int{
 	"echo":                   128,
 	"echo-reply":             129,
@@ -761,20 +831,45 @@ var logNames = map[string]int{
 	"debugging":     7,
 }
 
+func postprocessIOSACL(c *cmd) {
+	tokens := strings.Fields(c.parsed)
+	// Remove sequence number shown since IOS-XE 16.12.
+	if tokens[0] == "$SEQ" {
+		tokens = tokens[1:]
+		c.parsed = strings.Join(tokens, " ")
+		_, c.orig, _ = strings.Cut(c.orig, " ")
+	}
+	if tokens[0] == "remark" {
+		return
+	}
+	// Skip "deny|permit"
+	parts := tokens[1:]
+	// Variables 'tokens' and 'parts' use same backing store.
+	postprocessACLParts(c, parts)
+	tokens = slices.DeleteFunc(tokens, func(w string) bool { return w == "" })
+	c.parsed = strings.Join(tokens, " ")
+}
+
 // Postprocess command
 // access-list $NAME extended deny|permit PROTO SRC [PORT] DST [PORT]
 // - Replace named TCP, UDP ports and ICMP type by number
 // - Replace named log level by number
 // - Replace reference to object-group by $REF
 // - Replace network with host mask by host
-func postprocessACL(c *cmd) {
+func postprocessASAACL(c *cmd) {
 	tokens := strings.Fields(c.parsed)
 	if tokens[2] != "extended" {
 		return
 	}
-	// Variables 'tokens' and 'parts' use same backing store.
 	// Skip "access-list $NAME extended deny|permit"
 	parts := tokens[4:]
+	// Variables 'tokens' and 'parts' use same backing store.
+	postprocessACLParts(c, parts)
+	tokens = slices.DeleteFunc(tokens, func(w string) bool { return w == "" })
+	c.parsed = strings.Join(tokens, " ")
+}
+
+func postprocessACLParts(c *cmd, parts []string) {
 	proto := ""
 
 	convNamed := func(m map[string]int) {
@@ -818,7 +913,7 @@ func postprocessACL(c *cmd) {
 			switch parts[0] {
 			case "object-group":
 				convObjectGroup()
-			case "log":
+			case "log", "log-input":
 				parts = parts[1:]
 				if len(parts) > 0 {
 					if num, found := logNames[parts[0]]; found {
@@ -836,15 +931,15 @@ func postprocessACL(c *cmd) {
 			case "any", "any4", "any6", "interface":
 				parts = parts[1:]
 			default:
-				if ip, len, found := strings.Cut(parts[0], "/"); found {
-					switch len {
+				if ip, bits, found := strings.Cut(parts[0], "/"); found {
+					switch bits {
 					case "0":
 						parts[0] = "any6"
 					case "128":
 						parts[0] = "host " + ip
 					}
 					parts = parts[1:]
-				} else {
+				} else if len(parts) >= 2 {
 					switch parts[1] {
 					case "0.0.0.0":
 						parts[0], parts[1] = "any4", ""
@@ -875,7 +970,10 @@ func postprocessACL(c *cmd) {
 		if len(parts) > 0 {
 			switch proto {
 			case "icmp":
-				convNamed(icmpTypes)
+				if replace, found := icmpTypeCodes[parts[0]]; found {
+					parts[0] = replace
+					parts = parts[1:]
+				}
 			case "icmp6":
 				convNamed(icmp6Types)
 			}
@@ -904,8 +1002,6 @@ func postprocessACL(c *cmd) {
 		convObject()
 	}
 	convObject()
-	tokens = slices.DeleteFunc(tokens, func(w string) bool { return w == "" })
-	c.parsed = strings.Join(tokens, " ")
 }
 
 // Postprocess subcommands of object-groups:

@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
 	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
@@ -55,6 +56,8 @@ func runTestFiles(t *testing.T) {
 				switch prefix {
 				case "asa":
 					realDev = asa.Setup()
+				case "ios":
+					realDev = ios.Setup()
 				case "nsx":
 					realDev = &nsx.State{}
 				case "panos":
@@ -208,7 +211,7 @@ timeout = 1
 			expected = ""
 		}
 		if d.Scenario != "" {
-			checkFiles(t, d.Output, workDir)
+			checkFilesAndStdout(t, d.Output, workDir, stdout)
 			return
 		}
 		// Join following line if it is indented.
@@ -218,15 +221,22 @@ timeout = 1
 	}
 }
 
-// Check files in dir against specification.
+// Check stdout and files in dir against specification.
 // Blocks of expected output are split by single lines of dashes,
 // followed by file name.
-func checkFiles(t *testing.T, spec, dir string) {
+// First optional block contains expected standard output.
+func checkFilesAndStdout(t *testing.T, spec, dir, stdout string) {
 	re := regexp.MustCompile(`(?ms)^-+[ ]*\S+[ ]*\n`)
 	il := re.FindAllStringIndex(spec, -1)
 
 	if il == nil || il[0][0] != 0 {
-		t.Fatal("Output spec must start with dashed line")
+		expect := spec
+		if il != nil {
+			expect = spec[:il[0][0]]
+		}
+		t.Run("STDOUT", func(t *testing.T) {
+			countEq(t, expect, stdout)
+		})
 	}
 	for i, p := range il {
 		marker := spec[p[0] : p[1]-1] // without trailing "\n"

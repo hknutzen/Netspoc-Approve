@@ -26,51 +26,40 @@ func (a *Config) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
 	for prefix, bMap := range b.lookup {
 		aMap := lookup[prefix]
 		for name, bl := range bMap {
-			bCmd := bl[0]
-			// Select anchor commands.
-			// Collect non anchor commands.
 			switch prefix {
 			case "tunnel-group-map", "webvpn":
 				device.Abort("Command '%s' not supported in raw file", prefix)
-			case "access-group", "route", "ipv6 route", "username",
-				"crypto map interface":
-			case "group-policy", "tunnel-group":
-				if bCmd.fixedName {
-					break
-				}
-				if _, found := defaultObjects[[2]string{prefix, name}]; found {
-					break
-				}
-				fallthrough
-			default:
-				if _, found := isReferenced[bCmd]; !found {
-					isReferenced[bCmd] = false
-				}
-				continue
 			}
-			al := aMap[name]
-			ab := &cmdsPair{
-				a:     a,
-				b:     b,
-				aCmds: al,
-				bCmds: bl,
+			bCmd := bl[0]
+			// Select anchor commands.
+			// Collect non anchor commands.
+			if bCmd.typ.anchor || bCmd.anchor ||
+				defaultObjects[[2]string{prefix, name}] != nil {
+
+				al := aMap[name]
+				ab := &cmdsPair{
+					a:     a,
+					b:     b,
+					aCmds: al,
+					bCmds: bl,
+				}
+				mergeCmds(ab, name, prefix)
+			} else if b.isRaw && !isReferenced[bCmd] {
+				isReferenced[bCmd] = false
 			}
-			mergeCmds(ab, name, prefix)
 		}
 	}
-	if b.isRaw {
-		var warnings []string
-		for c, used := range isReferenced {
-			if !used {
-				warnings = append(warnings,
-					fmt.Sprintf("Ignoring unused '%s %s' in raw",
-						c.typ.prefix, c.name))
-			}
+	var warnings []string
+	for c, used := range isReferenced {
+		if !used {
+			warnings = append(warnings,
+				fmt.Sprintf("Ignoring unused '%s %s' in raw",
+					c.typ.prefix, c.name))
 		}
-		sort.Strings(warnings)
-		for _, w := range warnings {
-			device.Warning(w)
-		}
+	}
+	sort.Strings(warnings)
+	for _, w := range warnings {
+		device.Warning(w)
 	}
 	return a
 }
@@ -84,7 +73,10 @@ func mergeCmds(ab *cmdsPair, name, prefix string) {
 		mergeCryptoDynMap(ab, name, prefix)
 		return
 	case "access-list":
-		mergeACLs(ab, name, prefix)
+		mergeASAACLs(ab, name, prefix)
+		return
+	case "ip access-list extended":
+		mergeIOSACLs(ab, name, prefix)
 		return
 	}
 	al := ab.aCmds
@@ -127,7 +119,7 @@ func mergeRefs(ab *cmdsPair, a, b *cmd) {
 		prefix := b.typ.ref[i]
 		bl := ab.b.lookup[prefix][bName]
 		refCmd := bl[0]
-		if refCmd.typ.simpleObject {
+		if refCmd.typ.simpleObj {
 			isReferenced[refCmd] = true
 			al := findSimpleObject(bl, ab.a)
 			if al == nil {
@@ -168,7 +160,7 @@ func mergeRefs(ab *cmdsPair, a, b *cmd) {
 	}
 }
 
-func mergeACLs(ab *cmdsPair, name, prefix string) {
+func mergeASAACLs(ab *cmdsPair, name, prefix string) {
 	acl := ab.aCmds
 	var prependACL, appendACL []*cmd
 	for _, b := range ab.bCmds {
@@ -204,6 +196,43 @@ func mergeACLs(ab *cmdsPair, name, prefix string) {
 	}
 	// Store changed ACL.
 	ab.a.lookup[prefix][name] = acl
+}
+
+func mergeIOSACLs(ab *cmdsPair, name, prefix string) {
+	var acl []*cmd
+	if l := ab.aCmds; len(l) > 0 {
+		acl = ab.aCmds[0].sub
+	}
+	var prependACL, appendACL []*cmd
+	// Allow multiple occurences of same ACL in raw.
+	for _, b := range ab.bCmds {
+		for _, sb := range b.sub {
+			if sb.append {
+				appendACL = append(appendACL, sb)
+			} else {
+				prependACL = append(prependACL, sb)
+			}
+		}
+	}
+	if len(prependACL) > 0 {
+		acl = append(prependACL, acl...)
+	}
+	if len(appendACL) > 0 {
+		// Add ACL lines marked with [APPEND] behind last permit line.
+		// Find last permit line within entries from Netspoc.
+		i := len(acl) - 1
+		for ; i >= 0; i-- {
+			if strings.HasPrefix(acl[i].parsed, "permit ") {
+				i++
+				break
+			}
+		}
+		acl = append(acl[:i], append(appendACL, acl[i:]...)...)
+	}
+	// Store changed ACL.
+	b0 := ab.bCmds[0]
+	b0.sub = acl
+	ab.a.lookup[prefix][name] = []*cmd{b0}
 }
 
 func mergeCryptoMap(ab *cmdsPair, name, prefix string) {
