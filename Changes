@@ -1,3 +1,20 @@
+3.021     2024-02-14 18:01:57+01:00 Europe/Berlin
+
+ - Migrated approve for IOS from Perl to Go.
+   - Order of rules inside blocks of successive permit/deny rules
+     is ignored during compare.
+   - Unused ACLs with name ending in -DRC-<NUM> are removed.
+   - Changed timeout of reload command from 5 to 2 minutes.
+   - Option '-u' of command drc3.pl is implemented for all device types.
+ - Removed support for Cisco NX-OS.
+ - Removed support for EZVPN at Cisco devices.
+ - "tunnel-group-map default-group" referencing predefined
+   tunnel-group like DefaultL2LGroup is no longer silently ignored on device,
+   but removed instead.
+ - No longer ignore duplicate access-group command in raw files,
+   but abort instead.
+ - No longer ignore header in JSON config for NSX.
+
 3.020     2023-11-13 11:21:42+01:00 Europe/Berlin
 
  - Fixed issues in code for ASA:

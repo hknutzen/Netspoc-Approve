@@ -19,13 +19,6 @@ var defaultVals = map[string]string{
 	"compress_at":   "7",   // compress netspocdir after that many days
 }
 
-var home, _ = os.UserHomeDir()
-var confPaths = []string{
-	path.Join(home, ".netspoc-approve"),
-	"/usr/local/etc/netspoc-approve",
-	"/etc/netspoc-approve",
-}
-
 type Config struct {
 	netspocDir     string
 	lockfileDir    string
@@ -39,10 +32,19 @@ type Config struct {
 	LoginTimeout   int
 	keepHistory    int
 	compressAt     int
+	// Is only set by command line option -u.
+	User     string
+	Password string
 }
 
 // Use most specific config file; ignore others.
 func LoadConfig() (*Config, error) {
+	home, _ := os.UserHomeDir()
+	confPaths := []string{
+		path.Join(home, ".netspoc-approve"),
+		"/usr/local/etc/netspoc-approve",
+		"/etc/netspoc-approve",
+	}
 	var data []byte
 	var file string
 	for _, p := range confPaths {

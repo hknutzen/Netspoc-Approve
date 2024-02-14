@@ -2139,3 +2139,75 @@ action=set&type=config&
   <log-end>yes</log-end>
   <rule-type>interzone</rule-type>
 =END=
+
+############################################################
+=TITLE=Different device names
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys2"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=
+<config><devices>
+ <entry name="foo">
+  <vsys><entry name="vsys2"></entry></vsys>
+ </entry>
+</devices></config>
+=ERROR=
+ERROR>>> Different names in <device> of XML: netspoc='localhost.localdomain', netspoc='foo'
+=END=
+
+############################################################
+=TITLE=Unknown VSYS on device
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys1"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys2"></entry></vsys>
+ </entry>
+</devices></config>
+=ERROR=
+ERROR>>> Unknown name 'vsys2' in VSYS of device configuration
+=END=
+
+############################################################
+=TITLE=Leave VSYS on device unchanged
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys1"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=NONE
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Invalid XML from device
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+</devices></config>
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: XML syntax error on line 3: element <entry> closed by </devices>
+=END=
+
+############################################################
+=TITLE=Invalid XML from Netspoc
+=DEVICE=
+<config><devices>
+ <entry name="localhost.localdomain">
+  <vsys><entry name="vsys1"></entry></vsys>
+ </entry>
+</devices></config>
+=NETSPOC=
+<"bad file"
+=ERROR=
+ERROR>>> While reading router: XML syntax error on line 1: expected element name after <
+=END=

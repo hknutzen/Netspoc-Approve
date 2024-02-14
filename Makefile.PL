@@ -20,6 +20,7 @@ my %WriteMakefileArgs = (
     "bin/compress-policies",
     "bin/delete-old-policies",
     "bin/drc-asa",
+    "bin/drc-ios",
     "bin/drc-nsx",
     "bin/drc-pan-os",
     "bin/drc3.pl",
@@ -32,7 +33,6 @@ my %WriteMakefileArgs = (
   "LICENSE" => "gpl",
   "NAME" => "Netspoc::Approve",
   "PREREQ_PM" => {
-    "Algorithm::Diff" => 0,
     "Carp" => 0,
     "Cwd" => 0,
     "Expect" => 0,
@@ -60,7 +60,7 @@ my %WriteMakefileArgs = (
     "Time::HiRes" => 0,
     "lib" => 0
   },
-  "VERSION" => "3.020",
+  "VERSION" => "3.021",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -68,7 +68,6 @@ my %WriteMakefileArgs = (
 
 
 my %FallbackPrereqs = (
-  "Algorithm::Diff" => 0,
   "Carp" => 0,
   "Cwd" => 0,
   "Expect" => 0,

@@ -4,7 +4,7 @@
 # Approving device with netspoc configuration.
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2023 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2024 by Heinz Knutzen <heinz.knutzen@gmail.com>
 # (c) 2007 by Arne Spetzler
 #
 # This program is free software; you can redistribute it and/or modify
@@ -32,19 +32,17 @@ use Getopt::Long;
 use Netspoc::Approve::Load_Config;
 use Netspoc::Approve::Device;
 use Netspoc::Approve::Linux;
-use Netspoc::Approve::IOS;
-use Netspoc::Approve::NX_OS;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '3.020'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '3.021'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
 my %type2class = (
     Linux   => 'Netspoc::Approve::Linux',
     IOS     => 'Netspoc::Approve::IOS',
-    'NX-OS' => 'Netspoc::Approve::NX_OS',
     'ASA'    => 'drc-asa',
+    'IOS'    => 'drc-ios',
     'PAN-OS' => 'drc-pan-os',
     NSX      => 'drc-nsx',
 );

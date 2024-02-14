@@ -186,28 +186,103 @@ no object-group network g1
 =END=
 
 ############################################################
+=TITLE=Add elements to object-group
+=DEVICE=
+[[minimal_device]]
+object-group network g1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+access-list inside extended permit ip object-group g1 any4
+access-group inside in interface inside
+=NETSPOC=
+object-group network g1
+ network-object host 1.1.1.1
+ network-object host 2.2.2.2
+ network-object host 4.4.4.4
+ network-object host 3.3.3.3
+access-list inside extended permit ip object-group g1 any4
+access-group inside in interface inside
+=OUTPUT=
+object-group network g1
+network-object host 1.1.1.1
+network-object host 4.4.4.4
+=END=
+
+############################################################
+=TITLE=Add and delete elements from object-group
+=DEVICE=
+[[minimal_device]]
+object-group network g1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+access-list inside extended permit ip object-group g1 any4
+access-group inside in interface inside
+=NETSPOC=
+object-group network g1
+ network-object host 1.1.1.1
+ network-object host 2.2.2.2
+ network-object host 4.4.4.4
+access-list inside extended permit ip object-group g1 any4
+access-group inside in interface inside
+=OUTPUT=
+object-group network g1
+network-object host 1.1.1.1
+no network-object host 3.3.3.3
+network-object host 4.4.4.4
+=END=
+
+############################################################
+=TITLE=Transfer new object-group if modified too much
+=DEVICE=
+[[minimal_device]]
+object-group network g1
+ network-object host 2.2.2.2
+ network-object host 3.3.3.3
+ network-object host 4.4.4.4
+access-list inside extended permit ip object-group g1 any4
+access-group inside in interface inside
+=NETSPOC=
+object-group network g1
+ network-object host 1.1.1.1
+ network-object host 2.2.2.2
+ network-object host 5.5.5.5
+access-list inside extended permit ip object-group g1 any4
+access-group inside in interface inside
+=OUTPUT=
+object-group network g1-DRC-0
+network-object host 1.1.1.1
+network-object host 2.2.2.2
+network-object host 5.5.5.5
+access-list inside line 1 extended permit ip object-group g1-DRC-0 any4
+no access-list inside line 2 extended permit ip object-group g1 any4
+no object-group network g1
+=END=
+
+############################################################
 =TITLE=Modify type of object-group
 =DEVICE=
 [[minimal_device]]
-object-group service g1 tcp
- port-object range 135 139
+object-group service g1
+ service-object tcp destination range 135 139
 
-access-list inside_in extended permit tcp any4 host 10.0.1.11 object-group g1
+access-list inside_in extended permit object-group g1 any4 host 10.0.1.11
 access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 =NETSPOC=
-object-group service g1 udp
- port-object range 135 139
+object-group protocol g1
+ protocol-object udp
+ protocol-object tcp
 
-access-list inside_in extended permit udp any4 host 10.0.1.11 object-group g1
+access-list inside_in extended permit object-group g1 any4 host 10.0.1.11
 access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 =OUTPUT=
-object-group service g1-DRC-0 udp
-port-object range 135 139
-access-list inside_in line 2 extended permit udp any4 host 10.0.1.11 object-group g1-DRC-0
-no access-list inside_in line 1 extended permit tcp any4 host 10.0.1.11 object-group g1
-no object-group service g1 tcp
+object-group protocol g1-DRC-0
+protocol-object tcp
+protocol-object udp
+access-list inside_in line 1 extended permit object-group g1-DRC-0 any4 host 10.0.1.11
+no access-list inside_in line 2 extended permit object-group g1 any4 host 10.0.1.11
+no object-group service g1
 =END=
 
 ############################################################

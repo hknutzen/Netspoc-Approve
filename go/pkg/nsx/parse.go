@@ -1,7 +1,6 @@
 package nsx
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -113,7 +112,7 @@ func (s *State) ParseConfig(data []byte, fName string) (
 	if len(data) == 0 {
 		return config, nil
 	}
-	err := json.Unmarshal(removeHeader(data), config)
+	err := json.Unmarshal(data, config)
 	if err != nil {
 		return nil, err
 	}
@@ -136,22 +135,4 @@ func checkConfigValidity(c *NsxConfig) error {
 		}
 	}
 	return nil
-}
-
-func removeHeader(data []byte) []byte {
-	if bytes.HasPrefix(data, []byte("Generated")) {
-		i := bytes.IndexByte(data, byte('{'))
-		return data[i:]
-	}
-	for {
-		if bytes.HasPrefix(data, []byte("#")) {
-			i := bytes.IndexByte(data, byte('\n'))
-			if i == -1 {
-				return data[len(data):]
-			}
-			data = data[i+1:]
-		} else {
-			return data
-		}
-	}
 }

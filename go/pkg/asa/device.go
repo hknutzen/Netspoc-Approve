@@ -5,39 +5,38 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"sort"
 	"strings"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/cisco"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"golang.org/x/exp/maps"
 )
 
 type State struct {
+	cisco.State
 	conn         *console.Conn
-	a            *ASAConfig
-	b            *ASAConfig
-	changes      changeList
 	errUnmanaged []error
-	subCmdOf     string
 }
-type changeList []string
 
-func (l *changeList) push(chg ...string) {
-	*l = append(*l, chg...)
+func Setup() *State {
+	s := &State{}
+	s.SetupParser(cmdInfo)
+	s.Model = "ASA"
+	return s
 }
 
 func (s *State) LoadDevice(
 	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
+	user, pass := cfg.GetUserPass(device.GetHostname(spocFile))
 	var err error
-	s.conn, err = console.GetSSHConn(spocFile, cfg, logLogin)
+	s.conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
 		return nil, err
 	}
 	hostName := device.GetHostname(spocFile)
-	s.loginEnable(hostName, cfg)
+	s.loginEnable(pass, cfg)
 	s.setTerminal()
 	s.logVersion()
 	s.checkDeviceName(hostName)
@@ -54,14 +53,12 @@ func (s *State) LoadDevice(
 	return config, err
 }
 
-func (s *State) loginEnable(hostName string, cfg *device.Config) {
+func (s *State) loginEnable(pass string, cfg *device.Config) {
 	var bannerLines string
 	conn := s.conn
-	_, pass, _ := cfg.GetAAAPassword(hostName)
 	out := conn.ShortWait(`(?i)password:|\(yes/no.*\)\?`)
 	if strings.HasSuffix(out, "?") {
 		out = conn.IssueCmd("yes", `(?i)password:`)
-		device.Info("SSH key permanently added to known hosts")
 	}
 	bannerLines += out
 	out = conn.IssueCmd(pass, `[>#]`)
@@ -79,8 +76,6 @@ func (s *State) loginEnable(hostName string, cfg *device.Config) {
 				device.Abort("Authentication for enable mode failed")
 			}
 		}
-	} else if !strings.HasSuffix(out, "#") {
-		device.Abort("Authentication failed")
 	}
 	// Force new prompt by issuing empty command.
 	// Use this prompt because of performance impact of standard prompt.
@@ -118,7 +113,7 @@ func (s *State) checkDeviceName(name string) {
 	out := s.conn.GetCmdOutput("show hostname")
 	out = strings.TrimSuffix(out, "\n")
 	if name != out {
-		device.Abort("Wrong device name: %s, expected: %s", out, name)
+		device.Abort("Wrong device name: %q, expected: %q", out, name)
 	}
 }
 
@@ -133,33 +128,10 @@ func (s *State) GetErrUnmanaged() []error {
 	return s.errUnmanaged
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
-	s.a = c1.(*ASAConfig)
-	s.b = c2.(*ASAConfig)
-	if err := s.checkInterfaces(); err != nil {
-		return err
-	}
-	s.diffConfig()
-	return nil
-}
-
-func (s *State) HasChanges() bool {
-	return len(s.changes) != 0
-}
-
-func (s *State) ShowChanges() string {
-	var collect strings.Builder
-	for _, chg := range s.changes {
-		chg = strings.Replace(chg, "\n", "\\N ", 1)
-		fmt.Fprintln(&collect, chg)
-	}
-	return collect.String()
-}
-
 func (s *State) ApplyCommands(logFh *os.File) error {
 	s.conn.SetLogFH(logFh)
 	s.cmd("configure terminal")
-	for _, chg := range s.changes {
+	for _, chg := range s.Changes {
 		s.cmd(chg)
 	}
 	s.cmd("end")
@@ -178,7 +150,8 @@ func (s *State) cmd(cmd string) {
 	c1, c2, _ := strings.Cut(cmd, "\n")
 	s.conn.Send(cmd)
 	check := func(ci string) {
-		out := s.conn.GetOutput(ci)
+		out := s.conn.GetOutput()
+		out = s.conn.StripEcho(ci, out)
 		if out != "" {
 			if !isValidOutput(ci, out) {
 				device.Abort("Got unexpected output from '%s':\n%s", ci, out)
@@ -226,69 +199,4 @@ func (s *State) CloseConnection() {
 	if c := s.conn; c != nil {
 		s.conn.Close()
 	}
-}
-
-func (s *State) checkInterfaces() error {
-
-	// Collect interfaces from Netspoc.
-	// These are defined implicitly by commands
-	// - "access-group $access-list in|out interface INTF".
-	// - "crypto map $crypto_map interface INTF"
-	// Ignore "access-group $access-list global".
-	getImplicitInterfaces := func(cfg *ASAConfig) map[string]bool {
-		m := make(map[string]bool)
-		for _, l := range cfg.lookup["access-group"] {
-			for _, c := range l {
-				tokens := strings.Fields(c.parsed)
-				if len(tokens) == 5 {
-					m[tokens[4]] = true
-				}
-			}
-		}
-		for _, l := range cfg.lookup["crypto map interface"] {
-			for _, c := range l {
-				tokens := strings.Fields(c.parsed)
-				m[tokens[4]] = true
-			}
-		}
-		return m
-	}
-	bIntf := getImplicitInterfaces(s.b)
-
-	// Collect and check named interfaces from device.
-	// Add implicit interfaces when comparing two Netspoc generated configs.
-	aIntf := getImplicitInterfaces(s.a)
-	for _, l := range s.a.lookup["interface"] {
-		for _, c := range l {
-			name := ""
-			shutdown := false
-			for _, sc := range c.sub {
-				tokens := strings.Fields(sc.parsed)
-				switch tokens[0] {
-				case "shutdown":
-					shutdown = true
-				case "nameif":
-					name = tokens[1]
-				}
-			}
-			if name != "" {
-				aIntf[name] = true
-				if !shutdown && !bIntf[name] {
-					device.Warning(
-						"Interface '%s' on device is not known by Netspoc", name)
-				}
-			}
-		}
-	}
-
-	// Check interfaces from Netspoc
-	bNames := maps.Keys(bIntf)
-	sort.Strings(bNames)
-	for _, name := range bNames {
-		if !aIntf[name] {
-			return fmt.Errorf(
-				"Interface '%s' from Netspoc not known on device", name)
-		}
-	}
-	return nil
 }

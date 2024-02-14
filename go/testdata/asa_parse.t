@@ -11,83 +11,20 @@ interface Ethernet0/1
  nameif outside
 =END=
 
-############################################################
-=TITLE=Add IPV6 access list
-=DEVICE=[[minimal_device]]
-=NETSPOC=
---ipv6/router
-access-list inside_in extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
-access-list inside_in extended deny ip any6 any6
-access-group inside_in in interface inside
 
-access-list outside_in extended deny ip any6 any6
-access-group outside_in in interface outside
+############################################################
+=TITLE=add IPv4 route
+=NETSPOC=
+--router
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
 =OUTPUT=
-access-list inside_in-DRC-0 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
-access-list inside_in-DRC-0 extended deny ip any6 any6
-access-group inside_in-DRC-0 in interface inside
-access-list outside_in-DRC-0 extended deny ip any6 any6
-access-group outside_in-DRC-0 in interface outside
+route inside 10.20.0.0 255.255.255.0 10.1.2.3
+route inside 10.22.0.0 255.255.0.0 10.1.2.4
 =END=
 
 ############################################################
-=TITLE=Add and delete IPV6-access list
-=DEVICE=
-[[minimal_device]]
-access-list inside_in extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
-access-list inside_in extended deny ip any6 any6
-access-group inside_in in interface inside
-access-list outside_in extended deny ip any6 any6
-access-group outside_in in interface outside
-=NETSPOC=
---ipv6/router
-access-list inside_in extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
-access-list inside_in extended deny ip any6 any6
-access-group inside_in in interface inside
-
-access-list outside_in extended deny ip any6 any6
-access-group outside_in in interface outside
-=OUTPUT=
-access-list inside_in line 2 extended permit tcp 1000::abcd:1:0/120 1000::abcd:2:0/96 range 80 90
-no access-list inside_in line 1 extended permit tcp 1000::abcd:1:0/96 1000::abcd:2:0/96 range 80 90
-=END=
-
-############################################################
-=TITLE=IPv6 routing - add new route
-=DEVICE=NONE
-=NETSPOC=
---ipv6/router
-ipv6 route outside 10::3:0/120 10::2:2
-=OUTPUT=
-ipv6 route outside 10::3:0/120 10::2:2
-=END=
-
-############################################################
-=TITLE=IPv4 + v6 routing - no routes from Netspoc
-=DEVICE=
-route outside 10.1.3.0 255.255.255.0 10.1.1.1
-route outside 10.1.4.0 255.255.255.0 10.1.1.2
-ipv6 route outside 10::3:0/120 10::2:2
-ipv6 route outside 10::4:0/120 10::2:2
-ipv6 route outside 10::8:0/117 10::2:2
-=NETSPOC=NONE
-=OUTPUT=NONE
-
-############################################################
-=TITLE=IPv6 routing - unchanged
-=DEVICE=
-ipv6 route outside 10::3:0/120 10::2:2 1
-ipv6 route outside 10::4:0/120 10::2:2 2
-ipv6 route outside 10::8:0/117 10::2:2
-=NETSPOC=
---ipv6/router
-ipv6 route outside 10::4:0/120 10::2:2
-ipv6 route outside 10::8:0/117 10::2:2
-ipv6 route outside 10::3:0/120 10::2:2 3
-=OUTPUT=NONE
-
-############################################################
-=TITLE=IPv4 routing - unchanged
+=TITLE=unchanged IPv4 routing
 =DEVICE=
 route outside 10.1.3.0 255.255.255.0 10.1.1.1 44
 route outside 10.1.4.0 255.255.255.0 10.1.1.2
@@ -100,57 +37,7 @@ route outside 10.1.3.0 255.255.255.0 10.1.1.1 8
 =OUTPUT=NONE
 
 ############################################################
-=TITLE=IPv6 routing - replace network with smaller one
-=DEVICE=
-ipv6 route outside 10::/112 10::2:2
-=NETSPOC=
---ipv6/router
-ipv6 route outside 10::3:0/120 10::2:2
-=OUTPUT=
-ipv6 route outside 10::3:0/120 10::2:2
-no ipv6 route outside 10::/112 10::2:2
-=END=
-
-############################################################
-=TITLE=IPv6 routing - replace network with bigger one
-=DEVICE=
-ipv6 route outside 10::3:0/120 10::2:2
-=NETSPOC=
---ipv6/router
-ipv6 route outside 10::/112 10::2:2
-=OUTPUT=
-ipv6 route outside 10::/112 10::2:2
-no ipv6 route outside 10::3:0/120 10::2:2
-=END=
-
-############################################################
-=TITLE=IPv6 routing - change gateway
-=DEVICE=
-ipv6 route outside 10::3:0/120 10::2:2
-=NETSPOC=
---ipv6/router
-ipv6 route outside 10::3:0/120 10::2:3
-=OUTPUT=
-no ipv6 route outside 10::3:0/120 10::2:2\N ipv6 route outside 10::3:0/120 10::2:3
-=END=
-
-############################################################
-=TITLE=IPv6 routing - change default route
-=DEVICE=
-ipv6 route outside ::/0 10::1.1
-ipv6 route outside 10::3:0/120 10::2:2
-=NETSPOC=
---ipv6/router
-ipv6 route outside ::/0 10::2.2
-ipv6 route outside 10::1:0/120 10::1.1
-=OUTPUT=
-ipv6 route outside 10::1:0/120 10::1.1
-no ipv6 route outside ::/0 10::1.1\N ipv6 route outside ::/0 10::2.2
-no ipv6 route outside 10::3:0/120 10::2:2
-=END=
-
-############################################################
-=TITLE=IPv4 routing - change default route
+=TITLE=change IPv4 routing
 =DEVICE=
 route outside 0.0.0.0 0.0.0.0 10.1.1.1
 route outside 10.1.3.0 255.255.255.0 10.1.2.2
@@ -162,42 +49,6 @@ route outside 10.1.1.0 255.255.255.0 10.1.1.1
 route outside 10.1.1.0 255.255.255.0 10.1.1.1
 no route outside 0.0.0.0 0.0.0.0 10.1.1.1\N route outside 0.0.0.0 0.0.0.0 10.1.2.2
 no route outside 10.1.3.0 255.255.255.0 10.1.2.2
-=END=
-
-############################################################
-=TITLE=Handle protocol 1 as icmp in raw file
-=DEVICE=[[minimal_device1]]
-=NETSPOC=
---router
-access-list inside_in extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
-access-list inside_in extended deny ip any4 any4
-access-group inside_in in interface inside
---router.raw
-access-list inside_in extended permit 1 any4 any4 3 6
-access-group inside_in in interface inside
-=OUTPUT=
-access-list inside_in-DRC-0 extended permit icmp any4 any4 3 6
-access-list inside_in-DRC-0 extended permit tcp 10.1.1.0 255.255.255.252 10.9.9.0 255.255.255.0 range 80 90
-access-list inside_in-DRC-0 extended deny ip any4 any4
-access-group inside_in-DRC-0 in interface inside
-=END=
-
-############################################################
-=TITLE=Handle protocol 58 as icmp6 in raw file
-=DEVICE=[[minimal_device1]]
-=NETSPOC=
---ipv6/router
-access-list inside_in extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
-access-list inside_in extended deny ip any6 any6
-access-group inside_in in interface inside
---router.raw
-access-list inside_in extended permit 58 any6 any6 128
-access-group inside_in in interface inside
-=OUTPUT=
-access-list inside_in-DRC-0 extended permit icmp6 any6 any6 128
-access-list inside_in-DRC-0 extended permit tcp host 1000::abcd:1:12 1000::abcd:9:0/112 range 80 90
-access-list inside_in-DRC-0 extended deny ip any6 any6
-access-group inside_in-DRC-0 in interface inside
 =END=
 
 ############################################################
@@ -232,16 +83,31 @@ access-group inside_in in interface inside
 =DEVICE=
 interface Ethernet0/0
  nameif inside
- ip address 10.1.1.0 255.255.255.0
+ ip address 10.1.1.1 255.255.255.0
 interface Ethernet0/1
  nameif outside
- ip address 10.1.1.0 255.255.255.0
+ ip address 10.1.2.1 255.255.255.0
 =NETSPOC=
 access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 =WARNING=
 WARNING>>> Interface 'outside' on device is not known by Netspoc
 =END=
+
+############################################################
+=TITLE=Ignore shutdown interface
+=DEVICE=
+interface Ethernet0/0
+ nameif inside
+ ip address 10.1.1.1 255.255.255.0
+interface Ethernet0/1
+ nameif outside
+ shutdown
+ ip address 10.1.2.1 255.255.255.0
+=NETSPOC=
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=WARNING=NONE
 
 ############################################################
 =TITLE=Check device interfaces
@@ -334,7 +200,6 @@ access-group outside_in in interface outside
 [[minimal_device]]
 =NETSPOC=[[input]]
 =OUTPUT=
-route outside 10.20.0.0 255.255.0.0 10.1.2.3
 access-list inside_in-DRC-0 extended deny ip any4 any4
 access-group inside_in-DRC-0 in interface inside
 object-group network g0-DRC-0
@@ -345,6 +210,7 @@ access-list outside_in-DRC-0 extended permit udp object-group g0-DRC-0 host 10.0
 access-list outside_in-DRC-0 extended permit tcp any host 10.0.1.11 range 7937 8999
 access-list outside_in-DRC-0 extended deny ip any4 any4
 access-group outside_in-DRC-0 in interface outside
+route outside 10.20.0.0 255.255.0.0 10.1.2.3
 =END=
 
 =TITLE=Unchanged routing and ACL with object-groups
@@ -561,6 +427,28 @@ access-group inside_in in interface inside
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Remove nested object-group
+=DEVICE=
+object-group network g1
+ network-object 10.0.5.0 0.0.0.128
+object-group network g2
+ network-object 10.0.1.0 0.0.0.255
+ group-object g1
+access-list inside_in extended permit ip any4 object-group g2
+access-group inside_in in interface inside
+=NETSPOC=
+object-group network g2
+ network-object 10.0.1.0 0.0.0.255
+ network-object 10.0.2.0 0.0.0.255
+access-list inside_in extended permit ip any4 object-group g2
+access-group inside_in in interface inside
+=OUTPUT=
+object-group network g2
+no group-object g1
+network-object 10.0.2.0 0.0.0.255
+=END=
+
+############################################################
 =TITLE=Remove global ACL from device
 =DEVICE=
 access-list global_ACL extended permit tcp any4 any4 eq 22
@@ -636,15 +524,6 @@ tunnel-group-map some-name 10 some-name
 [[crypto_ASA]]
 =NETSPOC=[[input]]
 =OUTPUT=
-crypto ca certificate map some-name-DRC-0 10
-subject-name attr ea eq some-name
-extended-key-usage co 1.3.6.1.4.1.311.20.2.2
-tunnel-group some-name-DRC-0 type ipsec-l2l
-tunnel-group some-name-DRC-0 ipsec-attributes
-peer-id-validate nocheck
-ikev2 local-authentication certificate Trustpoint2
-ikev2 remote-authentication certificate
-tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
 access-list crypto-acl1-DRC-0 extended permit ip 10.1.2.0 255.255.240.0 host 10.3.4.5
 crypto map map-outside 10 match address crypto-acl1-DRC-0
 crypto map map-outside 10 set pfs
@@ -657,6 +536,15 @@ access-list crypto-acl2-DRC-0 extended permit ip 10.1.3.0 255.255.240.0 host 10.
 crypto dynamic-map some-name 10 match address crypto-acl2-DRC-0
 crypto map map-outside 65000 ipsec-isakmp dynamic some-name
 crypto map map-outside interface outside
+crypto ca certificate map some-name-DRC-0 10
+subject-name attr ea eq some-name
+extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group some-name-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
 =END=
 
 =TITLE=Unchanged crypto map, dynamic map with tunnel-group
@@ -710,11 +598,13 @@ clear configure tunnel-group VPN-single
 =END=
 
 ############################################################
-=TITLE=Don't touch tunnel-group-map referencing built in
+=TITLE=Remove tunnel-group-map referencing built in
 =DEVICE=
 tunnel-group-map default-group DefaultL2LGroup
 =NETSPOC=NONE
-=OUTPUT=NONE
+=OUTPUT=
+no tunnel-group-map default-group DefaultL2LGroup
+=END=
 
 ############################################################
 =TITLE=Parse username, group-policy
@@ -811,19 +701,19 @@ tunnel-group-map cert-map 10 193.155.130.3
 =DEVICE=NONE
 =NETSPOC=[[input]]
 =OUTPUT=
-crypto ca certificate map cert-map-DRC-0 10
-subject-name attr ea eq cert@example.com
-tunnel-group 193.155.130.3 type ipsec-l2l
-tunnel-group 193.155.130.3 ipsec-attributes
-peer-id-validate nocheck
-ikev2 local-authentication certificate ASDM_TrustPoint1
-ikev2 remote-authentication certificate
-tunnel-group-map cert-map-DRC-0 10 193.155.130.3
 tunnel-group 193.155.130.1 type ipsec-l2l
 tunnel-group 193.155.130.1 ipsec-attributes
 peer-id-validate nocheck
 tunnel-group 193.155.130.2 type ipsec-l2l
 tunnel-group 193.155.130.2 ipsec-attributes
+tunnel-group 193.155.130.3 type ipsec-l2l
+tunnel-group 193.155.130.3 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate ASDM_TrustPoint1
+ikev2 remote-authentication certificate
+crypto ca certificate map cert-map-DRC-0 10
+subject-name attr ea eq cert@example.com
+tunnel-group-map cert-map-DRC-0 10 193.155.130.3
 =END=
 
 =TITLE=Unchanged tunnel-group of type ipsec-l2l (IP as name)
@@ -1006,7 +896,6 @@ crypto ca certificate map ca-map1 10
 crypto ca certificate map ca-map2 10
  subject-name attr ea eq x@a.example.com
  extended-key-usage co clientauth
-tunnel-group-map default-group DefaultL2LGroup
 tunnel-group-map ca-map1 20 VPN-tunnel1
 tunnel-group-map ca-map2 20 VPN-tunnel2
 =NETSPOC=
@@ -1059,6 +948,40 @@ tunnel-group-map map-b 12 tunnel-b
 tunnel-group VPN-tunnel1 ipsec-attributes
 peer-id-validate req
 isakmp ikev1-user-authentication none
+=END=
+
+############################################################
+=TITLE=Don't match ca certificate map without subject
+=DEVICE=
+crypto ca certificate map map1 10
+tunnel-group VPN-tunnel1 type remote-access
+tunnel-group VPN-tunnel1 general-attributes
+tunnel-group VPN-tunnel1 ipsec-attributes
+ trust-point ASDM_TrustPoint1
+tunnel-group-map map1 10 VPN-tunnel1
+=NETSPOC=
+crypto ca certificate map map-b 12
+ subject-name attr ea co @SUB.EXAMPLE.com
+tunnel-group tunnel-b type remote-access
+tunnel-group tunnel-b general-attributes
+tunnel-group tunnel-b ipsec-attributes
+ peer-id-validate req
+ isakmp ikev1-user-authentication none
+ trust-point ASDM_TrustPoint1
+tunnel-group-map map-b 12 tunnel-b
+=OUTPUT=
+crypto ca certificate map map-b-DRC-0 12
+subject-name attr ea co @sub.example.com
+tunnel-group tunnel-b-DRC-0 type remote-access
+tunnel-group tunnel-b-DRC-0 general-attributes
+tunnel-group tunnel-b-DRC-0 ipsec-attributes
+peer-id-validate req
+isakmp ikev1-user-authentication none
+trust-point ASDM_TrustPoint1
+tunnel-group-map map-b-DRC-0 12 tunnel-b-DRC-0
+no tunnel-group-map map1 10 VPN-tunnel1
+clear configure crypto ca certificate map map1
+clear configure tunnel-group VPN-tunnel1
 =END=
 
 ############################################################
@@ -1187,6 +1110,7 @@ webvpn
 =OUTPUT=
 webvpn
 no certificate-group-map ca-map 20 VPN-tunnel
+exit
 no tunnel-group-map ca-map 20 VPN-tunnel
 clear configure crypto ca certificate map ca-map
 clear configure tunnel-group VPN-tunnel
@@ -1266,14 +1190,13 @@ crypto ca certificate map ca-map 10
  subject-name attr ea eq some@example.com
 tunnel-group-map ca-map 20 193.155.130.20
 =OUTPUT=
-crypto ca certificate map ca-map-DRC-0 10
-subject-name attr ea eq some@example.com
-exit
 tunnel-group 193.155.130.20 ipsec-attributes
 no peer-id-validate nocheck
 trust-point ASDM_TrustPoint5
 ikev2 local-authentication certificate Trustpoint2
 ikev2 remote-authentication certificate
+crypto ca certificate map ca-map-DRC-0 10
+subject-name attr ea eq some@example.com
 tunnel-group-map ca-map-DRC-0 20 193.155.130.20
 =END=
 
@@ -1286,6 +1209,44 @@ tunnel-group-map ca-map 20 193.155.130.20
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'tunnel-group 193.155.130.20'
+=END=
+
+############################################################
+=TITLE=Subcommand of tunnel-group references unknown group-policy
+=DEVICE=
+tunnel-group 193.155.130.20 type ipsec-l2l
+tunnel-group 193.155.130.20 general-attributes
+ default-group-policy VPN-group1
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: 'default-group-policy VPN-group1' references unknown 'group-policy VPN-group1'
+=END=
+
+############################################################
+=TITLE=Ignore incomplete command (1)
+=DEVICE=
+crypto ca certificate map ca-map
+tunnel-group-map ca-map 20 193.155.130.20
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'crypto ca certificate map ca-map'
+=END=
+
+############################################################
+=TITLE=Ignore incomplete command (2)
+=DEVICE=
+crypto
+=NETSPOC=NONE
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Ignore command with extra arguments
+=DEVICE=
+crypto ca certificate map ca-map 10 11 12 13
+tunnel-group-map ca-map 20 193.155.130.20
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'crypto ca certificate map ca-map'
 =END=
 
 ############################################################
@@ -1328,6 +1289,7 @@ tunnel-group-map ca-map 20 VPN-tunnel
 ip local pool pool-DRC-0 10.1.219.192-10.1.219.208 mask 0.0.0.15
 group-policy VPN-group attributes
 address-pools value pool-DRC-0
+exit
 no ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
 =END=
 
@@ -1548,6 +1510,30 @@ no crypto map crypto-outside 1 set pfs group5
 =END=
 
 ############################################################
+=TITLE=Replace crypto map using different name
+=DEVICE=
+[[crypto_ASA]]
+crypto map crypto-x 1 set peer 10.0.0.1
+crypto map crypto-x interface outside
+=NETSPOC=
+crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.2.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.2
+crypto map crypto-outside 1 set ikev1 transform-set Trans1
+crypto map crypto-outside 1 set pfs group5
+crypto map crypto-outside interface outside
+=OUTPUT=
+access-list crypto-outside-1-DRC-0 extended permit ip any4 10.0.2.0 255.255.255.0
+crypto map crypto-x 2 match address crypto-outside-1-DRC-0
+crypto map crypto-x 2 set peer 10.0.0.2
+crypto ipsec ikev1 transform-set Trans1-DRC-0 esp-3des esp-md5-hmac
+crypto map crypto-x 2 set ikev1 transform-set Trans1-DRC-0
+crypto map crypto-x 2 set pfs group5
+no crypto map crypto-x 1 set peer 10.0.0.1
+=END=
+
+############################################################
 =TITLE=Remove crypto map
 =DEVICE=
 [[crypto_ASA]]
@@ -1569,6 +1555,58 @@ no crypto map crypto-outside 1 set peer 10.0.0.1
 no crypto map crypto-outside 1 set ikev1 transform-set Trans1b-DRC-0
 clear configure access-list crypto-outside-1
 no crypto ipsec ikev1 transform-set Trans1b-DRC-0 esp-3des esp-md5-hmac
+=END=
+
+############################################################
+=TITLE=Missing peer in crypto map
+=DEVICE=
+[[crypto_ASA]]
+crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+crypto map crypto-outside interface outside
+=NETSPOC=
+crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+crypto map crypto-outside interface outside
+=ERROR=
+ERROR>>> Missing peer or dynamic in crypto map crypto-outside 1
+=END=
+
+############################################################
+=TITLE=Remove duplicate peer in crypto map on device
+=DEVICE=
+[[crypto_ASA]]
+crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+access-list crypto-outside-2 extended permit ip any4 10.0.2.0 255.255.255.0
+crypto map crypto-outside 2 match address crypto-outside-2
+crypto map crypto-outside 2 set peer 10.0.0.1
+crypto map crypto-outside 2 set ikev1 transform-set Trans1b
+crypto map crypto-outside interface outside
+=NETSPOC=
+crypto ipsec ikev1 transform-set Trans1 esp-aes esp-md5-hmac
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1
+crypto map crypto-outside interface outside
+=OUTPUT=
+crypto ipsec ikev1 transform-set Trans1-DRC-0 esp-aes esp-md5-hmac
+no crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+crypto map crypto-outside 1 set ikev1 transform-set Trans1-DRC-0
+no crypto map crypto-outside 2 match address crypto-outside-2
+no crypto map crypto-outside 2 set peer 10.0.0.1
+no crypto map crypto-outside 2 set ikev1 transform-set Trans1b
+clear configure access-list crypto-outside-2
+no crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
 =END=
 
 ############################################################
@@ -1677,6 +1715,19 @@ ldap attribute-map LDAPMAP
 =NETSPOC=[[input]]
 =ERROR=
 ERROR>>> 'aaa-server LDAP_KV' must be transferred manually
+=END=
+
+############################################################
+=TITLE=Leave aaa-server and ldap attribute-map unchanged
+=DEVICE=[[input]]
+=NETSPOC=NONE
+=OUTPUT=
+webvpn
+no certificate-group-map ca-map-G1 10 VPN-tunnel-G1
+exit
+no tunnel-group-map ca-map-G1 10 VPN-tunnel-G1
+clear configure crypto ca certificate map ca-map-G1
+clear configure tunnel-group VPN-tunnel-G1
 =END=
 
 ############################################################
@@ -1849,6 +1900,38 @@ authentication-server-group LDAP_KV
 =END=
 
 ############################################################
+=TITLE=Change type of authentication server at tunnel-group
+=DEVICE=
+ldap attribute-map OTHER
+ map-name memberOf Group-Policy
+aaa-server TACACS protocol tacacs+
+aaa-server TACACS (inside) host 10.11.8.36
+ key *****
+aaa-server TACACS (inside) host 10.11.8.37
+ key *****
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ authentication-server-group TACACS
+crypto ca certificate map ca-map 10
+ subject-name attr cn co G1
+tunnel-group-map ca-map 10 VPN-tunnel
+=NETSPOC=
+aaa-server ABC protocol ldap
+aaa-server ABC (inside) host 1.2.8.15
+ ldap-attribute-map OTHER
+ldap attribute-map OTHER
+ map-name memberOf Group-Policy
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ authentication-server-group ABC
+crypto ca certificate map ca-map 10
+ subject-name attr cn co G1
+tunnel-group-map ca-map 10 VPN-tunnel
+=ERROR=
+ERROR>>> 'aaa-server ABC' must be transferred manually
+=END=
+
+############################################################
 =TITLE=Insert, unchanged and remove ldap map-value
 =DEVICE=
 access-list vpn-filter-G2 extended permit ip 10.3.4.16 255.255.255.248 any4
@@ -1910,6 +1993,7 @@ ldap attribute-map LDAPMAP
 map-value memberOf "CN=g-m1,OU=VPN,OU=group,DC=example,DC=com" VPN-group-G1-DRC-0
 webvpn
 certificate-group-map ca-map-G1 10 VPN-tunnel-G1
+exit
 clear configure group-policy VPN-group-G3
 clear configure access-list vpn-filter-G3
 no ip local pool pool-G3 10.3.4.24-10.3.4.31 mask 255.255.255.248
@@ -1929,3 +2013,23 @@ ERROR>>> While reading device: Bad indentation in subcommands:
 >>  map-name memberOf Group-Policy<<
 >> map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com" VPN-group-G1<<
 =END=
+
+############################################################
+=TITLE=Incomplete string
+=DEVICE=
+ldap attribute-map LDAPMAP
+ map-name memberOf Group-Policy
+ map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com VPN-group-G1
+=NETSPOC=NONE
+=ERROR=
+panic: Incomplete string in: [map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com VPN-group-G1]
+=END=
+
+############################################################
+=TITLE=Ignore unknown command, its subcommands and sub-sub-cmds
+=DEVICE=
+policy-map global_policy
+ class inspection_default
+  inspect ftp
+=NETSPOC=NONE
+=OUTPUT=NONE

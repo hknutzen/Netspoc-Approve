@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	expect "github.com/google/goexpect"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	expect "github.com/tailscale/goexpect"
 )
 
 type Conn struct {
@@ -18,15 +18,10 @@ type Conn struct {
 	log          *os.File
 }
 
-func GetSSHConn(spocFile string, cfg *device.Config, logLogin *os.File) (
+func GetSSHConn(spocFile, user string, cfg *device.Config, logLogin *os.File) (
 	*Conn, error) {
 
 	ip, pdp, err := device.GetIPPDP(spocFile)
-	if err != nil {
-		return nil, err
-	}
-	hostName := device.GetHostname(spocFile)
-	user, _, err := cfg.GetAAAPassword(hostName)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +93,14 @@ func (c *Conn) ShortWait(re string) string {
 	return c.expectLog(regexp.MustCompile(re), c.ShortTimeout)
 }
 
+func (c *Conn) TryPrompt() bool {
+	// timeout == 0 => Just dump the buffer and exit.
+	out, _, err := c.con.Expect(c.promptRE, 0)
+	out = strings.ReplaceAll(out, "\r\n", "\n")
+	c.logString(out)
+	return err == nil
+}
+
 func (c *Conn) Send(cmd string) {
 	c.con.Send(cmd + "\n")
 }
@@ -114,13 +117,12 @@ func (c *Conn) SendCmd(cmd string) {
 
 func (c *Conn) GetCmdOutput(cmd string) string {
 	c.Send(cmd)
-	return c.GetOutput(cmd)
+	return c.StripEcho(cmd, c.GetOutput())
 }
 
-func (c *Conn) GetOutput(cmd string) string {
+func (c *Conn) GetOutput() string {
 	out := c.expectLog(c.promptRE, c.Timeout)
-	out = c.stripStdPrompt(out)
-	out = c.stripEcho(cmd, out)
+	out = c.StripStdPrompt(out)
 	return out
 }
 
@@ -128,7 +130,7 @@ func (c *Conn) SetStdPrompt(p *regexp.Regexp) {
 	c.promptRE = p
 }
 
-func (c *Conn) stripStdPrompt(s string) string {
+func (c *Conn) StripStdPrompt(s string) string {
 	loc := c.promptRE.FindStringIndex(s)
 	if loc == nil {
 		device.Abort("Missing prompt '%s' in response:\n'%v'", c.promptRE, s)
@@ -138,10 +140,10 @@ func (c *Conn) stripStdPrompt(s string) string {
 	return s[:i+1]
 }
 
-func (c *Conn) stripEcho(cmd, s string) string {
+func (c *Conn) StripEcho(cmd, s string) string {
 	cShort := cmd
 	cmd += "\n"
-	if s[:len(cmd)] != cmd {
+	if len(s) < len(cmd) || s[:len(cmd)] != cmd {
 		device.Abort("Got unexpected echo in response to '%s':\n%v", cShort, s)
 	}
 	return s[len(cmd):]
