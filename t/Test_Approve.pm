@@ -72,8 +72,10 @@ END
 
 sub run {
     my ($cmd) = @_;
+    # Propagate options to perl process.
+    my $perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
 
-    $cmd = "$^X -I lib $cmd";
+    $cmd = "$^X $perl_opt -I lib $cmd";
     my ($stdout, $stderr);
     run3($cmd, \undef, \$stdout, \$stderr);
 
