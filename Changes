@@ -1,5 +1,8 @@
 {{$NEXT}}
 
+ - Still referenced ACLs must not be deleted even if name has -DRC- .
+ - Again allow comment '#' as header of JSON for NSX.
+
 3.021     2024-02-14 18:01:57+01:00 Europe/Berlin
 
  - Migrated approve for IOS from Perl to Go.

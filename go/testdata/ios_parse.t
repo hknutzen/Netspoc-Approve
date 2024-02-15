@@ -629,6 +629,21 @@ WARNING>>> Interface 'Serial3' on device is not known by Netspoc
 =END=
 
 ############################################################
+=TITLE=Must not delete ACL referenced by shutdown or unknown interface
+=DEVICE=
+ip access-list extended eth0_in-DRC-0
+ deny ip any any
+interface eth0
+ shutdown
+ ip access-group eth0_in-DRC-0 in
+ip access-list extended eth1_in-DRC-0
+ deny ip any any
+interface eth1
+ ip access-group eth1_in-DRC-0 in
+=NETSPOC=NONE
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Check 'ip inspect'
 =DEVICE=
 interface Serial1
@@ -651,20 +666,27 @@ ERROR>>> Different 'ip inspect' defined for interface Serial1: Device: enabled, 
 =END=
 
 ############################################################
-=TITLE=Only change VRFs mentioned in Netspoc
+=TITLE=Only change VRFs mentioned in Netspoc, leave other ACL unchanged
 =DEVICE=
 ip route vrf 002 10.20.0.0 255.255.0.0 10.2.2.2
-ip access-list extended acl2
+ip access-list extended acl2-DRC-0
  permit ip any host 10.0.1.1
 interface Ethernet1
  ip address 10.0.1.1 255.255.255.0
  ip vrf forwarding 001
- ip access-group acl2 in
+ ip access-group acl2-DRC-0 in
 interface Ethernet2
  ip address 10.0.2.1 255.255.255.0
  ip vrf forwarding 002
+ip access-list extended crypto-filter-Ethernet3-1-DRC-0
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+ deny ip any any
+crypto map crypto-Ethernet3 1 ipsec-isakmp
+ set ip access-group crypto-filter-Ethernet3-1-DRC-0 in
+ set peer 10.156.4.206
 interface Ethernet3
  ip address 10.0.3.1 255.255.255.0
+ crypto map crypto-Ethernet3
 =NETSPOC=
 ip route vrf 013 10.30.0.0 255.255.0.0 10.3.3.3
 ip access-list extended acl2
@@ -674,11 +696,11 @@ interface Ethernet2
  ip vrf forwarding 002
  ip access-group acl2 in
 =OUTPUT=
-ip access-list extended acl2-DRC-0
+ip access-list extended acl2-DRC-1
 permit ip any host 10.0.1.1
 exit
 interface Ethernet2
-ip access-group acl2-DRC-0 in
+ip access-group acl2-DRC-1 in
 ip route vrf 013 10.30.0.0 255.255.0.0 10.3.3.3
 =WARNING=
 Leaving VRF <global> untouched
