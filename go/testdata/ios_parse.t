@@ -196,15 +196,66 @@ ip access-list resequence test-DRC-0 10 10
 =END=
 
 ############################################################
-=TITLE=Unknown ACL on device
+=TITLE=Ignore referenced but unknown ACL
 =DEVICE=
-interface Serial1
- ip unnumbered Ethernet1
- ip access-group test-DRC-0 in
+interface eth0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group eth0_in-DRC-0 in
+ ip access-group eth0_out-DRC-0 out
+interface eth1
+ shutdown
+ ip access-group eth1_in-DRC-0 in
 =NETSPOC=NONE
-=ERROR=
-ERROR>>> While reading device: 'ip access-group test-DRC-0 in' references unknown 'ip access-list extended test-DRC-0'
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Bind ACL at interface with referenced but unknown ACL
+# But handle known ACL.
+=DEVICE=
+ip access-list extended eth0_out-DRC-0
+ deny ip any any
+interface eth0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group eth0_in-DRC-0 in
+ ip access-group eth0_out-DRC-0 out
+=NETSPOC=
+ip access-list extended eth0_in
+ deny ip any any
+ip access-list extended eth0_out
+ permit tcp 10.1.1.0 255.255.255.0 any eq 80
+ deny ip any any
+interface eth0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group eth0_in in
+ ip access-group eth0_out out
+=OUTPUT=
+interface eth0
+no ip access-group eth0_in-DRC-0 in
+ip access-list resequence eth0_out-DRC-0 10000 10000
+ip access-list extended eth0_out-DRC-0
+1 permit tcp 10.1.1.0 255.255.255.0 any eq 80
+ip access-list resequence eth0_out-DRC-0 10 10
+ip access-list extended eth0_in-DRC-0
+deny ip any any
+exit
+interface eth0
+ip access-group eth0_in-DRC-0 in
 =END=
+
+############################################################
+=TITLE=Must not delete ACL referenced by shutdown or by unknown interface
+=DEVICE=
+ip access-list extended eth0_in-DRC-0
+ deny ip any any
+interface eth0
+ shutdown
+ ip access-group eth0_in-DRC-0 in
+ip access-list extended eth1_in-DRC-0
+ deny ip any any
+interface eth1
+ ip access-group eth1_in-DRC-0 in
+=NETSPOC=NONE
+=OUTPUT=NONE
 
 ############################################################
 =TITLE=Change ACL referenced from two interfaces
@@ -627,21 +678,6 @@ ip access-list extended test
 WARNING>>> Different address defined for interface Serial1: Device: "10.1.1.1 255.255.255.0", Netspoc: "1.1.1.1 255.0.0.0,10.1.2.1 255.255.255.0,10.1.2.250 255.255.255.0"
 WARNING>>> Interface 'Serial3' on device is not known by Netspoc
 =END=
-
-############################################################
-=TITLE=Must not delete ACL referenced by shutdown or unknown interface
-=DEVICE=
-ip access-list extended eth0_in-DRC-0
- deny ip any any
-interface eth0
- shutdown
- ip access-group eth0_in-DRC-0 in
-ip access-list extended eth1_in-DRC-0
- deny ip any any
-interface eth1
- ip access-group eth1_in-DRC-0 in
-=NETSPOC=NONE
-=OUTPUT=NONE
 
 ############################################################
 =TITLE=Check 'ip inspect'
