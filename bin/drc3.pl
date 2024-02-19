@@ -40,7 +40,6 @@ $| = 1;    # output char by char
 
 my %type2class = (
     Linux   => 'Netspoc::Approve::Linux',
-    IOS     => 'Netspoc::Approve::IOS',
     'ASA'    => 'drc-asa',
     'IOS'    => 'drc-ios',
     'PAN-OS' => 'drc-pan-os',
