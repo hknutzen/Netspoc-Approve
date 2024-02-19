@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+3.022     2024-02-19 14:37:42+01:00 Europe/Berlin
+
  - Still referenced ACLs must not be deleted even if name has -DRC- .
  - Referenced but unknown ACL is silently ignored for IOS.
  - Again allow comment '#' as header of JSON for NSX.
