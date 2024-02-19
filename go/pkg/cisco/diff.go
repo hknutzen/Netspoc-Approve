@@ -1448,8 +1448,8 @@ func (s *State) checkIOSInterfaces() error {
 			} else if ip, ok := strings.CutPrefix(p, "ip address "); ok {
 				ip = strings.TrimSuffix(ip, " secondary")
 				addrList = append(addrList, ip)
-			} else if p == "unnumbered" {
-				addrList = append(addrList, p)
+			} else if strings.HasPrefix(p, "ip unnumbered") {
+				addrList = append(addrList, "unnumbered")
 			} else if _, v, ok := strings.Cut(p, "vrf forwarding "); ok {
 				info.vrf = v
 			} else if strings.HasPrefix(p, "ip inspect") {

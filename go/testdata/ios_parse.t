@@ -650,6 +650,18 @@ interface Ethernet2
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Unnumbered interface
+=DEVICE=
+interface Serial1
+ ip address 10.0.0.1 255.255.255.0
+=NETSPOC=
+interface Serial1
+ ip unnumbered Serial2
+=WARNING=
+WARNING>>> Different address defined for interface Serial1: Device: "10.0.0.1 255.255.255.0", Netspoc: "unnumbered"
+=END=
+
+############################################################
 =TITLE=Check Netspoc interfaces
 =DEVICE=
 interface Serial1
