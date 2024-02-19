@@ -395,6 +395,7 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 	// Position where to add or delete a command.
 	pos := make(map[*cmd]int)
 	s.addChange("ip access-list resequence " + aclName + " 10000 10000")
+	s.subCmdOf = ""
 	chgLen := len(s.Changes)
 	// ACL lines have been sorted; take original position from c.seq
 	for _, c := range al {
@@ -560,6 +561,7 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 		s.Changes = s.Changes[:chgLen-1]
 	} else {
 		s.addChange("ip access-list resequence " + aclName + " 10 10")
+		s.subCmdOf = ""
 	}
 }
 
