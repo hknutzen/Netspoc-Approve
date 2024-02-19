@@ -778,6 +778,23 @@ comp: *** device changed ***
 =OPTIONS=--quiet=false
 
 ############################################################
+=TITLE=Leave routing in unmanaged VRF unchanged
+=DEVICE=
+interface Vlan33
+ ip address 10.1.1.193 255.255.255.192
+ vrf forwarding 033
+ip route 1.1.1.10 255.255.255.255 11.11.11.1
+=NETSPOC=
+interface Vlan33
+ ip address 10.1.1.193 255.255.255.192
+ ip vrf forwarding 033
+=WARNING=
+Leaving VRF <global> untouched
+comp: device unchanged
+=OPTIONS=--quiet=false
+
+
+############################################################
 =TITLE=Check VRF of interfaces
 =DEVICE=
 interface Serial1
