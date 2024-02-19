@@ -160,10 +160,9 @@ func (s *State) diffWebVPN() {
 	al := s.a.lookup[prefix][""]
 	bl := s.b.lookup[prefix][""]
 	if al == nil {
-		if bl == nil {
-			return
+		if bl != nil {
+			s.addCmds(bl)
 		}
-		s.addCmds(bl)
 	} else if bl != nil {
 		for _, aCmd := range al {
 			aCmd.needed = true
