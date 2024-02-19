@@ -152,20 +152,24 @@ func (p *parser) ParseConfig(data []byte, fName string) (
 		}
 	}
 	postprocessParsed(lookup)
-	err := p.checkReferences(lookup)
+	err := p.checkReferences(lookup, isRaw)
 	return &Config{lookup: lookup, isRaw: isRaw}, err
 }
 
-func (p *parser) checkReferences(lookup objLookup) error {
+func (p *parser) checkReferences(lookup objLookup, isRaw bool) error {
 	for _, m := range lookup {
 		for _, cmdList := range m {
 			check := func(c *cmd) error {
 				for i, name := range c.ref {
 					prefix := c.typ.ref[i]
 					if _, found := lookup[prefix][name]; !found {
-						if vl, found := defaultObjects[[2]string{prefix, name}]; found {
-
+						if vl := defaultObjects[[2]string{prefix, name}]; vl != nil {
 							p.addDefaultObject(lookup, prefix, name, vl)
+						} else if !isRaw && prefix == "ip access-list extended" {
+							// Remove reference to unknown ACL.
+							c.ref = nil
+							c.parsed = c.orig
+							break
 						} else {
 							return fmt.Errorf("'%s' references unknown '%s %s'",
 								c.orig, prefix, name)

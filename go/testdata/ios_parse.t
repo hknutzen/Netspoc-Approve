@@ -196,15 +196,86 @@ ip access-list resequence test-DRC-0 10 10
 =END=
 
 ############################################################
-=TITLE=Unknown ACL on device
+=TITLE=Ignore referenced but unknown ACL
 =DEVICE=
-interface Serial1
- ip unnumbered Ethernet1
- ip access-group test-DRC-0 in
+interface eth0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group eth0_in-DRC-0 in
+ ip access-group eth0_out-DRC-0 out
+interface eth1
+ shutdown
+ ip access-group eth1_in-DRC-0 in
 =NETSPOC=NONE
-=ERROR=
-ERROR>>> While reading device: 'ip access-group test-DRC-0 in' references unknown 'ip access-list extended test-DRC-0'
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Bug fix: Must not mark unknown interface of device as needed
+=DEVICE=
+ip access-list extended eth0_in-DRC-0
+ permit esp host 10.1.1.1 any
+ deny   ip any any
+interface Null0
+ no ip unreachables
+interface eth0
+ ip address dhcp
+ ip access-group eth0_in-DRC-0 in
+=NETSPOC=
+ip access-list extended eth0_in
+ permit 50 host 10.1.1.1 any
+ deny ip any any
+interface eth0
+ ip address negotiated
+ ip access-group eth0_in in
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Bind ACL at interface with referenced but unknown ACL
+# But handle known ACL.
+=DEVICE=
+ip access-list extended eth0_out-DRC-0
+ deny ip any any
+interface eth0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group eth0_in-DRC-0 in
+ ip access-group eth0_out-DRC-0 out
+=NETSPOC=
+ip access-list extended eth0_in
+ deny ip any any
+ip access-list extended eth0_out
+ permit tcp 10.1.1.0 255.255.255.0 any eq 80
+ deny ip any any
+interface eth0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group eth0_in in
+ ip access-group eth0_out out
+=OUTPUT=
+interface eth0
+no ip access-group eth0_in-DRC-0 in
+ip access-list resequence eth0_out-DRC-0 10000 10000
+ip access-list extended eth0_out-DRC-0
+1 permit tcp 10.1.1.0 255.255.255.0 any eq 80
+ip access-list resequence eth0_out-DRC-0 10 10
+ip access-list extended eth0_in-DRC-0
+deny ip any any
+exit
+interface eth0
+ip access-group eth0_in-DRC-0 in
 =END=
+
+############################################################
+=TITLE=Must not delete ACL referenced by shutdown or by unknown interface
+=DEVICE=
+ip access-list extended eth0_in-DRC-0
+ deny ip any any
+interface eth0
+ shutdown
+ ip access-group eth0_in-DRC-0 in
+ip access-list extended eth1_in-DRC-0
+ deny ip any any
+interface eth1
+ ip access-group eth1_in-DRC-0 in
+=NETSPOC=NONE
+=OUTPUT=NONE
 
 ############################################################
 =TITLE=Change ACL referenced from two interfaces
@@ -651,20 +722,27 @@ ERROR>>> Different 'ip inspect' defined for interface Serial1: Device: enabled, 
 =END=
 
 ############################################################
-=TITLE=Only change VRFs mentioned in Netspoc
+=TITLE=Only change VRFs mentioned in Netspoc, leave other ACL unchanged
 =DEVICE=
 ip route vrf 002 10.20.0.0 255.255.0.0 10.2.2.2
-ip access-list extended acl2
+ip access-list extended acl2-DRC-0
  permit ip any host 10.0.1.1
 interface Ethernet1
  ip address 10.0.1.1 255.255.255.0
  ip vrf forwarding 001
- ip access-group acl2 in
+ ip access-group acl2-DRC-0 in
 interface Ethernet2
  ip address 10.0.2.1 255.255.255.0
  ip vrf forwarding 002
+ip access-list extended crypto-filter-Ethernet3-1-DRC-0
+ permit tcp host 10.127.18.1 host 10.1.11.40 eq 48
+ deny ip any any
+crypto map crypto-Ethernet3 1 ipsec-isakmp
+ set ip access-group crypto-filter-Ethernet3-1-DRC-0 in
+ set peer 10.156.4.206
 interface Ethernet3
  ip address 10.0.3.1 255.255.255.0
+ crypto map crypto-Ethernet3
 =NETSPOC=
 ip route vrf 013 10.30.0.0 255.255.0.0 10.3.3.3
 ip access-list extended acl2
@@ -674,11 +752,11 @@ interface Ethernet2
  ip vrf forwarding 002
  ip access-group acl2 in
 =OUTPUT=
-ip access-list extended acl2-DRC-0
+ip access-list extended acl2-DRC-1
 permit ip any host 10.0.1.1
 exit
 interface Ethernet2
-ip access-group acl2-DRC-0 in
+ip access-group acl2-DRC-1 in
 ip route vrf 013 10.30.0.0 255.255.0.0 10.3.3.3
 =WARNING=
 Leaving VRF <global> untouched
