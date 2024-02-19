@@ -209,6 +209,26 @@ interface eth1
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Bug fix: Must not mark unknown interface of device as needed
+=DEVICE=
+ip access-list extended eth0_in-DRC-0
+ permit esp host 10.1.1.1 any
+ deny   ip any any
+interface Null0
+ no ip unreachables
+interface eth0
+ ip address dhcp
+ ip access-group eth0_in-DRC-0 in
+=NETSPOC=
+ip access-list extended eth0_in
+ permit 50 host 10.1.1.1 any
+ deny ip any any
+interface eth0
+ ip address negotiated
+ ip access-group eth0_in in
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Bind ACL at interface with referenced but unknown ACL
 # But handle known ACL.
 =DEVICE=
