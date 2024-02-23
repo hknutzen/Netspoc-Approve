@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+ - Bug fix: Change ACL at shutdown interface of IOS device.
+
 3.022     2024-02-19 14:37:42+01:00 Europe/Berlin
 
  - Still referenced ACLs must not be deleted even if name has -DRC- .

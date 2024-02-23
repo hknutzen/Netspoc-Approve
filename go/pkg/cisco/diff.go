@@ -1475,11 +1475,6 @@ func (s *State) checkIOSInterfaces() error {
 		name := strings.Fields(c.parsed)[1]
 		aInfo := extractIntfInfo(c)
 		aKnown[name] = true
-		if aInfo.shut {
-			// Mark referenced ACLs that must not be deleted.
-			s.markNeeded(c.sub)
-			continue
-		}
 		if bInfo := bIntf[name]; bInfo != nil {
 			if aInfo.addr != bInfo.addr && bInfo.addr != "negotiated" {
 				device.Warning(
@@ -1503,7 +1498,7 @@ func (s *State) checkIOSInterfaces() error {
 			// If config from Netspoc has no interface definitions, it is
 			// probably of type "managed=routing_only", and Netspoc won't
 			// change any interface config.
-			if aInfo.addr != "" && len(bIntf) != 0 {
+			if !aInfo.shut && aInfo.addr != "" && len(bIntf) != 0 {
 				device.Warning(
 					"Interface '%s' on device is not known by Netspoc", name)
 			}

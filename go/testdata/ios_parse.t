@@ -209,6 +209,54 @@ interface eth1
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Bug fix: Recognize ACL at shutdown interface als unchanged
+=DEVICE=
+ip access-list extended Vlan113_in-DRC-2
+ permit udp any 10.11.11.0 0.0.0.63
+ deny   ip any any
+interface Vlan113
+ vrf forwarding 013
+ ip address 10.1.1.1 255.255.255.128
+ ip access-group Vlan113_in-DRC-2 in
+ shutdown
+=NETSPOC=
+ip access-list extended Vlan113_in
+ permit udp any 10.11.11.0 0.0.0.63
+ deny   ip any any
+interface Vlan113
+ vrf forwarding 013
+ ip address 10.1.1.1 255.255.255.128
+ ip access-group Vlan113_in in
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Change ACL at shutdown interface
+=DEVICE=
+ip access-list extended Vlan113_in-DRC-2
+ permit udp any 10.11.11.0 0.0.0.63
+ deny   ip any any
+interface Vlan113
+ vrf forwarding 013
+ ip address 10.1.1.1 255.255.255.128
+ ip access-group Vlan113_in-DRC-2 in
+ shutdown
+=NETSPOC=
+ip access-list extended Vlan113_in
+ permit udp any host 10.11.11.11
+ deny   ip any any
+interface Vlan113
+ vrf forwarding 013
+ ip address 10.1.1.1 255.255.255.128
+ ip access-group Vlan113_in in
+=OUTPUT=
+ip access-list resequence Vlan113_in-DRC-2 10000 10000
+ip access-list extended Vlan113_in-DRC-2
+10001 permit udp any host 10.11.11.11
+no 10000
+ip access-list resequence Vlan113_in-DRC-2 10 10
+=END=
+
+############################################################
 =TITLE=Bug fix: Must not mark unknown interface of device as needed
 =DEVICE=
 ip access-list extended eth0_in-DRC-0
@@ -276,6 +324,7 @@ interface eth1
  ip access-group eth1_in-DRC-0 in
 =NETSPOC=NONE
 =OUTPUT=NONE
+
 
 ############################################################
 =TITLE=Change ACL referenced from two interfaces
