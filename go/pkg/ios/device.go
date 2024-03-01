@@ -151,9 +151,6 @@ func (s *State) prepareDevice() {
 }
 
 func (s *State) ApplyCommands(logFh *os.File) error {
-	if len(s.Changes) == 0 {
-		return nil
-	}
 	s.conn.SetLogFH(logFh)
 	s.prepareDevice()
 	func() {

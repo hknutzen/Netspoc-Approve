@@ -160,10 +160,9 @@ func (s *State) diffWebVPN() {
 	al := s.a.lookup[prefix][""]
 	bl := s.b.lookup[prefix][""]
 	if al == nil {
-		if bl == nil {
-			return
+		if bl != nil {
+			s.addCmds(bl)
 		}
-		s.addCmds(bl)
 	} else if bl != nil {
 		for _, aCmd := range al {
 			aCmd.needed = true
@@ -1449,8 +1448,8 @@ func (s *State) checkIOSInterfaces() error {
 			} else if ip, ok := strings.CutPrefix(p, "ip address "); ok {
 				ip = strings.TrimSuffix(ip, " secondary")
 				addrList = append(addrList, ip)
-			} else if p == "unnumbered" {
-				addrList = append(addrList, p)
+			} else if strings.HasPrefix(p, "ip unnumbered") {
+				addrList = append(addrList, "unnumbered")
 			} else if _, v, ok := strings.Cut(p, "vrf forwarding "); ok {
 				info.vrf = v
 			} else if strings.HasPrefix(p, "ip inspect") {
@@ -1476,11 +1475,6 @@ func (s *State) checkIOSInterfaces() error {
 		name := strings.Fields(c.parsed)[1]
 		aInfo := extractIntfInfo(c)
 		aKnown[name] = true
-		if aInfo.shut {
-			// Mark referenced ACLs that must not be deleted.
-			s.markNeeded(c.sub)
-			continue
-		}
 		if bInfo := bIntf[name]; bInfo != nil {
 			if aInfo.addr != bInfo.addr && bInfo.addr != "negotiated" {
 				device.Warning(
@@ -1504,7 +1498,7 @@ func (s *State) checkIOSInterfaces() error {
 			// If config from Netspoc has no interface definitions, it is
 			// probably of type "managed=routing_only", and Netspoc won't
 			// change any interface config.
-			if aInfo.addr != "" && len(bIntf) != 0 {
+			if !aInfo.shut && aInfo.addr != "" && len(bIntf) != 0 {
 				device.Warning(
 					"Interface '%s' on device is not known by Netspoc", name)
 			}

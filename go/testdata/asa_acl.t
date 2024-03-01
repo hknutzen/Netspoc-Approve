@@ -319,6 +319,34 @@ port-object range 135 139
 =END=
 
 ############################################################
+=TITLE=Must also check type of object-group when finding on device
+=DEVICE=
+[[minimal_device]]
+object-group service g1 udp
+ port-object eq 53
+ port-object eq 135
+
+access-list inside_in extended permit udp any4 host 10.0.1.11 object-group g1
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=NETSPOC=
+object-group service g1 tcp
+ port-object eq 53
+ port-object eq 135
+
+access-list inside_in extended permit tcp any4 host 10.0.1.11 object-group g1
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=OUTPUT=
+object-group service g1-DRC-0 tcp
+port-object eq 135
+port-object eq 53
+access-list inside_in line 2 extended permit tcp any4 host 10.0.1.11 object-group g1-DRC-0
+no access-list inside_in line 1 extended permit udp any4 host 10.0.1.11 object-group g1
+no object-group service g1 udp
+=END=
+
+############################################################
 =TITLE=Modify object-group referenced twice
 =DEVICE=
 [[minimal_device]]

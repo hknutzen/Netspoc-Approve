@@ -24,7 +24,7 @@ var cmdInfo = `
 ip_route *
 interface *
  ip address *
- ip unnumbered
+ ip unnumbered *
  shutdown
  ip access-group $ip_access-list_extended in
  ip access-group $ip_access-list_extended out

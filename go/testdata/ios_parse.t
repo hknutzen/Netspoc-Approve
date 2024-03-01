@@ -209,6 +209,54 @@ interface eth1
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Bug fix: Recognize ACL at shutdown interface als unchanged
+=DEVICE=
+ip access-list extended Vlan113_in-DRC-2
+ permit udp any 10.11.11.0 0.0.0.63
+ deny   ip any any
+interface Vlan113
+ vrf forwarding 013
+ ip address 10.1.1.1 255.255.255.128
+ ip access-group Vlan113_in-DRC-2 in
+ shutdown
+=NETSPOC=
+ip access-list extended Vlan113_in
+ permit udp any 10.11.11.0 0.0.0.63
+ deny   ip any any
+interface Vlan113
+ vrf forwarding 013
+ ip address 10.1.1.1 255.255.255.128
+ ip access-group Vlan113_in in
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Change ACL at shutdown interface
+=DEVICE=
+ip access-list extended Vlan113_in-DRC-2
+ permit udp any 10.11.11.0 0.0.0.63
+ deny   ip any any
+interface Vlan113
+ vrf forwarding 013
+ ip address 10.1.1.1 255.255.255.128
+ ip access-group Vlan113_in-DRC-2 in
+ shutdown
+=NETSPOC=
+ip access-list extended Vlan113_in
+ permit udp any host 10.11.11.11
+ deny   ip any any
+interface Vlan113
+ vrf forwarding 013
+ ip address 10.1.1.1 255.255.255.128
+ ip access-group Vlan113_in in
+=OUTPUT=
+ip access-list resequence Vlan113_in-DRC-2 10000 10000
+ip access-list extended Vlan113_in-DRC-2
+10001 permit udp any host 10.11.11.11
+no 10000
+ip access-list resequence Vlan113_in-DRC-2 10 10
+=END=
+
+############################################################
 =TITLE=Bug fix: Must not mark unknown interface of device as needed
 =DEVICE=
 ip access-list extended eth0_in-DRC-0
@@ -276,6 +324,7 @@ interface eth1
  ip access-group eth1_in-DRC-0 in
 =NETSPOC=NONE
 =OUTPUT=NONE
+
 
 ############################################################
 =TITLE=Change ACL referenced from two interfaces
@@ -650,6 +699,18 @@ interface Ethernet2
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Unnumbered interface
+=DEVICE=
+interface Serial1
+ ip address 10.0.0.1 255.255.255.0
+=NETSPOC=
+interface Serial1
+ ip unnumbered Serial2
+=WARNING=
+WARNING>>> Different address defined for interface Serial1: Device: "10.0.0.1 255.255.255.0", Netspoc: "unnumbered"
+=END=
+
+############################################################
 =TITLE=Check Netspoc interfaces
 =DEVICE=
 interface Serial1
@@ -764,6 +825,23 @@ Leaving VRF 001 untouched
 No IPv4 routing specified for VRF 002, leaving untouched
 comp: *** device changed ***
 =OPTIONS=--quiet=false
+
+############################################################
+=TITLE=Leave routing in unmanaged VRF unchanged
+=DEVICE=
+interface Vlan33
+ ip address 10.1.1.193 255.255.255.192
+ vrf forwarding 033
+ip route 1.1.1.10 255.255.255.255 11.11.11.1
+=NETSPOC=
+interface Vlan33
+ ip address 10.1.1.193 255.255.255.192
+ ip vrf forwarding 033
+=WARNING=
+Leaving VRF <global> untouched
+comp: device unchanged
+=OPTIONS=--quiet=false
+
 
 ############################################################
 =TITLE=Check VRF of interfaces

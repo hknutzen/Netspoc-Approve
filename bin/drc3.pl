@@ -34,13 +34,12 @@ use Netspoc::Approve::Device;
 use Netspoc::Approve::Linux;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '3.022'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '3.023'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
 my %type2class = (
     Linux   => 'Netspoc::Approve::Linux',
-    IOS     => 'Netspoc::Approve::IOS',
     'ASA'    => 'drc-asa',
     'IOS'    => 'drc-ios',
     'PAN-OS' => 'drc-pan-os',
