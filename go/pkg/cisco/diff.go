@@ -922,6 +922,9 @@ func (s *State) setCmdConfMode(printedSup string) {
 
 // Delete subcommands and parts of multi line command.
 func (s *State) delCmds(l []*cmd) {
+	if len(l) == 0 {
+		return
+	}
 	switch l[0].typ.prefix {
 	// Leave these commands unchanged on device:
 	case "interface":

@@ -1407,6 +1407,20 @@ certificate-group-map ca-map 20 NAME
 =END=
 
 ############################################################
+=TITLE=Leave webvpn with unhandled subcommands unchanged
+=DEVICE=
+webvpn
+ http-headers
+  hsts-server
+   enable
+  hsts-client
+   enable
+  x-content-type-options
+  x-xss-protection
+=NETSPOC=NONE
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Delete tunnel-group
 =DEVICE=
 tunnel-group 193.155.130.20 type ipsec-l2l
