@@ -155,7 +155,7 @@ timeout = 1
 
 	// Prepare directory with files from Netspoc.
 	codeDir := "code"
-	testtxt.PrepareInDir(codeDir, deviceName, d.Netspoc)
+	testtxt.PrepareInDir(t, codeDir, deviceName, d.Netspoc)
 	// Add info file if not given above.
 	infoFile := path.Join(codeDir, deviceName+".info")
 	if _, err := os.Stat(infoFile); err != nil {
