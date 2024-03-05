@@ -84,6 +84,47 @@ ip access-list resequence test 10 10
 =END=
 
 ############################################################
+=TITLE=Unsort only first of two permit blocks
+=DEVICE=
+ip access-list extended test
+ permit tcp any host 10.3.4.1
+ permit tcp any host 10.3.4.6
+ permit tcp any host 10.3.4.2
+ permit tcp any host 10.3.4.3
+ permit tcp any host 10.3.4.5
+ permit tcp any host 10.3.4.4
+ deny ip host 10.1.2.3 any
+ permit tcp any host 10.3.5.3
+ permit tcp any host 10.3.5.2
+ permit tcp any host 10.3.5.1
+
+interface Ethernet1
+ ip access-group test in
+=NETSPOC=
+ip access-list extended test
+ permit tcp any host 10.3.4.6
+ permit tcp any host 10.3.4.1
+ permit tcp any host 10.3.4.2
+ deny ip host 10.1.2.3 any
+ permit tcp any host 10.3.4.3
+ permit tcp any host 10.3.4.4
+ permit tcp any host 10.3.4.5
+ permit tcp any host 10.3.5.1
+ permit tcp any host 10.3.5.2
+ permit tcp any host 10.3.5.3
+
+interface Ethernet1
+ ip access-group test in
+=OUTPUT=
+ip access-list resequence test 10000 10000
+ip access-list extended test
+no 20000\N 30001 permit tcp any host 10.3.4.6
+no 70000\N 30002 deny ip host 10.1.2.3 any
+no 50000\N 70001 permit tcp any host 10.3.4.5
+ip access-list resequence test 10 10
+=END=
+
+############################################################
 =TITLE=Add permit line before deny block
 =DEVICE=
 ip access-list extended inside

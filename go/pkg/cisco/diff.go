@@ -451,23 +451,25 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 	unsortBlock := func(pos int) {
 		a := getIOSAction(al[pos])
 		var low int
+	BEFORE:
 		for i := pos - 1; i >= 0; i-- {
 			switch getIOSAction(al[i]) {
 			case "remark":
 			case a:
 				low = i
 			default:
-				break
+				break BEFORE
 			}
 		}
 		high := pos
+	AFTER:
 		for i := pos + 1; i < len(al); i++ {
 			switch getIOSAction(al[i]) {
 			case "remark":
 			case a:
 				high = i
 			default:
-				break
+				break AFTER
 			}
 		}
 		l := al[low : high+1]
