@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -41,7 +42,7 @@ type descr struct {
 }
 
 func runTestFiles(t *testing.T) {
-	dataFiles := testtxt.GetFiles("../testdata")
+	dataFiles, _ := filepath.Glob("../testdata/*.t")
 	for _, file := range dataFiles {
 		file := file // capture range variable
 		base := path.Base(file)
@@ -154,7 +155,7 @@ timeout = 1
 
 	// Prepare directory with files from Netspoc.
 	codeDir := "code"
-	testtxt.PrepareInDir(codeDir, deviceName, d.Netspoc)
+	testtxt.PrepareInDir(t, codeDir, deviceName, d.Netspoc)
 	// Add info file if not given above.
 	infoFile := path.Join(codeDir, deviceName+".info")
 	if _, err := os.Stat(infoFile); err != nil {

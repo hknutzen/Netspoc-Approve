@@ -4,6 +4,8 @@ github.com/google/goterm v0.0.0-20200907032337-555d40f16ae2 h1:CVuJwN34x4xM2aT4s
 github.com/google/goterm v0.0.0-20200907032337-555d40f16ae2/go.mod h1:nOFQdrUlIlx6M6ODdSpBj1NVA+VgLC6kmw60mkw34H4=
 github.com/hknutzen/testtxt v0.0.0-20240201100200-51be3d842b94 h1:MhA4QXAN3/6LNhvRc9I3UUN3fZ8RAGetLTz1SBQCNxw=
 github.com/hknutzen/testtxt v0.0.0-20240201100200-51be3d842b94/go.mod h1:270gg+HoaF8zFBum1SBfiGYxduxu3VsW1S7mSrhXioA=
+github.com/hknutzen/testtxt v0.0.0-20240305140207-e6d67e884e6e h1:FSudn45Qu+s1aEtEjJTGMJHOQ9KIyifJz8Ov89InhdA=
+github.com/hknutzen/testtxt v0.0.0-20240305140207-e6d67e884e6e/go.mod h1:270gg+HoaF8zFBum1SBfiGYxduxu3VsW1S7mSrhXioA=
 github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e h1:aoZm08cpOy4WuID//EZDgcC4zIxODThtZNPirFr42+A=
 github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsKMEsNbx1VGcRFpLqf3715MtcvvzbA=
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=

@@ -451,23 +451,25 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 	unsortBlock := func(pos int) {
 		a := getIOSAction(al[pos])
 		var low int
+	BEFORE:
 		for i := pos - 1; i >= 0; i-- {
 			switch getIOSAction(al[i]) {
 			case "remark":
 			case a:
 				low = i
 			default:
-				break
+				break BEFORE
 			}
 		}
 		high := pos
+	AFTER:
 		for i := pos + 1; i < len(al); i++ {
 			switch getIOSAction(al[i]) {
 			case "remark":
 			case a:
 				high = i
 			default:
-				break
+				break AFTER
 			}
 		}
 		l := al[low : high+1]
@@ -1394,21 +1396,21 @@ func (s *State) checkASAInterfaces() error {
 	// Collect and check named interfaces from device.
 	// Add implicit interfaces when comparing two Netspoc generated configs.
 	aIntf := getImplicitInterfaces(s.a)
-INTF:
 	for _, c := range s.a.lookup["interface"][""] {
 		name := ""
+		shut := false
 		for _, sc := range c.sub {
 			tokens := strings.Fields(sc.parsed)
 			switch tokens[0] {
 			case "shutdown":
-				continue INTF
+				shut = true
 			case "nameif":
 				name = tokens[1]
 			}
 		}
 		if name != "" {
 			aIntf[name] = true
-			if !bIntf[name] {
+			if !bIntf[name] && !shut {
 				device.Warning(
 					"Interface '%s' on device is not known by Netspoc", name)
 			}

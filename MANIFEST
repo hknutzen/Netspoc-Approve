@@ -50,6 +50,7 @@ go/pkg/panos/device.go
 go/pkg/panos/diff.go
 go/pkg/panos/parse.go
 go/pkg/sorted/keys.go
+go/staticcheck.conf
 go/test/approve_test.go
 go/test/capture/capture.go
 go/test/tstdata/testdata.go
