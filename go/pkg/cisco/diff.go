@@ -1396,21 +1396,21 @@ func (s *State) checkASAInterfaces() error {
 	// Collect and check named interfaces from device.
 	// Add implicit interfaces when comparing two Netspoc generated configs.
 	aIntf := getImplicitInterfaces(s.a)
-INTF:
 	for _, c := range s.a.lookup["interface"][""] {
 		name := ""
+		shut := false
 		for _, sc := range c.sub {
 			tokens := strings.Fields(sc.parsed)
 			switch tokens[0] {
 			case "shutdown":
-				continue INTF
+				shut = true
 			case "nameif":
 				name = tokens[1]
 			}
 		}
 		if name != "" {
 			aIntf[name] = true
-			if !bIntf[name] {
+			if !bIntf[name] && !shut {
 				device.Warning(
 					"Interface '%s' on device is not known by Netspoc", name)
 			}

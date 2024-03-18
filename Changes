@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+ - Fix: No longer ignore shutdown interface of ASA device.
+
 3.024     2024-03-04 16:23:30+01:00 Europe/Berlin
 
  - Fixed panic when comparing ASA webvpn command.

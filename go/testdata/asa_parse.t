@@ -125,6 +125,18 @@ ERROR>>> Interface 'outside' from Netspoc not known on device
 =END=
 
 ############################################################
+=TITLE=Accept shutdown device interface
+=DEVICE=
+interface Ethernet0/0
+ nameif inside
+ shutdown
+ ip address 10.1.1.0 255.255.255.0
+=NETSPOC=
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+=WARNING=NONE
+
+############################################################
 =TITLE=Check device interfaces, both configs from Netspoc
 =DEVICE=
 access-list inside_in extended deny ip any4 any4
