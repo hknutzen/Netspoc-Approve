@@ -1,7 +1,6 @@
 package cisco
 
 import (
-	"cmp"
 	"fmt"
 	"net"
 	"net/netip"
@@ -391,131 +390,105 @@ func simpleObjEqual(al, bl []*cmd) bool {
 
 func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 	aclName := al[0].subCmdOf.name
-	// Position where to add or delete a command.
-	pos := make(map[*cmd]int)
 	s.addChange("ip access-list resequence " + aclName + " 10000 10000")
 	s.subCmdOf = ""
 	chgLen := len(s.Changes)
-	// ACL lines have been sorted; take original position from c.seq
-	for _, c := range al {
-		pos[c] = (c.seq + 1) * 10000
+	idx2Block, maxID := markIOSPermitDenyBlocks(al)
+	type cmdAndPos struct {
+		cmd *cmd
+		pos int
 	}
-	// Collect to be added and to be deleted entries.
-	var add, del []*cmd
-	addACL := func(b *cmd) {
-		b.parsed = strconv.Itoa(pos[b]) + " " + b.parsed
+	// Collect to be deleted entries.
+	var del []*cmdAndPos
+	// Lookup map to check if added ACL line is already present on device.
+	delMap := make(map[string]*cmdAndPos)
+	stripLogRX := regexp.MustCompile(` log(?:-input)?`)
+	addACL := func(b *cmd, before, i int) {
+		lineNr := before*10000 + i + 1
+		b.parsed = strconv.Itoa(lineNr) + " " + b.parsed
 		s.addCmds([]*cmd{b})
 	}
-	delACL := func(a *cmd) {
-		a.orig = strconv.Itoa(pos[a])
-		s.delCmds([]*cmd{a})
+	delACL := func(a *cmdAndPos) {
+		lineNr := (a.pos + 1) * 10000
+		a.cmd.orig = strconv.Itoa(lineNr)
+		s.delCmds([]*cmd{a.cmd})
 	}
-
 	// Generate move command which sends add and delete command together
 	// as a single command.
-	moveACL := func(a, b *cmd) {
+	// Ignore move if both positions belong to the same block.
+	moveACL := func(a *cmdAndPos, b *cmd, before, i int, moveOK bool) {
+		defer func() { a.cmd = nil }()
+		if moveOK {
+			oldID := idx2Block[a.pos]
+			if before > 0 && idx2Block[before-1] == oldID {
+				return
+			}
+			if before < len(idx2Block) && idx2Block[before] == oldID {
+				return
+			}
+		}
 		delACL(a)
-		i := len(s.Changes) - 1
-		addACL(b)
+		delIdx := len(s.Changes) - 1
+		addACL(b, before, i)
 		top := len(s.Changes) - 1
-		del := s.Changes[i]
+		del := s.Changes[delIdx]
 		add := s.Changes[top]
 		s.Changes = s.Changes[:top]
 		s.Changes[top-1] = del + "\n" + add
 	}
 
 	// Check if insert position is between first and last line
-	// of a block of permit rules (or deny rules).
-	// Checks both, current and original position.
-	// Returns action and position or empty action, if at border of block.
-	insideBlock := func(pos int) string {
+	// of a block of ACl lines.
+	// Returns action and blockID or empty action, if at border of block.
+	insideBlock := func(pos int) (string, int) {
 		var lowAct, highAct string
+		var id int
 		for i := pos - 1; i >= 0; i-- {
 			if a := getIOSAction(al[i]); a != "remark" {
 				lowAct = a
+				id = idx2Block[i]
 				break
 			}
 		}
 		for i := pos; i < len(al); i++ {
 			if a := getIOSAction(al[i]); a != "remark" {
 				highAct = a
+				id = idx2Block[i]
 				break
 			}
 		}
 		if lowAct == highAct {
-			return lowAct
+			return lowAct, id
 		}
-		return ""
+		return "", 0
 	}
-	// Restore a sorted block of lines to its original order.
-	unsortBlock := func(pos int) {
-		a := getIOSAction(al[pos])
-		var low int
-	BEFORE:
-		for i := pos - 1; i >= 0; i-- {
-			switch getIOSAction(al[i]) {
-			case "remark":
-			case a:
-				low = i
-			default:
-				break BEFORE
-			}
-		}
-		high := pos
-	AFTER:
-		for i := pos + 1; i < len(al); i++ {
-			switch getIOSAction(al[i]) {
-			case "remark":
-			case a:
-				high = i
-			default:
-				break AFTER
-			}
-		}
-		l := al[low : high+1]
-		slices.SortFunc(l, func(a, b *cmd) int {
-			return cmp.Compare(a.seq, b.seq)
-		})
-	}
-
-	// Check for dangerous case, where block must not be sorted:
-	// A deny rule is inserted into a block of permit rules or
-	// a permit rule is inserted into a block of deny rules.
-	renewDiff := false
 	for _, r := range diff {
 		if r.IsInsert() {
-			if action := insideBlock(r.LowA); action != "" {
+			// Check for dangerous case, where block is split into two blocks:
+			// - a deny rule is inserted into a block of permit rules or
+			// - a permit rule is inserted into a block of deny rules.
+			if action, id := insideBlock(r.LowA); action != "" {
 				for _, c := range bl[r.LowB:r.HighB] {
 					if action != getIOSAction(c) {
-						unsortBlock(r.LowA)
-						renewDiff = true
+						maxID++
+						for i, id0 := range idx2Block[r.LowA:] {
+							if id0 != id {
+								break
+							}
+							idx2Block[r.LowA+i] = maxID
+						}
 						break
 					}
 				}
 			}
-		}
-	}
-	if renewDiff {
-		ab := &cmdsPair{
-			a:     s.a,
-			b:     s.b,
-			aCmds: al,
-			bCmds: bl,
-			key:   byParsedCmd,
-		}
-		diff = myers.Diff(nil, ab).Ranges
-	}
-	for _, r := range diff {
-		if r.IsInsert() {
-			if r.HighB-r.LowB >= 10000 {
-				device.Abort("Can't insert more than 9999 ACL lines at once")
-			}
-			for i, c := range bl[r.LowB:r.HighB] {
-				pos[c] = r.LowA*10000 + i + 1
-			}
-			add = append(add, bl[r.LowB:r.HighB]...)
 		} else if r.IsDelete() {
-			del = append(del, al[r.LowA:r.HighA]...)
+			for i, a := range al[r.LowA:r.HighA] {
+				p := getPrintableCmd(a, s.a)
+				p = stripLogRX.ReplaceAllLiteralString(p, "")
+				cmdPos := cmdAndPos{cmd: a, pos: r.LowA + i}
+				delMap[p] = &cmdPos
+				del = append(del, &cmdPos)
+			}
 		}
 	}
 	// An ACL line which is already present on device can't be added again.
@@ -526,35 +499,37 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 	// [ log | log-input ]
 	// Hence we must remove one line before we can add the other one.
 	//
-	// Find move operations from commands in 'add' and 'del'.
 	// A command is moved if the same command is deleted and added.
 	// Two commands are equal if they
 	// - have same attribute .parsed,
-	//   but attribute 'log' is ignored during compare.
-	delMap := make(map[string]*cmd)
-	rx := regexp.MustCompile(` log(?:-input)?`)
-	for _, a := range del {
-		p := getPrintableCmd(a, s.a)
-		p = rx.ReplaceAllLiteralString(p, "")
-		delMap[p] = a
-	}
-	for _, b := range add {
-		p := s.printNetspocCmd(b)
-		p = rx.ReplaceAllLiteralString(p, "")
-		if a := delMap[p]; a != nil {
-			moveACL(a, b)
-			continue
+	// - but attribute 'log' is ignored during compare.
+	for _, r := range diff {
+		if r.IsInsert() {
+			if r.HighB-r.LowB >= 10000 {
+				device.Abort("Can't insert more than 9999 ACL lines at once")
+			}
+			action0 := getIOSAction(bl[r.LowB])
+			moveOK := true
+			for i, b := range bl[r.LowB:r.HighB] {
+				moveOK = moveOK && action0 == getIOSAction(b)
+				p := s.printNetspocCmd(b)
+				p = stripLogRX.ReplaceAllLiteralString(p, "")
+				if cmdPos, found := delMap[p]; found {
+					moveACL(cmdPos, b, r.LowA, i, moveOK)
+				} else {
+					addACL(b, r.LowA, i)
+				}
+			}
 		}
-		addACL(b)
 	}
 	// Delete lines on device.
 	// Work from bottom to top. Otherwise we would permit too much
 	// traffic for a short time range.
 	slices.Reverse(del)
-	for _, a := range del {
+	for _, cmdPos := range del {
 		// Must not delete cmd again, if it already was moved.
-		if !a.needed {
-			delACL(a)
+		if cmdPos.cmd != nil {
+			delACL(cmdPos)
 		}
 	}
 	if len(s.Changes) == chgLen {
@@ -564,6 +539,42 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 		s.addChange("ip access-list resequence " + aclName + " 10 10")
 		s.subCmdOf = ""
 	}
+}
+
+// Mark rules belonging to block of successive rules with identical action,
+// where order doesn't matter in this case.
+// This allows to find rules as unchanged if only the order has changed.
+// Action "remark" belongs to any block.
+//
+// Traffic from Netspoc is filtered by some rule.
+// It is crucial to never move this rule, because this would lockout
+// Netspoc from device. This is safeguarded by not moving rules inside
+// the same block.
+//
+// Each block of rules is marked by an unique number.
+// Returns a slice mapping rule position to block number.
+func markIOSPermitDenyBlocks(l []*cmd) ([]int, int) {
+	result := make([]int, len(l))
+	blockID := 1
+	action := ""
+	for i, c := range l {
+		a := getIOSAction(c)
+		switch a {
+		case action, "remark":
+		default:
+			if action != "" {
+				blockID++
+			}
+			action = a
+		}
+		result[i] = blockID
+	}
+	return result, blockID
+}
+
+func getIOSAction(c *cmd) string {
+	action, _, _ := strings.Cut(c.parsed, " ")
+	return action
 }
 
 func (s *State) diffASAACLs(al, bl []*cmd, diff []edit.Range) {
@@ -1268,8 +1279,6 @@ func diffCmdLists(ab *cmdsPair) []edit.Range {
 		} else {
 			s := al[0].subCmdOf
 			if s != nil && s.typ.prefix == "ip access-list extended" {
-				sortIOSPermitDenyBlocks(al)
-				sortIOSPermitDenyBlocks(ab.bCmds)
 				return myers.Diff(nil, ab).Ranges
 			}
 		}
@@ -1319,49 +1328,6 @@ func diffUnordered(ab *cmdsPair) []edit.Range {
 		}
 	}
 	return result
-}
-
-func getIOSAction(c *cmd) string {
-	action, _, _ := strings.Cut(c.parsed, " ")
-	return action
-}
-
-// Sort rules inside blocks of successive rules with identical action,
-// because order doesn't matter in this case.
-// This allows to find rules as unchanged if only the order has changed.
-//
-// Traffic from Netspoc is filtered by some rule.
-// It is crucial to never move this rule, because this would lockout
-// Netspoc from device. This is safeguarded by sorting rules before comparing.
-//
-// Original position for each rule c is stored in c.seq.
-func sortIOSPermitDenyBlocks(l []*cmd) {
-	sortBlock := func(i, j int) {
-		block := l[i:j]
-		sort.SliceStable(block, func(i, j int) bool {
-			pi := block[i].parsed
-			pj := block[j].parsed
-			// Leave order of remark lines unchanged.
-			if strings.HasPrefix(pi, "remark") || strings.HasPrefix(pj, "remark") {
-				return false
-			}
-			return pi < pj
-		})
-	}
-	i0 := 0
-	action := "permit"
-	for i, c := range l {
-		c.seq = i
-		a := getIOSAction(c)
-		switch a {
-		case action, "remark":
-		default:
-			sortBlock(i0, i)
-			action = a
-			i0 = i
-		}
-	}
-	sortBlock(i0, len(l))
 }
 
 func (s *State) checkInterfaces() error {
