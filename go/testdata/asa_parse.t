@@ -507,6 +507,42 @@ access-group inside_in-DRC-0 in interface outside
 =END=
 
 ############################################################
+=TITLE=Merge two existing ACLs into one
+=DEVICE=
+[[minimal_device]]
+access-list inside_in-DRC-0 extended permit tcp any4 any4 eq 22
+access-group inside_in-DRC-0 in interface inside
+access-list outside_in-DRC-0 extended permit tcp any4 any4 eq 22
+access-group outside_in in-DRC-0 interface outside
+=NETSPOC=
+access-list outside_in extended permit tcp any4 any4 eq 22
+access-group outside_in in interface inside
+access-group outside_in in interface outside
+=OUTPUT=
+access-group inside_in-DRC-0 in interface outside
+clear configure access-list outside_in-DRC-0
+=END=
+
+############################################################
+=TITLE=Replace two existing ACLs by one of them
+=DEVICE=
+[[minimal_device]]
+access-list inside_in-DRC-0 extended permit tcp any4 any4 eq 22
+access-list inside_in-DRC-0 extended permit tcp any4 any4 eq 23
+access-group inside_in-DRC-0 in interface inside
+access-list outside_in-DRC-0 extended permit tcp any4 any4 eq 22
+access-group outside_in in-DRC-0 interface outside
+=NETSPOC=
+access-list outside_in extended permit tcp any4 any4 eq 22
+access-group outside_in in interface inside
+access-group outside_in in interface outside
+=OUTPUT=
+no access-list inside_in-DRC-0 line 2 extended permit tcp any4 any4 eq 23
+access-group inside_in-DRC-0 in interface outside
+clear configure access-list outside_in-DRC-0
+=END=
+
+############################################################
 =TITLE=Parse crypto map, dynamic map with tunnel-group
 =TEMPL=input
 [[crypto_ASA]]
