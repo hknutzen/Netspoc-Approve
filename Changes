@@ -1,5 +1,10 @@
 {{$NEXT}}
 
+3.026     2024-03-25 11:14:48+01:00 Europe/Berlin
+
+ - Fix for IOS: Prevent moving of permit rule for device access
+   if a deny rule is added or removed.
+
 3.025     2024-03-18 17:17:01+01:00 Europe/Berlin
 
  - Fix: No longer ignore shutdown interface of ASA device.
