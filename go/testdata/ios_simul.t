@@ -1,3 +1,27 @@
+=TEMPL=std_scenario
+Enter Password:<!>
+banner motd  managed by NetSPoC
+router>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+# reload in 2
+
+System configuration has been modified. Save? [yes/no]: <!>
+Reload reason: Reload Command
+Proceed with reload? [confirm]<!>
+# reload cancel
+
+
+***
+*** --- SHUTDOWN ABORTED ---
+***
+# write memory
+Building configuration...
+  Compressed configuration from 106098 bytes to 30504 bytes[OK]
+=END=
+
 ############################################################
 =TITLE=Login with unknown SSH key + enable
 =SCENARIO=
@@ -88,11 +112,7 @@ router#
 ############################################################
 =TITLE=Compare unchanged
 =SCENARIO=
-Enter Password:<!>
-banner motd managed by NetSPoC
-router#
-# sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
+[[std_scenario]]
 # sh run
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 END
@@ -106,16 +126,9 @@ No changes applied
 ############################################################
 =TITLE=Compare changed
 =SCENARIO=
-Enter Password:<!>
-banner motd managed by NetSPoC
-router#
-# sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4, RELEASE SOFTWARE (fc1)
+[[std_scenario]]
 # sh run
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
-# write memory
-Building configuration...
-  Compressed configuration from 106098 bytes to 30504 bytes[OK]
 =NETSPOC=
 ip route 10.20.0.0 255.255.0.0 10.1.2.99
 =OUTPUT=
@@ -223,15 +236,9 @@ router#
 ############################################################
 =TITLE=Conf mode, reload banner, small change, write mem
 =SCENARIO=
-Enter Password:<!>
-banner motd  managed by NetSPoC
-router>
-# sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+[[std_scenario]]
 # sh run
 ip route 10.0.0.0 255.0.0.0 10.1.2.3
-# configure terminal
-Enter configuration commands, one per line.  End with CNTL/Z.
 # \BANNER5/
 
 
@@ -256,17 +263,6 @@ router#
 
 ***
 *** --- SHUTDOWN in 0:01:00 ---
-***
-# reload in 2
-
-System configuration has been modified. Save? [yes/no]: <!>
-Reload reason: Reload Command
-Proceed with reload? [confirm]<!>
-# reload cancel
-
-
-***
-*** --- SHUTDOWN ABORTED ---
 ***
 # \BANNER5_prompt/ip route 10.1.1.0 255.255.255.0 10.1.2.3
 # ip route 10.1.2.0 255.255.255.0 10.2.3.4\BANNER5_prompt/
@@ -377,24 +373,7 @@ router#
 ############################################################
 =TITLE=Unexpected command output while reload is scheduled
 =SCENARIO=
-Enter Password:<!>
-banner motd  managed by NetSPoC
-router>
-# sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
-# reload in 2
-
-System configuration has been modified. Save? [yes/no]: <!>
-Reload reason: Reload Command
-Proceed with reload? [confirm]<!>
-# reload cancel
-
-
-***
-*** --- SHUTDOWN ABORTED ---
-***
-# configure terminal
-Enter configuration commands, one per line.  End with CNTL/Z.
+[[std_scenario]]
 # ip route 10.0.0.0 255.0.0.0 10.1.2.4
 failed
 =NETSPOC=
@@ -435,28 +414,25 @@ router#
 =END=
 
 ############################################################
+=TITLE=Info message and warning in command output
+=SCENARIO=
+[[std_scenario]]
+# ip route 10.20.0.0 255.255.0.0 10.1.2.3
+INFO: ignored text
+WARNING: Route already exists
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+=WARNING=
+WARNING>>> Got unexpected output from 'ip route 10.20.0.0 255.255.0.0 10.1.2.3':
+WARNING>>> WARNING: Route already exists
+=END=
+
+############################################################
 =TITLE=write mem: overwrite previous NVRAM
 =SCENARIO=
-Enter Password:<!>
-banner motd  managed by NetSPoC
-router>
-# sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+[[std_scenario]]
 # sh run
 ip route 10.0.0.0 255.0.0.0 10.1.2.3
-# configure terminal
-Enter configuration commands, one per line.  End with CNTL/Z.
-# reload in 2
-
-System configuration has been modified. Save? [yes/no]: <!>
-Reload reason: Reload Command
-Proceed with reload? [confirm]<!>
-# reload cancel
-
-
-***
-*** --- SHUTDOWN ABORTED ---
-***
 # write memory
 Warning: Attempting to overwrite an NVRAM configuration previously written by a different version of the system image.
 Overwrite the previous NVRAM configuration?[confirm]<!>
@@ -517,26 +493,9 @@ router#
 ############################################################
 =TITLE=write mem: abort on too large config
 =SCENARIO=
-Enter Password:<!>
-banner motd  managed by NetSPoC
-router>
-# sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+[[std_scenario]]
 # sh run
 ip route 10.0.0.0 255.0.0.0 10.1.2.3
-# configure terminal
-Enter configuration commands, one per line.  End with CNTL/Z.
-# reload in 2
-
-System configuration has been modified. Save? [yes/no]: <!>
-Reload reason: Reload Command
-Proceed with reload? [confirm]<!>
-# reload cancel
-
-
-***
-*** --- SHUTDOWN ABORTED ---
-***
 # write memory
 Building configuration...
 Compressed configuration is too large for nvram
@@ -554,26 +513,9 @@ ERROR>>> router#
 ############################################################
 =TITLE=write mem: retry if startup-config open failed
 =SCENARIO=
-Enter Password:<!>
-banner motd  managed by NetSPoC
-router>
-# sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+[[std_scenario]]
 # sh run
 ip route 10.0.0.0 255.0.0.0 10.1.2.3
-# configure terminal
-Enter configuration commands, one per line.  End with CNTL/Z.
-# reload in 2
-
-System configuration has been modified. Save? [yes/no]: <!>
-Reload reason: Reload Command
-Proceed with reload? [confirm]<!>
-# reload cancel
-
-
-***
-*** --- SHUTDOWN ABORTED ---
-***
 # write memory
 startup-config file open failed (Device or resource busy)
 =NETSPOC=
@@ -585,17 +527,11 @@ ERROR>>> write mem: startup-config open failed - giving up
 ############################################################
 =TITLE=Referencing unknown crypto map on device
 =SCENARIO=
-Enter Password:<!>
-banner motd  managed by NetSPoC
-router>
-# sh ver
-Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+[[std_scenario]]
 # sh run
 interface eth0
  ip address 10.1.1.1
  crypto map x
-# configure terminal
-Enter configuration commands, one per line.  End with CNTL/Z.
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: 'crypto map x' references unknown 'crypto map x'
