@@ -178,9 +178,9 @@ ip access-list extended test
  permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
  permit 47 10.0.5.0 0.0.0.255 host 10.0.1.11
  permit 2 10.0.5.0 0.0.0.255 host 10.0.1.11
+ permit esp any 10.0.1.11
 ! permit udp host 10.0.12.3 host 10.0.1.11 eq 80
  permit tcp any host 10.0.1.11 range 70 80
- permit esp any 10.0.1.11
  permit ahp any 10.0.1.11
  deny ip any any log-input
 
@@ -190,7 +190,8 @@ interface Serial1
 =OUTPUT=
 ip access-list resequence test-DRC-0 10000 10000
 ip access-list extended test-DRC-0
-no 90000\N 90001 deny ip any any log-input
+no 10000\N 90001 permit 51 any 10.0.1.11
+no 90000\N 90002 deny ip any any log-input
 no 70000
 ip access-list resequence test-DRC-0 10 10
 =END=
@@ -565,7 +566,7 @@ interface Ethernet1
 =OUTPUT=
 ip access-list resequence crypto-filter-Ethernet1-1 10000 10000
 ip access-list extended crypto-filter-Ethernet1-1
-40001 permit tcp any host 10.1.13.34
+10002 permit tcp any host 10.1.13.34
 no 10000
 ip access-list resequence crypto-filter-Ethernet1-1 10 10
 =END=
