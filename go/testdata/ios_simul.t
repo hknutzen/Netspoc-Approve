@@ -583,6 +583,25 @@ ERROR>>> write mem: startup-config open failed - giving up
 =END=
 
 ############################################################
+=TITLE=Referencing unknown crypto map on device
+=SCENARIO=
+Enter Password:<!>
+banner motd  managed by NetSPoC
+router>
+# sh ver
+Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
+# sh run
+interface eth0
+ ip address 10.1.1.1
+ crypto map x
+# configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: 'crypto map x' references unknown 'crypto map x'
+=END=
+
+############################################################
 =TITLE=SSH timeout
 =SCENARIO=
 Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
