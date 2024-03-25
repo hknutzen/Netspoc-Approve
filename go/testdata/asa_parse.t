@@ -513,7 +513,7 @@ access-group inside_in-DRC-0 in interface outside
 access-list inside_in-DRC-0 extended permit tcp any4 any4 eq 22
 access-group inside_in-DRC-0 in interface inside
 access-list outside_in-DRC-0 extended permit tcp any4 any4 eq 22
-access-group outside_in in-DRC-0 interface outside
+access-group outside_in-DRC-0 in interface outside
 =NETSPOC=
 access-list outside_in extended permit tcp any4 any4 eq 22
 access-group outside_in in interface inside
@@ -531,7 +531,7 @@ access-list inside_in-DRC-0 extended permit tcp any4 any4 eq 22
 access-list inside_in-DRC-0 extended permit tcp any4 any4 eq 23
 access-group inside_in-DRC-0 in interface inside
 access-list outside_in-DRC-0 extended permit tcp any4 any4 eq 22
-access-group outside_in in-DRC-0 interface outside
+access-group outside_in-DRC-0 in interface outside
 =NETSPOC=
 access-list outside_in extended permit tcp any4 any4 eq 22
 access-group outside_in in interface inside
