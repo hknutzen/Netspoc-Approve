@@ -44,7 +44,6 @@ type descr struct {
 func runTestFiles(t *testing.T) {
 	dataFiles, _ := filepath.Glob("../testdata/*.t")
 	for _, file := range dataFiles {
-		file := file // capture range variable
 		base := path.Base(file)
 		prefix, _, _ := strings.Cut(strings.TrimSuffix(base, ".t"), "_")
 		t.Run(base, func(t *testing.T) {
@@ -67,7 +66,6 @@ func runTestFiles(t *testing.T) {
 					t.Fatal(fmt.Errorf("Unexpected test file %s with prefix '%s'",
 						base, prefix))
 				}
-				descr := descr // capture range variable
 				t.Run(descr.Title, func(t *testing.T) {
 					runTest(t, descr, realDev, strings.ToUpper(prefix))
 				})
