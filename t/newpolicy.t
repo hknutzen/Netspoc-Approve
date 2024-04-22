@@ -81,20 +81,27 @@ sub prepare_dir {
 sub setup_netspoc {
     my ($dir, $in) = @_;
 
-    # Initialize empty CVS repository.
-    mkdir 'cvsroot';
-    $ENV{CVSROOT} = "$dir/cvsroot";
-    delete $ENV{CVSREAD};
-    system "cvs init";
+    # Prevent warnings from git.
+    system 'git config --global user.name "Test User"';
+    system 'git config --global user.email ""';
+    system 'git config --global init.defaultBranch master';
+    system 'git config --global pull.rebase true';
 
-    # Create initial netspoc files and put them under CVS control.
-    mkdir('import');
-    prepare_dir('import', $in);
-    chdir 'import';
-    system "cvs -Q import -m start netspoc vendor version";
+    my $tmp = "$dir/tmp-git";
+    mkdir $tmp;
+    prepare_dir($tmp, $in);
+    chdir $tmp;
+    # Initialize git repository.
+    system 'git init --quiet';
+    system 'git add .';
+    system 'git commit -m initial >/dev/null';
     chdir $dir;
-    system 'rm -r import';
-    system "cvs -Q checkout netspoc";
+    # Checkout into bare directory
+    my $bare = "$dir/netspoc.git";
+    system "git clone --quiet --bare $tmp $bare";
+    system "rm -rf $tmp";
+    # Checkout into directory 'netspoc'
+    system "git clone --quiet $bare netspoc";
 
     # Create config file .netspoc-approve for newpolicy
     mkdir('policydb');
@@ -102,34 +109,40 @@ sub setup_netspoc {
     write_file('.netspoc-approve', <<"END");
 netspocdir = $dir/policydb
 lockfiledir = $dir/lock
+netspoc_git = file://$bare
 END
 }
 
 sub change_netspoc {
     my ($in) = @_;
     prepare_dir('netspoc', $in);
-    system "cvs -Q commit -m test netspoc >/dev/null";
+    chdir 'netspoc';
+    system 'git add .';
+    system 'git commit -m test >/dev/null';
+    system 'git pull --quiet';
+    system 'git push --quiet';
+    chdir $dir;
 }
 
 sub setup_bin {
     my ($dir) = @_;
 
-    # Install version of cvs, that can be controlled to wait after
+    # Install version of git, that can be controlled to wait after
     # completion.
     mkdir("$dir/my-bin");
-    my $orig_bin = `which cvs`;
+    my $orig_bin = `which git`;
     chomp $orig_bin;
-    write_file("$dir/my-bin/cvs", <<"END");
+    write_file("$dir/my-bin/git", <<"END");
 #!/bin/sh
 $orig_bin "\$@"
 status=\$?
 
-# Wait when "cvs checkout" is called inside newpolicy.pl
-if echo \$* | grep -q checkout; then
+# Wait when "git clone" is called inside newpolicy.pl
+if echo \$* | grep -q '^clone'; then
    flock $dir/do-wait -c true 2>/dev/null
 
 # Signal that 'uptodate' check in 'newpolicy' has started.
-elif echo "\$*" | grep -q -e '-n -q -f update'; then
+elif echo \$* | grep -q '^rev-parse'; then
    touch $dir/is-started
 fi
 
@@ -153,6 +166,7 @@ sub start_newpolicy {
 }
 
 sub wait_newpolicy_started {
+        usleep 1000;
     while(not -f 'is-started') {
         usleep 1000;
     }
@@ -187,11 +201,11 @@ system 'touch policydb/LOCK';
 sysopen my $wait_fh, 'do-wait', O_RDONLY | O_CREAT;
 flock($wait_fh, LOCK_EX);
 my $fh1 = start_newpolicy();
-
-# Wait until compile.log has been created.
-while(not -f 'policydb/next/compile.log') {
+# Wait until netspoc files have been cloned.
+while(not -f 'policydb/next/src/.git/refs/heads/master') {
     usleep 1000;
 }
+
 my $fh2 = start_newpolicy();
 wait_newpolicy_started();
 

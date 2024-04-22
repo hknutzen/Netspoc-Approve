@@ -42,14 +42,14 @@ abort () { echo $@ >&2; exit 1; }
 # true  (0): all changes from repository have already been processed
 # false (1): SRC isn't up to date
 uptodate () {
-    [ -d $SRC ] || return 1
-
-    # Must use relative pathname for suid-cvs.
-    # Check stdout for changed files.
-    # Check stderr for removed files and for new directories.
-    # Ignore '.cvsrc' to not accidently activate option '-P'.
-    # Ok, if nothing is found.
-    [ -z "$(cd $SRC && cvs -n -q -f update 2>&1)" ]
+    (set -e
+     [ -f "$SRC/.git/refs/heads/master" ] || return 1
+     cd $SRC
+     rev1=$(git rev-parse HEAD)
+     orig=$(git rev-parse --abbrev-ref @{u} | sed 's/\// /g')
+     rev2=$(git ls-remote $orig | cut -f1)
+     [ "$rev1" == "$rev2" ]
+    )
 }
 
 # Wait as long as newpolicy.pl is running.
@@ -84,7 +84,7 @@ else
 
     # newpolicy.pl is already running
     SRC=$POLICYDB/next/src
-    if ! [ -d $SRC/CVS ] || uptodate ; then
+    if ! [ -f "$SRC/.git/refs/heads/master" ] || uptodate ; then
         msg "Newest changeset is currently processed"
         wait_newpolicy_finished
         exit
