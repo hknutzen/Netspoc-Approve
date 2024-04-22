@@ -18,7 +18,7 @@ Integrates NetSPoC with version control / build management.
 =head1 COPYRIGHT AND DISCLAIMER
 
 https://github.com/hknutzen/Netspoc-Approve
-(c) 2019 by Heinz Knutzen <heinz.knutzen@gmail.com>
+(c) 2024 by Heinz Knutzen <heinz.knutzen@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
