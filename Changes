@@ -1,3 +1,9 @@
+3.027     2024-04-22 17:39:54+02:00 Europe/Berlin
+
+ - Command 'newpolicy' shows content of compile.log only on error.
+ - Allow new option 'netspoc_git' in config file in preparation
+   of next release.
+
 3.026     2024-03-25 11:14:48+01:00 Europe/Berlin
 
  - Fix for IOS: Prevent moving of permit rule for device access

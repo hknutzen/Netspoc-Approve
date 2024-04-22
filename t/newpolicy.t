@@ -210,26 +210,26 @@ my $fh4 = start_newpolicy();
 
 check_newpolicy($fh1, <<'END', 'Start and show');
 Processing current changeset
-Updated current policy to 'p1'
+Finished 'p1'
 END
 
 check_newpolicy($fh2,  <<'END', 'Show running');
 Newest changeset is currently processed
-Updated current policy to 'p1'
+Finished 'p1'
 END
 
 check_newpolicy($fh3, <<'END', 'After commit');
 Waiting for current process to be finished
-Updated current policy to 'p1'
----
+Finished 'p1'
 Processing current changeset
-Updated current policy to 'p2'
+Finished 'p2'
 END
 
 check_newpolicy($fh4, <<'END', 'Later after commit');
 Waiting for current process to be finished
+Finished 'p1'
 Processing current changeset
-Updated current policy to 'p2'
+Finished 'p2'
 END
 
 $fh1 = start_newpolicy();
@@ -262,7 +262,7 @@ $fh1 = start_newpolicy();
 
 check_newpolicy($fh1, <<'END', 'Up to date again');
 Processing current changeset
-Updated current policy to 'p3'
+Finished 'p3'
 END
 
 change_netspoc(<<'END');
@@ -275,9 +275,9 @@ system 'rm policydb/current';
 
 $fh1 = start_newpolicy();
 
-check_newpolicy($fh1, <<'END', 'Up to date again');
+check_newpolicy($fh1, <<'END', 'Restore policy number');
 Processing current changeset
-Updated current policy to 'p4'
+Finished 'p4'
 END
 
 ############################################################

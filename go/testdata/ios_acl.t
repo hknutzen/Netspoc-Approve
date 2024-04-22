@@ -267,6 +267,54 @@ ip access-list resequence inside 10 10
 =END=
 
 ############################################################
+=TITLE=Move permit line before first line of block
+=DEVICE=
+ip access-list extended test
+ permit ip any host 1.1.1.1
+ permit ip any host 2.2.2.2
+ permit ip any host 3.3.3.3
+ permit ip any host 4.4.4.4
+ permit ip any host 5.5.5.5
+
+interface Ethernet1
+ ip access-group test in
+=NETSPOC=
+ip access-list extended test
+ permit ip any host 5.5.5.5
+ permit ip any host 1.1.1.1
+ permit ip any host 2.2.2.2
+ permit ip any host 3.3.3.3
+ permit ip any host 4.4.4.4
+
+interface Ethernet1
+ ip access-group test in
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Move permit line after last line of block
+=DEVICE=
+ip access-list extended test
+ permit ip any host 1.1.1.1
+ permit ip any host 2.2.2.2
+ permit ip any host 3.3.3.3
+ permit ip any host 4.4.4.4
+ permit ip any host 5.5.5.5
+
+interface Ethernet1
+ ip access-group test in
+=NETSPOC=
+ip access-list extended test
+ permit ip any host 2.2.2.2
+ permit ip any host 3.3.3.3
+ permit ip any host 4.4.4.4
+ permit ip any host 5.5.5.5
+ permit ip any host 1.1.1.1
+
+interface Ethernet1
+ ip access-group test in
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Add permit line to permit block
 =DEVICE=
 ip access-list extended test

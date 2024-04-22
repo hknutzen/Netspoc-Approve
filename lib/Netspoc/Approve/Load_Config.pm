@@ -31,6 +31,7 @@ use Carp;
 my $config = {
     netspocdir      => '_required',
     lockfiledir     => '_required',
+    netspoc_git     => undef, #'_required',
     historydir      => undef,
     statusdir       => undef,
     checkbanner     => undef,   # regex
