@@ -99,5 +99,5 @@ fi 9<$LOCK
 msg "Processing current changeset"
 $PROG </dev/null >/dev/null 2>&1 &
 
-sleep 0.1 # Wait until $PROG has set lock.
+sleep 0.5 # Wait until $PROG has set lock.
 wait_newpolicy_finished
