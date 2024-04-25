@@ -1012,7 +1012,7 @@ func (s *State) deleteUnused() {
 	}
 	for len(toDelete) > 0 {
 		// Mark commands that are still referenced by other to be
-		// deleted commands.
+		// deleted commands. Delete them afterwards.
 		isReferenced := make(map[pair]bool)
 		follow := func(c *cmd) {
 			for i, name := range c.ref {
