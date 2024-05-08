@@ -22,6 +22,7 @@ var defaultVals = map[string]string{
 type Config struct {
 	netspocDir     string
 	lockfileDir    string
+	netspocGit     string
 	historyDir     string
 	statusDir      string
 	CheckBanner    *regexp.Regexp
@@ -96,6 +97,8 @@ func LoadConfig() (*Config, error) {
 			c.netspocDir = val
 		case "lockfiledir":
 			c.lockfileDir = val
+		case "netspoc_git":
+			c.netspocGit = val
 		case "historydir":
 			c.historyDir = val
 		case "statusdir":

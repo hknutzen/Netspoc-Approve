@@ -1,3 +1,8 @@
+3.028     2024-05-08 11:03:25+02:00 Europe/Berlin
+
+ - Fixed: Allow new option 'netspoc_git' in config file in preparation
+   of next release.
+
 3.027     2024-04-22 17:39:54+02:00 Europe/Berlin
 
  - Command 'newpolicy' shows content of compile.log only on error.

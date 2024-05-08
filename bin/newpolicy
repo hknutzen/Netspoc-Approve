@@ -99,5 +99,6 @@ fi 9<$LOCK
 msg "Processing current changeset"
 $PROG </dev/null >/dev/null 2>&1 &
 
-sleep 0.1 # Wait until $PROG has set lock.
+# Wait until $PROG has really started.
+for i in $(seq 1 5); do flock -n -s $LOCK -c true || break; sleep 0.1; done
 wait_newpolicy_finished

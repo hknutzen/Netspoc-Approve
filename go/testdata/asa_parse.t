@@ -439,6 +439,23 @@ access-group inside_in in interface inside
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Leave object-group unchanged if referenced by unknown ACL
+=DEVICE=
+object-group network g1-DRC-0
+ network-object 10.0.6.0 255.255.255.0
+access-list UNKNOWN extended permit udp any4 object-group g1-DRC-0 eq 161
+access-list INSIDE extended permit udp any4 object-group g1-DRC-0
+access-group INSIDE in interface inside
+=NETSPOC=
+access-list inside_in extended deny ip any any
+access-group inside_in in interface inside
+=OUTPUT=
+access-list inside_in-DRC-0 extended deny ip any any
+access-group inside_in-DRC-0 in interface inside
+clear configure access-list INSIDE
+=END=
+
+############################################################
 =TITLE=Remove nested object-group
 =DEVICE=
 object-group network g1
@@ -1120,6 +1137,7 @@ default-group-policy VPN-group2-DRC-0
 ############################################################
 =TITLE=Remove group-policy from Netspoc left over on device
 =DEVICE=
+access-list split-tunnel-DRC-0 standard permit 10.1.0.0 255.255.255.0
 ip local pool pool-DRC-0 10.1.23.0-10.1.23.127 mask 255.255.255.128
 group-policy VPN-group-DRC-0 internal
 group-policy VPN-group-DRC-0 attributes
@@ -1130,12 +1148,28 @@ group-policy VPN-group-DRC-1 attributes
  banner value Willkommen beim Dataport VPN Service XCS-Admin
  vpn-idle-timeout 120
  address-pools value pool-DRC-0
+ split-tunnel-network-list value split-tunnel-DRC-0
+ split-tunnel-policy tunnelspecified
 =NETSPOC=NONE
 =OUTPUT=
 clear configure group-policy VPN-group-DRC-0
 clear configure group-policy VPN-group-DRC-1
+clear configure access-list split-tunnel-DRC-0
 no ip local pool pool-DRC-0 10.1.23.0-10.1.23.127 mask 255.255.255.128
 =END=
+
+############################################################
+=TITLE=Leave commands unchanged if referenced by unknown group-policy
+=DEVICE=
+access-list split-tunnel-DRC-0 standard permit 10.1.0.0 255.255.255.0
+ip local pool pool-DRC-0 10.1.219.192-10.1.219.255 mask 0.0.0.63
+group-policy UNKNOWN internal
+group-policy UNKNOWN attributes
+ address-pools value pool-DRC-0
+ split-tunnel-network-list value split-tunnel-DRC-0
+ split-tunnel-policy tunnelspecified
+=NETSPOC=NONE
+=OUTPUT=NONE
 
 ############################################################
 =TITLE=Remove tunnel- and certificate-group-map with all refs
