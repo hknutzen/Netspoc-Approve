@@ -540,12 +540,17 @@ func postprocessParsed(lookup objLookup) {
 	setTransRef("crypto dynamic-map", "ikev1 transform-set")
 	setTransRef("crypto dynamic-map", "ikev2 ipsec-proposal")
 
-	// Strip default value 'group2' from "crypto [dynamic-]map set pfs group2"
+	// Strip default value group14 from "crypto [dynamic-]map set pfs group14"
+	// The default is group2 for releases prior to 9.13,
+	// and group14 for release 9.13 and later.
+	// Hence this is only safe,
+	// - for versions 9.13 and later
+	// - for versions prior to 9.13 if group2 isn't used.
 	stripPFSDefault := func(prefix string) {
 		for _, l := range lookup[prefix] {
 			for _, c := range l {
-				if strings.HasSuffix(c.parsed, "$NAME $SEQ set pfs group2") {
-					c.parsed = strings.TrimSuffix(c.parsed, " group2")
+				if strings.HasSuffix(c.parsed, "$NAME $SEQ set pfs group14") {
+					c.parsed = strings.TrimSuffix(c.parsed, " group14")
 				}
 			}
 		}

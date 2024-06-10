@@ -569,7 +569,7 @@ access-list crypto-acl2 extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
 crypto ipsec ikev1 transform-set trans esp-3des esp-sha-hmac
 crypto dynamic-map some-name 10 match address crypto-acl2
 crypto map map-outside 10 match address crypto-acl1
-crypto map map-outside 10 set pfs group2
+crypto map map-outside 10 set pfs group14
 crypto map map-outside 10 set peer 97.98.99.100
 crypto map map-outside 10 set ikev1 transform-set trans
 crypto map map-outside 10 set security-association lifetime seconds 43200
@@ -1546,7 +1546,7 @@ crypto map crypto-outside 1 set ikev1 transform-set Trans1
 crypto map crypto-outside 1 set pfs group5
 crypto map crypto-outside 3 set peer 10.0.0.3
 crypto map crypto-outside 3 set ikev2 ipsec-proposal Proposal1
-crypto map crypto-outside 3 set pfs group2
+crypto map crypto-outside 3 set pfs group14
 crypto map crypto-outside interface outside
 =OUTPUT=
 no crypto map crypto-outside 3 match address crypto-outside-3
