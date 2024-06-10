@@ -1515,6 +1515,50 @@ clear configure tunnel-group 193.155.130.20
 =END=
 
 ############################################################
+=TITLE=Change values of crypto map sequence
+=DEVICE=
+[[crypto_ASA]]
+crypto ipsec ikev1 transform-set Trans1b esp-3des esp-md5-hmac
+crypto ipsec ikev2 ipsec-proposal Proposal1
+ protocol esp encryption aes-192 aes-256
+ protocol esp integrity sha-1
+access-list crypto-outside-1 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-outside 1 match address crypto-outside-1
+crypto map crypto-outside 1 set pfs group19
+crypto map crypto-outside 1 set peer 10.0.0.1
+crypto map crypto-outside 1 set ikev1 transform-set Trans1b
+access-list crypto-outside-2 extended permit ip any4 10.0.3.0 255.255.255.0
+crypto map crypto-outside 2 match address crypto-outside-2
+crypto map crypto-outside 2 set pfs group19
+crypto map crypto-outside 2 set peer 10.0.0.3
+crypto map crypto-outside 2 set ikev2 ipsec-proposal Proposal1
+crypto map crypto-outside 2 set security-association lifetime seconds 3600
+crypto map crypto-outside interface outside
+=NETSPOC=
+crypto ipsec ikev1 transform-set Trans1 esp-3des esp-md5-hmac
+crypto ipsec ikev2 ipsec-proposal Proposal1
+ protocol esp encryption aes-192 aes-256
+ protocol esp integrity  sha-1
+access-list crypto-outside-2 extended permit ip any4 10.0.1.0 255.255.255.0
+crypto map crypto-out 2 match address crypto-outside-2
+crypto map crypto-out 2 set pfs group20
+crypto map crypto-out 2 set peer 10.0.0.1
+crypto map crypto-out 2 set ikev1 transform-set Trans1
+access-list crypto-outside-3 extended permit ip any4 10.0.3.0 255.255.255.0
+crypto map crypto-out 3 match address crypto-outside-3
+crypto map crypto-out 3 set pfs group19
+crypto map crypto-out 3 set peer 10.0.0.3
+crypto map crypto-out 3 set ikev2 ipsec-proposal Proposal1
+crypto map crypto-out 3 set security-association lifetime seconds 1800
+crypto map crypto-out interface outside
+=OUTPUT=
+no crypto map crypto-outside 1 set pfs group19
+crypto map crypto-outside 1 set pfs group20
+no crypto map crypto-outside 2 set security-association lifetime seconds 3600
+crypto map crypto-outside 2 set security-association lifetime seconds 1800
+=END=
+
+############################################################
 =TITLE=Insert and delete entries from crypto map sequence
 =DEVICE=
 [[crypto_ASA]]
