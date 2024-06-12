@@ -52,9 +52,6 @@ my $policydb = $config->{netspocdir};
 # Name of netspoc compiler, PATH from sanitized environment (see below).
 my $compiler = 'netspoc';
 
-# Name of cvs module in repository.
-my $module = 'netspoc';
-
 # Link to current policy.
 my $link = "$policydb/current";
 
@@ -105,20 +102,13 @@ sub log_abort {
 # So other programs reading from this file see the output immediately.
 $log_fh->autoflush(1);
 
-# In server mode, cvs commands need relative pathnames.
-# Hence change into directory, where files are checked out.
+# Change into directory, where files are checked out.
 chdir($next) or log_abort("Can't 'cd $next': $!");
 
-# Check out newest files from repository into subdirectory "src" of
-# new policy directory.  Must not use option '-P' to prune empty
-# directories, so up-to-date check (cvs -n -q update) of outer
-# 'newpolicy' script can differ between empty and new directories: Old
-# but empty directories are checked out and found to be equal, while
-# new directories are not checked out and lead to an --ignored
-# message.
-# Ignore '.cvsrc' to not accidently activate option '-P'.
-system('cvs', '-Q', '-f', 'checkout', '-d', 'src', $module) == 0 or
-    log_abort("Can't checkout to $psrc: $!");
+# Check out newest files from repository into subdirectory "src".
+system('git', 'clone',
+       '--quiet', '--depth', '1', $config->{netspoc_git}, 'src') == 0
+    or log_abort("Can't git clone to $psrc");
 
 # Read current policy name from POLICY file.
 my $fcount = 0;
@@ -177,7 +167,6 @@ close $compile_fh;
 if ($? == 0) {
 
     # Update POLICY file of current version.
-    # In server mode, "cvs add" needs to be inside "src" directory.
     chdir("$next/src") or log_abort("Can't cd to $next/src: $!");
 
     my $pfile = 'POLICY';
@@ -185,11 +174,12 @@ if ($? == 0) {
     open  my $policy_fh, '>', $pfile or log_abort("Can't open $pfile: $!");
     print $policy_fh "# $policy # Current policy, don't edit manually!\n";
     close $policy_fh;
-    if (!$exists) {
-        system('cvs', '-Q', 'add', $pfile) == 0 or log_abort("Aborted");
-    }
-    system('cvs', '-Q', 'commit', '-m', $policy , $pfile) == 0 or
-        log_abort("Aborted");
+    system('git', 'add', $pfile) == 0 or log_abort("Can't git add $pfile");
+    system('git', 'commit', '-m', $policy) == 0 or
+        log_abort("Can't git commit");
+    # This assumes 'git config pull.rebase true' to be set.
+    system('git', 'pull', '--quiet') == 0 or log_abort("Can't git pull");
+    system('git', 'push', '--quiet') == 0 or log_abort("Can't git push");
 
     # Move temporary directory to final name
     chdir $policydb or log_abort("Can't cd to $policydb: $!");

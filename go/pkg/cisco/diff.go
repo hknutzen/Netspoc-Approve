@@ -268,11 +268,12 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 		return ""
 	}
 	// Commands modify existing command on device.
-	// Use name of existing command in added commands.
+	// Use name and seq num of existing command in added commands.
 	for _, r := range diff {
 		if r.IsInsert() {
 			for _, bCmd := range bl[r.LowB:r.HighB] {
 				bCmd.name = al[0].name
+				bCmd.seq = al[0].seq
 			}
 		}
 	}
