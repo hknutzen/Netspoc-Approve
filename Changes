@@ -1,5 +1,12 @@
 {{$NEXT}}
 
+3.029     2024-06-12 11:17:04+02:00 Europe/Berlin
+
+ - Fixed seq num for inserted commands of crypto map.
+ - Changed default group for "crypto [dynamic-]map set pfs"
+   from "group2" to "group14".
+ - Use git instead of cvs.
+
 3.028     2024-05-08 11:03:25+02:00 Europe/Berlin
 
  - Fixed: Allow new option 'netspoc_git' in config file in preparation
