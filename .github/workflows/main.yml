@@ -36,17 +36,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: cover -report Coveralls
       - name: Calc Go coverage
-        run: >
-          go test
-          -coverpkg ../pkg/...
-          -covermode=count
-          -coverprofile=coverage.out
+        run: go test -coverpkg ../pkg/... -coverprofile=c.out
         working-directory: go/test
       - name: Upload Go coverage
         uses: coverallsapp/github-action@v2.2.3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          file: go/test/coverage.out
+          file: go/test/c.out
           format: golang
           flag-name: Go
           parallel: true
