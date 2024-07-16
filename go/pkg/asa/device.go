@@ -164,9 +164,11 @@ func (s *State) cmd(cmd string) {
 	}
 }
 
+var sameGroupRegex = regexp.MustCompile(
+	`^WARNING: Same object-group is used more than once in one config line`)
 var validOutput = map[string]*regexp.Regexp{
-	"access-list": regexp.MustCompile(
-		`^WARNING: Same object-group is used more than once in one config line`),
+	"access-list":    sameGroupRegex,
+	"no access-list": sameGroupRegex,
 	// Expected multi line warning.
 	"tunnel-group": regexp.MustCompile(
 		`^WARNING: (For IKEv1, )?L2L tunnel-groups that have names which are not an IP|^address may only be used if the tunnel authentication|^method is Digital Certificates and/or The peer is|^configured to use Aggressive Mode`),
