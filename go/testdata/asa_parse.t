@@ -231,6 +231,36 @@ route outside 10.20.0.0 255.255.0.0 10.1.2.3
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Change object-group, add routing, delete object-group
+# Command "route" leaves subcommand mode of "object-group"
+=DEVICE=
+object-group network g0
+ network-object 10.0.6.0 255.255.255.0
+ network-object host 10.0.12.3
+object-group network g1-DRC-0
+ host 10.0.1.11
+access-list inside_in extended permit udp object-group g0 any eq sip
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+route inside 10.10.0.0 255.255.0.0 10.1.2.2
+=NETSPOC=
+object-group network g0
+ network-object 10.0.6.0 255.255.255.0
+ network-object 10.0.5.0 255.255.255.0
+ network-object host 10.0.12.3
+access-list inside_in extended permit udp object-group g0 any eq sip
+access-list inside_in extended deny ip any4 any4
+access-group inside_in in interface inside
+route inside 10.10.0.0 255.255.0.0 10.1.2.2
+route inside 10.20.0.0 255.255.0.0 10.1.2.3
+=OUTPUT=
+object-group network g0
+network-object 10.0.5.0 255.255.255.0
+route inside 10.20.0.0 255.255.0.0 10.1.2.3
+no object-group network g1-DRC-0
+=END=
+
+############################################################
 =TITLE=Parse object-group of type tcp-udp
 =TEMPL=input
 [[minimal_device1]]

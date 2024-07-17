@@ -391,8 +391,7 @@ func simpleObjEqual(al, bl []*cmd) bool {
 
 func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 	aclName := al[0].subCmdOf.name
-	s.addChange("ip access-list resequence " + aclName + " 10000 10000")
-	s.subCmdOf = ""
+	s.addToplevel("ip access-list resequence " + aclName + " 10000 10000")
 	chgLen := len(s.Changes)
 	idx2Block, maxID := markIOSPermitDenyBlocks(al)
 	type cmdAndPos struct {
@@ -537,8 +536,7 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 		// No changes found; remove initial resequence command.
 		s.Changes = s.Changes[:chgLen-1]
 	} else {
-		s.addChange("ip access-list resequence " + aclName + " 10 10")
-		s.subCmdOf = ""
+		s.addToplevel("ip access-list resequence " + aclName + " 10 10")
 	}
 }
 
@@ -809,10 +807,10 @@ func (s *State) diffRoutes(al, bl []*cmd, diff []edit.Range) {
 				if del, found := delDst[dstOfRoute(c)]; found {
 					// ASA doesn't allow two routes to identical
 					// destination. Remove and add routes in one transaction.
-					s.addChange("no " + del.orig + "\n" + add)
+					s.addToplevel("no " + del.orig + "\n" + add)
 					del.needed = true
 				} else {
-					s.addChange(add)
+					s.addToplevel(add)
 				}
 			}
 		}
@@ -919,6 +917,11 @@ func (s *State) addCmd(c *cmd) {
 	for _, sub := range c.sub {
 		s.addChange(s.printNetspocCmd(sub))
 	}
+}
+
+func (s *State) addToplevel(c string) {
+	s.addChange(c)
+	s.subCmdOf = ""
 }
 
 func (s *State) setCmdConfMode(printedSup string) {
@@ -1079,13 +1082,13 @@ func (s *State) deleteUnused() {
 			delete(toDelete, pair)
 			if l[0].typ.clearConf {
 				name := pair[1]
-				s.addChange("clear configure " + prefix + " " + name)
+				s.addToplevel("clear configure " + prefix + " " + name)
 			} else {
 				for _, c := range l {
 					if c2, found := strings.CutPrefix(c.orig, "no "); found {
-						s.addChange(c2)
+						s.addToplevel(c2)
 					} else {
-						s.addChange("no " + c.orig)
+						s.addToplevel("no " + c.orig)
 					}
 				}
 			}
