@@ -159,6 +159,40 @@ router#
 =END=
 
 ############################################################
+=TITLE=Expected WARNING with crypto map
+=SCENARIO=
+[[login_scenario]]
+# write term
+interface Ethernet0/0
+ nameif inside
+access-list crypto-acl2 extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
+crypto dynamic-map VPN66@example.com 10 match address crypto-acl2
+crypto map crypto-inside 65331 ipsec-isakmp dynamic VPN66@example.com
+crypto map crypto-inside interface inside
+# no crypto map crypto-inside 65331 ipsec-isakmp dynamic VPN66@example.com
+WARNING: The crypto map entry is incomplete!
+# write memory
+[OK]
+=NETSPOC=
+access-list inside_in extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
+access-group inside_in in interface inside
+=OUTPUT=
+--router.change
+configure terminal
+router#access-list inside_in-DRC-0 extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
+router#access-group inside_in-DRC-0 in interface inside
+router#no crypto map crypto-inside interface inside
+router#no crypto map crypto-inside 65331 ipsec-isakmp dynamic VPN66@example.com
+WARNING: The crypto map entry is incomplete!
+router#no crypto dynamic-map VPN66@example.com 10 match address crypto-acl2
+router#clear configure access-list crypto-acl2
+router#end
+router#write memory
+[OK]
+router#
+=END=
+
+############################################################
 =TITLE=Expected WARNING with tunnel-group l2l
 =SCENARIO=
 [[login_scenario]]
