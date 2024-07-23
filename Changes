@@ -1,3 +1,14 @@
+3.030     2024-07-23 13:12:24+02:00 Europe/Berlin
+
+ - Fixed unwanted "exit" from conf mode.
+ - Fixed: Logfiles *.login, *.change are saved now,
+   if policy is approved multiple times.
+ - More warnings are ignored:
+   - For "crypto map", "no crypto map":
+     "The crypto map entry is incomplete!"
+   - For "no access-list":
+     "Same object-group is used more than once in one config line"
+
 3.029     2024-06-12 11:17:04+02:00 Europe/Berlin
 
  - Fixed seq num for inserted commands of crypto map.

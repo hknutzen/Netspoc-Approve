@@ -145,7 +145,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 
 // Send 1 or 2 commands in one data packet to device.
 // No output expected from commands.
-// Exceptions are given in map cmd2validOutput
+// Exceptions are given in map validOutput
 func (s *State) cmd(cmd string) {
 	c1, c2, _ := strings.Cut(cmd, "\n")
 	s.conn.Send(cmd)
@@ -164,9 +164,16 @@ func (s *State) cmd(cmd string) {
 	}
 }
 
+var sameGroupRegex = regexp.MustCompile(
+	`^WARNING: Same object-group is used more than once in one config line`)
+var cryptoMapIncompleteRegex = regexp.MustCompile(
+	`WARNING: The crypto map entry is incomplete!`)
+
 var validOutput = map[string]*regexp.Regexp{
-	"access-list": regexp.MustCompile(
-		`^WARNING: Same object-group is used more than once in one config line`),
+	"access-list":    sameGroupRegex,
+	"no access-list": sameGroupRegex,
+	"crypto map":     cryptoMapIncompleteRegex,
+	"no crypto map":  cryptoMapIncompleteRegex,
 	// Expected multi line warning.
 	"tunnel-group": regexp.MustCompile(
 		`^WARNING: (For IKEv1, )?L2L tunnel-groups that have names which are not an IP|^address may only be used if the tunnel authentication|^method is Digital Certificates and/or The peer is|^configured to use Aggressive Mode`),

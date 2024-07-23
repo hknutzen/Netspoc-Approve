@@ -319,6 +319,10 @@ func (s *state) getLogFH(ext string) (*os.File, error) {
 		return nil, nil
 	}
 	fname := s.logFname + ext
+	// Rename existing logfile.
+	if _, err := os.Stat(fname); err == nil {
+		os.Rename(fname, fmt.Sprintf("%s.%d", fname, time.Now().Unix()))
+	}
 	return os.Create(fname)
 }
 
