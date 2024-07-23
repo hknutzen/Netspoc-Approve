@@ -145,7 +145,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 
 // Send 1 or 2 commands in one data packet to device.
 // No output expected from commands.
-// Exceptions are given in map cmd2validOutput
+// Exceptions are given in map validOutput
 func (s *State) cmd(cmd string) {
 	c1, c2, _ := strings.Cut(cmd, "\n")
 	s.conn.Send(cmd)
