@@ -34,7 +34,7 @@ use Netspoc::Approve::Device;
 use Netspoc::Approve::Linux;
 use Netspoc::Approve::Helper;
 
-our $VERSION = '3.030'; # VERSION: inserted by DZP::OurPkgVersion
+our $VERSION = '3.031'; # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 

@@ -1,3 +1,7 @@
+3.031     2024-07-25 11:31:12+02:00 Europe/Berlin
+
+ - Fixed wrong seq num "0" in added "tunnel-group-map" from Netspoc.
+
 3.030     2024-07-23 13:12:24+02:00 Europe/Berlin
 
  - Fixed unwanted "exit" from conf mode.
