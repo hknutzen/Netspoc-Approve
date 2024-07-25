@@ -693,6 +693,39 @@ clear configure tunnel-group VPN-single
 =END=
 
 ############################################################
+=TITLE=Leave seq num of added tunnel-group-map unchanged with default-group
+=DEVICE=
+tunnel-group VPN-single type remote-access
+tunnel-group VPN-single webvpn-attributes
+ authentication certificate
+tunnel-group-map default-group VPN-single
+=NETSPOC=
+tunnel-group VPN-single type remote-access
+tunnel-group VPN-single webvpn-attributes
+ authentication certificate
+tunnel-group-map default-group VPN-single
+crypto ca certificate map some-name-DRC-0 10
+ subject-name attr ea eq some-name
+ extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group some-name-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0 ipsec-attributes
+ peer-id-validate nocheck
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+tunnel-group-map some-name-DRC-0 10 some-name-DRC-0
+=OUTPUT=
+crypto ca certificate map some-name-DRC-0-DRC-0 10
+subject-name attr ea eq some-name
+extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group some-name-DRC-0-DRC-0 type ipsec-l2l
+tunnel-group some-name-DRC-0-DRC-0 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+tunnel-group-map some-name-DRC-0-DRC-0 10 some-name-DRC-0-DRC-0
+=END=
+
+############################################################
 =TITLE=Remove tunnel-group-map referencing built in
 =DEVICE=
 tunnel-group-map default-group DefaultL2LGroup
