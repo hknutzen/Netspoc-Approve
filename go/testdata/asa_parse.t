@@ -949,7 +949,7 @@ no group-policy DfltGrpPolicy attributes
 access-list split-tunnel standard permit 10.1.0.0 255.255.255.0
 access-list vpn-filter extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
 access-list vpn-filter extended deny ip any4 any4
-crypto ca certificate map ca-map 10
+crypto ca certificate map ca-map 20
  subject-name attr ea co @sub.example.com
 ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
 group-policy VPN-group internal
@@ -975,7 +975,7 @@ webvpn
 =DEVICE=NONE
 =NETSPOC=[[input]]
 =OUTPUT=
-crypto ca certificate map ca-map-DRC-0 10
+crypto ca certificate map ca-map-DRC-0 20
 subject-name attr ea co @sub.example.com
 tunnel-group VPN-tunnel-DRC-0 type remote-access
 group-policy VPN-group-DRC-0 internal
@@ -1019,9 +1019,9 @@ tunnel-group VPN-tunnel2 type remote-access
 tunnel-group VPN-tunnel2 general-attributes
 tunnel-group VPN-tunnel2 ipsec-attributes
  trust-point ASDM_TrustPoint2
-crypto ca certificate map ca-map1 10
+crypto ca certificate map ca-map1 20
  subject-name attr ea co @b.example.com
-crypto ca certificate map ca-map2 10
+crypto ca certificate map ca-map2 20
  subject-name attr ea eq x@a.example.com
  extended-key-usage co clientauth
 tunnel-group-map ca-map1 20 VPN-tunnel1
@@ -1119,7 +1119,7 @@ tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel general-attributes
 tunnel-group VPN-tunnel ipsec-attributes
  trust-point ASDM_TrustPoint4
-crypto ca certificate map ca-map 10
+crypto ca certificate map ca-map 20
  subject-name attr ea co @sub.example.com
 tunnel-group-map ca-map 20 VPN-tunnel
 =NETSPOC=NONE
@@ -1136,7 +1136,7 @@ tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel general-attributes
 tunnel-group VPN-tunnel ipsec-attributes
  trust-point ASDM_TrustPoint4
-crypto ca certificate map ca-map 10
+crypto ca certificate map ca-map 20
  subject-name attr ea co @sub.example.com
 tunnel-group-map ca-map 20 VPN-tunnel
 =NETSPOC=
@@ -1146,7 +1146,7 @@ tunnel-group VPN-tunnel ipsec-attributes
  trust-point ASDM_TrustPoint5
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 =OUTPUT=
 tunnel-group VPN-tunnel ipsec-attributes
 no trust-point ASDM_TrustPoint4
@@ -1248,15 +1248,15 @@ group-policy VPN-group attributes
 tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel general-attributes
  default-group-policy VPN-group
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 webvpn
- certificate-group-map ca-map 20 VPN-tunnel
+ certificate-group-map ca-map 10 VPN-tunnel
 =NETSPOC=NONE
 =OUTPUT=
 webvpn
-no certificate-group-map ca-map 20 VPN-tunnel
+no certificate-group-map ca-map 10 VPN-tunnel
 exit
-no tunnel-group-map ca-map 20 VPN-tunnel
+no tunnel-group-map ca-map 10 VPN-tunnel
 clear configure crypto ca certificate map ca-map
 clear configure tunnel-group VPN-tunnel
 clear configure group-policy VPN-group
@@ -1278,9 +1278,9 @@ group-policy VPN-group attributes
 tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel general-attributes
  default-group-policy VPN-group
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 webvpn
- certificate-group-map ca-map 20 VPN-tunnel
+ certificate-group-map ca-map 10 VPN-tunnel
 =NETSPOC=
 access-list vpn-filter1 extended permit ip 10.1.2.192 255.255.255.192 10.1.0.0 255.255.255.0
 access-list vpn-filter2 extended permit ip 10.1.2.192 255.255.255.192 10.2.0.0 255.255.255.0
@@ -1301,9 +1301,9 @@ tunnel-group VPN-tunnel1 general-attributes
 tunnel-group VPN-tunnel2 type remote-access
 tunnel-group VPN-tunnel2 general-attributes
  default-group-policy VPN-group2
-tunnel-group-map ca-map 20 VPN-tunnel1
+tunnel-group-map ca-map 10 VPN-tunnel1
 webvpn
- certificate-group-map ca-map 20 VPN-tunnel2
+ certificate-group-map ca-map 10 VPN-tunnel2
 =OUTPUT=
 tunnel-group VPN-tunnel2-DRC-0 type remote-access
 group-policy VPN-group2-DRC-0 internal
@@ -1315,7 +1315,7 @@ tunnel-group VPN-tunnel2-DRC-0 general-attributes
 default-group-policy VPN-group2-DRC-0
 exit
 webvpn
-certificate-group-map ca-map 20 VPN-tunnel2-DRC-0
+certificate-group-map ca-map 10 VPN-tunnel2-DRC-0
 =END=
 
 ############################################################
@@ -1333,7 +1333,7 @@ tunnel-group 193.155.130.20 ipsec-attributes
  ikev2 remote-authentication certificate
 crypto ca certificate map ca-map 10
  subject-name attr ea eq some@example.com
-tunnel-group-map ca-map 20 193.155.130.20
+tunnel-group-map ca-map 10 193.155.130.20
 =OUTPUT=
 tunnel-group 193.155.130.20 ipsec-attributes
 no peer-id-validate nocheck
@@ -1342,7 +1342,7 @@ ikev2 local-authentication certificate Trustpoint2
 ikev2 remote-authentication certificate
 crypto ca certificate map ca-map-DRC-0 10
 subject-name attr ea eq some@example.com
-tunnel-group-map ca-map-DRC-0 20 193.155.130.20
+tunnel-group-map ca-map-DRC-0 10 193.155.130.20
 =END=
 
 ############################################################
@@ -1350,10 +1350,10 @@ tunnel-group-map ca-map-DRC-0 20 193.155.130.20
 =DEVICE=
 crypto ca certificate map ca-map 10
  subject-name attr ea eq some@example.com
-tunnel-group-map ca-map 20 193.155.130.20
+tunnel-group-map ca-map 10 193.155.130.20
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'tunnel-group 193.155.130.20'
+ERROR>>> While reading device: 'tunnel-group-map ca-map 10 193.155.130.20' references unknown 'tunnel-group 193.155.130.20'
 =END=
 
 ############################################################
@@ -1418,7 +1418,7 @@ tunnel-group VPN-tunnel general-attributes
  default-group-policy VPN-group
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 =NETSPOC=
 ip local pool pool 10.1.219.192-10.1.219.208 mask 0.0.0.15
 group-policy VPN-group internal
@@ -1429,7 +1429,7 @@ tunnel-group VPN-tunnel general-attributes
  default-group-policy VPN-group
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 =OUTPUT=
 ip local pool pool-DRC-0 10.1.219.192-10.1.219.208 mask 0.0.0.15
 group-policy VPN-group attributes
@@ -1446,14 +1446,14 @@ tunnel-group NAME ipsec-attributes
  trust-point ASDM_TrustPoint5
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map 20 NAME
+tunnel-group-map ca-map 10 NAME
 =NETSPOC=
 tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel webvpn-attributes
  authentication aaa
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 =OUTPUT=
 no tunnel-group NAME ipsec-attributes
 tunnel-group NAME webvpn-attributes
@@ -1468,7 +1468,7 @@ tunnel-group NAME ipsec-attributes
  trust-point ASDM_TrustPoint5
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map 20 NAME
+tunnel-group-map ca-map 10 NAME
 =NETSPOC=
 tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel ipsec-attributes
@@ -1476,7 +1476,7 @@ tunnel-group VPN-tunnel ipsec-attributes
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
  extended-key-usage co clientauth
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 =OUTPUT=
 crypto ca certificate map ca-map 10
 extended-key-usage co clientauth
@@ -1491,14 +1491,14 @@ tunnel-group NAME ipsec-attributes
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
  extended-key-usage co clientauth
-tunnel-group-map ca-map 20 NAME
+tunnel-group-map ca-map 10 NAME
 =NETSPOC=
 tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel ipsec-attributes
  trust-point ASDM_TrustPoint5
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 =OUTPUT=
 crypto ca certificate map ca-map 10
 no extended-key-usage co clientauth
@@ -1513,7 +1513,7 @@ tunnel-group NAME ipsec-attributes
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
  extended-key-usage co 1.3.6.1.4.1.311.20.2.2
-tunnel-group-map ca-map 20 NAME
+tunnel-group-map ca-map 10 NAME
 =NETSPOC=
 tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel ipsec-attributes
@@ -1521,7 +1521,7 @@ tunnel-group VPN-tunnel ipsec-attributes
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
  extended-key-usage co clientauth
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 =OUTPUT=
 crypto ca certificate map ca-map 10
 no extended-key-usage co 1.3.6.1.4.1.311.20.2.2
@@ -1536,19 +1536,19 @@ tunnel-group NAME ipsec-attributes
  trust-point ASDM_TrustPoint5
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map 20 NAME
+tunnel-group-map ca-map 10 NAME
 =NETSPOC=
 tunnel-group VPN-tunnel type remote-access
 tunnel-group VPN-tunnel ipsec-attributes
  trust-point ASDM_TrustPoint5
 crypto ca certificate map ca-map 10
  subject-name attr ea co @sub.example.com
-tunnel-group-map ca-map 20 VPN-tunnel
+tunnel-group-map ca-map 10 VPN-tunnel
 webvpn
- certificate-group-map ca-map 20 VPN-tunnel
+ certificate-group-map ca-map 10 VPN-tunnel
 =OUTPUT=
 webvpn
-certificate-group-map ca-map 20 NAME
+certificate-group-map ca-map 10 NAME
 =END=
 
 ############################################################
