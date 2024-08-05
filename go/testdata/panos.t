@@ -1923,7 +1923,7 @@ action=set&type=config&
 ]]
 [[postfix]]
 =ERROR=
-ERROR>>> Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
+ERROR>>> While reading router.raw: Must not use rule name starting with 'r<NUM>': r3-2-1
 =END=
 
 ############################################################

@@ -2,10 +2,11 @@ package panos
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
+
+func (c *PanConfig) CheckRulesFromRaw() error { return nil }
 
 // MergeSpoc merges two configurations read from Netspoc.
 // c2 is either read from a raw file or it is a IPv6 configuration.
@@ -92,25 +93,6 @@ func (c *PanConfig) checkDeviceName(expected string) error {
 	name := c.getDevName()
 	if name != expected {
 		return fmt.Errorf("Wrong device name: %s, expected: %s", name, expected)
-	}
-	return nil
-}
-
-func (c *PanConfig) CheckRulesFromRaw() error {
-	if c == nil || c.Devices == nil {
-		return nil
-	}
-	re := regexp.MustCompile(`^r\d`)
-	for _, d := range c.Devices.Entries {
-		for _, v := range d.Vsys {
-			for _, r := range v.Rules {
-				if re.MatchString(r.Name) {
-					return fmt.Errorf(
-						"Must not use rule name starting with 'r<NUM>' in raw: %s",
-						r.Name)
-				}
-			}
-		}
 	}
 	return nil
 }
