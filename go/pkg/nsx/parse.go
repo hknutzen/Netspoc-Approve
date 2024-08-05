@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path"
+	"regexp"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
@@ -117,10 +119,28 @@ func (s *State) ParseConfig(data []byte, fName string) (
 	if err != nil {
 		return nil, err
 	}
+	if path.Ext(fName) == ".raw" {
+		if err := checkRaw(config); err != nil {
+			return nil, err
+		}
+	}
 	err = checkConfigValidity(config)
 	return config, err
 }
 
+func checkRaw(c *NsxConfig) error {
+	re := regexp.MustCompile(`^r\d`)
+	for _, p := range c.Policies {
+		for _, r := range p.Rules {
+			if re.MatchString(r.Id) {
+				return fmt.Errorf(
+					"Must not use rule name starting with 'r<NUM>': %s",
+					r.Id)
+			}
+		}
+	}
+	return nil
+}
 func checkConfigValidity(c *NsxConfig) error {
 	for _, p := range c.Policies {
 		for _, r := range p.Rules {
