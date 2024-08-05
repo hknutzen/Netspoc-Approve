@@ -4,8 +4,6 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
-func (n *NsxConfig) CheckRulesFromRaw() error { return nil }
-
 func (n1 *NsxConfig) MergeSpoc(c2 device.DeviceConfig) device.DeviceConfig {
 	n2 := c2.(*NsxConfig)
 	n1.Groups = append(n1.Groups, n2.Groups...)

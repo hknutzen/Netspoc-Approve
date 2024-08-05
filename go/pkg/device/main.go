@@ -29,7 +29,6 @@ type RealDevice interface {
 
 type DeviceConfig interface {
 	MergeSpoc(DeviceConfig) DeviceConfig
-	CheckRulesFromRaw() error
 }
 
 type state struct {
@@ -215,11 +214,6 @@ func (s *state) addRaw(conf DeviceConfig, v4Path string) (DeviceConfig, error) {
 	raw, err := s.loadSpocFile(rawPath)
 	if err != nil {
 		return nil, err
-	}
-	if raw != nil {
-		if err := raw.CheckRulesFromRaw(); err != nil {
-			return nil, err
-		}
 	}
 	conf = conf.MergeSpoc(raw)
 	return conf, nil

@@ -6,8 +6,6 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
-func (c *PanConfig) CheckRulesFromRaw() error { return nil }
-
 // MergeSpoc merges two configurations read from Netspoc.
 // c2 is either read from a raw file or it is a IPv6 configuration.
 func (p1 *PanConfig) MergeSpoc(c2 device.DeviceConfig) device.DeviceConfig {
