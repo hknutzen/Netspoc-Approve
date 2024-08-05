@@ -162,31 +162,31 @@ func (ab *rulesPair) LenA() int { return len(ab.a.rules) }
 func (ab *rulesPair) LenB() int { return len(ab.b.rules) }
 
 func (ab *rulesPair) Equal(ai, bi int) bool {
-	a := ab.a.rules[ai]
-	b := ab.b.rules[bi]
+	ra := ab.a.rules[ai]
+	rb := ab.b.rules[bi]
 
-	objEqual := func(a, b string) bool {
-		if strings.HasPrefix(a, "/infra/domains/default/groups/") {
-			return strings.HasPrefix(b, "/infra/domains/default/groups/")
+	groupEq := func(a, b string) bool {
+		if getGroup(a, ab.a.groups) == nil || getGroup(b, ab.b.groups) == nil {
+			return a == b
 		}
-		return a == b
+		return true
 	}
 
-	return a.Direction == b.Direction &&
-		a.SequenceNumber == b.SequenceNumber &&
-		a.Action == b.Action &&
-		a.Logged == b.Logged &&
-		a.Tag == b.Tag &&
-		a.Disabled == b.Disabled &&
-		a.DestinationsExcluded == b.DestinationsExcluded &&
-		a.SourcesExcluded == b.SourcesExcluded &&
-		bytes.Equal(a.ServiceEntries, b.ServiceEntries) &&
-		a.IPProtocol == b.IPProtocol &&
-		slices.Equal(a.Profiles, b.Profiles) &&
-		slices.Equal(a.Scope, b.Scope) &&
-		a.Services[0] == b.Services[0] &&
-		objEqual(a.SourceGroups[0], b.SourceGroups[0]) &&
-		objEqual(a.DestinationGroups[0], b.DestinationGroups[0])
+	return ra.Direction == rb.Direction &&
+		ra.SequenceNumber == rb.SequenceNumber &&
+		ra.Action == rb.Action &&
+		ra.Logged == rb.Logged &&
+		ra.Tag == rb.Tag &&
+		ra.Disabled == rb.Disabled &&
+		ra.DestinationsExcluded == rb.DestinationsExcluded &&
+		ra.SourcesExcluded == rb.SourcesExcluded &&
+		bytes.Equal(ra.ServiceEntries, rb.ServiceEntries) &&
+		ra.IPProtocol == rb.IPProtocol &&
+		slices.Equal(ra.Profiles, rb.Profiles) &&
+		slices.Equal(ra.Scope, rb.Scope) &&
+		ra.Services[0] == rb.Services[0] &&
+		groupEq(ra.SourceGroups[0], rb.SourceGroups[0]) &&
+		groupEq(ra.DestinationGroups[0], rb.DestinationGroups[0])
 }
 
 func (ab *rulesPair) diffRules() []change {

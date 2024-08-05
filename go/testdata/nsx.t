@@ -777,6 +777,134 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
 =END=
 
 ############################################################
+=TITLE=Unchanged rule referencing external group
+=TEMPL=external
+{
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+    {
+     "resource_type": "Rule",
+     "id": "raw",
+     "scope": [ "/infra/tier-0s/v1" ],
+     "direction": "OUT",
+     "ip_protocol": "IPV4",
+     "sequence_number": 20,
+     "action": "DROP",
+     "source_groups": [ "/infra/domains/default/groups/raw-g1" ],
+     "destination_groups": [ "/infra/domains/default/groups/raw-g1" ],
+     "services": [ "ANY" ]
+    }
+   ]
+  }
+ ]
+}
+=DEVICE=[[external]]
+=NETSPOC=[[external]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Change rule from external to internal group
+=TEMPL=internal
+{
+ "groups": [
+  {
+   "id": "Netspoc-g1",
+   "expression": [
+    {
+     "id": "id",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": [
+      "10.1.1.1"
+     ]
+    }
+   ]
+  }
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+    {
+     "resource_type": "Rule",
+     "id": "raw",
+     "scope": [ "/infra/tier-0s/v1" ],
+     "direction": "OUT",
+     "ip_protocol": "IPV4",
+     "sequence_number": 20,
+     "action": "DROP",
+     "source_groups": [ "/infra/domains/default/groups/Netspoc-g1" ],
+     "destination_groups": [ "/infra/domains/default/groups/raw-g1" ],
+     "services": [ "ANY" ]
+    }
+   ]
+  }
+ ]
+}
+=DEVICE=[[external]]
+=NETSPOC=[[internal]]
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
+
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
+{"expression":
+ [{"id":"id",
+   "resource_type":"IPAddressExpression",
+   "ip_addresses":["10.1.1.1"]}]}
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw-1
+{"action":"DROP",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/Netspoc-g1"],
+ "destination_groups":["/infra/domains/default/groups/raw-g1"],
+ "services":["ANY"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
+=END=
+
+############################################################
+=TITLE=Change rule from internal to external group
+=DEVICE=[[internal]]
+=NETSPOC=[[external]]
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
+
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw-1
+{"action":"DROP",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/raw-g1"],
+ "destination_groups":["/infra/domains/default/groups/raw-g1"],
+ "services":["ANY"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
+DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
+
+=END=
+
+############################################################
+=TITLE=Change external group in rule
+=DEVICE=[[external]]
+=NETSPOC=[[external]]
+=SUBST=/raw-g1/ext-group/
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
+
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw-1
+{"action":"DROP",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/ext-group"],
+ "destination_groups":["/infra/domains/default/groups/ext-group"],
+ "services":["ANY"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
+=END=
+
+############################################################
 =TITLE=Ignore unknown attribute
 =DEVICE=
 [[one_rule]]
