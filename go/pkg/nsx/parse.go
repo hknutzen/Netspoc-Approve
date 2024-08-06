@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
@@ -139,8 +140,29 @@ func checkRaw(c *NsxConfig) error {
 			}
 		}
 	}
+	re = regexp.MustCompile(`^Netspoc-g\d`)
+	for _, g := range c.Groups {
+		if !strings.HasPrefix(g.Id, "Netspoc") {
+			return fmt.Errorf(
+				"Must only define group where name has prefix 'Netspoc': %s",
+				g.Id)
+		}
+		if re.MatchString(g.Id) {
+			return fmt.Errorf(
+				"Must not use group name starting with 'Netspoc-g<NUM>': %s",
+				g.Id)
+		}
+	}
+	for _, g := range c.Services {
+		if !strings.HasPrefix(g.Id, "Netspoc-raw") {
+			return fmt.Errorf(
+				"Must only define service where name has prefix 'Netspoc-raw': %s",
+				g.Id)
+		}
+	}
 	return nil
 }
+
 func checkConfigValidity(c *NsxConfig) error {
 	for _, p := range c.Policies {
 		for _, r := range p.Rules {

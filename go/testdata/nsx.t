@@ -758,8 +758,6 @@ ERROR>>> While reading router.raw: Must not use rule name starting with 'r<NUM>'
 [[config
 rules:
 - { id: raw2, act: DROP, seq: 25, logged: true, tag: "testtag", disabled: true }
-services:
-- [tcp, 80]
 ]]
 =OUTPUT=
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
@@ -915,8 +913,6 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw-1
 [[config
 rules:
 - { id: raw, unknownattribute: "testattribute"}
-services:
-- [tcp, 80]
 ]]
 =OUTPUT=
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
@@ -1502,4 +1498,76 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 =OUTPUT=
 PUT /policy/api/v1/infra/services/Netspoc-icmp
 {"service_entries":[{"id":"id","protocol":"ICMPv4","resource_type":"ICMPTypeServiceEntry"}]}
+=END=
+
+############################################################
+=TITLE=Check name of service from raw
+=DEVICE=
+{}
+=NETSPOC=
+--router.raw
+{
+ "services": [
+  {
+   "id": "Netspoc-icmp",
+   "service_entries": [
+    {
+     "id": "id",
+     "protocol": "ICMPv4",
+     "resource_type": "ICMPTypeServiceEntry"
+    }
+   ]
+  }
+  ]
+}
+=ERROR=
+ERROR>>> While reading router.raw: Must only define service where name has prefix 'Netspoc-raw': Netspoc-icmp
+=END=
+
+############################################################
+=TITLE=Check name of group from raw (1)
+=DEVICE=
+{}
+=NETSPOC=
+--router.raw
+{
+ "groups": [
+  {
+   "id": "my-group",
+   "expression": [
+    {
+     "id": "id",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": ["10.1.1.1", "10.1.1.9"]
+    }
+   ]
+  }
+  ]
+}
+=ERROR=
+ERROR>>> While reading router.raw: Must only define group where name has prefix 'Netspoc': my-group
+=END=
+
+############################################################
+=TITLE=Check name of group from raw (2)
+=DEVICE=
+{}
+=NETSPOC=
+--router.raw
+{
+ "groups": [
+  {
+   "id": "Netspoc-g1",
+   "expression": [
+    {
+     "id": "id",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": ["10.1.1.1", "10.1.1.9"]
+    }
+   ]
+  }
+  ]
+}
+=ERROR=
+ERROR>>> While reading router.raw: Must not use group name starting with 'Netspoc-g<NUM>': Netspoc-g1
 =END=
