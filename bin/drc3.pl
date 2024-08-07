@@ -26,24 +26,20 @@ use strict;
 use warnings;
 use Cwd 'abs_path';
 use File::Basename;
-use Fcntl qw/:flock/;    # import LOCK_* constants
-use Fcntl;
 use Getopt::Long;
 use Netspoc::Approve::Load_Config;
 use Netspoc::Approve::Device;
-use Netspoc::Approve::Linux;
-use Netspoc::Approve::Helper;
 
 # VERSION: inserted by DZP::OurPkgVersion
 my $version = __PACKAGE__->VERSION || 'devel';
 $| = 1;    # output char by char
 
-my %type2class = (
-    Linux   => 'Netspoc::Approve::Linux',
-    'ASA'    => 'drc-asa',
-    'IOS'    => 'drc-ios',
-    'PAN-OS' => 'drc-pan-os',
+my %type2prog = (
+    Linux    => 'drc-linux',
+    ASA      => 'drc-asa',
+    IOS      => 'drc-ios',
     NSX      => 'drc-nsx',
+    'PAN-OS' => 'drc-pan-os',
 );
 
 ####################################################################
@@ -68,14 +64,6 @@ END
     exit -1;
 }
 
-sub banner_msg {
-    my ($msg) = @_;
-    my $time = localtime;
-    info('*' x 68);
-    info(" $msg: at > $time <");
-    info('*' x 68);
-}
-
 Getopt::Long::Configure("no_ignore_case");
 
 my @orig_args = @ARGV;
@@ -92,10 +80,9 @@ my %opts;
 );
 
 if ($opts{v}) {
-    info "drc3.pl, version $version";
+    print STDERR "drc3.pl, version $version\n";
     exit;
 }
-delete($opts{q}) and quiet();
 
 my $file1 = shift or usage();
 my $file2 = shift;
@@ -121,62 +108,35 @@ if (not $file2) {
     Netspoc::Approve::Device::set_lock($name, $config->{lockfiledir});
 }
 
-# Get class or program name from type.
-my $class_or_prog = $type2class{$type}
+# Get program name from type.
+my $prog = $type2prog{$type}
   or abort("Can't find definition for [ Model = $type ] from $spoc_file");
 
 # Exec external program and then terminate.
-if ($class_or_prog !~ /^Netspoc::Approve::/) {
-    # Search program in directoy of current program.
-    my $dir = (fileparse(abs_path(__FILE__)))[1];
-    my $prog = "$dir/$class_or_prog";
-    my @args = ($prog);
-    # Remove two parameters '--LOGFILE FILE'
-    my $file = 0;
-    for my $arg (@orig_args) {
-        if ($arg eq '--LOGFILE') {
-            $file = 1;
-            next;
-        }
-        if ($file) {
-            $file = 0;
-            next;
-        }
-        push @args, $arg;
+# Search program in directoy of current program.
+my $dir = (fileparse(abs_path(__FILE__)))[1];
+$prog = "$dir/$prog";
+my @args = ($prog);
+# Remove two parameters '--LOGFILE FILE'
+my $file = 0;
+for my $arg (@orig_args) {
+    if ($arg eq '--LOGFILE') {
+        $file = 1;
+        next;
     }
-    system(@args);
-    if ($? == -1) {
-        abort("Can't execute '$prog': $!");
+    if ($file) {
+        $file = 0;
+        next;
     }
-    elsif ($? & 127) {
-        abort("'$prog' died with signal: " . ($? & 127));
-    }
-    else {
-        exit ($? >> 8);
-    }
+    push @args, $arg;
 }
-
-my $job = $class_or_prog->new(
-    NAME   => $name,
-    OPTS   => \%opts,
-);
-
-# Handle file compare first, which can be run
-# - without device's IP and password
-# - without calling Load_Config (so we can use compare_files for testing).
-if ($file2) {
-    exit($job->compare_files($file1, $file2) ? 1 : 0)
+system(@args);
+if ($? == -1) {
+    abort("Can't execute '$prog': $!");
 }
-
-$job->{USER} = delete $opts{u} || getpwuid($>);
-$job->{CONFIG} = $config;
-
-# Start compare / approve.
-banner_msg('START');
-if ($opts{C}) {
-    $job->compare($file1);
+elsif ($? & 127) {
+    abort("'$prog' died with signal: " . ($? & 127));
 }
 else {
-    $job->approve($file1);
+    exit ($? >> 8);
 }
-banner_msg('STOP');

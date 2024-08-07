@@ -14,6 +14,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/linux"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
 	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
@@ -58,6 +59,8 @@ func runTestFiles(t *testing.T) {
 					realDev = asa.Setup()
 				case "ios":
 					realDev = ios.Setup()
+				case "linux":
+					realDev = &linux.State{}
 				case "nsx":
 					realDev = &nsx.State{}
 				case "panos":
