@@ -1,29 +1,5 @@
 
 ############################################################
-=TITLE=Add routing
-=NETSPOC=
-ip route add 10.1.11.1 via 10.10.1.7
-ip route add 10.1.11.0/24 via 10.10.1.6
-ip route add default via 10.9.9.9
-=OUTPUT=
-ip route add 10.1.11.1 via 10.10.1.7
-ip route add 10.1.11.0/24 via 10.10.1.6
-ip route add default via 10.9.9.9
-=END=
-
-############################################################
-=TITLE=Unchanged routing
-=DEVICE=
-ip route add 10.1.11.1 via 10.10.1.7
-ip route add 10.1.11.0/24 via 10.10.1.6
-ip route add default via 10.9.9.9
-=NETSPOC=
-ip route add 10.1.11.1 via 10.10.1.7
-ip route add 10.1.11.0/24 via 10.10.1.6
-ip route add default via 10.9.9.9
-=OUTPUT=NONE
-
-############################################################
 =TITLE=Chain policy outside of table
 =NETSPOC=
 :c1 -
@@ -228,22 +204,6 @@ ip route add 10.10.0.0/16 via 10.1.2.3
 :c3 -
 -A c3 -j ACCEPT -s 10.1.11.111 -d 10.10.1.2 -p tcp --dport 22
 =OUTPUT=NONE
-
-############################################################
-=TITLE=Change routing
-=DEVICE=
-ip route add 10.20.0.0/16 via 10.1.2.3
-ip route add 10.30.0.0/16 via 10.1.2.3
-ip route add 10.40.0.0/16 via 10.1.2.3
-=NETSPOC=
-ip route add 10.10.0.0/16 via 10.1.2.3
-ip route add 10.20.0.0/16 via 10.1.2.3
-ip route add 10.40.0.0/16 via 10.1.2.4
-=OUTPUT=
-ip route add 10.10.0.0/16 via 10.1.2.3
-ip route del 10.40.0.0/16 via 10.1.2.3\N ip route add 10.40.0.0/16 via 10.1.2.4
-ip route del 10.30.0.0/16 via 10.1.2.3
-=END=
 
 ############################################################
 =TITLE=Change iptables port

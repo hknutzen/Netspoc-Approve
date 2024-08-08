@@ -4,10 +4,8 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/sorted"
 )
 
@@ -21,37 +19,7 @@ func diffConfig(a, b *config) change {
 
 // ip route add 10.1.1.1 via 10.9.1.1
 // ip route add 10.1.1.0/28 via 10.9.1.2
-func diffRoutes(a, b []string) []string {
-	type dst struct {
-		ip     string
-		prefix int
-	}
-	type route struct {
-		dst
-		orig string
-	}
-	parse := func(l []string) []route {
-		var result []route
-		for _, line := range l {
-			if rest, found := strings.CutPrefix(line, "ip route add "); found {
-				words := strings.Fields(rest)
-				if len(words) >= 3 && words[1] == "via" {
-					ip := words[0]
-					prefix := 32
-					if _, prefix2, found := strings.Cut(ip, "/"); found {
-						prefix, _ = strconv.Atoi(prefix2)
-					} else if ip == "default" {
-						prefix = 0
-					}
-					result = append(result,
-						route{dst: dst{ip: ip, prefix: prefix}, orig: line})
-					continue
-				}
-			}
-			device.Abort("Invalid route: %s", line)
-		}
-		return result
-	}
+func diffRoutes(a, b []route) []string {
 	printAdd := func(r route) string {
 		return r.orig
 	}
@@ -59,39 +27,37 @@ func diffRoutes(a, b []string) []string {
 		cmd := r.orig
 		return strings.Replace(cmd, "ip route add ", "ip route del ", 1)
 	}
-	aRoutes := parse(a)
-	bRoutes := parse(b)
 	// Add routes with long mask first. If we switch the default
 	// route, this ensures, that we have the new routes available
 	// before deleting the old default route.
-	slices.SortFunc(bRoutes, func(r1, r2 route) int {
+	slices.SortFunc(b, func(r1, r2 route) int {
 		return cmp.Compare(r2.prefix, r1.prefix)
 	})
-	aMap := make(map[route]bool)
+	aMap := make(map[spec]bool)
 	aDstMap := make(map[dst]route)
-	for _, r := range aRoutes {
-		aMap[r] = true
+	for _, r := range a {
+		aMap[r.spec] = true
 		aDstMap[r.dst] = r
 	}
 	var result []string
-	for _, r := range bRoutes {
-		if aMap[r] {
-			delete(aMap, r)
+	for _, r := range b {
+		if aMap[r.spec] {
+			delete(aMap, r.spec)
 			continue
 		}
 		cmd := printAdd(r)
 		// Prevent two routes to identical destination to be both active.
 		// Remove and add routes in one transaction.
 		if r2, found := aDstMap[r.dst]; found {
-			if aMap[r2] {
+			if aMap[r2.spec] {
 				cmd = printDel(r2) + "\n" + cmd
-				delete(aMap, r2)
+				delete(aMap, r2.spec)
 			}
 		}
 		result = append(result, cmd)
 	}
-	for _, r := range aRoutes {
-		if aMap[r] {
+	for _, r := range a {
+		if aMap[r.spec] {
 			result = append(result, printDel(r))
 		}
 	}

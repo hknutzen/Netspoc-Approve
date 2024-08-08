@@ -1,24 +1,13 @@
 package linux
 
 import (
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
-
-type tables map[string]chains
-type chains map[string]*chain
-type chain struct {
-	policy string
-	rules  []rule
-}
-type rule struct {
-	orig   string
-	pairs  map[string]string
-	append bool
-}
 
 func (s *State) ParseConfig(data []byte, fName string,
 ) (device.DeviceConfig, error) {
@@ -35,9 +24,77 @@ func (s *State) ParseConfig(data []byte, fName string,
 		}
 	}
 	return &config{
-		routes:   rLines,
+		routes:   parseRoutes(rLines),
 		iptables: s.parseIPTables(tLines),
 	}, nil
+}
+
+type route struct {
+	spec
+	orig string
+}
+
+type spec struct {
+	dst
+	hop string
+}
+type dst struct {
+	ip     string
+	prefix int
+}
+
+func parseRoutes(lines []string) []route {
+	var result []route
+	for _, line := range lines {
+		rest, found := strings.CutPrefix(line, "ip route add ")
+		if !found {
+			device.Abort("Unexpected route: %s", line)
+		}
+		// Ignore entries with 'scope link'.
+		if strings.Contains(rest, " scope link") {
+			continue
+		}
+		// Ignore entries with 'proto xxx' except 'proto static'.
+		if m, _ := regexp.MatchString(` proto (?:kernel|boot|[0-9]+)`, rest); m {
+			continue
+		}
+		words := strings.Fields(rest)
+		if !(len(words) >= 3 && words[1] == "via") {
+			device.Abort("Unexpected route: %s", line)
+		}
+		// Ignore attribute 'dev', if 'via' is provided.
+		if len(words) > 3 && !(len(words) == 5 && words[3] == "dev") {
+			device.Abort("Unexpected route: %s", line)
+		}
+		ip := words[0]
+		prefix := 32
+		hop := words[2]
+		if ip2, prefix2, found := strings.Cut(ip, "/"); found {
+			ip = ip2
+			prefix, _ = strconv.Atoi(prefix2)
+		} else if ip == "default" {
+			ip = "0.0.0.0"
+			prefix = 0
+		}
+		result = append(result,
+			route{
+				spec: spec{dst: dst{ip: ip, prefix: prefix}, hop: hop},
+				orig: line,
+			})
+	}
+	return result
+}
+
+type tables map[string]chains
+type chains map[string]*chain
+type chain struct {
+	policy string
+	rules  []rule
+}
+type rule struct {
+	orig   string
+	pairs  map[string]string
+	append bool
 }
 
 func (s *State) parseIPTables(lines []string) tables {
