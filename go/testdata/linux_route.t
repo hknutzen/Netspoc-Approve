@@ -55,6 +55,16 @@ ERROR>>> Unexpected route: ip route del
 =END=
 
 ############################################################
+=TITLE=Incomplete route
+=DEVICE=
+
+=NETSPOC=
+ip route add 10.1.1.0/24
+=ERROR=
+ERROR>>> Unexpected route: ip route add 10.1.1.0/24
+=END=
+
+############################################################
 =TITLE=Unexpected attribute
 =DEVICE=
 

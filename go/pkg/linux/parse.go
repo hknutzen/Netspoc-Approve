@@ -234,7 +234,7 @@ func normalizeIPTables(pairs map[string]string) {
 			case "ipv6-icmp":
 				v = "58"
 			}
-		case "--dport":
+		case "--sport", "--dport":
 			v = strings.TrimLeft(v, "0")
 			if before, found := strings.CutSuffix(v, ":65535"); found {
 				v = before + ":"

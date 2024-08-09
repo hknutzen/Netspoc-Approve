@@ -63,18 +63,15 @@ func (s *State) LoadDevice(
 }
 
 func (s *State) loginEnable(pass string, cfg *device.Config) {
-	var bannerLines string
 	conn := s.conn
-	stdPrompt := `\r\n\S*\s?[%>$#]\s?(?:\x27\S*)?$`
+	stdPrompt := `\r\n\S*\s?[%>$#]\s?(?:\x27\S*)?`
 	passPrompt := stdPrompt + `|(?i)password:`
 	out := conn.ShortWait(passPrompt + `|\(yes/no.*\)\?`)
 	if strings.HasSuffix(out, "?") {
 		out = conn.IssueCmd("yes", passPrompt)
 	}
-	bannerLines += out
 	if strings.HasSuffix(out, "word:") {
 		out = conn.IssueCmd(pass, passPrompt)
-		bannerLines += out
 	}
 	if strings.HasSuffix(out, "word:") {
 		device.Abort("Authentication failed")
@@ -224,8 +221,8 @@ func (s *State) writeStartupIPTables(tb tables, dst string) {
 
 func (s *State) findIPTablesRestoreCmd() string {
 	out := s.conn.GetCmdOutput("which iptables-restore")
-	cmd, _, found := strings.Cut(out, "\n")
-	if !found {
+	cmd := strings.TrimSpace(out)
+	if !strings.HasSuffix(cmd, "iptables-restore") {
 		device.Abort("Can't find path of 'iptables-restore'")
 	}
 	return cmd
@@ -269,12 +266,12 @@ func (s *State) writeStartup(file *os.File, lines []string, dst string) {
 }
 
 func (s *State) putScp(src, dst string) {
-	if os.Getenv("SIMULATE_ROUTER") != "" {
-		return
-	}
 	remote := s.user + "@" + s.ip + ":"
 	cmd := exec.Command("scp", "-q", src, remote+dst)
 	device.Info("Executing %s", cmd)
+	if os.Getenv("SIMULATE_ROUTER") != "" {
+		return
+	}
 	err := cmd.Run()
 	if err != nil {
 		device.Abort("%s failed: %v", cmd, err)

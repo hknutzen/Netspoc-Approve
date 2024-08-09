@@ -4,7 +4,6 @@
 The authenticity of host 'router (10.1.1.1)' can't be established.
 ECDSA key fingerprint is ee:6e:ee:00:33:aa:22:88:44:66:44:33:aa:77:42:f5.
 Are you sure you want to continue connecting (yes/no)? <!>
---- managed by NetSPoC ---
 root@linux-router:~#
 # echo $?
 0
@@ -39,7 +38,6 @@ The authenticity of host 'router (10.1.1.1)' can't be established.
 ECDSA key fingerprint is ee:6e:ee:00:33:aa:22:88:44:66:44:33:aa:77:42:f5.
 Are you sure you want to continue connecting (yes/no)? yes
 
---- managed by NetSPoC ---
 root@linux-router:~#PS1=router#
 router#uname -r
 3.2.89-2.custom
@@ -116,7 +114,7 @@ ERROR>>> RTNETLINK answers: Invalid argument
 =TITLE=Unexpected echo in response to command
 # Use banner to garble echo of command.
 =SCENARIO=
-Are you sure you want to continue connecting (yes/no)? <!>
+
 root@linux-router:~#
 # echo $?
 0
@@ -135,7 +133,7 @@ ERROR>>> 3.2.89-2.custom
 ############################################################
 =TITLE=Unexpected exit status of command
 =SCENARIO=
-Are you sure you want to continue connecting (yes/no)? <!>
+
 root@linux-router:~#
 # echo $?
 1
@@ -157,7 +155,7 @@ ERROR>>> ip route add 0.0.0.0/0 via 10.1.1.99 failed (exit status)
 
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> while waiting for prompt '\r\n\S*\s?[%>$#]\s?(?:\x27\S*)?$|(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
+ERROR>>> while waiting for prompt '\r\n\S*\s?[%>$#]\s?(?:\x27\S*)?|(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 =END=
 
 ############################################################
@@ -168,4 +166,48 @@ Enter Password:
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> Authentication failed
+=END=
+
+############################################################
+=TITLE=Wrong device name
+=SCENARIO=
+
+router#
+# echo $?
+0
+# uname -r
+3.2.89-2.custom
+# uname -m
+i686
+# hostname -s
+xyz
+=NETSPOC=
+*filter
+:INPUT DROP
+-A INPUT -j ACCEPT -s 10.1.11.111 -d 10.10.1.2 -p tcp --dport 22
+=ERROR=
+ERROR>>> Wrong device name: "xyz", expected: "router"
+=END=
+
+############################################################
+=TITLE=Unknown iptables-restore
+=SCENARIO=
+
+router#
+# echo $?
+0
+# uname -r
+3.2.89-2.custom
+# uname -m
+i686
+# hostname -s
+router
+# grep 'NetSPoC' /etc/issue
+--- managed by NetSPoC ---
+=NETSPOC=
+*filter
+:INPUT DROP
+-A INPUT -j ACCEPT -s 10.1.11.111 -d 10.10.1.2 -p tcp --dport 22
+=ERROR=
+ERROR>>> Can't find path of 'iptables-restore'
 =END=
