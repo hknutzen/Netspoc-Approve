@@ -63,7 +63,7 @@ func runTestFiles(t *testing.T) {
 					realDev = &linux.State{}
 				case "nsx":
 					realDev = &nsx.State{}
-				case "panos":
+				case "pan-os":
 					realDev = &panos.State{}
 				default:
 					t.Fatal(fmt.Errorf("Unexpected test file %s with prefix '%s'",
