@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	deviceUser         = "root"
 	deviceRoutingFile  = "/etc/network/routing"
 	deviceIPTablesFile = "/etc/network/packet-filter"
 )
