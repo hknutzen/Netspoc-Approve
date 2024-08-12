@@ -1571,3 +1571,29 @@ ERROR>>> While reading router.raw: Must only define group where name has prefix 
 =ERROR=
 ERROR>>> While reading router.raw: Must not use group name starting with 'Netspoc-g<NUM>': Netspoc-g1
 =END=
+
+############################################################
+=TITLE=Sort rules with seemingly same groups correctly
+=DEVICE=
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.1.10","10.1.2.40' }
+rules:
+- { id: r1, src: g0, dst: 10.1.2.1, srv: tcp_80 }
+- { id: r2, src: g1, dst: 10.1.2.2, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=NETSPOC=
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.1.10","10.1.2.40' }
+rules:
+- { id: r2, src: g1, dst: 10.1.2.2, srv: tcp_80 }
+- { id: r1, src: g0, dst: 10.1.2.1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=OUTPUT=NONE
