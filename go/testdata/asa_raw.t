@@ -13,7 +13,7 @@ route inside 10.20.0.0 255.248.0.0 10.1.2.3
 unexpected foo
 =ERROR=
 ERROR>>> While reading router.raw: Unexpected command:
->>unexpected foo<<
+ERROR>>> >>unexpected foo<<
 =END=
 
 ############################################################
