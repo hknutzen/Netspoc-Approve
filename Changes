@@ -1,5 +1,6 @@
 {{$NEXT}}
 
+ - Fixed sorting of rules for NSX where rule references group
  - Fixed compare of rules for NSX where rule references external
    group, that is not known by Netspoc.
  - Fixed check of raw file for NSX:
