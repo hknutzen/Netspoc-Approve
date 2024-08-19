@@ -2,7 +2,9 @@ package approve_test
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"os/user"
 	"path"
 	"path/filepath"
@@ -31,6 +33,7 @@ type descr struct {
 	Scenario string
 	Netspoc  string
 	Options  string
+	Setup    string
 	Output   string
 	Warning  string
 	Error    string
@@ -84,7 +87,7 @@ func runTest(t *testing.T, d descr, devType string) {
 	os.Chdir(workDir)
 
 	// Initialize os.Args, add default options.
-	os.Args = []string{"PROGRAM", "-q"}
+	os.Args = []string{"drc", "-q"}
 
 	// Add more options.
 	if d.Options != "" {
@@ -159,6 +162,27 @@ timeout = 1
 		}
 	}
 	os.Args = append(os.Args, path.Join(codeDir, deviceName))
+
+	// Execute shell commands to setup error cases in working directory.
+	if d.Setup != "" {
+		t.Cleanup(func() {
+			// Make files writeable again if =SETUP= commands have
+			// revoked file permissions.
+			exec.Command("chmod", "-R", "u+rwx", workDir).Run()
+		})
+		cmd := exec.Command("bash", "-e")
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		io.WriteString(stdin, "cd '"+workDir+"'\n")
+		io.WriteString(stdin, d.Setup)
+		stdin.Close()
+
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("executing =SETUP=: %v\n%s", err, out)
+		}
+	}
 
 	// Call main function.
 	var status int
