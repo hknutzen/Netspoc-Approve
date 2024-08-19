@@ -20,14 +20,8 @@ func (c *Config) GetUserPass(hostName string) (string, string) {
 }
 
 // Read password from user.
-// Write directly to tty, because STDOUT may be redirected.
 func (c *Config) askPassword() string {
-	fd, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0)
-	if err != nil {
-		Abort("%v", err)
-	}
-	defer fd.Close()
-	fmt.Fprintf(fd, "Enter password for %q: ", c.User)
+	fmt.Printf("Enter password for %q: ", c.User)
 	pass, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		Abort("%v", err)
