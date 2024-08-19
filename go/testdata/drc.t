@@ -14,8 +14,8 @@ ERROR>>> Unexpected model "" in file code/router.info
 =OPTIONS=-x
 =ERROR=
 Error: unknown shorthand flag: 'x' in -x
-Usage: PROGRAM [options] FILE1
-     : PROGRAM [-q] FILE1 FILE2
+Usage: drc [options] FILE1
+     : drc [-q] FILE1 FILE2
       --LOGFILE string   Path to redirect STDERR
   -C, --compare          Compare only
   -L, --logdir string    Path for saving session logs

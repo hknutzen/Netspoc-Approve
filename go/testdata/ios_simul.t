@@ -609,3 +609,36 @@ ipv6 route 10::2:0/1 10::2:5
 =ERROR=
 ERROR>>> Missing IP address in [code/ipv6/router.info]
 =END=
+
+############################################################
+=TITLE=No credentials found
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+=SETUP=
+echo pattern user pass >credentials
+=ERROR=
+ERROR>>> No matching entry found in credentials
+=END=
+
+############################################################
+=TITLE=Bad credentials file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+=SETUP=
+echo abc 123 >credentials
+=ERROR=
+ERROR>>> Expected 3 fields in lines of credentials
+=END=
+
+############################################################
+=TITLE=Missing credentials file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+=SETUP=
+rm credentials
+=ERROR=
+ERROR>>> Can't open credentials: no such file or directory
+=END=
