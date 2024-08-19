@@ -26,3 +26,4 @@ go vet ./...
 
 # Execute tests.
 ( cd test; go test )
+( cd cmd/get-netspoc-approve-conf; go test )

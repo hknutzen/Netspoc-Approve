@@ -6,4 +6,5 @@ released/
 cover_db
 go/test/coverage.out
 go/cmd/*/*
-!go/cmd/*/main.go
+!go/cmd/*/*.go
+!go/cmd/*/testdata
