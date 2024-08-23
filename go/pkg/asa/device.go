@@ -167,7 +167,7 @@ func (s *State) cmd(cmd string) {
 var sameGroupRegex = regexp.MustCompile(
 	`^WARNING: Same object-group is used more than once in one config line`)
 var cryptoMapIncompleteRegex = regexp.MustCompile(
-	`WARNING: The crypto map entry is incomplete!`)
+	`WARNING: The crypto map entry (?:is|will be) incomplete!`)
 
 var validOutput = map[string]*regexp.Regexp{
 	"access-list":    sameGroupRegex,
