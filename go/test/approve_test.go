@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"os/user"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -106,10 +105,9 @@ func runTest(t *testing.T, d descr, devType string) {
 		cmd := prevDir + "/../testdata/simulate-cisco.pl " + deviceName + " " +
 			path.Join(workDir, scenarioFile)
 		os.Setenv("SIMULATE_ROUTER", cmd)
-		// Prepare credentials file. Declare current user as system user.
+		// Prepare credentials file. Declare user as system user.
 		credentialsFile := "credentials"
-		u, _ := user.Current()
-		id := u.Username
+		id := "admin"
 		line := "* " + id + " secret\n"
 		if err := os.WriteFile(credentialsFile, []byte(line), 0644); err != nil {
 			t.Fatal(err)
