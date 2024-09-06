@@ -1,5 +1,15 @@
 {{$NEXT}}
 
+ - Migrated program 'drc3.pl' from Perl to Go.
+   It is named 'drc' now.
+   'drc3.pl' is still available as symbolic link to 'drc'.
+   Programs 'drc-asa', 'drc-ios', 'drc-linux', 'drc-nsx', 'drc-pan-os'
+   have been removed.
+ - When running 'diamonds compare' or 'drc3.pl -C' and device has changed,
+   then changes are written to file '*.cmp'.
+ - Migrated program 'get-netspoc-approve-conf' from Perl to Go.
+ - This warning from ASA is ignored now: 'crypto map entry will be incomplete'.
+
 3.032     2024-08-14 11:55:20+02:00 Europe/Berlin
 
  - Fixed sorting of rules for NSX where rule references group
