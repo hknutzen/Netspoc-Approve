@@ -1,9 +1,6 @@
 package nsx
 
 import (
-	"fmt"
-	"regexp"
-
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
@@ -23,21 +20,4 @@ POLICY:
 		n1.Policies = append(n1.Policies, p2)
 	}
 	return n1
-}
-
-func (n *NsxConfig) CheckRulesFromRaw() error {
-	if n == nil || n.Policies == nil {
-		return nil
-	}
-	re := regexp.MustCompile(`^r\d`)
-	for _, p := range n.Policies {
-		for _, r := range p.Rules {
-			if re.MatchString(r.Id) {
-				return fmt.Errorf(
-					"Must not use rule name starting with 'r<NUM>' in raw: %s",
-					r.Id)
-			}
-		}
-	}
-	return nil
 }

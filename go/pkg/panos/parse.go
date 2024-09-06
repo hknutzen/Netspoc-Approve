@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/url"
+	"path"
 	"regexp"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
@@ -52,7 +53,26 @@ func (s *State) ParseConfig(data []byte, fName string) (
 	}
 	err := xml.Unmarshal(data, config)
 	config.origin = "netspoc"
+	if err == nil && path.Ext(fName) == ".raw" {
+		err = checkRaw(config)
+	}
 	return config, err
+}
+
+func checkRaw(c *PanConfig) error {
+	re := regexp.MustCompile(`^r\d`)
+	for _, d := range c.Devices.Entries {
+		for _, v := range d.Vsys {
+			for _, r := range v.Rules {
+				if re.MatchString(r.Name) {
+					return fmt.Errorf(
+						"Must not use rule name starting with 'r<NUM>': %s",
+						r.Name)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func parseResponseConfig(body []byte) (*PanConfig, error) {

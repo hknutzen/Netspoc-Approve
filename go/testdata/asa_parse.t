@@ -2213,8 +2213,8 @@ ldap attribute-map LDAPMAP
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: Bad indentation in subcommands:
->>  map-name memberOf Group-Policy<<
->> map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com" VPN-group-G1<<
+ERROR>>> >>  map-name memberOf Group-Policy<<
+ERROR>>> >> map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com" VPN-group-G1<<
 =END=
 
 ############################################################

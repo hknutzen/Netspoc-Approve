@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -29,7 +31,6 @@ type RealDevice interface {
 
 type DeviceConfig interface {
 	MergeSpoc(DeviceConfig) DeviceConfig
-	CheckRulesFromRaw() error
 }
 
 type state struct {
@@ -40,70 +41,46 @@ type state struct {
 
 var quiet bool
 
-func Main(device RealDevice) int {
-	fs := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
-
-	// Setup custom usage function.
-	fs.Usage = func() {
-		prog := path.Base(os.Args[0])
-		fmt.Fprintf(os.Stderr,
-			"Usage: %s [options] FILE1\n"+
-				"     : %s FILE1 FILE2\n", prog, prog)
-		fs.PrintDefaults()
+func Main(dev RealDevice, fs *pflag.FlagSet) int {
+	s := &state{RealDevice: dev}
+	getString := func(fs *pflag.FlagSet, name string) string {
+		val, _ := fs.GetString(name)
+		return val
 	}
-
-	// Command line flags
-	fs.BoolVarP(&quiet, "quiet", "q", false, "No info messages")
-	compare := fs.BoolP("compare", "C", false, "Compare only")
-	logDir := fs.StringP("logdir", "L", "", "Path for saving session logs")
-	user := fs.StringP("user", "u", "", "Username for login to remote device")
-	if err := fs.Parse(os.Args[1:]); err != nil {
-		if err == pflag.ErrHelp {
-			return 1
-		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		fs.Usage()
-		return 1
-	}
-
+	quiet, _ = fs.GetBool("quiet")
 	return handleBailout(func() int {
 		var err error
-		s := &state{RealDevice: device}
-
-		// Argument processing
 		args := fs.Args()
 		switch len(args) {
-		case 0:
-			fallthrough
-		default:
-			fs.Usage()
-			return 1
 		case 2:
-			if *logDir != "" {
+			q := fs.Changed("quiet")
+			n := fs.NFlag()
+			if q && n > 1 || !q && n > 0 {
 				fs.Usage()
 				return 1
 			}
+			s.setStderrLog("")
 			err = s.compareFiles(args[0], args[1])
 		case 1:
+			fname := args[0]
 			s.config, err = LoadConfig()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
-				return 1
+				break
 			}
-			s.config.User = *user
-			fname := args[0]
-			s.setLogDir(*logDir, fname)
-			if *compare {
+			s.config.User = getString(fs, "user")
+			s.setLogDir(getString(fs, "logdir"), fname)
+			s.setStderrLog(getString(fs, "LOGFILE"))
+			s.setLock(fname)
+			if v, _ := fs.GetBool("compare"); v {
 				err = s.compare(fname)
 			} else {
 				err = s.approve(fname)
 			}
+			s.CloseConnection()
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR>>> %v\n", err)
-			return 1
+			Abort("%v", err)
 		}
-		s.CloseConnection()
 		return 0
 	})
 }
@@ -117,7 +94,8 @@ func (s *state) compareFiles(fname1, fname2 string) error {
 	if err != nil {
 		return err
 	}
-	s.showCompare()
+	s.showCompareInfo()
+	fmt.Print(s.ShowChanges())
 	return nil
 }
 
@@ -129,7 +107,15 @@ func (s *state) compare(fname string) error {
 	for _, w := range s.GetErrUnmanaged() {
 		Warning("%v", w)
 	}
-	s.showCompare()
+	s.showCompareInfo()
+	if s.logFname != "" && s.HasChanges() {
+		logFH, err := s.getLogFH(".cmp")
+		if err != nil {
+			return err
+		}
+		defer closeLogFH(logFH)
+		fmt.Fprint(logFH, s.ShowChanges())
+	}
 	return nil
 }
 
@@ -179,12 +165,11 @@ func (s *state) applyCommands() error {
 	return s.ApplyCommands(logFH)
 }
 
-func (s *state) showCompare() {
+func (s *state) showCompareInfo() {
 	if !s.HasChanges() {
 		Info("comp: device unchanged")
 	} else {
 		Info("comp: *** device changed ***")
-		fmt.Print(s.ShowChanges())
 	}
 }
 
@@ -216,11 +201,6 @@ func (s *state) addRaw(conf DeviceConfig, v4Path string) (DeviceConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	if raw != nil {
-		if err := raw.CheckRulesFromRaw(); err != nil {
-			return nil, err
-		}
-	}
 	conf = conf.MergeSpoc(raw)
 	return conf, nil
 }
@@ -244,6 +224,29 @@ func getIPv6Fname(p string) string {
 	return dir + "/ipv6/" + base
 }
 
+// Set lock for exclusive approval.
+// Store file handle in global var, so it isn't closed immediately.
+// File is closed automatically after program exit.
+var lockFH *os.File
+
+func (s *state) setLock(fname string) {
+	lockFile := path.Join(s.config.lockfileDir, path.Base(fname))
+	_, statErr := os.Stat(lockFile)
+	fh, err := os.Create(lockFile)
+	if err != nil {
+		Abort("Can't %v", err)
+	}
+	// Make newly created lock file writable for other users.
+	if statErr != nil && errors.Is(statErr, fs.ErrNotExist) {
+		os.Chmod(lockFile, 0666)
+	}
+	err = syscall.Flock(int(fh.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	if err != nil {
+		Abort("Approve in progress for %s", fname)
+	}
+	lockFH = fh
+}
+
 type codeInfo struct {
 	GeneratedBy             string   `json:"generated_by"`
 	Model                   string   `json:"model"`
@@ -253,7 +256,7 @@ type codeInfo struct {
 }
 
 func getHostnameIPList(path string) ([]string, []string, error) {
-	info, checked := loadInfoFile(path)
+	info, checked := LoadInfoFile(path)
 	nameList := info.NameList
 	ipList := info.IPList
 	if len(nameList) == 0 {
@@ -270,7 +273,7 @@ func getHostnameIPList(path string) ([]string, []string, error) {
 }
 
 func GetIPPDP(fName string) (string, string, error) {
-	info, checked := loadInfoFile(fName)
+	info, checked := LoadInfoFile(fName)
 	ipList := info.IPList
 	if len(ipList) == 0 {
 		return "", "", fmt.Errorf("Missing IP address in %v", checked)
@@ -282,7 +285,7 @@ func GetHostname(fName string) string {
 	return path.Base(fName)
 }
 
-func loadInfoFile(path string) (*codeInfo, []string) {
+func LoadInfoFile(path string) (*codeInfo, []string) {
 	path6 := getIPv6Fname(path)
 	info := &codeInfo{}
 	var checked []string
@@ -319,11 +322,15 @@ func (s *state) getLogFH(ext string) (*os.File, error) {
 		return nil, nil
 	}
 	fname := s.logFname + ext
-	// Rename existing logfile.
+	moveLogFile(fname)
+	return createWithPath(fname)
+}
+
+// Rename existing logfile.
+func moveLogFile(fname string) {
 	if _, err := os.Stat(fname); err == nil {
 		os.Rename(fname, fmt.Sprintf("%s.%d", fname, time.Now().Unix()))
 	}
-	return os.Create(fname)
 }
 
 func closeLogFH(fh *os.File) {
@@ -339,6 +346,29 @@ func DoLog(fh *os.File, s string) {
 		}
 		fmt.Fprintln(fh, s)
 	}
+}
+
+var stderrLog *os.File
+
+func (s *state) setStderrLog(fname string) {
+	stderrLog = os.Stderr
+	if fname != "" {
+		moveLogFile(fname)
+		fh, err := createWithPath(fname)
+		if err != nil {
+			Abort("Can't %v", err)
+		}
+		stderrLog = fh
+	}
+}
+
+func createWithPath(fname string) (*os.File, error) {
+	dir := path.Dir(fname)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return nil, err
+	}
+	return os.Create(fname)
 }
 
 func GetHTTPClient(cfg *Config) *http.Client {
@@ -380,7 +410,7 @@ func TryReachableHTTPLogin(
 
 func Info(format string, args ...interface{}) {
 	if !quiet {
-		fmt.Fprintf(os.Stderr, format+"\n", args...)
+		fmt.Fprintf(stderrLog, format+"\n", args...)
 	}
 }
 
@@ -411,5 +441,5 @@ func printWithMarker(m string, format string, args ...interface{}) {
 	out := fmt.Sprintf(format, args...)
 	out = strings.TrimSuffix(out, "\n")
 	out = strings.ReplaceAll(out, "\n", "\n"+m)
-	fmt.Fprintln(os.Stderr, m+out)
+	fmt.Fprintln(stderrLog, m+out)
 }

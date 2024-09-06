@@ -1,3 +1,26 @@
+3.033     2024-09-06 10:31:32+02:00 Europe/Berlin
+
+ - Migrated program 'drc3.pl' from Perl to Go.
+   It is named 'drc' now.
+   'drc3.pl' is still available as symbolic link to 'drc'.
+   Programs 'drc-asa', 'drc-ios', 'drc-linux', 'drc-nsx', 'drc-pan-os'
+   have been removed.
+ - When running 'diamonds compare' or 'drc3.pl -C' and device has changed,
+   then changes are written to file '*.cmp'.
+ - Migrated program 'get-netspoc-approve-conf' from Perl to Go.
+ - This warning from ASA is ignored now: 'crypto map entry will be incomplete'.
+
+3.032     2024-08-14 11:55:20+02:00 Europe/Berlin
+
+ - Fixed sorting of rules for NSX where rule references group
+ - Fixed compare of rules for NSX where rule references external
+   group, that is not known by Netspoc.
+ - Fixed check of raw file for NSX:
+   - Name of group must start with "Netspoc",
+     but must not start with "Netspoc-g<NUM>".
+   - Name of service must start with "Netspoc-raw".
+ - Migrated approve for Linux from Perl to Go.
+
 3.031     2024-07-25 11:31:12+02:00 Europe/Berlin
 
  - Fixed wrong seq num "0" in added "tunnel-group-map" from Netspoc.

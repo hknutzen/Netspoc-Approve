@@ -140,7 +140,7 @@ func LoadConfig() (*Config, error) {
 		}
 		key, val := words[0], words[2]
 		if seen[key] {
-			warn("Ignoring '%s' in %s", key, file)
+			warn("Ignoring duplicate key '%s' in %s", key, file)
 			continue
 		}
 		seen[key] = true
@@ -161,6 +161,45 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 	return &c, nil
+}
+
+func (c *Config) GetVal(key string) string {
+	switch key {
+	case "netspocdir":
+		return c.netspocDir
+	case "lockfiledir":
+		return c.lockfileDir
+	case "netspoc_git":
+		return c.netspocGit
+	case "historydir":
+		return c.historyDir
+	case "statusdir":
+		return c.statusDir
+	case "checkbanner":
+		if re := c.CheckBanner; re != nil {
+			return re.String()
+		}
+		return ""
+	case "aaa_credentials":
+		return c.aaaCredentials
+	case "systemuser":
+		return c.systemUser
+	case "server_ip_list":
+		var l []string
+		for _, ip := range c.ServerIPList {
+			l = append(l, ip.String())
+		}
+		return strings.Join(l, " ")
+	case "timeout":
+		return strconv.Itoa(c.Timeout)
+	case "login_timeout":
+		return strconv.Itoa(c.LoginTimeout)
+	case "keep_history":
+		return strconv.Itoa(c.keepHistory)
+	case "compress_at":
+		return strconv.Itoa(c.compressAt)
+	}
+	return ""
 }
 
 func warn(f string, l ...interface{}) {

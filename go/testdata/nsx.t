@@ -744,7 +744,7 @@ rules:
 - { id: r3-2-1}
 ]]
 =ERROR=
-ERROR>>> Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
+ERROR>>> While reading router.raw: Must not use rule name starting with 'r<NUM>': r3-2-1
 =END=
 
 ############################################################
@@ -758,8 +758,6 @@ ERROR>>> Must not use rule name starting with 'r<NUM>' in raw: r3-2-1
 [[config
 rules:
 - { id: raw2, act: DROP, seq: 25, logged: true, tag: "testtag", disabled: true }
-services:
-- [tcp, 80]
 ]]
 =OUTPUT=
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
@@ -777,6 +775,134 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
 =END=
 
 ############################################################
+=TITLE=Unchanged rule referencing external group
+=TEMPL=external
+{
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+    {
+     "resource_type": "Rule",
+     "id": "raw",
+     "scope": [ "/infra/tier-0s/v1" ],
+     "direction": "OUT",
+     "ip_protocol": "IPV4",
+     "sequence_number": 20,
+     "action": "DROP",
+     "source_groups": [ "/infra/domains/default/groups/raw-g1" ],
+     "destination_groups": [ "/infra/domains/default/groups/raw-g1" ],
+     "services": [ "ANY" ]
+    }
+   ]
+  }
+ ]
+}
+=DEVICE=[[external]]
+=NETSPOC=[[external]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Change rule from external to internal group
+=TEMPL=internal
+{
+ "groups": [
+  {
+   "id": "Netspoc-g1",
+   "expression": [
+    {
+     "id": "id",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": [
+      "10.1.1.1"
+     ]
+    }
+   ]
+  }
+ ],
+ "policies": [
+  {
+   "id": "Netspoc-v1",
+   "resource_type": "GatewayPolicy",
+   "rules": [
+    {
+     "resource_type": "Rule",
+     "id": "raw",
+     "scope": [ "/infra/tier-0s/v1" ],
+     "direction": "OUT",
+     "ip_protocol": "IPV4",
+     "sequence_number": 20,
+     "action": "DROP",
+     "source_groups": [ "/infra/domains/default/groups/Netspoc-g1" ],
+     "destination_groups": [ "/infra/domains/default/groups/raw-g1" ],
+     "services": [ "ANY" ]
+    }
+   ]
+  }
+ ]
+}
+=DEVICE=[[external]]
+=NETSPOC=[[internal]]
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
+
+PUT /policy/api/v1/infra/domains/default/groups/Netspoc-g1
+{"expression":
+ [{"id":"id",
+   "resource_type":"IPAddressExpression",
+   "ip_addresses":["10.1.1.1"]}]}
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw-1
+{"action":"DROP",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/Netspoc-g1"],
+ "destination_groups":["/infra/domains/default/groups/raw-g1"],
+ "services":["ANY"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
+=END=
+
+############################################################
+=TITLE=Change rule from internal to external group
+=DEVICE=[[internal]]
+=NETSPOC=[[external]]
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
+
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw-1
+{"action":"DROP",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/raw-g1"],
+ "destination_groups":["/infra/domains/default/groups/raw-g1"],
+ "services":["ANY"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
+DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-g1
+
+=END=
+
+############################################################
+=TITLE=Change external group in rule
+=DEVICE=[[external]]
+=NETSPOC=[[external]]
+=SUBST=/raw-g1/ext-group/
+=OUTPUT=
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
+
+PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw-1
+{"action":"DROP",
+ "sequence_number":20,
+ "source_groups":["/infra/domains/default/groups/ext-group"],
+ "destination_groups":["/infra/domains/default/groups/ext-group"],
+ "services":["ANY"],
+ "scope":["/infra/tier-0s/v1"],
+ "direction":"OUT",
+ "ip_protocol":"IPV4"}
+=END=
+
+############################################################
 =TITLE=Ignore unknown attribute
 =DEVICE=
 [[one_rule]]
@@ -787,8 +913,6 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw2
 [[config
 rules:
 - { id: raw, unknownattribute: "testattribute"}
-services:
-- [tcp, 80]
 ]]
 =OUTPUT=
 PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
@@ -1375,3 +1499,101 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
 PUT /policy/api/v1/infra/services/Netspoc-icmp
 {"service_entries":[{"id":"id","protocol":"ICMPv4","resource_type":"ICMPTypeServiceEntry"}]}
 =END=
+
+############################################################
+=TITLE=Check name of service from raw
+=DEVICE=
+{}
+=NETSPOC=
+--router.raw
+{
+ "services": [
+  {
+   "id": "Netspoc-icmp",
+   "service_entries": [
+    {
+     "id": "id",
+     "protocol": "ICMPv4",
+     "resource_type": "ICMPTypeServiceEntry"
+    }
+   ]
+  }
+  ]
+}
+=ERROR=
+ERROR>>> While reading router.raw: Must only define service where name has prefix 'Netspoc-raw': Netspoc-icmp
+=END=
+
+############################################################
+=TITLE=Check name of group from raw (1)
+=DEVICE=
+{}
+=NETSPOC=
+--router.raw
+{
+ "groups": [
+  {
+   "id": "my-group",
+   "expression": [
+    {
+     "id": "id",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": ["10.1.1.1", "10.1.1.9"]
+    }
+   ]
+  }
+  ]
+}
+=ERROR=
+ERROR>>> While reading router.raw: Must only define group where name has prefix 'Netspoc': my-group
+=END=
+
+############################################################
+=TITLE=Check name of group from raw (2)
+=DEVICE=
+{}
+=NETSPOC=
+--router.raw
+{
+ "groups": [
+  {
+   "id": "Netspoc-g1",
+   "expression": [
+    {
+     "id": "id",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": ["10.1.1.1", "10.1.1.9"]
+    }
+   ]
+  }
+  ]
+}
+=ERROR=
+ERROR>>> While reading router.raw: Must not use group name starting with 'Netspoc-g<NUM>': Netspoc-g1
+=END=
+
+############################################################
+=TITLE=Sort rules with seemingly same groups correctly
+=DEVICE=
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.1.10","10.1.2.40' }
+rules:
+- { id: r1, src: g0, dst: 10.1.2.1, srv: tcp_80 }
+- { id: r2, src: g1, dst: 10.1.2.2, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=NETSPOC=
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+- { id: g1, ip: '10.1.1.10","10.1.2.40' }
+rules:
+- { id: r2, src: g1, dst: 10.1.2.2, srv: tcp_80 }
+- { id: r1, src: g0, dst: 10.1.2.1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=OUTPUT=NONE

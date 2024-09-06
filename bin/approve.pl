@@ -123,7 +123,7 @@ else{
 }
 
 my $compare_option = $is_compare ? '-C' : '';
-my $cmd = "drc3.pl $compare_option --LOGFILE $logfile -L $logpath $codefile";
+my $cmd = "drc $compare_option --LOGFILE $logfile -L $logpath $codefile";
 
 init_history_logging($device, $arguments, $running_for_user);
 log_history("START: $cmd");

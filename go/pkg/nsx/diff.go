@@ -2,6 +2,7 @@ package nsx
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -162,31 +163,31 @@ func (ab *rulesPair) LenA() int { return len(ab.a.rules) }
 func (ab *rulesPair) LenB() int { return len(ab.b.rules) }
 
 func (ab *rulesPair) Equal(ai, bi int) bool {
-	a := ab.a.rules[ai]
-	b := ab.b.rules[bi]
+	ra := ab.a.rules[ai]
+	rb := ab.b.rules[bi]
 
-	objEqual := func(a, b string) bool {
-		if strings.HasPrefix(a, "/infra/domains/default/groups/") {
-			return strings.HasPrefix(b, "/infra/domains/default/groups/")
+	groupEq := func(a, b string) bool {
+		if getGroup(a, ab.a.groups) == nil || getGroup(b, ab.b.groups) == nil {
+			return a == b
 		}
-		return a == b
+		return true
 	}
 
-	return a.Direction == b.Direction &&
-		a.SequenceNumber == b.SequenceNumber &&
-		a.Action == b.Action &&
-		a.Logged == b.Logged &&
-		a.Tag == b.Tag &&
-		a.Disabled == b.Disabled &&
-		a.DestinationsExcluded == b.DestinationsExcluded &&
-		a.SourcesExcluded == b.SourcesExcluded &&
-		bytes.Equal(a.ServiceEntries, b.ServiceEntries) &&
-		a.IPProtocol == b.IPProtocol &&
-		slices.Equal(a.Profiles, b.Profiles) &&
-		slices.Equal(a.Scope, b.Scope) &&
-		a.Services[0] == b.Services[0] &&
-		objEqual(a.SourceGroups[0], b.SourceGroups[0]) &&
-		objEqual(a.DestinationGroups[0], b.DestinationGroups[0])
+	return ra.Direction == rb.Direction &&
+		ra.SequenceNumber == rb.SequenceNumber &&
+		ra.Action == rb.Action &&
+		ra.Logged == rb.Logged &&
+		ra.Tag == rb.Tag &&
+		ra.Disabled == rb.Disabled &&
+		ra.DestinationsExcluded == rb.DestinationsExcluded &&
+		ra.SourcesExcluded == rb.SourcesExcluded &&
+		bytes.Equal(ra.ServiceEntries, rb.ServiceEntries) &&
+		ra.IPProtocol == rb.IPProtocol &&
+		slices.Equal(ra.Profiles, rb.Profiles) &&
+		slices.Equal(ra.Scope, rb.Scope) &&
+		ra.Services[0] == rb.Services[0] &&
+		groupEq(ra.SourceGroups[0], rb.SourceGroups[0]) &&
+		groupEq(ra.DestinationGroups[0], rb.DestinationGroups[0])
 }
 
 func (ab *rulesPair) diffRules() []change {
@@ -387,66 +388,76 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 }
 
 func sortRules(l []*nsxRule, m map[string]*nsxGroup) {
-	elementLess := func(ei, ej string) bool {
+	elementCmp := func(ei, ej string) int {
 		gi := getGroup(ei, m)
 		gj := getGroup(ej, m)
 		if gi != nil {
 			if gj != nil {
-				return gi.Expression[0].IPAddresses[0] < gj.Expression[0].IPAddresses[0]
+				return cmp.Compare(gi.Expression[0].IPAddresses[0], gj.Expression[0].IPAddresses[0])
 			}
-			return true
+			return -1
 		}
+		// Length of group > single IP
 		if gj != nil {
-			return false
+			return 1
 		}
-		return ei < ej
+		return cmp.Compare(ei, ej)
+	}
+	boolCmp := func(a, b bool) int {
+		if a == b {
+			return 0
+		}
+		if a {
+			return -1
+		}
+		return 1
 	}
 
-	sort.Slice(l, func(i, j int) bool {
-		if l[i].Direction != l[j].Direction {
-			return l[i].Direction < l[j].Direction
+	slices.SortFunc(l, func(a, b *nsxRule) int {
+		if n := cmp.Compare(a.Direction, b.Direction); n != 0 {
+			return n
 		}
-		if l[i].SequenceNumber != l[j].SequenceNumber {
-			return l[i].SequenceNumber < l[j].SequenceNumber
+		if n := cmp.Compare(a.SequenceNumber, b.SequenceNumber); n != 0 {
+			return n
 		}
-		if l[i].Action != l[j].Action {
-			return l[i].Action < l[j].Action
+		if n := cmp.Compare(a.Action, b.Action); n != 0 {
+			return n
 		}
-		if l[i].Logged != l[j].Logged {
-			return l[i].Logged
+		if n := boolCmp(a.Logged, b.Logged); n != 0 {
+			return n
 		}
-		if l[i].Tag != l[j].Tag {
-			return l[i].Tag < l[j].Tag
+		if n := cmp.Compare(a.Tag, b.Tag); n != 0 {
+			return n
 		}
-		if l[i].Disabled != l[j].Disabled {
-			return l[i].Disabled
+		if n := boolCmp(a.Disabled, b.Disabled); n != 0 {
+			return n
 		}
-		if l[i].DestinationsExcluded != l[j].DestinationsExcluded {
-			return l[i].DestinationsExcluded
+		if n := boolCmp(a.DestinationsExcluded, b.DestinationsExcluded); n != 0 {
+			return n
 		}
-		if l[i].SourcesExcluded != l[j].SourcesExcluded {
-			return l[i].SourcesExcluded
+		if n := boolCmp(a.SourcesExcluded, b.SourcesExcluded); n != 0 {
+			return n
 		}
-		if !bytes.Equal(l[i].ServiceEntries, l[j].ServiceEntries) {
-			return bytes.Compare(l[i].ServiceEntries, l[j].ServiceEntries) == -1
+		if n := bytes.Compare(a.ServiceEntries, b.ServiceEntries); n != 0 {
+			return n
 		}
-		if l[i].IPProtocol != l[j].IPProtocol {
-			return strings.Compare(l[i].IPProtocol, l[j].IPProtocol) == -1
+		if n := cmp.Compare(a.IPProtocol, b.IPProtocol); n != 0 {
+			return n
 		}
-		if !slices.Equal(l[i].Profiles, l[j].Profiles) {
-			return slices.Compare(l[i].Profiles, l[j].Profiles) == -1
+		if n := slices.Compare(a.Profiles, b.Profiles); n != 0 {
+			return n
 		}
-		if !slices.Equal(l[i].Scope, l[j].Scope) {
-			return slices.Compare(l[i].Scope, l[j].Scope) == -1
+		if n := slices.Compare(a.Scope, b.Scope); n != 0 {
+			return n
 		}
 		//Assume length of all following is only 1
-		if l[i].Services[0] != l[j].Services[0] {
-			return l[i].Services[0] < l[j].Services[0]
+		if n := cmp.Compare(a.Services[0], b.Services[0]); n != 0 {
+			return n
 		}
-		if l[i].SourceGroups[0] != l[j].SourceGroups[0] {
-			return elementLess(l[i].SourceGroups[0], l[j].SourceGroups[0])
+		if n := elementCmp(a.SourceGroups[0], b.SourceGroups[0]); n != 0 {
+			return n
 		}
-		return elementLess(l[i].DestinationGroups[0], l[j].DestinationGroups[0])
+		return elementCmp(a.DestinationGroups[0], b.DestinationGroups[0])
 	})
 }
 

@@ -8,8 +8,6 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
 
-func (cf *Config) CheckRulesFromRaw() error { return nil }
-
 // Check that non anchor commands from raw file are referenced by some
 // anchor and are referenced only once.
 var isReferenced map[*cmd]bool

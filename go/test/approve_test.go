@@ -2,8 +2,9 @@ package approve_test
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"os/user"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -11,11 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/drc"
 	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
 	"github.com/hknutzen/testtxt"
 )
@@ -35,6 +32,7 @@ type descr struct {
 	Scenario string
 	Netspoc  string
 	Options  string
+	Setup    string
 	Output   string
 	Warning  string
 	Error    string
@@ -46,35 +44,25 @@ func runTestFiles(t *testing.T) {
 	for _, file := range dataFiles {
 		base := path.Base(file)
 		prefix, _, _ := strings.Cut(strings.TrimSuffix(base, ".t"), "_")
+		prefix = strings.ToUpper(prefix)
+		if prefix == "LINUX" {
+			prefix = "Linux"
+		}
 		t.Run(base, func(t *testing.T) {
 			var l []descr
 			if err := testtxt.ParseFile(file, &l); err != nil {
 				t.Fatal(err)
 			}
 			for _, descr := range l {
-				var realDev device.RealDevice
-				switch prefix {
-				case "asa":
-					realDev = asa.Setup()
-				case "ios":
-					realDev = ios.Setup()
-				case "nsx":
-					realDev = &nsx.State{}
-				case "panos":
-					realDev = &panos.State{}
-				default:
-					t.Fatal(fmt.Errorf("Unexpected test file %s with prefix '%s'",
-						base, prefix))
-				}
 				t.Run(descr.Title, func(t *testing.T) {
-					runTest(t, descr, realDev, strings.ToUpper(prefix))
+					runTest(t, descr, prefix)
 				})
 			}
 		})
 	}
 }
 
-func runTest(t *testing.T, d descr, realDev device.RealDevice, devType string) {
+func runTest(t *testing.T, d descr, devType string) {
 	if d.Netspoc == "" {
 		t.Fatal("missing =NETSPOC= in test")
 	}
@@ -98,7 +86,7 @@ func runTest(t *testing.T, d descr, realDev device.RealDevice, devType string) {
 	os.Chdir(workDir)
 
 	// Initialize os.Args, add default options.
-	os.Args = []string{"PROGRAM", "-q"}
+	os.Args = []string{"drc", "-q"}
 
 	// Add more options.
 	if d.Options != "" {
@@ -117,14 +105,14 @@ func runTest(t *testing.T, d descr, realDev device.RealDevice, devType string) {
 		cmd := prevDir + "/../testdata/simulate-cisco.pl " + deviceName + " " +
 			path.Join(workDir, scenarioFile)
 		os.Setenv("SIMULATE_ROUTER", cmd)
-		// Prepare credentials file. Declare current user as system user.
+		// Prepare credentials file. Declare user as system user.
 		credentialsFile := "credentials"
-		u, _ := user.Current()
-		id := u.Username
+		id := "admin"
 		line := "* " + id + " secret\n"
 		if err := os.WriteFile(credentialsFile, []byte(line), 0644); err != nil {
 			t.Fatal(err)
 		}
+		lockDir := t.TempDir()
 		// Prepare config file.
 		configFile := ".netspoc-approve"
 		config := fmt.Sprintf(`
@@ -134,7 +122,7 @@ checkbanner = NetSPoC
 systemuser = %s
 aaa_credentials = %s
 timeout = 1
-`, workDir, workDir, id, credentialsFile)
+`, workDir, lockDir, id, credentialsFile)
 		if err := os.WriteFile(configFile, []byte(config), 0644); err != nil {
 			t.Fatal(err)
 		}
@@ -156,19 +144,43 @@ timeout = 1
 	testtxt.PrepareInDir(t, codeDir, deviceName, d.Netspoc)
 	// Add info file if not given above.
 	infoFile := path.Join(codeDir, deviceName+".info")
+	info6File := path.Join(codeDir, "ipv6", deviceName+".info")
 	if _, err := os.Stat(infoFile); err != nil {
-		info := fmt.Sprintf(`
+		if _, err := os.Stat(info6File); err != nil {
+			info := fmt.Sprintf(`
 {
  "model": "%s",
  "name_list": [ "%s" ],
  "ip_list": [ "10.1.13.33" ]
 }
 `, devType, deviceName)
-		if err := os.WriteFile(infoFile, []byte(info), 0644); err != nil {
-			t.Fatal(err)
+			if err := os.WriteFile(infoFile, []byte(info), 0644); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	os.Args = append(os.Args, path.Join(codeDir, deviceName))
+
+	// Execute shell commands to setup error cases in working directory.
+	if d.Setup != "" {
+		t.Cleanup(func() {
+			// Make files writeable again if =SETUP= commands have
+			// revoked file permissions.
+			exec.Command("chmod", "-R", "u+rwx", workDir).Run()
+		})
+		cmd := exec.Command("bash", "-e")
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		io.WriteString(stdin, "cd '"+workDir+"'\n")
+		io.WriteString(stdin, d.Setup)
+		stdin.Close()
+
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("executing =SETUP=: %v\n%s", err, out)
+		}
+	}
 
 	// Call main function.
 	var status int
@@ -176,7 +188,7 @@ timeout = 1
 	stderr := capture.Capture(&os.Stderr, func() {
 		stdout = capture.Capture(&os.Stdout, func() {
 			status = capture.CatchPanic(func() int {
-				return device.Main(realDev)
+				return drc.Main()
 			})
 		})
 	})
