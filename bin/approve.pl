@@ -153,7 +153,7 @@ $errors++ if $failed;
 if (open(my $log, '<', $logfile)) {
     my @lines = <$log>;
     my $silent = $brief &&
-        grep { $_ =~ /^ERROR>>> (TIMEOUT|.*timer expired.*)$/ } @lines;
+        grep { $_ =~ /^ERROR>>> while waiting for login prompt/ } @lines;
     for (@lines) {
         if (/^WARNING>>>/) {
             $warnings++;

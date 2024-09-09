@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+ - Modified error message for failed login.
+   Option '--brief' of command 'approve.pl' now only suppresses
+   messages about failed logins, but not other timeouts.
+
 3.033     2024-09-06 10:31:32+02:00 Europe/Berlin
 
  - Migrated program 'drc3.pl' from Perl to Go.

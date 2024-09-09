@@ -65,7 +65,7 @@ func (s *State) loginEnable(pass string, cfg *device.Config) {
 	conn := s.conn
 	stdPrompt := `\r\n\S*\s?[%>$#]\s?(?:\x27\S*)?`
 	passPrompt := stdPrompt + `|(?i)password:`
-	out := conn.ShortWait(passPrompt + `|\(yes/no.*\)\?`)
+	out := conn.WaitLogin(passPrompt + `|\(yes/no.*\)\?`)
 	if strings.HasSuffix(out, "?") {
 		out = conn.IssueCmd("yes", passPrompt)
 	}

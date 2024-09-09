@@ -79,18 +79,36 @@ func (c *Conn) Close() {
 
 // Wait for prompt.
 // Remove all "\r" characters in output for simplicity.
-func (c *Conn) expectLog(prompt *regexp.Regexp, t time.Duration) string {
+func (c *Conn) expectLog(prompt *regexp.Regexp, t time.Duration,
+) (string, error) {
 	out, _, err := c.con.Expect(prompt, t)
 	out = strings.ReplaceAll(out, "\r\n", "\n")
 	c.logString(out)
+	return out, err
+}
+
+func (c *Conn) WaitLogin(prompt string) string {
+	out, err := c.expectLog(regexp.MustCompile(prompt), c.ShortTimeout)
+	if err != nil {
+		device.Abort("while waiting for login prompt '%s': %v", prompt, err)
+	}
+	return out
+}
+
+func (c *Conn) WaitShort(prompt string) string {
+	out, err := c.expectLog(regexp.MustCompile(prompt), c.ShortTimeout)
 	if err != nil {
 		device.Abort("while waiting for prompt '%s': %v", prompt, err)
 	}
 	return out
 }
 
-func (c *Conn) ShortWait(re string) string {
-	return c.expectLog(regexp.MustCompile(re), c.ShortTimeout)
+func (c *Conn) waitPrompt(re *regexp.Regexp) string {
+	out, err := c.expectLog(re, c.Timeout)
+	if err != nil {
+		device.Abort("while waiting for prompt '%s': %v", re, err)
+	}
+	return out
 }
 
 func (c *Conn) TryPrompt() bool {
@@ -107,12 +125,12 @@ func (c *Conn) Send(cmd string) {
 
 func (c *Conn) IssueCmd(cmd, re string) string {
 	c.Send(cmd)
-	return c.expectLog(regexp.MustCompile(re), c.Timeout)
+	return c.waitPrompt(regexp.MustCompile(re))
 }
 
 func (c *Conn) SendCmd(cmd string) {
 	c.Send(cmd)
-	c.expectLog(c.promptRE, c.Timeout)
+	c.waitPrompt(c.promptRE)
 }
 
 func (c *Conn) GetCmdOutput(cmd string) string {
@@ -121,7 +139,7 @@ func (c *Conn) GetCmdOutput(cmd string) string {
 }
 
 func (c *Conn) GetOutput() string {
-	out := c.expectLog(c.promptRE, c.Timeout)
+	out := c.waitPrompt(c.promptRE)
 	out = c.StripStdPrompt(out)
 	return out
 }

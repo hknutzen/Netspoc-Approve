@@ -591,7 +591,7 @@ ERROR>>> While reading device: 'crypto map x' references unknown 'crypto map x'
 Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> while waiting for prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
+ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 =OUTPUT=
 --router.login
 Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.

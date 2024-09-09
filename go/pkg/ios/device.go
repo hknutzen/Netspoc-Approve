@@ -65,7 +65,7 @@ func (s *State) LoadDevice(
 func (s *State) loginEnable(pass string, cfg *device.Config) {
 	var bannerLines string
 	conn := s.conn
-	out := conn.ShortWait(`(?i)password:|\(yes/no.*\)\?`)
+	out := conn.WaitLogin(`(?i)password:|\(yes/no.*\)\?`)
 	if strings.HasSuffix(out, "?") {
 		out = conn.IssueCmd("yes", `(?i)password:`)
 	}
@@ -285,7 +285,7 @@ func (s *State) cancelReload() {
 	// sent asynchronously.
 	s.conn.IssueCmd("reload cancel", `--- SHUTDOWN ABORTED ---`)
 	// Because of 'logging synchronous' we are sure to get another prompt.
-	s.conn.ShortWait(`[#] ?$`)
+	s.conn.WaitShort(`[#] ?$`)
 	// Synchronize expect buffers with empty command.
 	s.conn.SendCmd("")
 	s.reloadActive = false
@@ -323,7 +323,7 @@ func (s *State) stripReloadBanner(out string) (string, bool) {
 				// if the banner is the only output before current prompt.
 				// Read next prompt.
 				device.Info("Found banner before output, expecting another prompt")
-				out = s.conn.ShortWait(`[#] ?$`)
+				out = s.conn.WaitShort(`[#] ?$`)
 				out = s.conn.StripStdPrompt(out)
 			} else if prefix != "" && strings.TrimSpace(postfix) == "" {
 				// Try to read another prompt if banner is shown directly

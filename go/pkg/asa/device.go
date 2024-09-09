@@ -56,7 +56,7 @@ func (s *State) LoadDevice(
 func (s *State) loginEnable(pass string, cfg *device.Config) {
 	var bannerLines string
 	conn := s.conn
-	out := conn.ShortWait(`(?i)password:|\(yes/no.*\)\?`)
+	out := conn.WaitLogin(`(?i)password:|\(yes/no.*\)\?`)
 	if strings.HasSuffix(out, "?") {
 		out = conn.IssueCmd("yes", `(?i)password:`)
 	}
