@@ -67,10 +67,10 @@ func Main(dev RealDevice, fs *pflag.FlagSet) int {
 			if err != nil {
 				break
 			}
+			s.setLock(fname)
 			s.config.User = getString(fs, "user")
 			s.setLogDir(getString(fs, "logdir"), fname)
 			s.setStderrLog(getString(fs, "LOGFILE"))
-			s.setLock(fname)
 			if v, _ := fs.GetBool("compare"); v {
 				err = s.compare(fname)
 			} else {
