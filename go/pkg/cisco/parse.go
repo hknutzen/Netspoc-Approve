@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/netip"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"golang.org/x/exp/slices"
 )
 
 type Config struct {

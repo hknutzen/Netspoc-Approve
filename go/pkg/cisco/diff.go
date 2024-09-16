@@ -1,21 +1,21 @@
 package cisco
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/sorted"
 	"github.com/pkg/diff/edit"
 	"github.com/pkg/diff/myers"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 type State struct {
@@ -69,7 +69,7 @@ func (s *State) diffConfig() {
 	comb := make(objLookup)
 	maps.Copy(comb, s.a.lookup)
 	maps.Copy(comb, s.b.lookup)
-	for _, prefix := range sorted.Keys(comb) {
+	for _, prefix := range slices.Sorted(maps.Keys(comb)) {
 		if prefix == "tunnel-group-map" {
 			s.diffTunnelGroupMap()
 		} else if prefix == "webvpn" {
@@ -97,8 +97,8 @@ func byParsedCmd(_ *Config, c *cmd) string {
 func (s *State) diffAnchors(prefix string) {
 	aMap := s.a.lookup[prefix]
 	bMap := s.b.lookup[prefix]
-	aNames := sorted.Keys(aMap)
-	bNames := sorted.Keys(bMap)
+	aNames := slices.Sorted(maps.Keys(aMap))
+	bNames := slices.Sorted(maps.Keys(bMap))
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
@@ -372,8 +372,7 @@ func (s *State) findSimpleObjOnDevice(bl []*cmd) []*cmd {
 func findSimpleObject(bl []*cmd, a *Config) []*cmd {
 	prefix := bl[0].typ.prefix
 	m := a.lookup[prefix]
-	names := sorted.Keys(m)
-	for _, name := range names {
+	for _, name := range slices.Sorted(maps.Keys(m)) {
 		al := m[name]
 		if simpleObjEqual(al, bl) {
 			return al
@@ -1075,10 +1074,8 @@ func (s *State) deleteUnused() {
 			}
 		}
 		// Delete commands not referenced any longer.
-		pairs := maps.Keys(toDelete)
-		sort.Slice(pairs, func(i, j int) bool {
-			return pairs[i][0] < pairs[j][0] ||
-				pairs[i][0] == pairs[j][0] && pairs[i][1] < pairs[j][1]
+		pairs := slices.SortedFunc(maps.Keys(toDelete), func(a, b pair) int {
+			return cmp.Or(cmp.Compare(a[0], b[0]), cmp.Compare(a[1], b[1]))
 		})
 		for _, pair := range pairs {
 			if isReferenced[pair] {
@@ -1233,7 +1230,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 	bSeqMap := mapBySeq(bl)
 	bPeer2Seq := mapPeerToSeq(bSeqMap)
 	// Match commands having same peer.
-	for _, aSeq := range sorted.Keys(aSeqMap) {
+	for _, aSeq := range slices.Sorted(maps.Keys(aSeqMap)) {
 		aSeqL := aSeqMap[aSeq]
 		aPeer := getPeer(aSeqL)
 		if bSeq, found := bPeer2Seq[aPeer]; found {
@@ -1246,7 +1243,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 	// Use fresh sequence numbers for added commands.
 	static := 1
 	dynamic := 65535
-	for _, bSeq := range sorted.Keys(bSeqMap) {
+	for _, bSeq := range slices.Sorted(maps.Keys(bSeqMap)) {
 		bSeqL := bSeqMap[bSeq]
 		seq := &dynamic
 		incr := -1
@@ -1430,7 +1427,7 @@ func (s *State) checkASAInterfaces() error {
 	}
 
 	// Check interfaces from Netspoc
-	for _, name := range sorted.Keys(bIntf) {
+	for _, name := range slices.Sorted(maps.Keys(bIntf)) {
 		if !aIntf[name] {
 			return fmt.Errorf(
 				"Interface '%s' from Netspoc not known on device", name)
@@ -1592,7 +1589,7 @@ func (s *State) alignVRFs() {
 			}
 		}
 	}
-	for _, vrf := range sorted.Keys(removed) {
+	for _, vrf := range slices.Sorted(maps.Keys(removed)) {
 		if vrf == "" {
 			vrf = "<global>"
 		}

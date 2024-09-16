@@ -3,14 +3,15 @@ package linux
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/sorted"
 )
 
 const (
@@ -229,10 +230,10 @@ func (s *State) findIPTablesRestoreCmd() string {
 
 func getIPTablesConfig(tb tables) []string {
 	var result []string
-	for _, tName := range sorted.Keys(tb) {
+	for _, tName := range slices.Sorted(maps.Keys(tb)) {
 		chains := tb[tName]
 		result = append(result, "*"+tName)
-		cNames := sorted.Keys(chains)
+		cNames := slices.Sorted(maps.Keys(chains))
 		for _, cName := range cNames {
 			chain := chains[cName]
 			result = append(result, ":"+cName+" "+chain.policy)
