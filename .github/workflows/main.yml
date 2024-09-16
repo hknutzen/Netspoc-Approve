@@ -7,8 +7,6 @@ on:
 jobs:
   coverage:
     runs-on: ubuntu-latest
-    container:
-      image: perldocker/perl-tester:5.32
     steps:
       - name: Install Go
         uses: actions/setup-go@v5
@@ -16,38 +14,12 @@ jobs:
           go-version: stable
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Compile go binaries
-        run: |
-          for d in *; do ( cd $d; go build ) done
-        working-directory: go/cmd
-      - name: Get dependencies
-        run: >
-          cpanm -n
-          Expect IO::Tty NetAddr::IP::Util Regexp::IPv6
-          Devel::Cover Devel::Cover::Report::Coveralls
-      - name: Calc Perl coverage
-        env:
-          HARNESS_PERL_SWITCHES: -MDevel::Cover=-ignore,^x?t/,-blib,0
-        run: prove
-      - name: Upload Perl coverage
-        env:
-          COVERALLS_FLAG_NAME: Perl
-          COVERALLS_PARALLEL: 1
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cover -report Coveralls
-      - name: Calc Go coverage
+      - name: Calc coverage
         run: go test -coverpkg ../pkg/... -coverprofile=c.out
         working-directory: go/test
-      - name: Upload Go coverage
+      - name: Upload coverage
         uses: coverallsapp/github-action@v2.2.3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: go/test/c.out
           format: golang
-          flag-name: Go
-          parallel: true
-      - name: Coveralls Finished
-        uses: coverallsapp/github-action@v2.2.3
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel-finished: true
