@@ -73,7 +73,7 @@ ERROR>>> Authentication failed
 =END=
 
 ############################################################
-=TITLE=SSH login + enable password failed
+=TITLE=Enable password fails
 =SCENARIO=
 Enter Password:<!>
 banner motd managed by NetSPoC

@@ -1,7 +1,6 @@
 package asa
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -14,8 +13,6 @@ import (
 
 type State struct {
 	cisco.State
-	conn         *console.Conn
-	errUnmanaged []error
 }
 
 func Setup() *State {
@@ -31,19 +28,19 @@ func (s *State) LoadDevice(
 
 	user, pass := cfg.GetUserPass(device.GetHostname(spocFile))
 	var err error
-	s.conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
+	s.Conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
 		return nil, err
 	}
 	hostName := device.GetHostname(spocFile)
-	s.loginEnable(pass, cfg)
+	s.LoginEnable(pass, cfg)
 	s.setTerminal()
 	s.logVersion()
 	s.checkDeviceName(hostName)
 
-	s.conn.SetLogFH(logConfig)
+	s.Conn.SetLogFH(logConfig)
 	device.Info("Requesting device config")
-	out := s.conn.GetCmdOutput("write term")
+	out := s.Conn.GetCmdOutput("write term")
 	device.Info("Got device config")
 	config, err := s.ParseConfig([]byte(out), "<device>")
 	device.Info("Parsed device config")
@@ -53,46 +50,8 @@ func (s *State) LoadDevice(
 	return config, err
 }
 
-func (s *State) loginEnable(pass string, cfg *device.Config) {
-	var bannerLines string
-	conn := s.conn
-	out := conn.WaitLogin(`(?i)password:|\(yes/no.*\)\?`)
-	if strings.HasSuffix(out, "?") {
-		out = conn.IssueCmd("yes", `(?i)password:`)
-	}
-	bannerLines += out
-	out = conn.IssueCmd(pass, `[>#]`)
-	bannerLines += out
-	if strings.HasSuffix(out, ">") {
-		// Enter enable mode.
-		out = conn.IssueCmd("enable", `(?i)password:|#`)
-		bannerLines += out
-		if !strings.HasSuffix(out, "#") {
-			// Enable password required.
-			// Use login password as enable password.
-			out = conn.IssueCmd(pass, `(?i)password:|#`)
-			bannerLines += out
-			if !strings.HasSuffix(out, "#") {
-				device.Abort("Authentication for enable mode failed")
-			}
-		}
-	}
-	// Force new prompt by issuing empty command.
-	// Use this prompt because of performance impact of standard prompt.
-	out = conn.IssueCmd("", `#[ ]?`)
-	i := strings.LastIndex(out, "\n")
-	// Current prompt: "\n\rHOSTNAME# "
-	p := out[i:]
-	// Prompt of ASA may vary before terminating "# "
-	i = strings.LastIndex(p, "#")
-	rx := regexp.MustCompile(
-		regexp.QuoteMeta(p[:i]) + `\S*` + regexp.QuoteMeta(p[i:]))
-	conn.SetStdPrompt(rx)
-	s.checkBanner(bannerLines, cfg)
-}
-
 func (s *State) setTerminal() {
-	conn := s.conn
+	conn := s.Conn
 	out := conn.GetCmdOutput("sh pager")
 	if !strings.Contains(out, "no pager") {
 		conn.SendCmd("terminal pager 0")
@@ -106,36 +65,25 @@ func (s *State) setTerminal() {
 }
 
 func (s *State) logVersion() {
-	s.conn.GetCmdOutput("sh ver")
+	s.Conn.GetCmdOutput("sh ver")
 }
 
 func (s *State) checkDeviceName(name string) {
-	out := s.conn.GetCmdOutput("show hostname")
+	out := s.Conn.GetCmdOutput("show hostname")
 	out = strings.TrimSuffix(out, "\n")
 	if name != out {
 		device.Abort("Wrong device name: %q, expected: %q", out, name)
 	}
 }
 
-func (s *State) checkBanner(lines string, cfg *device.Config) {
-	if rx := cfg.CheckBanner; rx != nil && rx.FindStringIndex(lines) == nil {
-		s.errUnmanaged =
-			[]error{errors.New("Missing banner at NetSPoC managed device")}
-	}
-}
-
-func (s *State) GetErrUnmanaged() []error {
-	return s.errUnmanaged
-}
-
 func (s *State) ApplyCommands(logFh *os.File) error {
-	s.conn.SetLogFH(logFh)
+	s.Conn.SetLogFH(logFh)
 	s.cmd("configure terminal")
 	for _, chg := range s.Changes {
 		s.cmd(chg)
 	}
 	s.cmd("end")
-	out := s.conn.GetCmdOutput("write memory")
+	out := s.Conn.GetCmdOutput("write memory")
 	if !strings.Contains(out, "[OK]") {
 		device.Abort("Command 'write memory' failed, missing [OK] in output:\n%s",
 			out)
@@ -148,10 +96,10 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 // Exceptions are given in map validOutput
 func (s *State) cmd(cmd string) {
 	c1, c2, _ := strings.Cut(cmd, "\n")
-	s.conn.Send(cmd)
+	s.Conn.Send(cmd)
 	check := func(ci string) {
-		out := s.conn.GetOutput()
-		out = s.conn.StripEcho(ci, out)
+		out := s.Conn.GetOutput()
+		out = s.Conn.StripEcho(ci, out)
 		if out != "" {
 			if !isValidOutput(ci, out) {
 				device.Abort("Got unexpected output from '%s':\n%s", ci, out)
@@ -203,7 +151,7 @@ LINE:
 }
 
 func (s *State) CloseConnection() {
-	if c := s.conn; c != nil {
-		s.conn.Close()
+	if c := s.Conn; c != nil {
+		s.Conn.Close()
 	}
 }

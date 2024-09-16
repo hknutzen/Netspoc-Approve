@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/sorted"
 	"github.com/pkg/diff/edit"
@@ -19,11 +20,13 @@ import (
 
 type State struct {
 	*parser
-	a        *Config
-	b        *Config
-	Changes  []string
-	Model    string
-	subCmdOf string
+	Model        string
+	Conn         *console.Conn
+	errUnmanaged []error
+	a            *Config
+	b            *Config
+	Changes      []string
+	subCmdOf     string
 }
 
 func (s *State) addChange(chg string) {
