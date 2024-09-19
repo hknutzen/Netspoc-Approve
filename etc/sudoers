@@ -1,0 +1,9 @@
+# Add to /etc/sudoers
+
+# Allow to start some programs as user 'netspoc'
+# to give restricted access to netspocdir.
+# Environment variable GIT_PROTOCOL needs to be preserved,
+# PATH is preserved by default, needs to contain /usr/local/bin
+# LANG is preserved by default.
+Defaults env_keep += GIT_PROTOCOL
+ALL ALL = (netspoc) NOPASSWD : /usr/local/bin/newpolicy.pl, /usr/local/bin/approve.pl

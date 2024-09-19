@@ -25,16 +25,15 @@ lockfiledir = /home/diamonds/lock
 # for a specific device.
 checkbanner = NetSPoC
 
-# If approve is run by this user,
-# read the password from file given in aaa_credentials
+# If value is set, call newpolicy and approve with "sudo" as this user.
+# In this case, read the password from file given in aaa_credentials.
 systemuser  = diamonds
 
 # Password file for systemuser.
-# Found credentials are used to automatically login via ssh.
+# Found credentials are used to automatically login.
 aaa_credentials = /home/diamonds/.aaa_credentials
 
 # Create a status file for each approved or compared device.
-# Format:
 statusdir   = /home/diamonds/status
 
 # Create a log file for each approved or compared device.
