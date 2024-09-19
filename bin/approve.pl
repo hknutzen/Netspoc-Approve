@@ -6,7 +6,7 @@
 # Does history logging and writes status files.
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2016 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2024 by Heinz Knutzen <heinz.knutzen@gmail.com>
 # (c) 2007 by Arne Spetzler
 #
 # This program is free software; you can redistribute it and/or modify
