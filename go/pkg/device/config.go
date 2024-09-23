@@ -20,11 +20,11 @@ var defaultVals = map[string]string{
 }
 
 type Config struct {
-	netspocDir     string
-	lockfileDir    string
+	NetspocDir     string
+	LockfileDir    string
 	netspocGit     string
-	historyDir     string
-	statusDir      string
+	HistoryDir     string
+	StatusDir      string
 	CheckBanner    *regexp.Regexp
 	aaaCredentials string
 	systemUser     string
@@ -94,15 +94,15 @@ func LoadConfig() (*Config, error) {
 		var err error
 		switch key {
 		case "netspocdir":
-			c.netspocDir = val
+			c.NetspocDir = val
 		case "lockfiledir":
-			c.lockfileDir = val
+			c.LockfileDir = val
 		case "netspoc_git":
 			c.netspocGit = val
 		case "historydir":
-			c.historyDir = val
+			c.HistoryDir = val
 		case "statusdir":
-			c.statusDir = val
+			c.StatusDir = val
 		case "checkbanner":
 			c.CheckBanner, err = regexp.Compile(val)
 			if err != nil {
@@ -166,15 +166,15 @@ func LoadConfig() (*Config, error) {
 func (c *Config) GetVal(key string) string {
 	switch key {
 	case "netspocdir":
-		return c.netspocDir
+		return c.NetspocDir
 	case "lockfiledir":
-		return c.lockfileDir
+		return c.LockfileDir
 	case "netspoc_git":
 		return c.netspocGit
 	case "historydir":
-		return c.historyDir
+		return c.HistoryDir
 	case "statusdir":
-		return c.statusDir
+		return c.StatusDir
 	case "checkbanner":
 		if re := c.CheckBanner; re != nil {
 			return re.String()

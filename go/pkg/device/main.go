@@ -230,7 +230,7 @@ func getIPv6Fname(p string) string {
 var lockFH *os.File
 
 func (s *state) setLock(fname string) {
-	lockFile := path.Join(s.config.lockfileDir, path.Base(fname))
+	lockFile := path.Join(s.config.LockfileDir, path.Base(fname))
 	_, statErr := os.Stat(lockFile)
 	fh, err := os.Create(lockFile)
 	if err != nil {

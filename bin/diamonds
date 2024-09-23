@@ -1,8 +1,8 @@
 #!/bin/sh
-# Wrapper script for approve.pl
-# Calls approve.pl via "sudo" as "systemuser".
+# Wrapper script for do-approve.
+# Calls do-approve via "sudo" as "systemuser".
 
 USER=$(get-netspoc-approve-conf systemuser)
-CMD=/usr/local/bin/approve.pl
+CMD=/usr/local/bin/do-approve
 [ -z "$USER" ] || [ $(id -un) = $USER ] || CMD="sudo -u $USER $CMD"
 exec $CMD $@

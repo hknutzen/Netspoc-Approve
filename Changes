@@ -1,7 +1,12 @@
 {{$NEXT}}
 
+ - Migrated Perl script 'approve.pl' to Go as 'do-approve'.
+ - Program 'diamonds' is no longer a manually installed executable
+   with SUID bit set, but a shell sktript calling 'sudo'.
+ - Program 'newpolicy' no longer calls 'suid-newpolicy' but 'sudo-newpolicy'
+   which is a shell script calling 'sudo'.
  - Modified error message for failed login.
-   Option '--brief' of command 'approve.pl' now only suppresses
+   Option '--brief' of command 'do-approve' now only suppresses
    messages about failed logins, but not other timeouts.
  - Error message 'Authentication failed' is now also shown for ASA.
    Previously a timeout message was shown.
