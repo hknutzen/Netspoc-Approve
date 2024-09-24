@@ -10,6 +10,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -43,11 +44,11 @@ func (s *State) LoadDevice(
 	s.checkDeviceName(hostName)
 
 	s.Conn.SetLogFH(logConfig)
-	device.Info("Requesting device config")
+	myerror.Info("Requesting device config")
 	out := s.Conn.GetCmdOutput("write term")
-	device.Info("Got device config")
+	myerror.Info("Got device config")
 	config, err := s.ParseConfig([]byte(out), "<device>")
-	device.Info("Parsed device config")
+	myerror.Info("Parsed device config")
 	if err != nil {
 		err = fmt.Errorf("While reading device: %v", err)
 	}
@@ -76,7 +77,7 @@ func (s *State) checkDeviceName(name string) {
 	out := s.Conn.GetCmdOutput("show hostname")
 	out = strings.TrimSuffix(out, "\n")
 	if name != out {
-		device.Abort("Wrong device name: %q, expected: %q", out, name)
+		myerror.Abort("Wrong device name: %q, expected: %q", out, name)
 	}
 }
 
@@ -89,7 +90,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 	s.cmd("end")
 	out := s.Conn.GetCmdOutput("write memory")
 	if !strings.Contains(out, "[OK]") {
-		device.Abort("Command 'write memory' failed, missing [OK] in output:\n%s",
+		myerror.Abort("Command 'write memory' failed, missing [OK] in output:\n%s",
 			out)
 	}
 	return nil
@@ -106,7 +107,7 @@ func (s *State) cmd(cmd string) {
 		out = s.Conn.StripEcho(ci, out)
 		if out != "" {
 			if !isValidOutput(ci, out) {
-				device.Abort("Got unexpected output from '%s':\n%s", ci, out)
+				myerror.Abort("Got unexpected output from '%s':\n%s", ci, out)
 			}
 		}
 	}
@@ -146,7 +147,7 @@ LINE:
 			continue
 		}
 		if strings.HasPrefix(line, "WARNING:") {
-			device.Warning("Got unexpected output from '%s':\n%s", cmd, line)
+			myerror.Warning("Got unexpected output from '%s':\n%s", cmd, line)
 			continue
 		}
 		return false

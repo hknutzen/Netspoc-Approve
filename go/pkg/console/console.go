@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 	expect "github.com/tailscale/goexpect"
 )
@@ -92,7 +92,7 @@ func (c *Conn) expectLog(prompt *regexp.Regexp, t time.Duration,
 func (c *Conn) WaitLogin(prompt string) string {
 	out, err := c.expectLog(regexp.MustCompile(prompt), c.ShortTimeout)
 	if err != nil {
-		device.Abort("while waiting for login prompt '%s': %v", prompt, err)
+		myerror.Abort("while waiting for login prompt '%s': %v", prompt, err)
 	}
 	return out
 }
@@ -100,7 +100,7 @@ func (c *Conn) WaitLogin(prompt string) string {
 func (c *Conn) WaitShort(prompt string) string {
 	out, err := c.expectLog(regexp.MustCompile(prompt), c.ShortTimeout)
 	if err != nil {
-		device.Abort("while waiting for prompt '%s': %v", prompt, err)
+		myerror.Abort("while waiting for prompt '%s': %v", prompt, err)
 	}
 	return out
 }
@@ -108,7 +108,7 @@ func (c *Conn) WaitShort(prompt string) string {
 func (c *Conn) waitPrompt(re *regexp.Regexp) string {
 	out, err := c.expectLog(re, c.Timeout)
 	if err != nil {
-		device.Abort("while waiting for prompt '%s': %v", re, err)
+		myerror.Abort("while waiting for prompt '%s': %v", re, err)
 	}
 	return out
 }
@@ -153,7 +153,7 @@ func (c *Conn) SetStdPrompt(p *regexp.Regexp) {
 func (c *Conn) StripStdPrompt(s string) string {
 	loc := c.promptRE.FindStringIndex(s)
 	if loc == nil {
-		device.Abort("Missing prompt '%s' in response:\n'%v'", c.promptRE, s)
+		myerror.Abort("Missing prompt '%s' in response:\n'%v'", c.promptRE, s)
 	}
 	i := loc[0]
 	// Don't remove trailing "\n".
@@ -164,7 +164,7 @@ func (c *Conn) StripEcho(cmd, s string) string {
 	cShort := cmd
 	cmd += "\n"
 	if len(s) < len(cmd) || s[:len(cmd)] != cmd {
-		device.Abort("Got unexpected echo in response to '%s':\n%v", cShort, s)
+		myerror.Abort("Got unexpected echo in response to '%s':\n%v", cShort, s)
 	}
 	return s[len(cmd):]
 }

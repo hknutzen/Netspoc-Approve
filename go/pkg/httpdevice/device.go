@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -44,7 +44,7 @@ func TryReachableHTTPLogin(
 			return err
 		}
 		if err := login(name, ip, user, pass); err != nil {
-			device.Warning("%v", err)
+			myerror.Warning("%v", err)
 			continue
 		}
 		return nil

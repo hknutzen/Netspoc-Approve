@@ -12,6 +12,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -52,11 +53,11 @@ func (s *State) LoadDevice(
 	s.checkDeviceName(hostName)
 
 	s.Conn.SetLogFH(logConfig)
-	device.Info("Requesting device config")
+	myerror.Info("Requesting device config")
 	out := s.Conn.GetCmdOutput("sh run")
-	device.Info("Got device config")
+	myerror.Info("Got device config")
 	config, err := s.ParseConfig([]byte(out), "<device>")
-	device.Info("Parsed device config")
+	myerror.Info("Parsed device config")
 	if err != nil {
 		err = fmt.Errorf("While reading device: %v", err)
 	}
@@ -78,7 +79,7 @@ func (s *State) checkDeviceName(name string) {
 	out := strings.TrimSpace(s.Conn.IssueCmd("", `#[ ]?`))
 	out = strings.TrimSuffix(out, "#")
 	if name != out {
-		device.Abort("Wrong device name: %q, expected: %q", out, name)
+		myerror.Abort("Wrong device name: %q, expected: %q", out, name)
 	}
 }
 
@@ -145,9 +146,9 @@ func (s *State) writeMem() {
 				time.Sleep(3 * time.Second)
 				continue
 			}
-			device.Abort("write mem: startup-config open failed - giving up")
+			myerror.Abort("write mem: startup-config open failed - giving up")
 		}
-		device.Abort("write mem: unexpected result: %s", out)
+		myerror.Abort("write mem: unexpected result: %s", out)
 	}
 }
 
@@ -163,7 +164,7 @@ func (s *State) cmd(cmd string) {
 		out = s.Conn.StripEcho(ci, out)
 		if out != "" {
 			if !isValidOutput(ci, out) {
-				device.Abort("Got unexpected output from '%s':\n%s", ci, out)
+				myerror.Abort("Got unexpected output from '%s':\n%s", ci, out)
 			}
 		}
 	}
@@ -185,7 +186,7 @@ func isValidOutput(cmd, out string) bool {
 			continue
 		}
 		if strings.HasPrefix(line, "WARNING:") {
-			device.Warning("Got unexpected output from '%s':\n%s", cmd, line)
+			myerror.Warning("Got unexpected output from '%s':\n%s", cmd, line)
 			continue
 		}
 		return false
@@ -268,15 +269,15 @@ func (s *State) stripReloadBanner(out string) (string, bool) {
 				// Because of 'logging synchronous' we are sure to get another prompt
 				// if the banner is the only output before current prompt.
 				// Read next prompt.
-				device.Info("Found banner before output, expecting another prompt")
+				myerror.Info("Found banner before output, expecting another prompt")
 				out = s.Conn.WaitShort(`[#] ?$`)
 				out = s.Conn.StripStdPrompt(out)
 			} else if prefix != "" && strings.TrimSpace(postfix) == "" {
 				// Try to read another prompt if banner is shown directly
 				// behind current output.
-				device.Info("Found banner after output, checking another prompt")
+				myerror.Info("Found banner after output, checking another prompt")
 				if s.Conn.TryPrompt() {
-					device.Info("- Found prompt")
+					myerror.Info("- Found prompt")
 				}
 			}
 			matched, _ := regexp.MatchString(`SHUTDOWN in 0?0:01:00`, msg)

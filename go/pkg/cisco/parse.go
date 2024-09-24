@@ -11,6 +11,7 @@ import (
 	"unicode"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 )
 
 type Config struct {
@@ -602,7 +603,7 @@ func postprocessParsed(lookup objLookup) {
 						ref = c.sub[0].ref[0]
 					}
 					if ldapMap != " " && ldapMap != ref {
-						device.Abort("aaa-server %s must not use different values"+
+						myerror.Abort("aaa-server %s must not use different values"+
 							" in 'ldap-attribute-map'",
 							name)
 					}

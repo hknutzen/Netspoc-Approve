@@ -14,6 +14,7 @@ import (
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/pkg/diff/edit"
 	"github.com/pkg/diff/myers"
 )
@@ -512,7 +513,7 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 	for _, r := range diff {
 		if r.IsInsert() {
 			if r.HighB-r.LowB >= 10000 {
-				device.Abort("Can't insert more than 9999 ACL lines at once")
+				myerror.Abort("Can't insert more than 9999 ACL lines at once")
 			}
 			action0 := getIOSAction(bl[r.LowB])
 			moveOK := true
@@ -837,7 +838,7 @@ func (s *State) diffRoutes(al, bl []*cmd, diff []edit.Range) {
 					if vrf != "" {
 						forVRF = " for VRF " + vrf
 					}
-					device.Info("No %s routing specified%s, leaving untouched",
+					myerror.Info("No %s routing specified%s, leaving untouched",
 						ipv, forVRF)
 				}
 			}
@@ -887,7 +888,7 @@ func (s *State) addCmds(l []*cmd) {
 			if _, found := s.a.lookup[prefix][name]; !found {
 				switch prefix {
 				case "aaa-server", "ldap attribute-map":
-					device.Abort("'%s %s' must be transferred manually", prefix, name)
+					myerror.Abort("'%s %s' must be transferred manually", prefix, name)
 				}
 			}
 		}
@@ -1214,7 +1215,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 			}
 		}
 		if peer == "" {
-			device.Abort("Missing peer or dynamic in crypto map %s %d", name, seq)
+			myerror.Abort("Missing peer or dynamic in crypto map %s %d", name, seq)
 		}
 		return peer
 	}
@@ -1420,7 +1421,7 @@ func (s *State) checkASAInterfaces() error {
 		if name != "" {
 			aIntf[name] = true
 			if !bIntf[name] && !shut {
-				device.Warning(
+				myerror.Warning(
 					"Interface '%s' on device is not known by Netspoc", name)
 			}
 		}
@@ -1491,7 +1492,7 @@ func (s *State) checkIOSInterfaces() error {
 		aKnown[name] = true
 		if bInfo := bIntf[name]; bInfo != nil {
 			if aInfo.addr != bInfo.addr && bInfo.addr != "negotiated" {
-				device.Warning(
+				myerror.Warning(
 					"Different address defined for interface %s:"+
 						" Device: %q, Netspoc: %q", name, aInfo.addr, bInfo.addr)
 			}
@@ -1513,7 +1514,7 @@ func (s *State) checkIOSInterfaces() error {
 			// probably of type "managed=routing_only", and Netspoc won't
 			// change any interface config.
 			if !aInfo.shut && aInfo.addr != "" && len(bIntf) != 0 {
-				device.Warning(
+				myerror.Warning(
 					"Interface '%s' on device is not known by Netspoc", name)
 			}
 		}
@@ -1593,7 +1594,7 @@ func (s *State) alignVRFs() {
 		if vrf == "" {
 			vrf = "<global>"
 		}
-		device.Info("Leaving VRF %s untouched", vrf)
+		myerror.Info("Leaving VRF %s untouched", vrf)
 	}
 }
 

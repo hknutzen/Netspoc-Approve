@@ -9,9 +9,9 @@ import (
 	"path"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
+	myerror "github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 	"github.com/spf13/pflag"
 )
@@ -38,16 +38,14 @@ type state struct {
 	logFname string
 }
 
-var quiet bool
-
 func Main(dev RealDevice, fs *pflag.FlagSet) int {
 	s := &state{RealDevice: dev}
 	getString := func(fs *pflag.FlagSet, name string) string {
 		val, _ := fs.GetString(name)
 		return val
 	}
-	quiet, _ = fs.GetBool("quiet")
-	return handleBailout(func() int {
+	myerror.Quiet, _ = fs.GetBool("quiet")
+	return myerror.HandleAbort(func() int {
 		var err error
 		args := fs.Args()
 		switch len(args) {
@@ -58,7 +56,7 @@ func Main(dev RealDevice, fs *pflag.FlagSet) int {
 				fs.Usage()
 				return 1
 			}
-			s.setStderrLog("")
+			myerror.SetStderrLog("")
 			err = s.compareFiles(args[0], args[1])
 		case 1:
 			fname := args[0]
@@ -69,7 +67,7 @@ func Main(dev RealDevice, fs *pflag.FlagSet) int {
 			s.setLock(fname)
 			s.config.User = getString(fs, "user")
 			s.setLogDir(getString(fs, "logdir"), fname)
-			s.setStderrLog(getString(fs, "LOGFILE"))
+			myerror.SetStderrLog(getString(fs, "LOGFILE"))
 			if v, _ := fs.GetBool("compare"); v {
 				err = s.compare(fname)
 			} else {
@@ -78,7 +76,7 @@ func Main(dev RealDevice, fs *pflag.FlagSet) int {
 			s.CloseConnection()
 		}
 		if err != nil {
-			Abort("%v", err)
+			myerror.Abort("%v", err)
 		}
 		return 0
 	})
@@ -104,7 +102,7 @@ func (s *state) compare(fname string) error {
 		return err
 	}
 	for _, w := range s.GetErrUnmanaged() {
-		Warning("%v", w)
+		myerror.Warning("%v", w)
 	}
 	s.showCompareInfo()
 	if s.logFname != "" && s.HasChanges() {
@@ -166,9 +164,9 @@ func (s *state) applyCommands() error {
 
 func (s *state) showCompareInfo() {
 	if !s.HasChanges() {
-		Info("comp: device unchanged")
+		myerror.Info("comp: device unchanged")
 	} else {
-		Info("comp: *** device changed ***")
+		myerror.Info("comp: *** device changed ***")
 	}
 }
 
@@ -227,7 +225,7 @@ func (s *state) setLock(fname string) {
 	_, statErr := os.Stat(lockFile)
 	fh, err := os.Create(lockFile)
 	if err != nil {
-		Abort("Can't %v", err)
+		myerror.Abort("Can't %v", err)
 	}
 	// Make newly created lock file writable for other users.
 	if statErr != nil && errors.Is(statErr, fs.ErrNotExist) {
@@ -235,7 +233,7 @@ func (s *state) setLock(fname string) {
 	}
 	err = syscall.Flock(int(fh.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 	if err != nil {
-		Abort("Approve in progress for %s", fname)
+		myerror.Abort("Approve in progress for %s", fname)
 	}
 	lockFH = fh
 }
@@ -251,15 +249,8 @@ func (s *state) getLogFH(ext string) (*os.File, error) {
 		return nil, nil
 	}
 	fname := s.logFname + ext
-	moveLogFile(fname)
-	return createWithPath(fname)
-}
-
-// Rename existing logfile.
-func moveLogFile(fname string) {
-	if _, err := os.Stat(fname); err == nil {
-		os.Rename(fname, fmt.Sprintf("%s.%d", fname, time.Now().Unix()))
-	}
+	myerror.MoveLogFile(fname)
+	return myerror.CreateWithPath(fname)
 }
 
 func closeLogFH(fh *os.File) {
@@ -275,63 +266,4 @@ func DoLog(fh *os.File, s string) {
 		}
 		fmt.Fprintln(fh, s)
 	}
-}
-
-var stderrLog *os.File
-
-func (s *state) setStderrLog(fname string) {
-	stderrLog = os.Stderr
-	if fname != "" {
-		moveLogFile(fname)
-		fh, err := createWithPath(fname)
-		if err != nil {
-			Abort("Can't %v", err)
-		}
-		stderrLog = fh
-	}
-}
-
-func createWithPath(fname string) (*os.File, error) {
-	dir := path.Dir(fname)
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return nil, err
-	}
-	return os.Create(fname)
-}
-
-func Info(format string, args ...interface{}) {
-	if !quiet {
-		fmt.Fprintf(stderrLog, format+"\n", args...)
-	}
-}
-
-func Warning(format string, args ...interface{}) {
-	printWithMarker("WARNING>>> ", format, args...)
-}
-
-type bailout struct{}
-
-func handleBailout(f func() int) (exitCode int) {
-	defer func() {
-		if e := recover(); e != nil {
-			if _, ok := e.(bailout); !ok {
-				panic(e) // Resume same panic if it's not a bailout.
-			}
-			exitCode = 1
-		}
-	}()
-	return f()
-}
-
-func Abort(format string, args ...interface{}) {
-	printWithMarker("ERROR>>> ", format, args...)
-	panic(bailout{})
-}
-
-func printWithMarker(m string, format string, args ...interface{}) {
-	out := fmt.Sprintf(format, args...)
-	out = strings.TrimSuffix(out, "\n")
-	out = strings.ReplaceAll(out, "\n", "\n"+m)
-	fmt.Fprintln(stderrLog, m+out)
 }

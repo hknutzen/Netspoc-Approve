@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -32,11 +32,11 @@ func (s *State) LoginEnable(pass string, cfg *program.Config) {
 			// Enable password required.
 			// Use login password as enable password.
 			if !waitPrompt(pass, "#") {
-				device.Abort("Authentication for enable mode failed")
+				myerror.Abort("Authentication for enable mode failed")
 			}
 		}
 	} else if !strings.HasSuffix(out, "#") {
-		device.Abort("Authentication failed")
+		myerror.Abort("Authentication failed")
 	}
 
 	// Force new prompt by issuing empty command.
