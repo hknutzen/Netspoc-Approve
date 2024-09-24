@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -33,9 +34,9 @@ func (s *State) LoadDevice(
 	device.DeviceConfig, error) {
 
 	devName := ""
-	err := device.TryReachableHTTPLogin(path, cfg,
+	err := httpdevice.TryReachableHTTPLogin(path, cfg,
 		func(name, ip, user, pass string) error {
-			s.client = device.GetHTTPClient(cfg)
+			s.client = httpdevice.GetHTTPClient(cfg)
 			s.devUser = user
 			key, err := s.getAPIKey(ip, user, pass, logLogin)
 			if err != nil {

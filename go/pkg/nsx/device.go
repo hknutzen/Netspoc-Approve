@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -32,10 +33,10 @@ func (s *State) LoadDevice(
 	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
-	err := device.TryReachableHTTPLogin(spocFile, cfg,
+	err := httpdevice.TryReachableHTTPLogin(spocFile, cfg,
 		func(name, ip, user, pass string) error {
 			s.prefix = fmt.Sprintf("https://%s", ip)
-			s.client = device.GetHTTPClient(cfg)
+			s.client = httpdevice.GetHTTPClient(cfg)
 			jar, err := cookiejar.New(nil)
 			if err != nil {
 				return err
