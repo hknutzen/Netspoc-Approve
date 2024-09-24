@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/linux"
@@ -72,7 +73,7 @@ func Main() int {
 // This function had to be separated from package "device" into this package,
 // to prevent import loop in package "device".
 func getRealDevice(fname string) device.RealDevice {
-	info, _ := device.LoadInfoFile(fname)
+	info, _ := codefiles.LoadInfoFile(fname)
 	switch info.Model {
 	case "ASA":
 		return asa.Setup()

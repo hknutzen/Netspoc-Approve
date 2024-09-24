@@ -2,7 +2,6 @@ package device
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -15,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/spf13/pflag"
 )
 
@@ -182,7 +182,7 @@ func (s *state) getCompare(c1 DeviceConfig, fname string) error {
 }
 
 func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
-	v6Path := getIPv6Fname(v4Path)
+	v6Path := codefiles.GetIPv6Fname(v4Path)
 	conf4, err := s.loadSpocFile(v4Path)
 	if err != nil {
 		return nil, err
@@ -218,12 +218,6 @@ func (s *state) loadSpocFile(fname string) (DeviceConfig, error) {
 	return c, nil
 }
 
-func getIPv6Fname(p string) string {
-	dir := path.Dir(p)
-	base := path.Base(p)
-	return dir + "/ipv6/" + base
-}
-
 // Set lock for exclusive approval.
 // Store file handle in global var, so it isn't closed immediately.
 // File is closed automatically after program exit.
@@ -247,16 +241,8 @@ func (s *state) setLock(fname string) {
 	lockFH = fh
 }
 
-type codeInfo struct {
-	GeneratedBy             string   `json:"generated_by"`
-	Model                   string   `json:"model"`
-	IPList                  []string `json:"ip_list,omitempty"`
-	NameList                []string `json:"name_list,omitempty"`
-	PolicyDistributionPoint string   `json:"policy_distribution_point,omitempty"`
-}
-
 func getHostnameIPList(path string) ([]string, []string, error) {
-	info, checked := LoadInfoFile(path)
+	info, checked := codefiles.LoadInfoFile(path)
 	nameList := info.NameList
 	ipList := info.IPList
 	if len(nameList) == 0 {
@@ -270,45 +256,6 @@ func getHostnameIPList(path string) ([]string, []string, error) {
 			"Number of device names and IP addresses don't match in %v", checked)
 	}
 	return nameList, ipList, nil
-}
-
-func GetIPPDP(fName string) (string, string, error) {
-	info, checked := LoadInfoFile(fName)
-	ipList := info.IPList
-	if len(ipList) == 0 {
-		return "", "", fmt.Errorf("Missing IP address in %v", checked)
-	}
-	return ipList[0], info.PolicyDistributionPoint, nil
-}
-
-func GetHostname(fName string) string {
-	return path.Base(fName)
-}
-
-func LoadInfoFile(path string) (*codeInfo, []string) {
-	path6 := getIPv6Fname(path)
-	info := &codeInfo{}
-	var checked []string
-	for _, file := range []string{path, path6} {
-		file += ".info"
-		fd, err := os.Open(file)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			panic(err)
-		}
-		checked = append(checked, file)
-		defer fd.Close()
-		if err := json.NewDecoder(fd).Decode(&info); err != nil {
-			panic(err)
-		}
-		// Must also read IPv6 file if v4 file has no IP.
-		if len(info.IPList) > 0 {
-			break
-		}
-	}
-	return info, checked
 }
 
 func (s *state) setLogDir(logDir, file string) {

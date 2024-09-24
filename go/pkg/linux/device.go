@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
@@ -41,19 +42,19 @@ type config struct {
 func (s *State) LoadDevice(
 	spocFile string, cfg *device.Config, logLogin, logConfig *os.File,
 ) (device.DeviceConfig, error) {
-	user, pass := cfg.GetUserPass(device.GetHostname(spocFile))
+	user, pass := cfg.GetUserPass(codefiles.GetHostname(spocFile))
 	var err error
 	s.conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
 		return nil, err
 	}
-	hostName := device.GetHostname(spocFile)
+	hostName := codefiles.GetHostname(spocFile)
 	s.loginEnable(pass, cfg)
 	s.logVersion()
 	s.checkDeviceName(hostName)
 	s.checkBanner(cfg)
 	s.conn.SetLogFH(logConfig)
-	s.ip, _, _ = device.GetIPPDP(spocFile)
+	s.ip, _, _ = codefiles.GetIPPDP(spocFile)
 	s.user = user
 
 	return &config{

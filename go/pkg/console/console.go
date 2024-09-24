@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	expect "github.com/tailscale/goexpect"
 )
@@ -21,7 +22,7 @@ type Conn struct {
 func GetSSHConn(spocFile, user string, cfg *device.Config, logLogin *os.File) (
 	*Conn, error) {
 
-	ip, pdp, err := device.GetIPPDP(spocFile)
+	ip, pdp, err := codefiles.GetIPPDP(spocFile)
 	if err != nil {
 		return nil, err
 	}

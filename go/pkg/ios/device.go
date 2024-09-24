@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/cisco"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 )
@@ -35,13 +36,13 @@ func (s *State) LoadDevice(
 	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
-	user, pass := cfg.GetUserPass(device.GetHostname(spocFile))
+	user, pass := cfg.GetUserPass(codefiles.GetHostname(spocFile))
 	var err error
 	s.Conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
 		return nil, err
 	}
-	hostName := device.GetHostname(spocFile)
+	hostName := codefiles.GetHostname(spocFile)
 	s.LoginEnable(pass, cfg)
 	s.setTerminal()
 	s.logVersion()
