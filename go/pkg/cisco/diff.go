@@ -1387,25 +1387,25 @@ func (s *State) checkASAInterfaces() error {
 	// - "access-group $access-list in|out interface INTF".
 	// - "crypto map $crypto_map interface INTF"
 	// Ignore "access-group $access-list global".
-	getImplicitInterfaces := func(cfg *Config) map[string]bool {
-		m := make(map[string]bool)
+	getImplicitInterfaces := func(cfg *Config) map[string][]*cmd {
+		m := make(map[string][]*cmd)
 		for _, c := range cfg.lookup["access-group"][""] {
 			tokens := strings.Fields(c.parsed)
 			if len(tokens) == 5 {
-				m[tokens[4]] = true
+				m[tokens[4]] = []*cmd{c}
 			}
 		}
 		for _, c := range cfg.lookup["crypto map interface"][""] {
-			tokens := strings.Fields(c.parsed)
-			m[tokens[4]] = true
+			intfName := strings.Fields(c.parsed)[4]
+			m[intfName] = append(m[intfName], c)
 		}
 		return m
 	}
-	bIntf := getImplicitInterfaces(s.b)
+	bIntf2cmd := getImplicitInterfaces(s.b)
 
 	// Collect and check named interfaces from device.
 	// Add implicit interfaces when comparing two Netspoc generated configs.
-	aIntf := getImplicitInterfaces(s.a)
+	aIntf2cmd := getImplicitInterfaces(s.a)
 	for _, c := range s.a.lookup["interface"][""] {
 		name := ""
 		shut := false
@@ -1419,17 +1419,24 @@ func (s *State) checkASAInterfaces() error {
 			}
 		}
 		if name != "" {
-			aIntf[name] = true
-			if !bIntf[name] && !shut {
-				myerror.Warning(
-					"Interface '%s' on device is not known by Netspoc", name)
+			if _, found := bIntf2cmd[name]; !found {
+				// If some ACL or crypto map is bound to this unmanaged
+				// interface, these commands must not accidently be deleted.
+				s.markNeeded(aIntf2cmd[name])
+
+				if !shut {
+					myerror.Warning(
+						"Interface '%s' on device is not known by Netspoc", name)
+				}
 			}
+			// Add map key, even if no commands are bound to this interface.
+			aIntf2cmd[name] = nil
 		}
 	}
 
 	// Check interfaces from Netspoc
-	for _, name := range slices.Sorted(maps.Keys(bIntf)) {
-		if !aIntf[name] {
+	for _, name := range slices.Sorted(maps.Keys(bIntf2cmd)) {
+		if _, found := aIntf2cmd[name]; !found {
 			return fmt.Errorf(
 				"Interface '%s' from Netspoc not known on device", name)
 		}
