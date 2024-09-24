@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 type State struct {
@@ -28,7 +29,7 @@ type change struct {
 }
 
 func (s *State) LoadDevice(
-	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
+	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
 	err := device.TryReachableHTTPLogin(spocFile, cfg,

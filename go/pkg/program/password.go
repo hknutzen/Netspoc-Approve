@@ -1,4 +1,4 @@
-package device
+package program
 
 import (
 	"fmt"
@@ -9,24 +9,22 @@ import (
 	"golang.org/x/term"
 )
 
-func (c *Config) GetUserPass(hostName string) (string, string) {
+func (c *Config) GetUserPass(hostName string) (string, string, error) {
 	if c.User != "" {
+		var err error
 		if c.Password == "" {
-			c.Password = c.askPassword()
+			c.Password, err = c.askPassword()
 		}
-		return c.User, c.Password
+		return c.User, c.Password, err
 	}
 	return c.getAAAPassword(hostName)
 }
 
 // Read password from user.
-func (c *Config) askPassword() string {
+func (c *Config) askPassword() (string, error) {
 	fmt.Printf("Enter password for %q: ", c.User)
 	pass, err := term.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		Abort("%v", err)
-	}
-	return string(pass)
+	return string(pass), err
 }
 
 // Format of aaa_credentials file
@@ -38,14 +36,14 @@ func (c *Config) askPassword() string {
 //   - ? matches one character
 //
 // - First matching line is taken.
-func (c *Config) getAAAPassword(name string) (string, string) {
+func (c *Config) getAAAPassword(name string) (string, string, error) {
 	file := c.aaaCredentials
 	if file == "" {
-		Abort("Must configure attribute 'aaa_credentials'")
+		return "", "", fmt.Errorf("Must configure attribute 'aaa_credentials'")
 	}
 	data, err := os.ReadFile(file)
 	if err != nil {
-		Abort("Can't %v", err)
+		return "", "", fmt.Errorf("Can't %v", err)
 	}
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -55,16 +53,15 @@ func (c *Config) getAAAPassword(name string) (string, string) {
 		}
 		parts := strings.Fields(line)
 		if len(parts) != 3 {
-			Abort("Expected 3 fields in lines of %s", file)
+			return "", "", fmt.Errorf("Expected 3 fields in lines of %s", file)
 		}
 		matched, err := path.Match(parts[0], name)
 		if err != nil {
-			Abort("Invalid pattern '%s' in %s", parts[0], file)
+			return "", "", fmt.Errorf("Invalid pattern '%s' in %s", parts[0], file)
 		}
 		if matched {
-			return parts[1], parts[2]
+			return parts[1], parts[2], nil
 		}
 	}
-	Abort("No matching entry found in %s", file)
-	return "", ""
+	return "", "", fmt.Errorf("No matching entry found in %s", file)
 }

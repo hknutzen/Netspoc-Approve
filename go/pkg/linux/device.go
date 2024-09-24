@@ -13,6 +13,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 const (
@@ -40,10 +41,12 @@ type config struct {
 }
 
 func (s *State) LoadDevice(
-	spocFile string, cfg *device.Config, logLogin, logConfig *os.File,
+	spocFile string, cfg *program.Config, logLogin, logConfig *os.File,
 ) (device.DeviceConfig, error) {
-	user, pass := cfg.GetUserPass(codefiles.GetHostname(spocFile))
-	var err error
+	user, pass, err := cfg.GetUserPass(codefiles.GetHostname(spocFile))
+	if err != nil {
+		return nil, err
+	}
 	s.conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
 		return nil, err
@@ -63,7 +66,7 @@ func (s *State) LoadDevice(
 	}, err
 }
 
-func (s *State) loginEnable(pass string, cfg *device.Config) {
+func (s *State) loginEnable(pass string, cfg *program.Config) {
 	conn := s.conn
 	stdPrompt := `\r\n\S*\s?[%>$#]\s?(?:\x27\S*)?`
 	passPrompt := stdPrompt + `|(?i)password:`
@@ -99,7 +102,7 @@ func (s *State) checkDeviceName(name string) {
 	}
 }
 
-func (s *State) checkBanner(cfg *device.Config) {
+func (s *State) checkBanner(cfg *program.Config) {
 	re := cfg.CheckBanner.String()
 	lines := s.conn.GetCmdOutput("grep '" + re + "' /etc/issue")
 	if len(lines) == 0 {

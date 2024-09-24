@@ -8,6 +8,7 @@ import (
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 	expect "github.com/tailscale/goexpect"
 )
 
@@ -19,7 +20,7 @@ type Conn struct {
 	log          *os.File
 }
 
-func GetSSHConn(spocFile, user string, cfg *device.Config, logLogin *os.File) (
+func GetSSHConn(spocFile, user string, cfg *program.Config, logLogin *os.File) (
 	*Conn, error) {
 
 	ip, pdp, err := codefiles.GetIPPDP(spocFile)
@@ -48,7 +49,7 @@ func GetSSHConn(spocFile, user string, cfg *device.Config, logLogin *os.File) (
 }
 
 // Check if ip is located on this server. Otherwise ip is used as proxy server.
-func isThisServer(ip string, cfg *device.Config) bool {
+func isThisServer(ip string, cfg *program.Config) bool {
 	// If ServerIPList isn't configured, never use a proxy server.
 	if len(cfg.ServerIPList) == 0 {
 		return true

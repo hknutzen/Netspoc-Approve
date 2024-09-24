@@ -15,11 +15,13 @@ import (
 	"time"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 	"github.com/spf13/pflag"
 )
 
 type RealDevice interface {
-	LoadDevice(fname string, c *Config, l1, l2 *os.File) (DeviceConfig, error)
+	LoadDevice(fname string, c *program.Config, l1, l2 *os.File) (
+		DeviceConfig, error)
 	ParseConfig(data []byte, fName string) (DeviceConfig, error)
 	GetChanges(c1, c2 DeviceConfig) error
 	GetErrUnmanaged() []error
@@ -35,7 +37,7 @@ type DeviceConfig interface {
 
 type state struct {
 	RealDevice
-	config   *Config
+	config   *program.Config
 	logFname string
 }
 
@@ -63,7 +65,7 @@ func Main(dev RealDevice, fs *pflag.FlagSet) int {
 			err = s.compareFiles(args[0], args[1])
 		case 1:
 			fname := args[0]
-			s.config, err = LoadConfig()
+			s.config, err = program.LoadConfig()
 			if err != nil {
 				break
 			}
@@ -318,7 +320,7 @@ func createWithPath(fname string) (*os.File, error) {
 	return os.Create(fname)
 }
 
-func GetHTTPClient(cfg *Config) *http.Client {
+func GetHTTPClient(cfg *program.Config) *http.Client {
 	return &http.Client{
 		Timeout: time.Duration(cfg.Timeout) * time.Second,
 		Transport: &http.Transport{
@@ -334,7 +336,7 @@ func GetHTTPClient(cfg *Config) *http.Client {
 
 func TryReachableHTTPLogin(
 	fname string,
-	cfg *Config,
+	cfg *program.Config,
 	login func(name, ip, user, pass string) error,
 ) error {
 
@@ -344,7 +346,10 @@ func TryReachableHTTPLogin(
 	}
 	for i, name := range nameList {
 		ip := ipList[i]
-		user, pass := cfg.GetUserPass(name)
+		user, pass, err := cfg.GetUserPass(name)
+		if err != nil {
+			Abort("%v", err)
+		}
 		if err := login(name, ip, user, pass); err != nil {
 			Warning("%v", err)
 			continue

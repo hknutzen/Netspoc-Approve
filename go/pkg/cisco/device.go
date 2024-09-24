@@ -6,9 +6,10 @@ import (
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
-func (s *State) LoginEnable(pass string, cfg *device.Config) {
+func (s *State) LoginEnable(pass string, cfg *program.Config) {
 	var bannerLines string
 	conn := s.Conn
 	out := conn.WaitLogin(`(?i)password:|\(yes/no.*\)\?`)
@@ -52,7 +53,7 @@ func (s *State) LoginEnable(pass string, cfg *device.Config) {
 	s.checkBanner(bannerLines, cfg)
 }
 
-func (s *State) checkBanner(lines string, cfg *device.Config) {
+func (s *State) checkBanner(lines string, cfg *program.Config) {
 	if rx := cfg.CheckBanner; rx != nil && rx.FindStringIndex(lines) == nil {
 		s.errUnmanaged =
 			[]error{errors.New("Missing banner at NetSPoC managed device")}

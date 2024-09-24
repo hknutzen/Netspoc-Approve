@@ -12,6 +12,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 type State struct {
@@ -33,11 +34,13 @@ func (s *State) ParseConfig(data []byte, fName string) (
 }
 
 func (s *State) LoadDevice(
-	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
+	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
-	user, pass := cfg.GetUserPass(codefiles.GetHostname(spocFile))
-	var err error
+	user, pass, err := cfg.GetUserPass(codefiles.GetHostname(spocFile))
+	if err != nil {
+		return nil, err
+	}
 	s.Conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
 		return nil, err

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 type State struct {
@@ -28,7 +29,7 @@ type change struct {
 }
 
 func (s *State) LoadDevice(
-	path string, cfg *device.Config, logLogin, logConfig *os.File) (
+	path string, cfg *program.Config, logLogin, logConfig *os.File) (
 	device.DeviceConfig, error) {
 
 	devName := ""
