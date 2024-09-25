@@ -1515,8 +1515,6 @@ func (s *State) checkIOSInterfaces() error {
 						" Device: %s, Netspoc: %s", name, aInfo.vrf, bInfo.vrf)
 			}
 		} else {
-			// Mark referenced ACLs that must not be deleted.
-			s.markNeeded(c.sub)
 			// If config from Netspoc has no interface definitions, it is
 			// probably of type "managed=routing_only", and Netspoc won't
 			// change any interface config.
