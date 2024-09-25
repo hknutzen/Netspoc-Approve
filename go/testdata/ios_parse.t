@@ -319,13 +319,21 @@ ip access-list extended eth0_in-DRC-0
 interface eth0
  shutdown
  ip access-group eth0_in-DRC-0 in
-ip access-list extended eth1_in-DRC-0
- deny ip any any
 interface eth1
- ip access-group eth1_in-DRC-0 in
-=NETSPOC=NONE
-=OUTPUT=NONE
-
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group eth0_in-DRC-0 in
+interface eth2
+ ip address 10.1.2.1 255.255.255.0
+ ip access-group eth0_in-DRC-0 in
+=NETSPOC=
+interface eth2
+ ip address 10.1.2.1 255.255.255.0
+=WARNING=
+WARNING>>> Interface 'eth1' on device is not known by Netspoc
+=OUTPUT=
+interface eth2
+no ip access-group eth0_in-DRC-0 in
+=END=
 
 ############################################################
 =TITLE=Change ACL referenced from two interfaces
