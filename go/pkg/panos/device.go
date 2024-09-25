@@ -14,6 +14,7 @@ import (
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -89,11 +90,11 @@ func (s *State) getAPIKey(ip, user, pass string, logFH *os.File) (
 	uri := base.String()
 	passRE := regexp.MustCompile(`(password=).*?(&|$)`)
 	loggedURI := passRE.ReplaceAllString(uri, "${1}xxx$2")
-	device.DoLog(logFH, loggedURI)
+	myerror.DoLog(logFH, loggedURI)
 	body, err := s.httpGet(uri)
 	keyRE := regexp.MustCompile(`<key>.*</key>`)
 	loggedBody := keyRE.ReplaceAllString(string(body), "<key>xxx</key>")
-	device.DoLog(logFH, loggedBody)
+	myerror.DoLog(logFH, loggedBody)
 	if err != nil {
 		msg := err.Error()
 		msg = passRE.ReplaceAllString(msg, "${1}xxx$2")
@@ -266,9 +267,9 @@ var apiRE = regexp.MustCompile(`[?]key=.*?&`)
 func (s *State) httpPrefixGetLog(uri string, logFH *os.File) ([]byte, error) {
 	uri = s.urlPrefix + uri
 	loggedURI := apiRE.ReplaceAllString(uri, "?key=xxx&")
-	device.DoLog(logFH, loggedURI)
+	myerror.DoLog(logFH, loggedURI)
 	body, err := s.httpGet(uri)
-	device.DoLog(logFH, string(body))
+	myerror.DoLog(logFH, string(body))
 	return body, err
 }
 

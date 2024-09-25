@@ -2,6 +2,7 @@ package myerror
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -18,6 +19,15 @@ func Info(format string, args ...interface{}) {
 
 func Warning(format string, args ...interface{}) {
 	PrintWithMarker("WARNING>>> ", format, args...)
+}
+
+func DoLog(fh *os.File, s string) {
+	if fh != nil {
+		if strings.HasPrefix(s, "http") || strings.HasPrefix(s, "action=") {
+			s, _ = url.QueryUnescape(s)
+		}
+		fmt.Fprintln(fh, s)
+	}
 }
 
 var StderrLog *os.File

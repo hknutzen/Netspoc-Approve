@@ -14,6 +14,7 @@ import (
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -44,14 +45,14 @@ func (s *State) LoadDevice(
 			s.client.Jar = jar
 
 			uri := s.prefix + "/api/session/create"
-			device.DoLog(logLogin, "POST "+uri)
+			myerror.DoLog(logLogin, "POST "+uri)
 			v := url.Values{}
 			v.Set("j_username", user)
 			v.Set("j_password", "xxx")
-			device.DoLog(logLogin, v.Encode())
+			myerror.DoLog(logLogin, v.Encode())
 			v.Set("j_password", pass)
 			resp, err := s.client.PostForm(uri, v)
-			device.DoLog(logLogin, resp.Status)
+			myerror.DoLog(logLogin, resp.Status)
 			if err != nil {
 				return err
 			}
@@ -111,7 +112,7 @@ func (s *State) LoadDevice(
 	if err != nil {
 		return nil, err
 	}
-	device.DoLog(logConfig, string(out))
+	myerror.DoLog(logConfig, string(out))
 
 	config, err := s.ParseConfig(out, "<device>")
 	if err != nil {
@@ -201,13 +202,13 @@ func (s *State) ShowChanges() string {
 
 func (s *State) ApplyCommands(logFh *os.File) error {
 	for _, c := range s.changes {
-		device.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
-		device.DoLog(logFh, "DATA: "+string(c.postData))
+		myerror.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
+		myerror.DoLog(logFh, "DATA: "+string(c.postData))
 		resp, err := s.sendRequest(c.method, c.url, bytes.NewReader(c.postData))
 		if err != nil {
 			return err
 		}
-		device.DoLog(logFh, "RESP: "+string(resp))
+		myerror.DoLog(logFh, "RESP: "+string(resp))
 	}
 	return nil
 }

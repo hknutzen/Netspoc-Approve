@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net/url"
 	"os"
 	"path"
-	"strings"
 	"syscall"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
@@ -156,7 +154,7 @@ func (s *state) applyCommands() error {
 	}
 	defer closeLogFH(logFH)
 	if !s.HasChanges() {
-		DoLog(logFH, "No changes applied")
+		myerror.DoLog(logFH, "No changes applied")
 		return nil
 	}
 	return s.ApplyCommands(logFH)
@@ -256,14 +254,5 @@ func (s *state) getLogFH(ext string) (*os.File, error) {
 func closeLogFH(fh *os.File) {
 	if fh != nil {
 		fh.Close()
-	}
-}
-
-func DoLog(fh *os.File, s string) {
-	if fh != nil {
-		if strings.HasPrefix(s, "http") || strings.HasPrefix(s, "action=") {
-			s, _ = url.QueryUnescape(s)
-		}
-		fmt.Fprintln(fh, s)
 	}
 }
