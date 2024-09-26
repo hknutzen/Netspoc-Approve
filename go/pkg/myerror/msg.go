@@ -13,7 +13,7 @@ var Quiet bool
 
 func Info(format string, args ...interface{}) {
 	if !Quiet {
-		fmt.Fprintf(StderrLog, format+"\n", args...)
+		fmt.Fprintf(stderrLog, format+"\n", args...)
 	}
 }
 
@@ -30,17 +30,17 @@ func DoLog(fh *os.File, s string) {
 	}
 }
 
-var StderrLog *os.File
+var stderrLog *os.File
 
 func SetStderrLog(fname string) {
-	StderrLog = os.Stderr
+	stderrLog = os.Stderr
 	if fname != "" {
 		MoveLogFile(fname)
 		fh, err := CreateWithPath(fname)
 		if err != nil {
 			Abort("Can't %v", err)
 		}
-		StderrLog = fh
+		stderrLog = fh
 	}
 }
 
@@ -48,7 +48,7 @@ func PrintWithMarker(m string, format string, args ...interface{}) {
 	out := fmt.Sprintf(format, args...)
 	out = strings.TrimSuffix(out, "\n")
 	out = strings.ReplaceAll(out, "\n", "\n"+m)
-	fmt.Fprintln(StderrLog, m+out)
+	fmt.Fprintln(stderrLog, m+out)
 }
 
 // Rename existing logfile.
