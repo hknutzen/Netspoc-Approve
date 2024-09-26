@@ -12,7 +12,7 @@ import (
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
@@ -43,7 +43,7 @@ type config struct {
 
 func (s *State) LoadDevice(
 	spocFile string, cfg *program.Config, logLogin, logConfig *os.File,
-) (device.DeviceConfig, error) {
+) (deviceconf.Config, error) {
 	user, pass, err := cfg.GetUserPass(codefiles.GetHostname(spocFile))
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func (s *State) getDeviceIPTables() tables {
 	return s.parseIPTables(strings.Split(string(out), "\n"))
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
+func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
 	p1 := c1.(*config)
 	p2 := c2.(*config)
 	s.change = diffConfig(p1, p2)

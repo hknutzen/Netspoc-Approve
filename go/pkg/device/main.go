@@ -8,17 +8,22 @@ import (
 	"path"
 	"syscall"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/linux"
 	myerror "github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
-	"github.com/spf13/pflag"
 )
 
 type RealDevice interface {
 	LoadDevice(fname string, c *program.Config, l1, l2 *os.File) (
-		DeviceConfig, error)
-	ParseConfig(data []byte, fName string) (DeviceConfig, error)
-	GetChanges(c1, c2 DeviceConfig) error
+		deviceconf.Config, error)
+	ParseConfig(data []byte, fName string) (deviceconf.Config, error)
+	GetChanges(c1, c2 deviceconf.Config) error
 	GetErrUnmanaged() []error
 	ApplyCommands(*os.File) error
 	HasChanges() bool
@@ -26,8 +31,24 @@ type RealDevice interface {
 	CloseConnection()
 }
 
-type DeviceConfig interface {
-	MergeSpoc(DeviceConfig) DeviceConfig
+func getRealDevice(fname string) RealDevice {
+	info, _ := codefiles.LoadInfoFile(fname)
+	switch info.Model {
+	case "ASA":
+		return asa.Setup()
+	case "IOS":
+		return ios.Setup()
+	case "Linux":
+		return &linux.State{}
+	case "NSX":
+		return &nsx.State{}
+	case "PAN-OS":
+		return &panos.State{}
+	default:
+		myerror.Abort("Unexpected model %q in file %s.info\n",
+			info.Model, fname)
+	}
+	return nil
 }
 
 type state struct {
@@ -36,43 +57,27 @@ type state struct {
 	logFname string
 }
 
-func Main(dev RealDevice, fs *pflag.FlagSet) int {
-	s := &state{RealDevice: dev}
-	getString := func(fs *pflag.FlagSet, name string) string {
-		val, _ := fs.GetString(name)
-		return val
-	}
-	myerror.Quiet, _ = fs.GetBool("quiet")
+func ApproveOrCompare(
+	isCompare bool,
+	fname string,
+	cfg *program.Config,
+	logDir string,
+	logFile string,
+) int {
 	return myerror.HandleAbort(func() int {
-		var err error
-		args := fs.Args()
-		switch len(args) {
-		case 2:
-			q := fs.Changed("quiet")
-			n := fs.NFlag()
-			if q && n > 1 || !q && n > 0 {
-				fs.Usage()
-				return 1
-			}
-			myerror.SetStderrLog("")
-			err = s.compareFiles(args[0], args[1])
-		case 1:
-			fname := args[0]
-			s.config, err = program.LoadConfig()
-			if err != nil {
-				break
-			}
-			s.setLock(fname)
-			s.config.User = getString(fs, "user")
-			s.setLogDir(getString(fs, "logdir"), fname)
-			myerror.SetStderrLog(getString(fs, "LOGFILE"))
-			if v, _ := fs.GetBool("compare"); v {
-				err = s.compare(fname)
-			} else {
-				err = s.approve(fname)
-			}
-			s.CloseConnection()
+		s := &state{RealDevice: getRealDevice(fname)}
+		s.config = cfg
+		if logDir != "" {
+			s.setLogDir(logDir, fname)
 		}
+		myerror.SetStderrLog(logFile)
+		var err error
+		if isCompare {
+			err = s.compare(fname)
+		} else {
+			err = s.approve(fname)
+		}
+		s.CloseConnection()
 		if err != nil {
 			myerror.Abort("%v", err)
 		}
@@ -80,18 +85,21 @@ func Main(dev RealDevice, fs *pflag.FlagSet) int {
 	})
 }
 
-func (s *state) compareFiles(fname1, fname2 string) error {
-	conf1, err := s.loadSpoc(fname1)
-	if err != nil {
-		return err
-	}
-	err = s.getCompare(conf1, fname2)
-	if err != nil {
-		return err
-	}
-	s.showCompareInfo()
-	fmt.Print(s.ShowChanges())
-	return nil
+func CompareFiles(fname1, fname2 string) int {
+	return myerror.HandleAbort(func() int {
+		myerror.SetStderrLog("")
+		s := &state{RealDevice: getRealDevice(fname2)}
+		conf1, err := s.loadSpoc(fname1)
+		if err != nil {
+			myerror.Abort("%v", err)
+		}
+		if err := s.getCompare(conf1, fname2); err != nil {
+			myerror.Abort("%v", err)
+		}
+		s.showCompareInfo()
+		fmt.Print(s.ShowChanges())
+		return 0
+	})
 }
 
 func (s *state) compare(fname string) error {
@@ -133,7 +141,7 @@ func (s *state) compareDevice(fname string) error {
 	return s.getCompare(conf1, fname)
 }
 
-func (s *state) loadDevice(fname string) (DeviceConfig, error) {
+func (s *state) loadDevice(fname string) (deviceconf.Config, error) {
 	logConfig, err := s.getLogFH(".config")
 	if err != nil {
 		return nil, err
@@ -168,7 +176,7 @@ func (s *state) showCompareInfo() {
 	}
 }
 
-func (s *state) getCompare(c1 DeviceConfig, fname string) error {
+func (s *state) getCompare(c1 deviceconf.Config, fname string) error {
 	c2, err := s.loadSpoc(fname)
 	if err != nil {
 		return err
@@ -176,7 +184,7 @@ func (s *state) getCompare(c1 DeviceConfig, fname string) error {
 	return s.GetChanges(c1, c2)
 }
 
-func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
+func (s *state) loadSpoc(v4Path string) (deviceconf.Config, error) {
 	v6Path := codefiles.GetIPv6Fname(v4Path)
 	conf4, err := s.loadSpocFile(v4Path)
 	if err != nil {
@@ -190,7 +198,7 @@ func (s *state) loadSpoc(v4Path string) (DeviceConfig, error) {
 	return s.addRaw(conf, v4Path)
 }
 
-func (s *state) addRaw(conf DeviceConfig, v4Path string) (DeviceConfig, error) {
+func (s *state) addRaw(conf deviceconf.Config, v4Path string) (deviceconf.Config, error) {
 	rawPath := v4Path + ".raw"
 	raw, err := s.loadSpocFile(rawPath)
 	if err != nil {
@@ -200,7 +208,7 @@ func (s *state) addRaw(conf DeviceConfig, v4Path string) (DeviceConfig, error) {
 	return conf, nil
 }
 
-func (s *state) loadSpocFile(fname string) (DeviceConfig, error) {
+func (s *state) loadSpocFile(fname string) (deviceconf.Config, error) {
 	data, err := os.ReadFile(fname)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("Can't %v", err)
@@ -218,8 +226,8 @@ func (s *state) loadSpocFile(fname string) (DeviceConfig, error) {
 // File is closed automatically after program exit.
 var lockFH *os.File
 
-func (s *state) setLock(fname string) {
-	lockFile := path.Join(s.config.LockfileDir, path.Base(fname))
+func SetLock(fname, dir string) {
+	lockFile := path.Join(dir, path.Base(fname))
 	_, statErr := os.Stat(lockFile)
 	fh, err := os.Create(lockFile)
 	if err != nil {

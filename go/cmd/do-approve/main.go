@@ -5,12 +5,12 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"slices"
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 	"github.com/spf13/pflag"
 )
 
@@ -40,6 +40,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 func main() {
+	os.Exit(Main())
+}
+
+func Main() int {
 	fs := pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError)
 	// Setup custom usage function.
 	fs.Usage = func() {
@@ -51,64 +55,65 @@ func main() {
 		"Suppress message about unreachable device")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == pflag.ErrHelp {
-			os.Exit(1)
+			return 1
 		}
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		fs.Usage()
-		os.Exit(1)
+		return 1
 	}
 	args := fs.Args()
 	if len(args) != 2 {
 		fs.Usage()
-		os.Exit(1)
+		return 1
 	}
 	action := args[0]
 	devName := args[1]
 
 	// Change to directory of current policy.
-	config, err := device.LoadConfig()
+	cfg, err := program.LoadConfig()
 	if err != nil {
-		abort("%v", err)
+		return abort("%v", err)
 	}
-	base := config.NetspocDir
+	base := cfg.NetspocDir
 	policy, err := os.Readlink(path.Join(base, "current"))
 	if err != nil {
-		abort("Can't get 'current' policy directory: %v", err)
+		return abort("Can't get 'current' policy directory: %v", err)
 	}
 	dir := path.Join(base, policy)
 	if err := os.Chdir(dir); err != nil {
-		abort("Can't cd to %s: %v", dir, err)
+		return abort("Can't cd to %s: %v", dir, err)
 	}
 
 	codeFile := path.Join("code", devName)
 	code6File := path.Join("code/ipv6", devName)
 	if !(fileExists(codeFile) || fileExists(code6File)) {
-		abort("unknown device %s", devName)
+		return abort("unknown device %s", devName)
 	}
 
-	// Get arguments and start program.
-	logPath := "log"
-	logFile := path.Join(logPath, devName)
+	// Get arguments and run approve / compare.
+	logDir := "log"
+	logFile := path.Join(logDir, devName)
 	isCompare := action == "compare"
-	args = nil
 	switch action {
 	case "compare":
 		logFile += ".compare"
-		args = append(args, "-C")
 	case "approve":
 		logFile += ".drc"
 	default:
 		fs.Usage()
-		os.Exit(1)
+		return 1
 	}
-	hLog := getHistoryLogger(config, devName)
+	device.SetLock(devName, cfg.LockfileDir)
+	hLog, err := getHistoryLogger(cfg, devName)
+	if err != nil {
+		return abort("can't %v", err)
+	}
 	hLog.Println("ARGS:", strings.Join(os.Args[1:], " "))
-	var warnings, errors, changed, failed bool
-	args = append(args, "--LOGFILE", logFile, "-L", logPath, codeFile)
-	cmd := exec.Command("drc", args...)
-	hLog.Println("START:", cmd)
+	hLog.Println("START:", action)
 	hLog.Println("POLICY:", policy)
-	if err := cmd.Run(); err != nil {
+	var warnings, errors, changed, failed bool
+	stat := device.ApproveOrCompare(isCompare, codeFile, cfg, logDir, logFile)
+	if stat != 0 {
 		failed = true
 		errors = true
 	}
@@ -116,7 +121,7 @@ func main() {
 	// Check result and print errors messages.
 	data, err := os.ReadFile(logFile)
 	if err != nil {
-		abort("can't %v", err)
+		return abort("can't %v", err)
 	}
 	lines := strings.Split(string(data), "\n")
 	silent := *brief && slices.ContainsFunc(lines, func(line string) bool {
@@ -143,7 +148,7 @@ func main() {
 	}
 
 	// Update status file.
-	if dir := config.StatusDir; dir != "" {
+	if dir := cfg.StatusDir; dir != "" {
 		if isCompare {
 			setCompareStatus(dir, devName, policy, changed)
 		} else {
@@ -166,28 +171,26 @@ func main() {
 			okMsg, path.Join(base, policy, logFile))
 	}
 
-	// Update history file.
 	hLog.Println("END:", okMsg)
 
 	if failed {
-		os.Exit(1)
+		return 1
 	} else {
-		os.Exit(0)
+		return 0
 	}
 }
 
-// Prepare history logging.
-func getHistoryLogger(config *device.Config, devName string) *log.Logger {
+func getHistoryLogger(cfg *program.Config, devName string) (*log.Logger, error) {
 	logFH := io.Discard
-	if dir := config.HistoryDir; dir != "" {
+	if dir := cfg.HistoryDir; dir != "" {
 		fname := path.Join(dir, devName)
 		f, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			abort("can't %v", err)
+			return nil, err
 		}
 		logFH = f
 	}
-	return log.New(logFH, "", log.LstdFlags)
+	return log.New(logFH, "", log.LstdFlags), nil
 }
 
 func fileExists(path string) bool {
@@ -195,7 +198,7 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func abort(format string, args ...interface{}) {
+func abort(format string, args ...interface{}) int {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
-	os.Exit(1)
+	return 1
 }

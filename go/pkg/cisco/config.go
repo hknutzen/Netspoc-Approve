@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 )
 
@@ -13,7 +13,7 @@ import (
 // anchor and are referenced only once.
 var isReferenced map[*cmd]bool
 
-func (a *Config) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
+func (a *Config) MergeSpoc(d deviceconf.Config) deviceconf.Config {
 	b := d.(*Config)
 	lookup := a.lookup
 	for prefix := range b.lookup {

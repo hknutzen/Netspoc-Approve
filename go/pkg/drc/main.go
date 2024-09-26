@@ -5,13 +5,9 @@ import (
 	"os"
 	"path"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/linux"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 	"github.com/spf13/pflag"
 )
 
@@ -30,11 +26,11 @@ func Main() int {
 	}
 
 	// Command line flags
-	fs.BoolP("quiet", "q", false, "No info messages")
-	fs.BoolP("compare", "C", false, "Compare only")
-	fs.StringP("logdir", "L", "", "Path for saving session logs")
-	fs.StringP("LOGFILE", "", "", "Path to redirect STDERR")
-	fs.StringP("user", "u", "", "Username for login to remote device")
+	isCompare := fs.BoolP("compare", "C", false, "Compare only")
+	logDir := fs.StringP("logdir", "L", "", "Path for saving session logs")
+	logFile := fs.StringP("LOGFILE", "", "", "Path to redirect STDERR")
+	user := fs.StringP("user", "u", "", "Username for login to remote device")
+	quiet := fs.BoolP("quiet", "q", false, "No info messages")
 	showVer := fs.BoolP("version", "v", false, "Show version")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if err == pflag.ErrHelp {
@@ -48,9 +44,9 @@ func Main() int {
 		fmt.Fprintf(os.Stderr, "version %s\n", version)
 		return 0
 	}
+	myerror.Quiet = *quiet
 
 	// Argument processing
-	var netspocFile string
 	args := fs.Args()
 	switch len(args) {
 	case 0:
@@ -58,36 +54,23 @@ func Main() int {
 	default:
 		fs.Usage()
 		return 1
-	case 2:
-		netspocFile = args[1]
 	case 1:
-		netspocFile = args[0]
+		cfg, err := program.LoadConfig()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			return 1
+		}
+		cfg.User = *user
+		fname := args[0]
+		device.SetLock(fname, cfg.LockfileDir)
+		return device.ApproveOrCompare(*isCompare, fname, cfg, *logDir, *logFile)
+	case 2:
+		q := fs.Changed("quiet")
+		n := fs.NFlag()
+		if q && n > 1 || !q && n > 0 {
+			fs.Usage()
+			return 1
+		}
+		return device.CompareFiles(args[0], args[1])
 	}
-	r := getRealDevice(netspocFile)
-	if r == nil {
-		return 1
-	}
-	return device.Main(r, fs)
-}
-
-// This function had to be separated from package "device" into this package,
-// to prevent import loop in package "device".
-func getRealDevice(fname string) device.RealDevice {
-	info, _ := codefiles.LoadInfoFile(fname)
-	switch info.Model {
-	case "ASA":
-		return asa.Setup()
-	case "IOS":
-		return ios.Setup()
-	case "Linux":
-		return &linux.State{}
-	case "NSX":
-		return &nsx.State{}
-	case "PAN-OS":
-		return &panos.State{}
-	default:
-		fmt.Fprintf(os.Stderr, "ERROR>>> Unexpected model %q in file %s.info\n",
-			info.Model, fname)
-	}
-	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 )
 
@@ -73,7 +73,7 @@ func (s *State) SetupParser(cmdInfo string) {
 }
 
 func (p *parser) ParseConfig(data []byte, fName string) (
-	device.DeviceConfig, error) {
+	deviceconf.Config, error) {
 
 	// prefix -> name -> commands with same prefix and name
 	lookup := make(objLookup)

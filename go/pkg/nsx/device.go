@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
@@ -32,7 +32,7 @@ type change struct {
 
 func (s *State) LoadDevice(
 	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) (
-	device.DeviceConfig, error) {
+	deviceconf.Config, error) {
 
 	err := httpdevice.TryReachableHTTPLogin(spocFile, cfg,
 		func(name, ip, user, pass string) error {
@@ -180,7 +180,7 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
+func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
 	p1 := c1.(*NsxConfig)
 	p2 := c2.(*NsxConfig)
 	s.changes = diffConfig(p1, p2)

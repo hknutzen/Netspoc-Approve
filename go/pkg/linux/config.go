@@ -3,11 +3,11 @@ package linux
 import (
 	"slices"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 )
 
-func (a *config) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
+func (a *config) MergeSpoc(d deviceconf.Config) deviceconf.Config {
 	b := d.(*config)
 	a.routes = append(a.routes, b.routes...)
 	for tName, bChains := range b.iptables {

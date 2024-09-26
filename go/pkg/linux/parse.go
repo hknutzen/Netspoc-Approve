@@ -6,12 +6,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 )
 
 func (s *State) ParseConfig(data []byte, fName string,
-) (device.DeviceConfig, error) {
+) (deviceconf.Config, error) {
 	var rLines, tLines []string
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)

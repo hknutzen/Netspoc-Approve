@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/pkg/diff/edit"
 	"github.com/pkg/diff/myers"
@@ -34,7 +34,7 @@ func (s *State) addChange(chg string) {
 	s.Changes = append(s.Changes, chg)
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
+func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
 	s.a = c1.(*Config)
 	s.b = c2.(*Config)
 	s.alignVRFs()

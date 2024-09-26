@@ -1,10 +1,8 @@
 package nsx
 
-import (
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-)
+import "github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 
-func (n1 *NsxConfig) MergeSpoc(c2 device.DeviceConfig) device.DeviceConfig {
+func (n1 *NsxConfig) MergeSpoc(c2 deviceconf.Config) deviceconf.Config {
 	n2 := c2.(*NsxConfig)
 	n1.Groups = append(n1.Groups, n2.Groups...)
 	n1.Services = append(n1.Services, n2.Services...)
