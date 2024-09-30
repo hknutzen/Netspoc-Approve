@@ -1,4 +1,4 @@
-package myerror
+package errlog
 
 type bailout struct{}
 

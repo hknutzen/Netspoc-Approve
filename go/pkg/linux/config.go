@@ -4,7 +4,7 @@ import (
 	"slices"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
 func (a *config) MergeSpoc(d deviceconf.Config) deviceconf.Config {
@@ -13,20 +13,20 @@ func (a *config) MergeSpoc(d deviceconf.Config) deviceconf.Config {
 	for tName, bChains := range b.iptables {
 		aChains := a.iptables[tName]
 		if aChains == nil {
-			myerror.Info("Adding all chains of table %q", tName)
+			errlog.Info("Adding all chains of table %q", tName)
 			a.iptables[tName] = bChains
 			continue
 		}
 		for cName, bChain := range bChains {
 			aChain := aChains[cName]
 			if aChain == nil {
-				myerror.Info("Adding chain %q of table %q", cName, tName)
+				errlog.Info("Adding chain %q of table %q", cName, tName)
 				aChains[cName] = bChain
 				continue
 			}
 			switch aChain.policy {
 			case "-", "":
-				myerror.Abort("Must not redefine chain %q of table %q from rawdata",
+				errlog.Abort("Must not redefine chain %q of table %q from rawdata",
 					cName, tName)
 			}
 			for _, ru := range bChain.rules {

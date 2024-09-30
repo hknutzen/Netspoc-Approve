@@ -10,9 +10,9 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/linux"
-	myerror "github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/nsx"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/panos"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
@@ -44,7 +44,7 @@ func getRealDevice(fname string) RealDevice {
 	case "PAN-OS":
 		return &panos.State{}
 	default:
-		myerror.Abort("Unexpected model %q in file %s.info\n",
+		errlog.Abort("Unexpected model %q in file %s.info\n",
 			info.Model, fname)
 	}
 	return nil
@@ -64,9 +64,9 @@ func ApproveOrCompare(
 	logFile string,
 	quiet bool,
 ) int {
-	return myerror.HandleAbort(func() int {
-		myerror.Quiet = quiet
-		myerror.SetStderrLog(logFile)
+	return errlog.HandleAbort(func() int {
+		errlog.Quiet = quiet
+		errlog.SetStderrLog(logFile)
 		s := &state{RealDevice: getRealDevice(fname)}
 		s.config = cfg
 		if logDir != "" {
@@ -80,23 +80,23 @@ func ApproveOrCompare(
 		}
 		s.CloseConnection()
 		if err != nil {
-			myerror.Abort("%v", err)
+			errlog.Abort("%v", err)
 		}
 		return 0
 	})
 }
 
 func CompareFiles(fname1, fname2 string, quiet bool) int {
-	return myerror.HandleAbort(func() int {
-		myerror.Quiet = quiet
-		myerror.SetStderrLog("")
+	return errlog.HandleAbort(func() int {
+		errlog.Quiet = quiet
+		errlog.SetStderrLog("")
 		s := &state{RealDevice: getRealDevice(fname2)}
 		conf1, err := s.loadSpoc(fname1)
 		if err != nil {
-			myerror.Abort("%v", err)
+			errlog.Abort("%v", err)
 		}
 		if err := s.getCompare(conf1, fname2); err != nil {
-			myerror.Abort("%v", err)
+			errlog.Abort("%v", err)
 		}
 		s.showCompareInfo()
 		fmt.Print(s.ShowChanges())
@@ -110,7 +110,7 @@ func (s *state) compare(fname string) error {
 		return err
 	}
 	for _, w := range s.GetErrUnmanaged() {
-		myerror.Warning("%v", w)
+		errlog.Warning("%v", w)
 	}
 	s.showCompareInfo()
 	if s.logFname != "" && s.HasChanges() {
@@ -164,7 +164,7 @@ func (s *state) applyCommands() error {
 	}
 	defer closeLogFH(logFH)
 	if !s.HasChanges() {
-		myerror.DoLog(logFH, "No changes applied")
+		errlog.DoLog(logFH, "No changes applied")
 		return nil
 	}
 	return s.ApplyCommands(logFH)
@@ -172,9 +172,9 @@ func (s *state) applyCommands() error {
 
 func (s *state) showCompareInfo() {
 	if !s.HasChanges() {
-		myerror.Info("comp: device unchanged")
+		errlog.Info("comp: device unchanged")
 	} else {
-		myerror.Info("comp: *** device changed ***")
+		errlog.Info("comp: *** device changed ***")
 	}
 }
 
@@ -248,8 +248,8 @@ func (s *state) getLogFH(ext string) (*os.File, error) {
 		return nil, nil
 	}
 	fname := s.logFname + ext
-	myerror.MoveLogFile(fname)
-	return myerror.CreateWithPath(fname)
+	errlog.MoveLogFile(fname)
+	return errlog.CreateWithPath(fname)
 }
 
 func closeLogFH(fh *os.File) {

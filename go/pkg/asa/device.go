@@ -10,7 +10,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -44,11 +44,11 @@ func (s *State) LoadDevice(
 	s.checkDeviceName(hostName)
 
 	s.Conn.SetLogFH(logConfig)
-	myerror.Info("Requesting device config")
+	errlog.Info("Requesting device config")
 	out := s.Conn.GetCmdOutput("write term")
-	myerror.Info("Got device config")
+	errlog.Info("Got device config")
 	config, err := s.ParseConfig([]byte(out), "<device>")
-	myerror.Info("Parsed device config")
+	errlog.Info("Parsed device config")
 	if err != nil {
 		err = fmt.Errorf("While reading device: %v", err)
 	}
@@ -77,7 +77,7 @@ func (s *State) checkDeviceName(name string) {
 	out := s.Conn.GetCmdOutput("show hostname")
 	out = strings.TrimSuffix(out, "\n")
 	if name != out {
-		myerror.Abort("Wrong device name: %q, expected: %q", out, name)
+		errlog.Abort("Wrong device name: %q, expected: %q", out, name)
 	}
 }
 
@@ -90,7 +90,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 	s.cmd("end")
 	out := s.Conn.GetCmdOutput("write memory")
 	if !strings.Contains(out, "[OK]") {
-		myerror.Abort("Command 'write memory' failed, missing [OK] in output:\n%s",
+		errlog.Abort("Command 'write memory' failed, missing [OK] in output:\n%s",
 			out)
 	}
 	return nil
@@ -107,7 +107,7 @@ func (s *State) cmd(cmd string) {
 		out = s.Conn.StripEcho(ci, out)
 		if out != "" {
 			if !isValidOutput(ci, out) {
-				myerror.Abort("Got unexpected output from '%s':\n%s", ci, out)
+				errlog.Abort("Got unexpected output from '%s':\n%s", ci, out)
 			}
 		}
 	}
@@ -147,7 +147,7 @@ LINE:
 			continue
 		}
 		if strings.HasPrefix(line, "WARNING:") {
-			myerror.Warning("Got unexpected output from '%s':\n%s", cmd, line)
+			errlog.Warning("Got unexpected output from '%s':\n%s", cmd, line)
 			continue
 		}
 		return false

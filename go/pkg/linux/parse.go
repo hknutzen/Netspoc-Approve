@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
 func (s *State) ParseConfig(data []byte, fName string,
@@ -49,7 +49,7 @@ func parseRoutes(lines []string) []route {
 	for _, line := range lines {
 		rest, found := strings.CutPrefix(line, "ip route add ")
 		if !found {
-			myerror.Abort("Unexpected route: %s", line)
+			errlog.Abort("Unexpected route: %s", line)
 		}
 		// Ignore entries with 'scope link'.
 		if strings.Contains(rest, " scope link") {
@@ -61,11 +61,11 @@ func parseRoutes(lines []string) []route {
 		}
 		words := strings.Fields(rest)
 		if !(len(words) >= 3 && words[1] == "via") {
-			myerror.Abort("Unexpected route: %s", line)
+			errlog.Abort("Unexpected route: %s", line)
 		}
 		// Ignore attribute 'dev', if 'via' is provided.
 		if len(words) > 3 && !(len(words) == 5 && words[3] == "dev") {
-			myerror.Abort("Unexpected route: %s", line)
+			errlog.Abort("Unexpected route: %s", line)
 		}
 		ip := words[0]
 		prefix := 32
@@ -118,7 +118,7 @@ func (s *State) parseIPTables(lines []string) tables {
 			// :INPUT ACCEPT [68024:74200042]
 			// :e0_in - [0:0]
 			if cMap == nil {
-				myerror.Abort("Found chain policy outside of table: %q", line)
+				errlog.Abort("Found chain policy outside of table: %q", line)
 			}
 			words := strings.Fields(line[1:])
 			if len(words) >= 2 {
@@ -134,19 +134,19 @@ func (s *State) parseIPTables(lines []string) tables {
 			// '!' may occur before or after the key,
 			// but only after key, if at least one argument.
 			if cMap == nil {
-				myerror.Abort("Found rule outside of table: %q", line)
+				errlog.Abort("Found rule outside of table: %q", line)
 			}
 			words := strings.Fields(line)
 			if words[0] != "-A" {
-				myerror.Abort("Unsupported command %q", words[0])
+				errlog.Abort("Unsupported command %q", words[0])
 			}
 			if len(words) < 2 {
-				myerror.Abort("Incomplete command %q", line)
+				errlog.Abort("Incomplete command %q", line)
 			}
 			name := words[1]
 			ch := cMap[name]
 			if ch == nil {
-				myerror.Abort("Must define policy before adding rules of chain %q",
+				errlog.Abort("Must define policy before adding rules of chain %q",
 					name)
 			}
 			words = words[2:]
@@ -158,7 +158,7 @@ func (s *State) parseIPTables(lines []string) tables {
 					negate = "!"
 					words = words[1:]
 					if len(words) == 0 {
-						myerror.Abort("Unexpected trailing '!' in line\n %s", line)
+						errlog.Abort("Unexpected trailing '!' in line\n %s", line)
 					}
 				}
 				key := words[0]
@@ -194,7 +194,7 @@ func (s *State) parseIPTables(lines []string) tables {
 			case "COMMIT":
 				// ignore
 			default:
-				myerror.Abort("Unknown command: %q", line)
+				errlog.Abort("Unknown command: %q", line)
 			}
 		}
 	}

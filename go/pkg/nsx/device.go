@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
@@ -45,14 +45,14 @@ func (s *State) LoadDevice(
 			s.client.Jar = jar
 
 			uri := s.prefix + "/api/session/create"
-			myerror.DoLog(logLogin, "POST "+uri)
+			errlog.DoLog(logLogin, "POST "+uri)
 			v := url.Values{}
 			v.Set("j_username", user)
 			v.Set("j_password", "xxx")
-			myerror.DoLog(logLogin, v.Encode())
+			errlog.DoLog(logLogin, v.Encode())
 			v.Set("j_password", pass)
 			resp, err := s.client.PostForm(uri, v)
-			myerror.DoLog(logLogin, resp.Status)
+			errlog.DoLog(logLogin, resp.Status)
 			if err != nil {
 				return err
 			}
@@ -112,7 +112,7 @@ func (s *State) LoadDevice(
 	if err != nil {
 		return nil, err
 	}
-	myerror.DoLog(logConfig, string(out))
+	errlog.DoLog(logConfig, string(out))
 
 	config, err := s.ParseConfig(out, "<device>")
 	if err != nil {
@@ -202,13 +202,13 @@ func (s *State) ShowChanges() string {
 
 func (s *State) ApplyCommands(logFh *os.File) error {
 	for _, c := range s.changes {
-		myerror.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
-		myerror.DoLog(logFh, "DATA: "+string(c.postData))
+		errlog.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
+		errlog.DoLog(logFh, "DATA: "+string(c.postData))
 		resp, err := s.sendRequest(c.method, c.url, bytes.NewReader(c.postData))
 		if err != nil {
 			return err
 		}
-		myerror.DoLog(logFh, "RESP: "+string(resp))
+		errlog.DoLog(logFh, "RESP: "+string(resp))
 	}
 	return nil
 }

@@ -1,4 +1,4 @@
-package myerror
+package errlog
 
 import (
 	"fmt"
