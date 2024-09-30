@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/doapprove"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/drc"
 	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
 	"github.com/hknutzen/testtxt"
@@ -27,16 +28,18 @@ func TestApprove(t *testing.T) {
 }
 
 type descr struct {
-	Title    string
-	Device   string
-	Scenario string
-	Netspoc  string
-	Options  string
-	Setup    string
-	Output   string
-	Warning  string
-	Error    string
-	Todo     bool
+	Title     string
+	Device    string
+	Scenario  string
+	Netspoc   string
+	Options   string
+	Params    string
+	Setup     string
+	Output    string
+	Warning   string
+	Error     string
+	DoApprove bool
+	Todo      bool
 }
 
 func runTestFiles(t *testing.T) {
@@ -72,6 +75,9 @@ func runTest(t *testing.T, d descr, devType string) {
 	if d.Error != "" && d.Warning != "" {
 		t.Fatalf("must not define =ERROR= together with =WARNING=")
 	}
+	if d.DoApprove && d.Scenario == "" {
+		t.Fatalf("must use =DO_APPROVE= only together with =SCENARIO=")
+	}
 	if d.Todo {
 		t.Skip("skipping TODO test")
 	}
@@ -85,62 +91,33 @@ func runTest(t *testing.T, d descr, devType string) {
 	defer func() { os.Chdir(prevDir) }()
 	os.Chdir(workDir)
 
-	// Initialize os.Args, add default options.
-	os.Args = []string{"drc", "-q"}
+	var netspocDir, codeDir string
 
+	// Call command "drc" or "do-approve".
+	// Initialize os.Args, add default options.
+	var mainFunc func() int
+	if d.Scenario == "" || !d.DoApprove {
+		mainFunc = drc.Main
+		os.Args = []string{"drc", "-q"}
+		netspocDir = workDir
+		codeDir = "code"
+	} else {
+		mainFunc = doapprove.Main
+		os.Args = []string{"do-approve"}
+		netspocDir = path.Join(workDir, "netspoc")
+		p1Dir := path.Join(netspocDir, "p1")
+		os.MkdirAll(p1Dir, 0755)
+		os.Symlink("p1", path.Join(netspocDir, "current"))
+		codeDir = path.Join(p1Dir, "code")
+	}
 	// Add more options.
 	if d.Options != "" {
 		options := strings.Fields(d.Options)
 		os.Args = append(os.Args, options...)
 	}
 
-	os.Unsetenv("SIMULATE_ROUTER")
-	if sc := d.Scenario; sc != "" {
-		// Prepare simulation command.
-		// Tell approve command to use simulation by setting environment variable.
-		scenarioFile := "scenario"
-		if err := os.WriteFile(scenarioFile, []byte(sc), 0644); err != nil {
-			t.Fatal(err)
-		}
-		cmd := prevDir + "/../testdata/simulate-cisco.pl " + deviceName + " " +
-			path.Join(workDir, scenarioFile)
-		os.Setenv("SIMULATE_ROUTER", cmd)
-		// Prepare credentials file. Declare user as system user.
-		credentialsFile := "credentials"
-		id := "admin"
-		line := "* " + id + " secret\n"
-		if err := os.WriteFile(credentialsFile, []byte(line), 0644); err != nil {
-			t.Fatal(err)
-		}
-		lockDir := t.TempDir()
-		// Prepare config file.
-		configFile := ".netspoc-approve"
-		config := fmt.Sprintf(`
-netspocdir = %s
-lockfiledir = %s
-checkbanner = NetSPoC
-systemuser = %s
-aaa_credentials = %s
-timeout = 1
-`, workDir, lockDir, id, credentialsFile)
-		if err := os.WriteFile(configFile, []byte(config), 0644); err != nil {
-			t.Fatal(err)
-		}
-		// Set HOME directory, because configFile is searched there.
-		os.Setenv("HOME", workDir)
-		// Add option for logging.
-		os.Args = append(os.Args, []string{"-L", workDir}...)
-	} else {
-		// Prepare file with device configuration.
-		deviceFile := "device"
-		if err := os.WriteFile(deviceFile, []byte(d.Device), 0644); err != nil {
-			t.Fatal(err)
-		}
-		os.Args = append(os.Args, deviceFile)
-	}
-
 	// Prepare directory with files from Netspoc.
-	codeDir := "code"
+	codeFile := path.Join(codeDir, deviceName)
 	testtxt.PrepareInDir(t, codeDir, deviceName, d.Netspoc)
 	// Add info file if not given above.
 	infoFile := path.Join(codeDir, deviceName+".info")
@@ -159,7 +136,74 @@ timeout = 1
 			}
 		}
 	}
-	os.Args = append(os.Args, path.Join(codeDir, deviceName))
+
+	os.Unsetenv("SIMULATE_ROUTER")
+	os.Unsetenv("TEST_TIME")
+	if sc := d.Scenario; sc != "" {
+		// Set simulated time in tests.
+		os.Setenv("TEST_TIME", "2024-Sep-29 16:19:50")
+		// Prepare simulation command.
+		// Tell approve command to use simulation by setting environment variable.
+		scenarioFile := "scenario"
+		if err := os.WriteFile(scenarioFile, []byte(sc), 0644); err != nil {
+			t.Fatal(err)
+		}
+		cmd := prevDir + "/../testdata/simulate-cisco.pl " + deviceName + " " +
+			path.Join(workDir, scenarioFile)
+		os.Setenv("SIMULATE_ROUTER", cmd)
+		// Prepare credentials file. Declare user as system user.
+		credentialsFile := path.Join(workDir, "credentials")
+		id := "admin"
+		line := "* " + id + " secret\n"
+		if err := os.WriteFile(credentialsFile, []byte(line), 0644); err != nil {
+			t.Fatal(err)
+		}
+		// Prepare config file.
+		addDir := func(dir string) string {
+			result := path.Join(workDir, dir)
+			if err := os.Mkdir(result, 0755); err != nil {
+				t.Fatal(err)
+			}
+			return result
+		}
+		configFile := ".netspoc-approve"
+		config := fmt.Sprintf(`
+netspocdir = %s
+lockfiledir = %s
+historydir = %s
+statusdir = %s
+checkbanner = NetSPoC
+systemuser = %s
+aaa_credentials = %s
+timeout = 1
+`,
+			netspocDir, addDir("LOCK"), addDir("history"), addDir("status"),
+			id, credentialsFile)
+		if err := os.WriteFile(configFile, []byte(config), 0644); err != nil {
+			t.Fatal(err)
+		}
+		// Set HOME directory, because configFile is searched there.
+		os.Setenv("HOME", workDir)
+
+		if p := d.Params; p != "" {
+			if p == "NONE" {
+				p = ""
+			}
+			os.Args = append(os.Args, strings.Fields(p)...)
+		} else if d.DoApprove {
+			os.Args = append(os.Args, "compare", deviceName)
+		} else {
+			// Add option for logging.
+			os.Args = append(os.Args, "-L", workDir, codeFile)
+		}
+	} else {
+		// Prepare file with device configuration.
+		deviceFile := "device"
+		if err := os.WriteFile(deviceFile, []byte(d.Device), 0644); err != nil {
+			t.Fatal(err)
+		}
+		os.Args = append(os.Args, deviceFile, codeFile)
+	}
 
 	// Execute shell commands to setup error cases in working directory.
 	if d.Setup != "" {
@@ -188,10 +232,14 @@ timeout = 1
 	stderr := capture.Capture(&os.Stderr, func() {
 		stdout = capture.Capture(&os.Stdout, func() {
 			status = capture.CatchPanic(func() int {
-				return drc.Main()
+				return mainFunc()
 			})
 		})
 	})
+
+	// Normalize error messages.
+	stderr = strings.ReplaceAll(stderr, workDir+"/", "")
+	stdout = strings.ReplaceAll(stdout, workDir+"/", "")
 
 	// Check result.
 	if status == 0 {
@@ -213,6 +261,9 @@ timeout = 1
 	} else {
 		if d.Error == "" {
 			t.Error("Unexpected failure")
+		}
+		if d.Error == "NONE" {
+			d.Error = ""
 		}
 		countEq(t, d.Error, stderr)
 	}
@@ -271,7 +322,10 @@ func checkFilesAndStdout(t *testing.T, spec, dir, stdout string) {
 			if l := len(data); l > 0 && data[l-1] != '\n' {
 				data = append(data, '\n')
 			}
-			countEq(t, block, string(data))
+			s := string(data)
+			// Normalize error messages.
+			s = strings.ReplaceAll(s, dir+"/", "")
+			countEq(t, block, s)
 		})
 	}
 }

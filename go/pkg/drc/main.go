@@ -6,7 +6,6 @@ import (
 	"path"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/myerror"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 	"github.com/spf13/pflag"
 )
@@ -44,7 +43,6 @@ func Main() int {
 		fmt.Fprintf(os.Stderr, "version %s\n", version)
 		return 0
 	}
-	myerror.Quiet = *quiet
 
 	// Argument processing
 	args := fs.Args()
@@ -57,13 +55,19 @@ func Main() int {
 	case 1:
 		cfg, err := program.LoadConfig()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			return 1
+			return abort("%v\n", err)
 		}
 		cfg.User = *user
 		fname := args[0]
-		device.SetLock(fname, cfg.LockfileDir)
-		return device.ApproveOrCompare(*isCompare, fname, cfg, *logDir, *logFile)
+		lockFH, err := device.SetLock(fname, cfg.LockfileDir)
+		if lockFH != nil {
+			defer lockFH.Close()
+		}
+		if err != nil {
+			return abort("%v", err)
+		}
+		return device.ApproveOrCompare(
+			*isCompare, fname, cfg, *logDir, *logFile, *quiet)
 	case 2:
 		q := fs.Changed("quiet")
 		n := fs.NFlag()
@@ -71,6 +75,11 @@ func Main() int {
 			fs.Usage()
 			return 1
 		}
-		return device.CompareFiles(args[0], args[1])
+		return device.CompareFiles(args[0], args[1], *quiet)
 	}
+}
+
+func abort(format string, args ...interface{}) int {
+	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
+	return 1
 }

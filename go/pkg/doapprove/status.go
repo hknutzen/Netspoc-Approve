@@ -1,18 +1,17 @@
-package main
+package doapprove
 
 import (
 	"os"
 	"path"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
 	DEVICENAME int = iota
 	APP_MESSAGE
 	APP_POLICY
-	APP_STATUS // same as for DEV_STATUS and ***UNFINISHED APPROVE***
+	APP_STATUS // same as for DEV_STATUS
 	APP_TIME   // date cleartext
 	APP_USER
 	DEV_MESSAGE
@@ -86,14 +85,14 @@ func changeStatus(values []string, change map[int]string) {
 func writeStatus(statusDir, device string, values []string) {
 	fname := path.Join(statusDir, device)
 	values[0] = device
-	result := strings.Join(values, ";")
+	result := strings.Join(values, ";") + ";\n"
 	if err := os.WriteFile(fname, []byte(result), 0644); err != nil {
 		abort("can't %v", err)
 	}
 }
 
 func getUnixTime() string {
-	return strconv.FormatInt(time.Now().Unix(), 10)
+	return strconv.FormatInt(myTimeNow().Unix(), 10)
 }
 
 func isLess(t1, t2 string) bool {

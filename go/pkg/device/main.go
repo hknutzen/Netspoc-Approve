@@ -3,7 +3,6 @@ package device
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path"
 	"syscall"
@@ -63,14 +62,16 @@ func ApproveOrCompare(
 	cfg *program.Config,
 	logDir string,
 	logFile string,
+	quiet bool,
 ) int {
 	return myerror.HandleAbort(func() int {
+		myerror.Quiet = quiet
+		myerror.SetStderrLog(logFile)
 		s := &state{RealDevice: getRealDevice(fname)}
 		s.config = cfg
 		if logDir != "" {
 			s.setLogDir(logDir, fname)
 		}
-		myerror.SetStderrLog(logFile)
 		var err error
 		if isCompare {
 			err = s.compare(fname)
@@ -85,8 +86,9 @@ func ApproveOrCompare(
 	})
 }
 
-func CompareFiles(fname1, fname2 string) int {
+func CompareFiles(fname1, fname2 string, quiet bool) int {
 	return myerror.HandleAbort(func() int {
+		myerror.Quiet = quiet
 		myerror.SetStderrLog("")
 		s := &state{RealDevice: getRealDevice(fname2)}
 		conf1, err := s.loadSpoc(fname1)
@@ -222,26 +224,17 @@ func (s *state) loadSpocFile(fname string) (deviceconf.Config, error) {
 }
 
 // Set lock for exclusive approval.
-// Store file handle in global var, so it isn't closed immediately.
-// File is closed automatically after program exit.
-var lockFH *os.File
-
-func SetLock(fname, dir string) {
+func SetLock(fname, dir string) (*os.File, error) {
 	lockFile := path.Join(dir, path.Base(fname))
-	_, statErr := os.Stat(lockFile)
-	fh, err := os.Create(lockFile)
+	fh, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDONLY, 0666)
 	if err != nil {
-		myerror.Abort("Can't %v", err)
-	}
-	// Make newly created lock file writable for other users.
-	if statErr != nil && errors.Is(statErr, fs.ErrNotExist) {
-		os.Chmod(lockFile, 0666)
+		return nil, err
 	}
 	err = syscall.Flock(int(fh.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 	if err != nil {
-		myerror.Abort("Approve in progress for %s", fname)
+		err = fmt.Errorf("Approve in progress for %s", fname)
 	}
-	lockFH = fh
+	return fh, err
 }
 
 func (s *state) setLogDir(logDir, file string) {
