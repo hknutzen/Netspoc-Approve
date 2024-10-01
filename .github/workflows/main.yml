@@ -17,8 +17,8 @@ jobs:
       - name: Calc coverage
         run: |
           ( cd test; go test -coverpkg ../pkg/... -coverprofile=../c1.out)
-          ( cd cmd/get-netspoc-approve-conf; go test -coverprofile=../c2.out )
-          ( cd cmd/missing-approve; go test -coverprofile=../c3.out )
+          ( cd cmd/get-netspoc-approve-conf; go test -coverprofile=../../c2.out )
+          ( cd cmd/missing-approve; go test -coverprofile=../../c3.out )
         working-directory: go
       - name: Upload coverage
         uses: coverallsapp/github-action@v2.2.3
