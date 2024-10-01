@@ -810,6 +810,19 @@ ERROR>>> Can't open credentials: no such file or directory
 =END=
 
 ############################################################
+=TITLE=do-approve approve: can't write status directory
+=DO_APPROVE=
+=PARAMS=approve router
+=SCENARIO=NONE
+=NETSPOC=NONE
+=SETUP=
+echo some_stuff > status/router
+chmod a-w status/router
+=ERROR=
+panic: open status/router: permission denied
+=END=
+
+############################################################
 =TITLE=SSH timeout
 =SCENARIO=
 Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
