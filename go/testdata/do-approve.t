@@ -61,7 +61,7 @@ Error: No config file found in [.netspoc-approve /usr/local/etc/netspoc-approve 
 =SETUP=
 rm netspoc/current
 =ERROR=
-Error: Can't get 'current' policy directory: readlink netspoc/current: no such file or directory
+Error: Can't get 'current' policy directory: lstat netspoc/current: no such file or directory
 =END=
 
 ############################################################

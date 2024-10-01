@@ -3,6 +3,7 @@
  - If device of type ASA has interface that is not known by Netspoc,
    ACL of this interface is no longer removed during approve.
  - Migrated program 'approve.pl' from Perl to Go as 'do-approve'.
+ - Migrated program 'missing-approve' from shell script to Go.
  - Program 'diamonds' is no longer a manually installed executable
    with SUID bit set, but a shell script calling 'sudo'.
  - Program 'newpolicy' no longer calls 'suid-newpolicy' but 'sudo-newpolicy'

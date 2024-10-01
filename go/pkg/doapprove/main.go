@@ -6,11 +6,13 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/mytime"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/status"
 	"github.com/spf13/pflag"
 )
 
@@ -47,11 +49,11 @@ func Main() int {
 	}
 	// Get directory of current policy.
 	base := cfg.NetspocDir
-	policy, err := os.Readlink(path.Join(base, "current"))
+	dir, err := filepath.EvalSymlinks(path.Join(base, "current"))
 	if err != nil {
 		return abort("Can't get 'current' policy directory: %v", err)
 	}
-	dir := path.Join(base, policy)
+	policy := filepath.Base(dir)
 
 	codeFile := path.Join(dir, "code", devName)
 	code6File := path.Join(dir, "code/ipv6", devName)
@@ -125,7 +127,7 @@ func Main() int {
 	if dir := cfg.StatusDir; dir != "" {
 		if isCompare {
 			if !errors {
-				setCompareStatus(dir, devName, policy, changed)
+				status.SetCompare(dir, devName, policy, changed)
 			}
 		} else {
 			result := "OK"
@@ -134,7 +136,7 @@ func Main() int {
 			} else if warnings {
 				result = "***WARNINGS***"
 			}
-			setApproveStatus(dir, devName, policy, result)
+			status.SetApprove(dir, devName, policy, result)
 		}
 	}
 
@@ -165,19 +167,8 @@ func getHistoryLogger(cfg *program.Config, devName string) (*log.Logger, error) 
 		}
 		logFH = fh
 	}
-	prefix := myTimeNow().Format("2006 01 02 15:04:05 ")
+	prefix := mytime.Now().Format("2006 01 02 15:04:05 ")
 	return log.New(logFH, prefix, 0), nil
-}
-
-func myTimeNow() time.Time {
-	if v := os.Getenv("TEST_TIME"); v != "" {
-		t, err := time.Parse("2006-Jan-02 15:04:05", v)
-		if err != nil {
-			panic(err)
-		}
-		return t
-	}
-	return time.Now()
 }
 
 func fileExists(path string) bool {
