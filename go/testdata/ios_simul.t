@@ -768,6 +768,17 @@ ERROR>>> No matching entry found in credentials
 =END=
 
 ############################################################
+=TITLE=Missing attribute aaa_credentials
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+=SETUP=
+sed -i 's/^aaa_credentials.*$//' .netspoc-approve
+=ERROR=
+ERROR>>> Must configure attribute 'aaa_credentials'
+=END=
+
+############################################################
 =TITLE=Bad credentials file
 =SCENARIO=[[std_scenario]]
 =NETSPOC=
@@ -776,6 +787,17 @@ ip route 10.0.0.0 255.0.0.0 10.11.22.33
 echo abc 123 >credentials
 =ERROR=
 ERROR>>> Expected 3 fields in lines of credentials
+=END=
+
+############################################################
+=TITLE=Bad pattern in credentials file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+=SETUP=
+echo 'a[b-]c user secret' >credentials
+=ERROR=
+ERROR>>> Invalid pattern 'a[b-]c' in credentials
 =END=
 
 ############################################################
