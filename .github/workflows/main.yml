@@ -15,11 +15,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Calc coverage
-        run: go test -coverprofile=c.out ./...
+        run: |
+          ( cd test; go test -coverpkg ../pkg/... -coverprofile=../c1.out)
+          ( cd cmd/get-netspoc-approve-conf; go test -coverprofile=../c2.out )
+          ( cd cmd/missing-approve; go test -coverprofile=../c3.out )
         working-directory: go
       - name: Upload coverage
         uses: coverallsapp/github-action@v2.2.3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          file: go/c.out
+          files: go/c1.out go/c2.out go/c3.out
           format: golang
