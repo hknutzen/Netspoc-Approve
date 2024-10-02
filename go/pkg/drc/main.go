@@ -55,7 +55,7 @@ func Main() int {
 	case 1:
 		cfg, err := program.LoadConfig()
 		if err != nil {
-			return abort("%v\n", err)
+			return abort("%v", err)
 		}
 		cfg.User = *user
 		fname := args[0]
