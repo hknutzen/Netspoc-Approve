@@ -2,8 +2,6 @@ package doapprove
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -81,12 +79,12 @@ func Main() int {
 	if err != nil {
 		return abort("%v", err)
 	}
-	hLog, err := getHistoryLogger(cfg, devName)
+	hLog, err := openHistoryLog(cfg, devName)
 	if err != nil {
 		return abort("can't %v", err)
 	}
-	hLog.Println("START:", strings.Join(os.Args[1:], " "))
-	hLog.Println("POLICY:", policy)
+	logHistory(hLog, "START:", strings.Join(os.Args[1:], " "))
+	logHistory(hLog, "POLICY:", policy)
 	var warnings, errors, changed, failed bool
 	stat := device.ApproveOrCompare(
 		isCompare, codeFile, cfg, logDir, logFile, false)
@@ -120,7 +118,7 @@ func Main() int {
 		} else {
 			fmt.Println(line)
 		}
-		hLog.Println("RES:", line)
+		logHistory(hLog, "RES:", line)
 	}
 
 	// Update status file.
@@ -148,7 +146,7 @@ func Main() int {
 		fmt.Fprintf(os.Stderr, "%s, details in %s\n", okMsg, logFile)
 	}
 
-	hLog.Println("END:", okMsg)
+	logHistory(hLog, "END:", okMsg)
 
 	if failed {
 		return 1
@@ -157,18 +155,23 @@ func Main() int {
 	}
 }
 
-func getHistoryLogger(cfg *program.Config, devName string) (*log.Logger, error) {
-	logFH := io.Discard
+func openHistoryLog(cfg *program.Config, devName string) (*os.File, error) {
 	if dir := cfg.HistoryDir; dir != "" {
 		fname := path.Join(dir, devName)
 		fh, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return nil, err
 		}
-		logFH = fh
+		return fh, nil
 	}
-	prefix := mytime.Now().Format("2006 01 02 15:04:05 ")
-	return log.New(logFH, prefix, 0), nil
+	return nil, nil
+}
+
+func logHistory(fh *os.File, args ...string) {
+	if fh != nil {
+		prefix := mytime.Now().Format("2006 01 02 15:04:05")
+		fmt.Fprintln(fh, prefix, args)
+	}
 }
 
 func fileExists(path string) bool {
