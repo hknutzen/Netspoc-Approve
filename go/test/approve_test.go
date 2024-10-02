@@ -78,6 +78,9 @@ func runTest(t *testing.T, d descr, devType string) {
 	if d.DoApprove && d.Scenario == "" {
 		t.Fatalf("must use =DO_APPROVE= only together with =SCENARIO=")
 	}
+	if d.Params != "" && d.Scenario == "" {
+		t.Fatalf("must use =PARAMS= only together with =SCENARIO=")
+	}
 	if d.Todo {
 		t.Skip("skipping TODO test")
 	}
