@@ -6,7 +6,8 @@ import (
 	"os"
 	"path"
 	"strings"
-	"time"
+
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/mytime"
 )
 
 var Quiet bool
@@ -54,7 +55,7 @@ func PrintWithMarker(m string, format string, args ...interface{}) {
 // Rename existing logfile.
 func MoveLogFile(fname string) {
 	if _, err := os.Stat(fname); err == nil {
-		os.Rename(fname, fmt.Sprintf("%s.%d", fname, time.Now().Unix()))
+		os.Rename(fname, fmt.Sprintf("%s.%d", fname, mytime.Now().Unix()))
 	}
 }
 
@@ -64,5 +65,5 @@ func CreateWithPath(fname string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return os.Create(fname)
+	return os.OpenFile(fname, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 }

@@ -132,3 +132,16 @@ ERROR>>> Unexpected model "DO-APPROVE" in file netspoc/p1/code/router.info
 --netspoc/p1/log/router.compare
 ERROR>>> Unexpected model "DO-APPROVE" in file netspoc/p1/code/router.info
 =END=
+
+############################################################
+=TITLE=Unreadable logfile
+=DO_APPROVE=
+=SCENARIO=NONE
+=NETSPOC=NONE
+=SETUP=
+mkdir -p netspoc/p1/log/router.compare.1727626790
+touch netspoc/p1/log/router.compare
+chmod a-r netspoc/p1/log/router.compare
+=ERROR=
+Error: can't open netspoc/p1/log/router.compare: permission denied
+=END=
