@@ -634,6 +634,28 @@ WARNING>>> WARNING: Route already exists
 =END=
 
 ############################################################
+=TITLE=do-approve approve: Info message and warning in command output
+=DO_APPROVE=
+=PARAMS=approve router
+=SCENARIO=
+[[std_scenario]]
+# ip route 10.20.0.0 255.255.0.0 10.1.2.3
+INFO: ignored text
+WARNING: Route already exists
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+=WARNING=
+OK, details in netspoc/p1/log/router.drc
+=OUTPUT=
+--netspoc/p1/log/router.drc
+Requesting device config
+Got device config
+Parsed device config
+WARNING>>> Got unexpected output from 'ip route 10.20.0.0 255.255.0.0 10.1.2.3':
+WARNING>>> WARNING: Route already exists
+=END=
+
+############################################################
 =TITLE=write mem: overwrite previous NVRAM
 =SCENARIO=
 [[std_scenario]]
