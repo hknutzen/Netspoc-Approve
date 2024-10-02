@@ -1,4 +1,27 @@
 ############################################################
+=TITLE=Unknown option
+=DO_APPROVE=
+=SCENARIO=NONE
+=NETSPOC=NONE
+=PARAMS=--unknown
+=ERROR=
+Error: unknown flag: --unknown
+Usage: do-approve [options] approve|compare DEVICE
+  -b, --brief   Suppress message about unreachable device
+=END=
+
+############################################################
+=TITLE=Option -h
+=DO_APPROVE=
+=SCENARIO=NONE
+=NETSPOC=NONE
+=PARAMS=-h
+=ERROR=
+Usage: do-approve [options] approve|compare DEVICE
+  -b, --brief   Suppress message about unreachable device
+=END=
+
+############################################################
 =TITLE=Missing first argument
 =DO_APPROVE=
 =SCENARIO=NONE
@@ -14,7 +37,7 @@ Usage: do-approve [options] approve|compare DEVICE
 =DO_APPROVE=
 =SCENARIO=NONE
 =NETSPOC=NONE
-=PARAMS=blabla
+=PARAMS=blabla router
 =ERROR=
 Usage: do-approve [options] approve|compare DEVICE
   -b, --brief   Suppress message about unreachable device
