@@ -66,7 +66,8 @@ func LoadConfig() (*Config, error) {
 	var c Config
 	seen := make(map[string]bool)
 
-	insert := func(key, val string) error {
+	insert := func(key string, values ...string) error {
+		val := values[0]
 		getInt := func() (int, error) {
 			i, err := strconv.Atoi(val)
 			if err != nil {
@@ -75,13 +76,13 @@ func LoadConfig() (*Config, error) {
 			}
 			if i < 0 {
 				return 0, fmt.Errorf(
-					"Expected positive integer for '%s' in %s: %v", key, file, err)
+					"Expected positive integer for '%s' in %s: %v", key, file, i)
 			}
 			return i, nil
 		}
 		getIPList := func() ([]netip.Addr, error) {
 			var result []netip.Addr
-			for _, s := range strings.Fields(val) {
+			for _, s := range values {
 				ip, err := netip.ParseAddr(s)
 				if err != nil {
 					return nil, fmt.Errorf("Expected IP address in '%s' of %s: %v",
@@ -92,6 +93,15 @@ func LoadConfig() (*Config, error) {
 			return result, nil
 		}
 		var err error
+		switch key {
+		case "server_ip_list":
+			c.ServerIPList, err = getIPList()
+			return err
+		}
+		if len(values) != 1 {
+			return fmt.Errorf("Expected exactly one value for %q in %s: %v",
+				key, file, values)
+		}
 		switch key {
 		case "netspocdir":
 			c.NetspocDir = val
@@ -112,8 +122,6 @@ func LoadConfig() (*Config, error) {
 			c.aaaCredentials = val
 		case "systemuser":
 			c.systemUser = val
-		case "server_ip_list":
-			c.ServerIPList, err = getIPList()
 		case "timeout":
 			c.Timeout, err = getInt()
 		case "login_timeout":
@@ -134,17 +142,17 @@ func LoadConfig() (*Config, error) {
 		if len(words) == 0 || words[0][0] == '#' {
 			continue
 		}
-		if len(words) != 3 || words[1] != "=" {
+		if len(words) < 3 || words[1] != "=" {
 			warn("Ignoring line '%s' in %s", line, file)
 			continue
 		}
-		key, val := words[0], words[2]
+		key := words[0]
 		if seen[key] {
 			warn("Ignoring duplicate key '%s' in %s", key, file)
 			continue
 		}
 		seen[key] = true
-		if err := insert(key, val); err != nil {
+		if err := insert(key, words[2:]...); err != nil {
 			return nil, err
 		}
 	}
@@ -176,10 +184,7 @@ func (c *Config) GetVal(key string) string {
 	case "statusdir":
 		return c.StatusDir
 	case "checkbanner":
-		if re := c.CheckBanner; re != nil {
-			return re.String()
-		}
-		return ""
+		return c.CheckBanner.String()
 	case "aaa_credentials":
 		return c.aaaCredentials
 	case "systemuser":
