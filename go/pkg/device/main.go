@@ -31,23 +31,24 @@ type RealDevice interface {
 }
 
 func getRealDevice(fname string) RealDevice {
+	var result RealDevice
 	info, _ := codefiles.LoadInfoFile(fname)
 	switch info.Model {
 	case "ASA":
-		return asa.Setup()
+		result = asa.Setup()
 	case "IOS":
-		return ios.Setup()
+		result = ios.Setup()
 	case "Linux":
-		return &linux.State{}
+		result = &linux.State{}
 	case "NSX":
-		return &nsx.State{}
+		result = &nsx.State{}
 	case "PAN-OS":
-		return &panos.State{}
+		result = &panos.State{}
 	default:
 		errlog.Abort("Unexpected model %q in file %s.info\n",
 			info.Model, fname)
 	}
-	return nil
+	return result
 }
 
 type state struct {
