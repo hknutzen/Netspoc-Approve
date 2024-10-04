@@ -101,6 +101,16 @@ Error: No config file found in [.netspoc-approve /usr/local/etc/netspoc-approve 
 =END=
 
 ############################################################
+=TITLE=Unreadable config file
+=SCENARIO=NONE
+=NETSPOC=NONE
+=SETUP=
+chmod a-r .netspoc-approve
+=ERROR=
+Error: Can't open .netspoc-approve: permission denied
+=END=
+
+############################################################
 =TITLE=Missing lockfile dir
 =SCENARIO=NONE
 =NETSPOC=NONE
