@@ -2,8 +2,7 @@
 Netspoc-Approve*
 *~
 released/
-.tidyall.d
-cover_db
+TAGS
 go/test/coverage.out
 go/cmd/*/*
 !go/cmd/*/*.go
