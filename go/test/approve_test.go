@@ -91,7 +91,7 @@ func runTest(t *testing.T, d descr, devType string) {
 	// where different subdirectories are created.
 	workDir := t.TempDir()
 	prevDir, _ := os.Getwd()
-	defer func() { os.Chdir(prevDir) }()
+	defer os.Chdir(prevDir)
 	os.Chdir(workDir)
 
 	var netspocDir, codeDir string
