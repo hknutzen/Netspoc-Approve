@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
@@ -167,10 +168,10 @@ func openHistoryLog(cfg *program.Config, devName string) (*os.File, error) {
 	return nil, nil
 }
 
-func logHistory(fh *os.File, args ...string) {
+func logHistory(fh *os.File, args ...any) {
 	if fh != nil {
 		prefix := mytime.Now().Format("2006 01 02 15:04:05")
-		fmt.Fprintln(fh, prefix, args)
+		fmt.Fprintln(fh, slices.Concat([]any{prefix}, args)...)
 	}
 }
 
