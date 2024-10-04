@@ -939,3 +939,18 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 -- status/router
 router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
 =END=
+
+############################################################
+=TITLE=Without historydir
+=DO_APPROVE=
+=SCENARIO=[[std_scenario]]
+=NETSPOC=NONE
+=SETUP=
+sed -i 's/^historydir.*$//' .netspoc-approve
+=OUTPUT=
+--netspoc/p1/log/router.compare
+Requesting device config
+Got device config
+Parsed device config
+comp: device unchanged
+=END=
