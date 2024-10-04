@@ -14,7 +14,7 @@ To achieve this,
 - Add this user to /usr/local/etc/netspoc-approve as
     systemuser = <X>
 - A wrapper script "sudo-newpolicy" calls "sudo -u <X> newpolicy.pl".
-- A wrapper script "diamonds" calls "sudo -u <X> approve.pl".
+- A wrapper script "diamonds" calls "sudo -u <X> do-approve".
 - Add two entries to your /etc/sudoers file:
     ALL ALL = (<X>) NOPASSWD : /usr/local/bin/newpolicy.pl
-    ALL ALL = (<X>) NOPASSWD : /usr/local/bin/approve.pl
+    ALL ALL = (<X>) NOPASSWD : /usr/local/bin/do-appove
