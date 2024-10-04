@@ -71,6 +71,26 @@ ERROR>>> Unexpected model "" in file code/router.info
 =END=
 
 ############################################################
+=TITLE=Bad info file
+=NETSPOC=
+--router.info
+NO_JSON
+=ERROR=
+panic: invalid character 'N' looking for beginning of value
+=END=
+
+############################################################
+=TITLE=Unreadable info file
+=NETSPOC=
+--router.info
+{ "model": "IOS", "ip_list": ["1.2.3.4"] }
+=SETUP=
+chmod a-r code/router.info
+=ERROR=
+panic: open code/router.info: permission denied
+=END=
+
+############################################################
 =TITLE=Missing config file
 =SCENARIO=NONE
 =NETSPOC=NONE
