@@ -89,3 +89,14 @@ rmdir LOCK
 =ERROR=
 Error: open LOCK/router: no such file or directory
 =END=
+
+############################################################
+=TITLE=Unreadable file from Netspoc
+=NETSPOC=
+--router.info
+{ "model": "IOS", "ip_list": ["1.2.3.4"] }
+=SETUP=
+mkdir code/router
+=ERROR=
+ERROR>>> Can't read code/router: is a directory
+=END=

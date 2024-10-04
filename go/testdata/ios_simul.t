@@ -342,6 +342,58 @@ no ip route 10.20.0.0 255.255.0.0 10.1.2.3\N ip route 10.20.0.0 255.255.0.0 10.1
 =OPTIONS=-C
 
 ############################################################
+=TITLE=Error logging to .cmp file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+mkdir router.cmp.1727626790
+touch router.cmp
+chmod a-w router.cmp
+=ERROR=
+ERROR>>> open router.cmp: permission denied
+=OPTIONS=-C
+
+############################################################
+=TITLE=Error logging to .login file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+mkdir router.login.1727626790
+touch router.login
+chmod a-w router.login
+=ERROR=
+ERROR>>> open router.login: permission denied
+=OPTIONS=-C
+
+############################################################
+=TITLE=Error logging to .config file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+mkdir router.config.1727626790
+touch router.config
+chmod a-w router.config
+=ERROR=
+ERROR>>> open router.config: permission denied
+=OPTIONS=-C
+
+############################################################
+=TITLE=Error logging to .change file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+mkdir router.change.1727626790
+touch router.change
+chmod a-w router.change
+=ERROR=
+ERROR>>> open router.change: permission denied
+=END=
+
+############################################################
 =TITLE=Compare with missing banner
 =SCENARIO=
 Enter Password:<!>
