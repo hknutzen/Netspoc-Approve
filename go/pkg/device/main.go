@@ -71,7 +71,7 @@ func ApproveOrCompare(
 		s := &state{RealDevice: getRealDevice(fname)}
 		s.config = cfg
 		if logDir != "" {
-			s.setLogDir(logDir, fname)
+			s.logFname = path.Join(logDir, path.Base(fname))
 		}
 		var err error
 		if isCompare {
@@ -236,12 +236,6 @@ func SetLock(fname, dir string) (*os.File, error) {
 		err = fmt.Errorf("Approve in progress for %s", fname)
 	}
 	return fh, err
-}
-
-func (s *state) setLogDir(logDir, file string) {
-	if logDir != "" {
-		s.logFname = path.Join(logDir, path.Base(file))
-	}
 }
 
 func (s *state) getLogFH(ext string) (*os.File, error) {
