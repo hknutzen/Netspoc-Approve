@@ -256,7 +256,7 @@ comp: device unchanged
 =OPTIONS=-C -q=0 --LOGFILE d/file
 
 ############################################################
-=TITLE=Can't create log directory
+=TITLE=Can't create directory for logfile
 =SCENARIO=
 [[std_scenario]]
 # sh run
@@ -267,6 +267,19 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =ERROR=
 ERROR>>> Can't mkdir code/router: not a directory
 =OPTIONS=-C -q=0 --LOGFILE code/router/log
+
+############################################################
+=TITLE=Without option -L logdir for test coverage
+=OPTIONS=-q=0
+=PARAMS=code/router
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=WARNING=
+Requesting device config
+Got device config
+Parsed device config
+=END=
 
 ############################################################
 =TITLE=do-approve compare: changed
