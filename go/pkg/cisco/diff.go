@@ -1,36 +1,40 @@
 package cisco
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/sorted"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/pkg/diff/edit"
 	"github.com/pkg/diff/myers"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 type State struct {
 	*parser
-	a        *Config
-	b        *Config
-	Changes  []string
-	Model    string
-	subCmdOf string
+	Model        string
+	Conn         *console.Conn
+	errUnmanaged []error
+	a            *Config
+	b            *Config
+	Changes      []string
+	subCmdOf     string
 }
 
 func (s *State) addChange(chg string) {
 	s.Changes = append(s.Changes, chg)
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
+func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
 	s.a = c1.(*Config)
 	s.b = c2.(*Config)
 	s.alignVRFs()
@@ -66,7 +70,7 @@ func (s *State) diffConfig() {
 	comb := make(objLookup)
 	maps.Copy(comb, s.a.lookup)
 	maps.Copy(comb, s.b.lookup)
-	for _, prefix := range sorted.Keys(comb) {
+	for _, prefix := range slices.Sorted(maps.Keys(comb)) {
 		if prefix == "tunnel-group-map" {
 			s.diffTunnelGroupMap()
 		} else if prefix == "webvpn" {
@@ -94,8 +98,8 @@ func byParsedCmd(_ *Config, c *cmd) string {
 func (s *State) diffAnchors(prefix string) {
 	aMap := s.a.lookup[prefix]
 	bMap := s.b.lookup[prefix]
-	aNames := sorted.Keys(aMap)
-	bNames := sorted.Keys(bMap)
+	aNames := slices.Sorted(maps.Keys(aMap))
+	bNames := slices.Sorted(maps.Keys(bMap))
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
@@ -369,8 +373,7 @@ func (s *State) findSimpleObjOnDevice(bl []*cmd) []*cmd {
 func findSimpleObject(bl []*cmd, a *Config) []*cmd {
 	prefix := bl[0].typ.prefix
 	m := a.lookup[prefix]
-	names := sorted.Keys(m)
-	for _, name := range names {
+	for _, name := range slices.Sorted(maps.Keys(m)) {
 		al := m[name]
 		if simpleObjEqual(al, bl) {
 			return al
@@ -510,7 +513,7 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 	for _, r := range diff {
 		if r.IsInsert() {
 			if r.HighB-r.LowB >= 10000 {
-				device.Abort("Can't insert more than 9999 ACL lines at once")
+				errlog.Abort("Can't insert more than 9999 ACL lines at once")
 			}
 			action0 := getIOSAction(bl[r.LowB])
 			moveOK := true
@@ -835,7 +838,7 @@ func (s *State) diffRoutes(al, bl []*cmd, diff []edit.Range) {
 					if vrf != "" {
 						forVRF = " for VRF " + vrf
 					}
-					device.Info("No %s routing specified%s, leaving untouched",
+					errlog.Info("No %s routing specified%s, leaving untouched",
 						ipv, forVRF)
 				}
 			}
@@ -885,7 +888,7 @@ func (s *State) addCmds(l []*cmd) {
 			if _, found := s.a.lookup[prefix][name]; !found {
 				switch prefix {
 				case "aaa-server", "ldap attribute-map":
-					device.Abort("'%s %s' must be transferred manually", prefix, name)
+					errlog.Abort("'%s %s' must be transferred manually", prefix, name)
 				}
 			}
 		}
@@ -1072,10 +1075,8 @@ func (s *State) deleteUnused() {
 			}
 		}
 		// Delete commands not referenced any longer.
-		pairs := maps.Keys(toDelete)
-		sort.Slice(pairs, func(i, j int) bool {
-			return pairs[i][0] < pairs[j][0] ||
-				pairs[i][0] == pairs[j][0] && pairs[i][1] < pairs[j][1]
+		pairs := slices.SortedFunc(maps.Keys(toDelete), func(a, b pair) int {
+			return cmp.Or(cmp.Compare(a[0], b[0]), cmp.Compare(a[1], b[1]))
 		})
 		for _, pair := range pairs {
 			if isReferenced[pair] {
@@ -1214,7 +1215,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 			}
 		}
 		if peer == "" {
-			device.Abort("Missing peer or dynamic in crypto map %s %d", name, seq)
+			errlog.Abort("Missing peer or dynamic in crypto map %s %d", name, seq)
 		}
 		return peer
 	}
@@ -1230,7 +1231,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 	bSeqMap := mapBySeq(bl)
 	bPeer2Seq := mapPeerToSeq(bSeqMap)
 	// Match commands having same peer.
-	for _, aSeq := range sorted.Keys(aSeqMap) {
+	for _, aSeq := range slices.Sorted(maps.Keys(aSeqMap)) {
 		aSeqL := aSeqMap[aSeq]
 		aPeer := getPeer(aSeqL)
 		if bSeq, found := bPeer2Seq[aPeer]; found {
@@ -1243,7 +1244,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 	// Use fresh sequence numbers for added commands.
 	static := 1
 	dynamic := 65535
-	for _, bSeq := range sorted.Keys(bSeqMap) {
+	for _, bSeq := range slices.Sorted(maps.Keys(bSeqMap)) {
 		bSeqL := bSeqMap[bSeq]
 		seq := &dynamic
 		incr := -1
@@ -1386,25 +1387,25 @@ func (s *State) checkASAInterfaces() error {
 	// - "access-group $access-list in|out interface INTF".
 	// - "crypto map $crypto_map interface INTF"
 	// Ignore "access-group $access-list global".
-	getImplicitInterfaces := func(cfg *Config) map[string]bool {
-		m := make(map[string]bool)
+	getImplicitInterfaces := func(cfg *Config) map[string][]*cmd {
+		m := make(map[string][]*cmd)
 		for _, c := range cfg.lookup["access-group"][""] {
 			tokens := strings.Fields(c.parsed)
 			if len(tokens) == 5 {
-				m[tokens[4]] = true
+				m[tokens[4]] = []*cmd{c}
 			}
 		}
 		for _, c := range cfg.lookup["crypto map interface"][""] {
-			tokens := strings.Fields(c.parsed)
-			m[tokens[4]] = true
+			intfName := strings.Fields(c.parsed)[4]
+			m[intfName] = append(m[intfName], c)
 		}
 		return m
 	}
-	bIntf := getImplicitInterfaces(s.b)
+	bIntf2cmd := getImplicitInterfaces(s.b)
 
 	// Collect and check named interfaces from device.
 	// Add implicit interfaces when comparing two Netspoc generated configs.
-	aIntf := getImplicitInterfaces(s.a)
+	aIntf2cmd := getImplicitInterfaces(s.a)
 	for _, c := range s.a.lookup["interface"][""] {
 		name := ""
 		shut := false
@@ -1418,17 +1419,24 @@ func (s *State) checkASAInterfaces() error {
 			}
 		}
 		if name != "" {
-			aIntf[name] = true
-			if !bIntf[name] && !shut {
-				device.Warning(
-					"Interface '%s' on device is not known by Netspoc", name)
+			if _, found := bIntf2cmd[name]; !found {
+				// If some ACL or crypto map is bound to this unmanaged
+				// interface, these commands must not accidently be deleted.
+				s.markNeeded(aIntf2cmd[name])
+
+				if !shut {
+					errlog.Warning(
+						"Interface '%s' on device is not known by Netspoc", name)
+				}
 			}
+			// Add map key, even if no commands are bound to this interface.
+			aIntf2cmd[name] = nil
 		}
 	}
 
 	// Check interfaces from Netspoc
-	for _, name := range sorted.Keys(bIntf) {
-		if !aIntf[name] {
+	for _, name := range slices.Sorted(maps.Keys(bIntf2cmd)) {
+		if _, found := aIntf2cmd[name]; !found {
 			return fmt.Errorf(
 				"Interface '%s' from Netspoc not known on device", name)
 		}
@@ -1491,7 +1499,7 @@ func (s *State) checkIOSInterfaces() error {
 		aKnown[name] = true
 		if bInfo := bIntf[name]; bInfo != nil {
 			if aInfo.addr != bInfo.addr && bInfo.addr != "negotiated" {
-				device.Warning(
+				errlog.Warning(
 					"Different address defined for interface %s:"+
 						" Device: %q, Netspoc: %q", name, aInfo.addr, bInfo.addr)
 			}
@@ -1507,13 +1515,11 @@ func (s *State) checkIOSInterfaces() error {
 						" Device: %s, Netspoc: %s", name, aInfo.vrf, bInfo.vrf)
 			}
 		} else {
-			// Mark referenced ACLs that must not be deleted.
-			s.markNeeded(c.sub)
 			// If config from Netspoc has no interface definitions, it is
 			// probably of type "managed=routing_only", and Netspoc won't
 			// change any interface config.
 			if !aInfo.shut && aInfo.addr != "" && len(bIntf) != 0 {
-				device.Warning(
+				errlog.Warning(
 					"Interface '%s' on device is not known by Netspoc", name)
 			}
 		}
@@ -1589,11 +1595,11 @@ func (s *State) alignVRFs() {
 			}
 		}
 	}
-	for _, vrf := range sorted.Keys(removed) {
+	for _, vrf := range slices.Sorted(maps.Keys(removed)) {
 		if vrf == "" {
 			vrf = "<global>"
 		}
-		device.Info("Leaving VRF %s untouched", vrf)
+		errlog.Info("Leaving VRF %s untouched", vrf)
 	}
 }
 

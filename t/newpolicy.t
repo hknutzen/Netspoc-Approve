@@ -149,9 +149,9 @@ fi
 exit \$status
 END
 
-    # Install suid-newpolicy, that simply calls newpolicy.pl
+    # Install sudo-newpolicy, that simply calls newpolicy.pl
     # Use current perl interpreter.
-    write_file("$dir/my-bin/suid-newpolicy", <<"END");
+    write_file("$dir/my-bin/sudo-newpolicy", <<"END");
 #!/bin/sh
 $^X $APPROVE_DIR/bin/newpolicy.pl
 END

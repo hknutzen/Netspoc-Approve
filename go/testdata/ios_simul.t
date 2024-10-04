@@ -73,7 +73,57 @@ ERROR>>> Authentication failed
 =END=
 
 ############################################################
-=TITLE=SSH login + enable password failed
+=TITLE=do-approve compare: SSH login failed
+=DO_APPROVE=
+=SCENARIO=
+Enter Password:<!>
+Enter Password:<!>
+=NETSPOC=NONE
+=ERROR=
+FAILED, details in netspoc/p1/log/router.compare
+=OUTPUT=
+ERROR>>> Authentication failed
+--netspoc/p1/log/router.compare
+ERROR>>> Authentication failed
+=END=
+
+############################################################
+=TITLE=do-approve approve: SSH login failed
+=DO_APPROVE=
+=PARAMS=approve router
+=SCENARIO=
+Enter Password:<!>
+Enter Password:<!>
+=NETSPOC=NONE
+=ERROR=
+FAILED, details in netspoc/p1/log/router.drc
+=OUTPUT=
+ERROR>>> Authentication failed
+--netspoc/p1/log/router.drc
+ERROR>>> Authentication failed
+--status/router
+router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
+=END=
+
+############################################################
+=TITLE=do-approve --brief approve: SSH login failed
+=DO_APPROVE=
+=PARAMS=--brief approve router
+=SCENARIO=
+Enter Password:<!>
+Enter Password:<!>
+=NETSPOC=NONE
+=ERROR=NONE
+=OUTPUT=
+router:ERROR>>> Authentication failed
+--netspoc/p1/log/router.drc
+ERROR>>> Authentication failed
+--status/router
+router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
+=END=
+
+############################################################
+=TITLE=Enable password fails
 =SCENARIO=
 Enter Password:<!>
 banner motd managed by NetSPoC
@@ -124,6 +174,54 @@ No changes applied
 =END=
 
 ############################################################
+=TITLE=do-approve approve: unchanged
+=DO_APPROVE=
+=PARAMS=approve router
+=SCENARIO=
+[[std_scenario]]
+# sh run
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+=OUTPUT=
+--netspoc/p1/log/router.drc
+Requesting device config
+Got device config
+Parsed device config
+--history/router
+2024 09 29 16:19:50 START: approve router
+2024 09 29 16:19:50 POLICY: p1
+2024 09 29 16:19:50 END: OK
+--status/router
+router;;p1;OK;;;;;;;;;;;;;1727626790;
+=END=
+
+############################################################
+=TITLE=do-approve compare: unchanged
+=DO_APPROVE=
+=SCENARIO=
+[[std_scenario]]
+# sh run
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+END
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+=OUTPUT=
+--netspoc/p1/log/router.compare
+Requesting device config
+Got device config
+Parsed device config
+comp: device unchanged
+--history/router
+2024 09 29 16:19:50 START: compare router
+2024 09 29 16:19:50 POLICY: p1
+2024 09 29 16:19:50 END: OK
+--status/router
+router;;;;;;;;;;;;UPTODATE;p1;;1727626790;;
+=END=
+
+############################################################
 =TITLE=Compare unchanged with logfile
 =SCENARIO=
 [[std_scenario]]
@@ -169,6 +267,66 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =ERROR=
 ERROR>>> Can't mkdir code/router: not a directory
 =OPTIONS=-C -q=0 --LOGFILE code/router/log
+
+############################################################
+=TITLE=do-approve compare: changed
+=DO_APPROVE=
+=SCENARIO=
+[[std_scenario]]
+# sh run
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=WARNING=
+OK, details in netspoc/p1/log/router.compare
+=OUTPUT=
+--netspoc/p1/log/router.compare
+Requesting device config
+Got device config
+Parsed device config
+comp: *** device changed ***
+--netspoc/p1/log/router.cmp
+no ip route 10.20.0.0 255.255.0.0 10.1.2.3\N ip route 10.20.0.0 255.255.0.0 10.1.2.99
+--status/router
+router;;;;;;;;;;;;DIFF;p1;;1727626790;;
+=END=
+
+############################################################
+=TITLE=do-approve compare: changed, leave status unchanged
+=DO_APPROVE=
+=SCENARIO=
+[[std_scenario]]
+# sh run
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+echo 'router;;;;;usr;;;;;;;DIFF;p0;;123;' > status/router
+=WARNING=
+OK, details in netspoc/p1/log/router.compare
+=OUTPUT=
+--status/router
+router;;;;;usr;;;;;;;DIFF;p0;;123;
+=END=
+
+############################################################
+=TITLE=do-approve compare: changed, update status
+# Device was approved after last compare
+=DO_APPROVE=
+=SCENARIO=
+[[std_scenario]]
+# sh run
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+echo 'router;;;;;usr;;;;;;;DIFF;p0;;123;999;' > status/router
+=WARNING=
+OK, details in netspoc/p1/log/router.compare
+=OUTPUT=
+--status/router
+router;;;;;usr;;;;;;;DIFF;p1;;1727626790;999;
+=END=
 
 ############################################################
 =TITLE=Compare changed
@@ -287,14 +445,14 @@ router#
 [[std_scenario]]
 # sh run
 ip route 10.0.0.0 255.0.0.0 10.1.2.3
-# \BANNER5/
+# \BANNER2/
 
 
 
 ***
 *** --- SHUTDOWN in 0:02:00 ---
 ***
-# \BANNER5_prompt/
+# \BANNER2_prompt/
 
 
 
@@ -312,10 +470,10 @@ router#
 ***
 *** --- SHUTDOWN in 0:01:00 ---
 ***
-# \BANNER5_prompt/ip route 10.1.1.0 255.255.255.0 10.1.2.3
-# ip route 10.1.2.0 255.255.255.0 10.2.3.4\BANNER5_prompt/
-# ip route 10.1.3.0 255.255.255.0 10.2.3.5\BANNER5/
-# no ip route 10.0.0.0 25\BANNER5/5.0.0.0 10.1.2.3
+# \BANNER2_prompt/ip route 10.1.1.0 255.255.255.0 10.1.2.3
+# ip route 10.1.2.0 255.255.255.0 10.2.3.4\BANNER2_prompt/
+# ip route 10.1.3.0 255.255.255.0 10.2.3.5\BANNER2/
+# no ip route 10.0.0.0 25\BANNER2/5.0.0.0 10.1.2.3
 # ip\BANNER1/ route 10.0.0.0 255.0.0.0 10.11.22.33
 # write memory
 Building configuration...
@@ -476,6 +634,28 @@ WARNING>>> WARNING: Route already exists
 =END=
 
 ############################################################
+=TITLE=do-approve approve: Info message and warning in command output
+=DO_APPROVE=
+=PARAMS=approve router
+=SCENARIO=
+[[std_scenario]]
+# ip route 10.20.0.0 255.255.0.0 10.1.2.3
+INFO: ignored text
+WARNING: Route already exists
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.3
+=WARNING=
+OK, details in netspoc/p1/log/router.drc
+=OUTPUT=
+--netspoc/p1/log/router.drc
+Requesting device config
+Got device config
+Parsed device config
+WARNING>>> Got unexpected output from 'ip route 10.20.0.0 255.255.0.0 10.1.2.3':
+WARNING>>> WARNING: Route already exists
+=END=
+
+############################################################
 =TITLE=write mem: overwrite previous NVRAM
 =SCENARIO=
 [[std_scenario]]
@@ -586,18 +766,6 @@ ERROR>>> While reading device: 'crypto map x' references unknown 'crypto map x'
 =END=
 
 ############################################################
-=TITLE=SSH timeout
-=SCENARIO=
-Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
-=NETSPOC=NONE
-=ERROR=
-ERROR>>> while waiting for prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
-=OUTPUT=
---router.login
-Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
-=END=
-
-############################################################
 =TITLE=Missing IP address in IPv6
 =SCENARIO=[[std_scenario]]
 =NETSPOC=
@@ -622,6 +790,17 @@ ERROR>>> No matching entry found in credentials
 =END=
 
 ############################################################
+=TITLE=Missing attribute aaa_credentials
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+=SETUP=
+sed -i 's/^aaa_credentials.*$//' .netspoc-approve
+=ERROR=
+ERROR>>> Must configure attribute 'aaa_credentials'
+=END=
+
+############################################################
 =TITLE=Bad credentials file
 =SCENARIO=[[std_scenario]]
 =NETSPOC=
@@ -633,6 +812,17 @@ ERROR>>> Expected 3 fields in lines of credentials
 =END=
 
 ############################################################
+=TITLE=Bad pattern in credentials file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+=SETUP=
+echo 'a[b-]c user secret' >credentials
+=ERROR=
+ERROR>>> Invalid pattern 'a[b-]c' in credentials
+=END=
+
+############################################################
 =TITLE=Missing credentials file
 =SCENARIO=[[std_scenario]]
 =NETSPOC=
@@ -641,4 +831,111 @@ ip route 10.0.0.0 255.0.0.0 10.11.22.33
 rm credentials
 =ERROR=
 ERROR>>> Can't open credentials: no such file or directory
+=END=
+
+############################################################
+=TITLE=do-approve compare: Missing credentials file
+=DO_APPROVE=
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.0.0.0 255.0.0.0 10.11.22.33
+=SETUP=
+rm credentials
+=ERROR=
+FAILED, details in netspoc/p1/log/router.compare
+=OUTPUT=
+--netspoc/p1/log/router.compare
+ERROR>>> Can't open credentials: no such file or directory
+--history/router
+2024 09 29 16:19:50 START: compare router
+2024 09 29 16:19:50 POLICY: p1
+2024 09 29 16:19:50 RES: ERROR>>> Can't open credentials: no such file or directory
+2024 09 29 16:19:50 END: FAILED
+=END=
+
+############################################################
+=TITLE=do-approve approve: can't write status directory
+=DO_APPROVE=
+=PARAMS=approve router
+=SCENARIO=NONE
+=NETSPOC=NONE
+=SETUP=
+echo some_stuff > status/router
+chmod a-w status/router
+=ERROR=
+panic: open status/router: permission denied
+=END=
+
+############################################################
+=TITLE=SSH timeout
+=SCENARIO=
+Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
+=OUTPUT=
+--router.login
+Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
+=END=
+
+############################################################
+=TITLE=do-approve compare: SSH timeout
+=DO_APPROVE=
+=SCENARIO=NONE
+=NETSPOC=NONE
+=ERROR=
+FAILED, details in netspoc/p1/log/router.compare
+=SETUP=
+echo some_stuff > status/router
+=OUTPUT=
+--netspoc/p1/log/router.compare
+ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
+--history/router
+2024 09 29 16:19:50 START: compare router
+2024 09 29 16:19:50 POLICY: p1
+2024 09 29 16:19:50 RES: ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
+2024 09 29 16:19:50 END: FAILED
+--status/router
+some_stuff
+=END=
+
+############################################################
+=TITLE=do-approve --brief compare: SSH timeout
+=DO_APPROVE=
+=OPTIONS=--brief
+=SCENARIO=NONE
+=NETSPOC=NONE
+=ERROR=NONE
+=SETUP=
+echo some_stuff > status/router
+=OUTPUT=
+--netspoc/p1/log/router.compare
+ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
+--history/router
+2024 09 29 16:19:50 START: --brief compare router
+2024 09 29 16:19:50 POLICY: p1
+2024 09 29 16:19:50 END: FAILED
+--status/router
+some_stuff
+=END=
+
+############################################################
+=TITLE=do-approve --brief approve: SSH timeout
+=DO_APPROVE=
+=PARAMS=approve router
+=OPTIONS=--brief
+=SCENARIO=NONE
+=NETSPOC=NONE
+=ERROR=NONE
+=SETUP=
+echo some_stuff > status/router
+=OUTPUT=
+--netspoc/p1/log/router.drc
+ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
+--history/router
+2024 09 29 16:19:50 START: --brief approve router
+2024 09 29 16:19:50 POLICY: p1
+2024 09 29 16:19:50 END: FAILED
+-- status/router
+router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
 =END=

@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"net/netip"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"golang.org/x/exp/slices"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
 type Config struct {
@@ -72,7 +73,7 @@ func (s *State) SetupParser(cmdInfo string) {
 }
 
 func (p *parser) ParseConfig(data []byte, fName string) (
-	device.DeviceConfig, error) {
+	deviceconf.Config, error) {
 
 	// prefix -> name -> commands with same prefix and name
 	lookup := make(objLookup)
@@ -602,7 +603,7 @@ func postprocessParsed(lookup objLookup) {
 						ref = c.sub[0].ref[0]
 					}
 					if ldapMap != " " && ldapMap != ref {
-						device.Abort("aaa-server %s must not use different values"+
+						errlog.Abort("aaa-server %s must not use different values"+
 							" in 'ldap-attribute-map'",
 							name)
 					}

@@ -3,12 +3,12 @@ package panos
 import (
 	"fmt"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 )
 
 // MergeSpoc merges two configurations read from Netspoc.
 // c2 is either read from a raw file or it is a IPv6 configuration.
-func (p1 *PanConfig) MergeSpoc(c2 device.DeviceConfig) device.DeviceConfig {
+func (p1 *PanConfig) MergeSpoc(c2 deviceconf.Config) deviceconf.Config {
 	p2 := c2.(*PanConfig)
 	processVsysPairs(p1, p2, func(v1, v2 *panVsys) error {
 		// Create empty vsys in p1 to add complete vsys from p2 below.

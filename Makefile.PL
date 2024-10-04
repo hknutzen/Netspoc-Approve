@@ -15,33 +15,30 @@ my %WriteMakefileArgs = (
   "DISTNAME" => "Netspoc-Approve",
   "EXE_FILES" => [
     "bin/approve-all",
-    "bin/approve.pl",
     "bin/compare-all",
     "bin/compress-policies",
     "bin/delete-old-policies",
+    "bin/diamonds",
+    "bin/do-approve",
     "bin/drc",
     "bin/drc3.pl",
     "bin/get-netspoc-approve-conf",
     "bin/missing-approve",
     "bin/newpolicy",
     "bin/newpolicy.pl",
-    "bin/start-jobs"
+    "bin/start-jobs",
+    "bin/sudo-newpolicy"
   ],
   "LICENSE" => "gpl",
   "NAME" => "Netspoc::Approve",
   "PREREQ_PM" => {
     "Carp" => 0,
-    "Exporter" => 0,
-    "Fcntl" => 0,
-    "IO::Handle" => 0,
-    "NetAddr::IP::Util" => 0,
-    "POSIX" => 0,
     "strict" => 0,
     "warnings" => 0
   },
   "TEST_REQUIRES" => {
     "Cwd" => 0,
-    "File::Basename" => 0,
+    "Fcntl" => 0,
     "File::Path" => 0,
     "File::Spec::Functions" => 0,
     "File::Temp" => 0,
@@ -50,7 +47,7 @@ my %WriteMakefileArgs = (
     "Test::More" => 0,
     "Time::HiRes" => 0
   },
-  "VERSION" => "3.033",
+  "VERSION" => "3.034",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -60,16 +57,11 @@ my %WriteMakefileArgs = (
 my %FallbackPrereqs = (
   "Carp" => 0,
   "Cwd" => 0,
-  "Exporter" => 0,
   "Fcntl" => 0,
-  "File::Basename" => 0,
   "File::Path" => 0,
   "File::Spec::Functions" => 0,
   "File::Temp" => 0,
-  "IO::Handle" => 0,
   "IPC::Run3" => 0,
-  "NetAddr::IP::Util" => 0,
-  "POSIX" => 0,
   "Test::Differences" => 0,
   "Test::More" => 0,
   "Time::HiRes" => 0,

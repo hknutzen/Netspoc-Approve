@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 )
 
 type nsxPolicy struct {
@@ -110,7 +110,7 @@ type NsxConfig struct {
 }
 
 func (s *State) ParseConfig(data []byte, fName string) (
-	device.DeviceConfig, error) {
+	deviceconf.Config, error) {
 
 	config := &NsxConfig{}
 	if len(data) == 0 {

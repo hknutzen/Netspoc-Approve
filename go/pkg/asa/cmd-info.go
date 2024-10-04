@@ -94,7 +94,7 @@ ldap_attribute-map $NAME
 crypto_ca_certificate_map $NAME $SEQ
  subject-name *
  extended-key-usage *
-# Is anchor and has ficed name if $NAME is IP address
+# Is anchor and has fixed name if $NAME is IP address
 tunnel-group $NAME type *
 tunnel-group $NAME general-attributes
  default-group-policy $group-policy

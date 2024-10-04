@@ -155,7 +155,7 @@ ERROR>>> ip route add 0.0.0.0/0 via 10.1.1.99 failed (exit status)
 
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> while waiting for prompt '\r\n\S*\s?[%>$#]\s?(?:\x27\S*)?|(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
+ERROR>>> while waiting for login prompt '\r\n\S*\s?[%>$#]\s?(?:\x27\S*)?|(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 =END=
 
 ############################################################

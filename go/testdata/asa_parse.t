@@ -79,7 +79,7 @@ access-group inside_in in interface inside
 =OUTPUT=NONE
 
 ############################################################
-=TITLE=Check Netspoc interfaces
+=TITLE=Check Netspoc interfaces, leave ACL of unknown interface unchanged
 =DEVICE=
 interface Ethernet0/0
  nameif inside
@@ -87,11 +87,16 @@ interface Ethernet0/0
 interface Ethernet0/1
  nameif outside
  ip address 10.1.2.1 255.255.255.0
+access-list outside_in extended permit ip any4 any4
+access-group outside_in in interface outside
 =NETSPOC=
 access-list inside_in extended deny ip any4 any4
 access-group inside_in in interface inside
 =WARNING=
 WARNING>>> Interface 'outside' on device is not known by Netspoc
+=OUTPUT=
+access-list inside_in-DRC-0 extended deny ip any4 any4
+access-group inside_in-DRC-0 in interface inside
 =END=
 
 ############################################################

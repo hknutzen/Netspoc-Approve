@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 func main() {
@@ -16,12 +16,12 @@ func Main() int {
 		fmt.Fprintf(os.Stderr, "Usage: %s KEY\n", os.Args[0])
 		return 1
 	}
-	c, err := device.LoadConfig()
+	cfg, err := program.LoadConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}
 	key := os.Args[1]
-	fmt.Println(c.GetVal(key))
+	fmt.Println(cfg.GetVal(key))
 	return 0
 }

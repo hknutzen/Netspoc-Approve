@@ -12,7 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 type State struct {
@@ -28,13 +31,13 @@ type change struct {
 }
 
 func (s *State) LoadDevice(
-	path string, cfg *device.Config, logLogin, logConfig *os.File) (
-	device.DeviceConfig, error) {
+	path string, cfg *program.Config, logLogin, logConfig *os.File) (
+	deviceconf.Config, error) {
 
 	devName := ""
-	err := device.TryReachableHTTPLogin(path, cfg,
+	err := httpdevice.TryReachableHTTPLogin(path, cfg,
 		func(name, ip, user, pass string) error {
-			s.client = device.GetHTTPClient(cfg)
+			s.client = httpdevice.GetHTTPClient(cfg)
 			s.devUser = user
 			key, err := s.getAPIKey(ip, user, pass, logLogin)
 			if err != nil {
@@ -87,11 +90,11 @@ func (s *State) getAPIKey(ip, user, pass string, logFH *os.File) (
 	uri := base.String()
 	passRE := regexp.MustCompile(`(password=).*?(&|$)`)
 	loggedURI := passRE.ReplaceAllString(uri, "${1}xxx$2")
-	device.DoLog(logFH, loggedURI)
+	errlog.DoLog(logFH, loggedURI)
 	body, err := s.httpGet(uri)
 	keyRE := regexp.MustCompile(`<key>.*</key>`)
 	loggedBody := keyRE.ReplaceAllString(string(body), "<key>xxx</key>")
-	device.DoLog(logFH, loggedBody)
+	errlog.DoLog(logFH, loggedBody)
 	if err != nil {
 		msg := err.Error()
 		msg = passRE.ReplaceAllString(msg, "${1}xxx$2")
@@ -150,7 +153,7 @@ func (s *State) checkHA(logFH *os.File) bool {
 	return false
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
+func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
 
 	p1 := c1.(*PanConfig)
 	p2 := c2.(*PanConfig)
@@ -264,9 +267,9 @@ var apiRE = regexp.MustCompile(`[?]key=.*?&`)
 func (s *State) httpPrefixGetLog(uri string, logFH *os.File) ([]byte, error) {
 	uri = s.urlPrefix + uri
 	loggedURI := apiRE.ReplaceAllString(uri, "?key=xxx&")
-	device.DoLog(logFH, loggedURI)
+	errlog.DoLog(logFH, loggedURI)
 	body, err := s.httpGet(uri)
-	device.DoLog(logFH, string(body))
+	errlog.DoLog(logFH, string(body))
 	return body, err
 }
 
