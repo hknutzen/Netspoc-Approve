@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/checkpoint"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/cisco"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
@@ -38,6 +39,8 @@ func getRealDevice(fname string) RealDevice {
 		result = cisco.Setup(&asa.State{})
 	case "IOS":
 		result = cisco.Setup(&ios.State{})
+	case "CHECKPOINT":
+		result = &checkpoint.State{}
 	case "Linux":
 		result = &linux.State{}
 	case "NSX":
