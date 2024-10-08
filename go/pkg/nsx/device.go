@@ -52,10 +52,10 @@ func (s *State) LoadDevice(
 			errlog.DoLog(logLogin, v.Encode())
 			v.Set("j_password", pass)
 			resp, err := s.client.PostForm(uri, v)
-			errlog.DoLog(logLogin, resp.Status)
 			if err != nil {
 				return err
 			}
+			errlog.DoLog(logLogin, resp.Status)
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("status code: %d", resp.StatusCode)
 			}
