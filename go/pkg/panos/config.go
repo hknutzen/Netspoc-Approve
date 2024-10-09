@@ -90,7 +90,7 @@ func (c *PanConfig) getDevName() string {
 func (c *PanConfig) checkDeviceName(expected string) error {
 	name := c.getDevName()
 	if name != expected {
-		return fmt.Errorf("Wrong device name: %s, expected: %s", name, expected)
+		return fmt.Errorf("Wrong device name %q, expected %q", name, expected)
 	}
 	return nil
 }
