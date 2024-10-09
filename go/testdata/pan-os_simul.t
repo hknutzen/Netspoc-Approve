@@ -41,6 +41,19 @@ device not ready
 =END=
 
 ############################################################
+=TITLE=Login fails
+=SCENARIO=
+GET /api?type=keygen
+<response status = 'failure'>
+ <msg>User unknown</msg>
+</response>
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> No success: User unknown
+ERROR>>> Devices unreachable: router
+=END=
+
+############################################################
 =TITLE=Only login succeeds
 =SCENARIO=
 [[apikey]]
@@ -104,6 +117,23 @@ GET /api/?type=config&action=get&xpath=/config/devices
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: Parsing response: expected element type <response> but have <INVALID>
+=END=
+
+############################################################
+=TITLE=Invalid config in result
+=SCENARIO=
+[[checkHA]]
+GET /api/?type=config&action=get&xpath=/config/devices
+<response status = 'success'>
+ <result>
+  <devices>
+  <IN></VALID>
+  </devices>
+ </result>
+</response>
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: Parsing response: XML syntax error on line 4: element <IN> closed by </VALID>
 =END=
 
 ############################################################
