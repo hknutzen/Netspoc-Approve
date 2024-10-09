@@ -22,6 +22,23 @@ GET /api/?type=op&cmd=<show><high-availability><state/></high-availability></sho
 </response>
 =END=
 
+=TEMPL=empty_missing_vsys
+GET /api/?type=config&action=get&xpath=/config/devices
+<response status = 'success'>
+ <result>
+  <devices>
+   <entry name="localhost.localdomain">
+    <deviceconfig>
+     <system>
+      <hostname>router</hostname>
+     </system>
+    </deviceconfig>
+   </entry>
+  </devices>
+ </result>
+</response>
+=END=
+
 ############################################################
 =TITLE=Device gives no valid answer
 =SCENARIO=
@@ -74,7 +91,7 @@ TESTSERVER/api/?key=xxx&type=op&cmd=<show><high-availability><state/></high-avai
 =END=
 
 ############################################################
-=TITLE=Only device active check succeeds
+=TITLE=Only HA check succeeds
 =SCENARIO=
 [[checkHA]]
 =NETSPOC=NONE
@@ -105,6 +122,34 @@ TESTSERVER/api/?key=xxx&type=op&cmd=<show><high-availability><state/></high-avai
 --router.config
 TESTSERVER/api/?key=xxx&type=config&action=get&xpath=/config/devices
 404 page not found
+
+=END=
+
+############################################################
+=TITLE=HA not enabled
+=SCENARIO=
+[[apikey]]
+GET /api/?type=op&cmd=<show><high-availability><state/></high-availability></show>
+<response status = 'success'>
+ <result>
+  <enabled>no</enabled>
+ </result>
+</response>
+[[empty_missing_vsys]]
+=NETSPOC=NONE
+=OUTPUT=
+--router.login
+TESTSERVER/api?password=xxx&type=keygen&user=admin
+<response status = 'success'>
+ <result><key>xxx</key></result>
+</response>
+
+TESTSERVER/api/?key=xxx&type=op&cmd=<show><high-availability><state/></high-availability></show>
+<response status = 'success'>
+ <result>
+  <enabled>no</enabled>
+ </result>
+</response>
 
 =END=
 
@@ -152,23 +197,6 @@ GET /api/?type=config&action=get&xpath=/config/devices
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> Wrong device name "", expected "router"
-=END=
-
-=TEMPL=empty_missing_vsys
-GET /api/?type=config&action=get&xpath=/config/devices
-<response status = 'success'>
- <result>
-  <devices>
-   <entry name="localhost.localdomain">
-    <deviceconfig>
-     <system>
-      <hostname>router</hostname>
-     </system>
-    </deviceconfig>
-   </entry>
-  </devices>
- </result>
-</response>
 =END=
 
 ############################################################
