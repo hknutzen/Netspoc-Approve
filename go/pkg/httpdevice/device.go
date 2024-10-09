@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -13,7 +14,11 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
-func GetHTTPClient(cfg *program.Config) *http.Client {
+func GetHTTPClient(cfg *program.Config, ip string) (*http.Client, string) {
+	addr := fmt.Sprintf("https://%s", ip)
+	if simul := os.Getenv("SIMULATE_ROUTER"); simul != "" {
+		addr = simul
+	}
 	return &http.Client{
 		Timeout: time.Duration(cfg.Timeout) * time.Second,
 		Transport: &http.Transport{
@@ -24,7 +29,7 @@ func GetHTTPClient(cfg *program.Config) *http.Client {
 			}).Dial,
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
-	}
+	}, addr
 }
 
 func TryReachableHTTPLogin(

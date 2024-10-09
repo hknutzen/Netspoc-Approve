@@ -3,6 +3,7 @@ package approve_test
 import (
 	"fmt"
 	"io"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path"
@@ -15,8 +16,17 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/doapprove"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/drc"
 	"github.com/hknutzen/Netspoc-Approve/go/test/capture"
+	"github.com/hknutzen/Netspoc-Approve/go/test/httpsim"
 	"github.com/hknutzen/testtxt"
 )
+
+func talksHTTPS(model string) bool {
+	switch model {
+	case "NSX", "PAN-OS":
+		return true
+	}
+	return false
+}
 
 var count int
 
@@ -142,18 +152,24 @@ func runTest(t *testing.T, d descr, devType string) {
 
 	os.Unsetenv("SIMULATE_ROUTER")
 	os.Unsetenv("TEST_TIME")
+	var httpServer *httptest.Server
 	if sc := d.Scenario; sc != "" {
 		// Set simulated time in tests.
 		os.Setenv("TEST_TIME", "2024-Sep-29 16:19:50")
-		// Prepare simulation command.
+		// Prepare simulation.
 		// Tell approve command to use simulation by setting environment variable.
-		scenarioFile := "scenario"
-		if err := os.WriteFile(scenarioFile, []byte(sc), 0644); err != nil {
-			t.Fatal(err)
+		if talksHTTPS(devType) {
+			httpServer = httpsim.NewTLSServer(t, sc)
+			os.Setenv("SIMULATE_ROUTER", httpServer.URL)
+		} else {
+			scenarioFile := "scenario"
+			if err := os.WriteFile(scenarioFile, []byte(sc), 0644); err != nil {
+				t.Fatal(err)
+			}
+			cmd := prevDir + "/../testdata/simulate-cisco.pl " + deviceName + " " +
+				path.Join(workDir, scenarioFile)
+			os.Setenv("SIMULATE_ROUTER", cmd)
 		}
-		cmd := prevDir + "/../testdata/simulate-cisco.pl " + deviceName + " " +
-			path.Join(workDir, scenarioFile)
-		os.Setenv("SIMULATE_ROUTER", cmd)
 		// Prepare credentials file. Declare user as system user.
 		credentialsFile := path.Join(workDir, "credentials")
 		id := "admin"
@@ -240,6 +256,10 @@ timeout = 1
 		})
 	})
 
+	if httpServer != nil {
+		httpServer.Close()
+	}
+
 	// Normalize error messages.
 	stderr = strings.ReplaceAll(stderr, workDir+"/", "")
 	stdout = strings.ReplaceAll(stdout, workDir+"/", "")
@@ -276,7 +296,7 @@ timeout = 1
 			expected = ""
 		}
 		if d.Scenario != "" {
-			checkFilesAndStdout(t, d.Output, workDir, stdout)
+			checkFilesAndStdout(t, d.Output, workDir, stdout, httpServer)
 			return
 		}
 		// Join following line if it is indented.
@@ -290,7 +310,9 @@ timeout = 1
 // Blocks of expected output are split by single lines of dashes,
 // followed by file name.
 // First optional block contains expected standard output.
-func checkFilesAndStdout(t *testing.T, spec, dir, stdout string) {
+func checkFilesAndStdout(
+	t *testing.T, spec, dir, stdout string, srv *httptest.Server,
+) {
 	re := regexp.MustCompile(`(?ms)^-+[ ]*\S+[ ]*\n`)
 	il := re.FindAllStringIndex(spec, -1)
 
@@ -328,6 +350,9 @@ func checkFilesAndStdout(t *testing.T, spec, dir, stdout string) {
 			s := string(data)
 			// Normalize error messages.
 			s = strings.ReplaceAll(s, dir+"/", "")
+			if srv != nil {
+				s = strings.ReplaceAll(s, srv.URL, "TESTSERVER")
+			}
 			countEq(t, block, s)
 		})
 	}

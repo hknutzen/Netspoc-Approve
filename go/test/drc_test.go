@@ -46,7 +46,7 @@ func TestDrc(t *testing.T) {
 	}
 	io.WriteString(pty, "adm-secret\n")
 	wg.Wait()
-	checkFilesAndStdout(t, outFiles, workDir, "")
+	checkFilesAndStdout(t, outFiles, workDir, "", nil)
 }
 
 var inFiles = `--scenario
