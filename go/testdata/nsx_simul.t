@@ -93,3 +93,67 @@ DATA: {"service_entries":[{"id":"id","protocol":"ICMPv4","resource_type":"ICMPTy
 RESP: {}
 
 =END=
+
+############################################################
+=TITLE=Missing device name in info file
+=SCENARIO=
+[[session]]
+=NETSPOC=
+--router
+{}
+--router.info
+{"model": "NSX", "ip_list": ["1.2.3.4"] }
+=ERROR=
+ERROR>>> Missing device name in [code/router.info]
+=END=
+
+############################################################
+=TITLE=Empty device names
+=SCENARIO=
+[[session]]
+=NETSPOC=
+--router
+{}
+--router.info
+{"model": "NSX", "name_list": [], "ip_list": [] }
+=ERROR=
+ERROR>>> Missing device name in [code/router.info]
+=END=
+
+############################################################
+=TITLE=Missing IP address in info file
+=SCENARIO=
+[[session]]
+=NETSPOC=
+--router
+{}
+--router.info
+{"model": "NSX", "name_list": ["router"] }
+=ERROR=
+ERROR>>> Missing IP address in [code/router.info]
+=END=
+
+############################################################
+=TITLE=Non matching names and IP addresses
+=SCENARIO=
+[[session]]
+=NETSPOC=
+--router
+{}
+--router.info
+{"model": "NSX", "name_list": ["router"], "ip_list": ["1.2.3.4", "5.6.7.8"] }
+=ERROR=
+ERROR>>> Number of device names and IP addresses don't match in [code/router.info]
+=END=
+
+############################################################
+=TITLE=Error reading password
+=SCENARIO=
+[[session]]
+=NETSPOC=
+{}
+=SETUP=
+rm credentials
+=ERROR=
+ERROR>>> Can't open credentials: no such file or directory
+=END=
