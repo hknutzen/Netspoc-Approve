@@ -225,10 +225,10 @@ TESTSERVER/api/?key=xxx&action=set&type=config&xpath=/config/devices/entry[@name
 TESTSERVER/api/?key=xxx&action=set&type=config&xpath=/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules/entry[@name='r1']&element=<action>allow</action><from><member>z1</member></from><to><member>z2</member></to><source><member>any</member></source><destination><member>any</member></destination><service><member>tcp 80</member></service><application><member>any</member></application><rule-type>interzone</rule-type>
 <response status="success" code="20"></response>
 
-TESTSERVER/api/?key=xxx&TESTSERVER/api/?key=xxx&type=commit&action=partial&cmd=<commit><partial><admin><member>admin</member></admin></partial></commit>
+TESTSERVER/api/?key=xxx&type=commit&action=partial&cmd=<commit><partial><admin><member>admin</member></admin></partial></commit>
 <response status="success" code="19"><result><job>6</job></result></response>
 
-TESTSERVER/api/?key=xxx&TESTSERVER/api/?key=xxx&type=op&cmd=<show><jobs><id>6</id></jobs></show>
+TESTSERVER/api/?key=xxx&type=op&cmd=<show><jobs><id>6</id></jobs></show>
 <response status="success"><result><job>
 <result>OK</result>
 </job></result></response>

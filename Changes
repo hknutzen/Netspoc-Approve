@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+ - Fixed URL for committing changes to device of type PAN-OS.
+   Previously the URL looked like
+   https://address/api/?key=xxx&https://address/api/?key=xxx&type=commit
+
 3.034     2024-10-04 10:26:33+02:00 Europe/Berlin
 
  - For device of type ASA that has interface not known by Netspoc,

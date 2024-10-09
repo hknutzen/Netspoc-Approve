@@ -199,8 +199,7 @@ func (s *State) ApplyCommands(logFH *os.File) error {
 		return parseResponse(body)
 	}
 	commit := func() error {
-		cmd := s.urlPrefix +
-			"type=commit&action=partial&cmd=<commit><partial><admin><member>" +
+		cmd := "type=commit&action=partial&cmd=<commit><partial><admin><member>" +
 			s.devUser + "</member></admin></partial></commit>"
 		msg, data, err := doCmd(cmd)
 		if err != nil {
@@ -227,8 +226,7 @@ func (s *State) ApplyCommands(logFH *os.File) error {
 			if !simulated {
 				time.Sleep(10 * time.Second)
 			}
-			cmd := s.urlPrefix +
-				"type=op&cmd=<show><jobs><id>" + id + "</id></jobs></show>"
+			cmd := "type=op&cmd=<show><jobs><id>" + id + "</id></jobs></show>"
 			_, data, err := doCmd(cmd)
 			if err != nil {
 				return err
