@@ -38,8 +38,7 @@ func (s *State) LoadDevice(
 	// Login to device and get session ID.
 	err := httpdevice.TryReachableHTTPLogin(spocFile, cfg,
 		func(name, ip, user, pass string) error {
-			s.prefix = fmt.Sprintf("https://%s", ip)
-			s.client = httpdevice.GetHTTPClient(cfg)
+			s.client, s.prefix = httpdevice.GetHTTPClient(cfg, ip)
 			uri := s.prefix + "/web_api/login"
 			errlog.DoLog(logLogin, uri)
 			v := fmt.Sprintf(`{"user":"%s","password":"%s"}`, user, "xxx")
