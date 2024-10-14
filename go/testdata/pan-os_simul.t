@@ -39,8 +39,31 @@ GET /api/?type=config&action=get&xpath=/config/devices
 </response>
 =END=
 
+=TEMPL=empty_with_vsys
+[[checkHA]]
+GET /api/?type=config&action=get&xpath=/config/devices
+<response status = 'success'>
+ <result>
+  <devices>
+   <entry name="localhost.localdomain">
+    <deviceconfig>
+     <system>
+      <hostname>router</hostname>
+     </system>
+    </deviceconfig>
+    <vsys>
+     <entry name="vsys1">
+     <display-name>FW7-managed-by-Netspoc</display-name>
+     </entry>
+    </vsys>
+   </entry>
+  </devices>
+ </result>
+</response>
+=END=
+
 ############################################################
-=TITLE=Device gives no valid answer
+=TITLE=Device gives status 500
 =SCENARIO=
 GET /api
 500
@@ -54,6 +77,21 @@ ERROR>>> Devices unreachable: router
 --router.login
 TESTSERVER/api?password=xxx&type=keygen&user=admin
 device not ready
+
+=END=
+
+############################################################
+=TITLE=Device gives no valid answer
+=SCENARIO=
+GET /api
+EOF
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> API key Get "TESTSERVER/api?password=xxx&type=keygen&user=admin": EOF
+ERROR>>> Devices unreachable: router
+=OUTPUT=
+--router.login
+TESTSERVER/api?password=xxx&type=keygen&user=admin
 
 =END=
 
@@ -243,28 +281,99 @@ ERROR>>> Unknown name 'vsys1' in VSYS of device configuration
 =END=
 
 ############################################################
-=TITLE=Add rule and service to empty device, commit change
+=TITLE=Changing device fails
 =SCENARIO=
-[[checkHA]]
-GET /api/?type=config&action=get&xpath=/config/devices
-<response status = 'success'>
- <result>
-  <devices>
-   <entry name="localhost.localdomain">
-    <deviceconfig>
-     <system>
-      <hostname>router</hostname>
-     </system>
-    </deviceconfig>
-    <vsys>
-     <entry name="vsys1">
-     <display-name>FW7-managed-by-Netspoc</display-name>
-     </entry>
-    </vsys>
-   </entry>
-  </devices>
- </result>
-</response>
+[[empty_with_vsys]]
+GET /api/?action=set&type=config
+EOF
+=NETSPOC=
+[[minimal_netspoc]]
+=ERROR=
+ERROR>>> Command failed with Get "TESTSERVER/api/?key=LUFRPT=&action=set&type=config&xpath=/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/service/entry[@name='tcp+80']&element=%3Cprotocol%3E%3Ctcp%3E%3Cport%3E80%3C%2Fport%3E%3C%2Ftcp%3E%3C%2Fprotocol%3E": EOF
+=END=
+
+############################################################
+=TITLE=Committing changes fails
+=SCENARIO=
+[[empty_with_vsys]]
+GET /api/?action=set&type=config
+<response status="success" code="20"></response>
+GET /api/?type=commit&action=partial
+EOF
+=NETSPOC=
+[[minimal_netspoc]]
+=ERROR=
+ERROR>>> Commit failed: Get "TESTSERVER/api/?key=LUFRPT=&type=commit&action=partial&cmd=<commit><partial><admin><member>admin</member></admin></partial></commit>": EOF
+=END=
+
+############################################################
+=TITLE=Invalid XML in answer from commit
+=SCENARIO=
+[[empty_with_vsys]]
+GET /api/?action=set&type=config
+<response status="success" code="20"></response>
+GET /api/?type=commit&action=partial
+<invalid/>
+=NETSPOC=
+[[minimal_netspoc]]
+=ERROR=
+ERROR>>> Commit failed: Parsing response: expected element type <response> but have <invalid>
+=END=
+
+############################################################
+=TITLE=Getting job status fails
+=SCENARIO=
+[[empty_with_vsys]]
+GET /api/?action=set&type=config
+<response status="success" code="20"></response>
+GET /api/?type=commit&action=partial
+<response status="success" code="19"><result><job>6</job></result></response>
+GET /api/?type=op&cmd=<show><jobs><id>6</id></jobs></show>
+EOF
+=NETSPOC=
+[[minimal_netspoc]]
+=ERROR=
+ERROR>>> Commit failed: Get "TESTSERVER/api/?key=LUFRPT=&type=op&cmd=<show><jobs><id>6</id></jobs></show>": EOF
+=END=
+
+############################################################
+=TITLE=Invalid XML in job status
+=SCENARIO=
+[[empty_with_vsys]]
+GET /api/?action=set&type=config
+<response status="success" code="20"></response>
+GET /api/?type=commit&action=partial
+<response status="success" code="19"><result><job>6</job></result></response>
+GET /api/?type=op&cmd=<show><jobs><id>6</id></jobs></show>
+<invalid/>
+=NETSPOC=
+[[minimal_netspoc]]
+=ERROR=
+ERROR>>> Commit failed: Parsing response: expected element type <response> but have <invalid>
+=END=
+
+############################################################
+=TITLE=Unexpected message in job status
+=SCENARIO=
+[[empty_with_vsys]]
+GET /api/?action=set&type=config
+<response status="success" code="20"></response>
+GET /api/?type=commit&action=partial
+<response status="success" code="19"><result><job>6</job></result></response>
+GET /api/?type=op&cmd=<show><jobs><id>6</id></jobs></show>
+<response status="success"><result><job>
+<result>invalid</result>
+</job></result></response>
+=NETSPOC=
+[[minimal_netspoc]]
+=ERROR=
+ERROR>>> Commit failed: Unexpected job result: "invalid"
+=END=
+
+############################################################
+=TITLE=Add rule and service to empty device, successful commit
+=SCENARIO=
+[[empty_with_vsys]]
 GET /api/?action=set&type=config
 <response status="success" code="20"></response>
 GET /api/?type=commit&action=partial
