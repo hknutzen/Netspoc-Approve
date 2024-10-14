@@ -77,10 +77,10 @@ func (s *State) LoadDevice(
 	}
 	// Collect configuration of device.
 	rawConf := make(map[string][]json.RawMessage)
-	var addErr error
+	var collectErr error
 	type apiArgs map[string]interface{}
-	add := func(attr, endPoint string, args apiArgs) {
-		if addErr != nil {
+	collect := func(attr, endPoint string, args apiArgs) {
+		if collectErr != nil {
 			return
 		}
 		if _, found := args["limit"]; !found {
@@ -92,14 +92,14 @@ func (s *State) LoadDevice(
 			body, _ := json.Marshal(args)
 			req, err := http.NewRequest("POST", apiPath, bytes.NewReader(body))
 			if err != nil {
-				addErr = err
+				collectErr = err
 				return
 			}
 			req.Header.Set("X-chkp-sid", s.sid)
 			req.Header.Set("content-type", "application/json")
 			resp, err := s.client.Do(req)
 			if err != nil {
-				addErr = err
+				collectErr = err
 				return
 			}
 			defer resp.Body.Close()
@@ -109,12 +109,12 @@ func (s *State) LoadDevice(
 				if body, _ := io.ReadAll(resp.Body); len(body) != 0 {
 					msg += "\n" + string(body)
 				}
-				addErr = errors.New(msg)
+				collectErr = errors.New(msg)
 				return
 			}
 			partJSON, err := io.ReadAll(resp.Body)
 			if err != nil {
-				addErr = err
+				collectErr = err
 				return
 			}
 			var part struct {
@@ -125,7 +125,7 @@ func (s *State) LoadDevice(
 			}
 			err = json.Unmarshal(partJSON, &part)
 			if err != nil {
-				addErr = err
+				collectErr = err
 				return
 			}
 			if part.Rulebase != nil {
@@ -139,25 +139,25 @@ func (s *State) LoadDevice(
 		}
 
 	}
-	add("rules", "show-access-rulebase",
+	collect("rules", "show-access-rulebase",
 		apiArgs{
 			"name":                  "network",
 			"details-level":         "standard",
 			"use-object-dictionary": false,
 		})
-	add("networks", "show-networks", apiArgs{"details-level": "full"})
-	add("hosts", "show-hosts", apiArgs{"details-level": "full"})
-	add("tcp", "show-services-tcp", apiArgs{"details-level": "full"})
-	add("udp", "show-services-udp", apiArgs{"details-level": "full"})
-	add("icmp", "show-services-icmp", apiArgs{"details-level": "full"})
-	add("icmp6", "show-services-icmp6", apiArgs{"details-level": "full"})
-	add("svOther", "show-services-other", apiArgs{"details-level": "full"})
+	collect("networks", "show-networks", apiArgs{"details-level": "full"})
+	collect("hosts", "show-hosts", apiArgs{"details-level": "full"})
+	collect("tcp", "show-services-tcp", apiArgs{"details-level": "full"})
+	collect("udp", "show-services-udp", apiArgs{"details-level": "full"})
+	collect("icmp", "show-services-icmp", apiArgs{"details-level": "full"})
+	collect("icmp6", "show-services-icmp6", apiArgs{"details-level": "full"})
+	collect("svOther", "show-services-other", apiArgs{"details-level": "full"})
 	// Collect static routes for all managed gateways
-	/* add("routes", "gaia_api/v1.7/show-static-routes",
+	/* collect("routes", "gaia_api/v1.7/show-static-routes",
 	apiArgs{"target": fwName, "limit": 200})
 	*/
-	if addErr != nil {
-		return nil, fmt.Errorf("While reading device: %v", addErr)
+	if collectErr != nil {
+		return nil, fmt.Errorf("While reading device: %v", collectErr)
 	}
 	out, _ := json.Marshal(rawConf)
 	errlog.DoLog(logConfig, string(out))
