@@ -263,6 +263,9 @@ timeout = 1
 	// Normalize error messages.
 	stderr = strings.ReplaceAll(stderr, workDir+"/", "")
 	stdout = strings.ReplaceAll(stdout, workDir+"/", "")
+	if httpServer != nil {
+		stderr = strings.ReplaceAll(stderr, httpServer.URL, "TESTSERVER")
+	}
 
 	// Check result.
 	if status == 0 {

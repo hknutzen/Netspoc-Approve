@@ -25,7 +25,10 @@ It follows an optional status code which defaults to 200.
 Then follow optional header lines marked with "H: ".
 Remaining lines are used as response body.
 Path and query param of each URL line are fed as pattern to mux.NewRouter.
-For path method pathPrefix is used.
+Method pathPrefix is used to match path param.
+
+Special case:
+If body is single line "EOF", the client connection is closed prematurely.
 
 Example:
 
@@ -35,8 +38,11 @@ POST /api?type=keygen
 200
 H: Content-Type application/json
 {"key": "value"}
+GET /failure
+EOF
 */
 func NewTLSServer(t *testing.T, input string) *httptest.Server {
+	var server *httptest.Server
 	router := mux.NewRouter()
 	il := urlRe.FindAllStringSubmatchIndex(input, -1)
 	if il == nil || il[0][0] != 0 {
@@ -85,9 +91,14 @@ func NewTLSServer(t *testing.T, input string) *httptest.Server {
 					}
 					break
 				}
+				if body == "EOF\n" {
+					server.CloseClientConnections()
+					return
+				}
 				w.WriteHeader(status)
 				w.Write([]byte(body))
 			})
 	}
-	return httptest.NewTLSServer(router)
+	server = httptest.NewTLSServer(router)
+	return server
 }
