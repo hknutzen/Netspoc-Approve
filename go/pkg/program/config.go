@@ -184,7 +184,10 @@ func (c *Config) GetVal(key string) string {
 	case "statusdir":
 		return c.StatusDir
 	case "checkbanner":
-		return c.CheckBanner.String()
+		if re := c.CheckBanner; re != nil {
+			return re.String()
+		}
+		return ""
 	case "aaa_credentials":
 		return c.aaaCredentials
 	case "systemuser":

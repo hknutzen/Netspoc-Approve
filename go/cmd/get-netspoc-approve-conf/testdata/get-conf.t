@@ -79,11 +79,29 @@ Error: Invalid regexp in 'checkbanner' of .netspoc-approve: error parsing regexp
 =OPTIONS=checkbanner
 
 ############################################################
+=TITLE=Read empty checkbanner
+=CONFIG=
+netspocdir = /tmp
+lockfiledir = /tmp
+=OUTPUT=
+
+=OPTIONS=checkbanner
+
+############################################################
 =TITLE=Invalid server_ip_list
 =CONFIG=
 server_ip_list = 10.1.2.3 10.4.5
 =ERROR=
 Error: Expected IP address in 'server_ip_list' of .netspoc-approve: ParseAddr("10.4.5"): IPv4 address too short
+=OPTIONS=server_ip_list
+
+############################################################
+=TITLE=Read empty server_ip_list
+=CONFIG=
+netspocdir = /tmp
+lockfiledir = /tmp
+=OUTPUT=
+
 =OPTIONS=server_ip_list
 
 ############################################################
@@ -120,7 +138,7 @@ lockfiledir = /tmp
 =OPTIONS=netspocdir
 
 ############################################################
-=TITLE=Read netspocdir
+=TITLE=Read lockfiledir
 =CONFIG=
 netspocdir = /tmp
 lockfiledir = /tmp
