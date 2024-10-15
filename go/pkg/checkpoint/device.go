@@ -2,6 +2,7 @@ package checkpoint
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -75,11 +76,43 @@ func (s *State) LoadDevice(
 	if err != nil {
 		return nil, err
 	}
-	// Collect configuration of device.
-	rawConf := make(map[string][]json.RawMessage)
-	var collectErr error
+	// Collect unparsed configuration of device.
+	rawConf := make(jsonMap)
+	// Parts of configuration read from checkpoint device.
+	type rawPart struct {
+		To      int
+		Total   int
+		Objects []json.RawMessage
+	}
+	// Functions that extract configuration parts from response data.
+	type extractFunc func([]byte) (*rawPart, error)
+	extractObject := func(data []byte) (*rawPart, error) {
+		part := &rawPart{}
+		err := json.Unmarshal(data, part)
+		return part, err
+	}
+	extractRulebase := func(data []byte) (*rawPart, error) {
+		part := struct {
+			To      int
+			Total   int
+			Objects []json.RawMessage `json:"rulebase"`
+		}{}
+		err := json.Unmarshal(data, &part)
+		part2 := rawPart(part)
+		return &part2, err
+	}
+	extractRoute := func(data []byte) (*rawPart, error) {
+		part := &struct {
+			response *rawPart `json:"response-message"`
+		}{}
+		err := json.Unmarshal(data, part)
+		return part.response, err
+	}
+	// Collect JSON data from different API endpoints.
 	type apiArgs map[string]interface{}
-	collect := func(attr, endPoint string, args apiArgs) {
+	var collectErr error
+	collect0 := func(extract extractFunc, endPoint string, args apiArgs,
+	) (result []json.RawMessage) {
 		if collectErr != nil {
 			return
 		}
@@ -117,34 +150,27 @@ func (s *State) LoadDevice(
 				collectErr = err
 				return
 			}
-			var part struct {
-				To       int
-				Total    int
-				Objects  []json.RawMessage
-				Rulebase []json.RawMessage
-			}
-			err = json.Unmarshal(partJSON, &part)
+			part, err := extract(partJSON)
 			if err != nil {
 				collectErr = err
 				return
 			}
-			if part.Rulebase != nil {
-				part.Objects = part.Rulebase
-			}
-			rawConf[attr] = append(rawConf[attr], part.Objects...)
+			result = append(result, part.Objects...)
 			if part.To >= part.Total {
 				return
 			}
 			args["offset"] = part.To
 		}
-
 	}
-	collect("rules", "show-access-rulebase",
+	rawConf["rules"] = collect0(extractRulebase, "show-access-rulebase",
 		apiArgs{
 			"name":                  "network",
 			"details-level":         "standard",
 			"use-object-dictionary": false,
 		})
+	collect := func(attr, endPoint string, args apiArgs) {
+		rawConf[attr] = collect0(extractObject, endPoint, args)
+	}
 	collect("networks", "show-networks", apiArgs{"details-level": "full"})
 	collect("hosts", "show-hosts", apiArgs{"details-level": "full"})
 	collect("tcp", "show-services-tcp", apiArgs{"details-level": "full"})
@@ -152,21 +178,49 @@ func (s *State) LoadDevice(
 	collect("icmp", "show-services-icmp", apiArgs{"details-level": "full"})
 	collect("icmp6", "show-services-icmp6", apiArgs{"details-level": "full"})
 	collect("svOther", "show-services-other", apiArgs{"details-level": "full"})
-	// Collect static routes for all managed gateways
-	/* collect("routes", "gaia_api/v1.7/show-static-routes",
-	apiArgs{"target": fwName, "limit": 200})
-	*/
+	// Collect static routes of all gateways.
+	getGatewayUIDs := func() []string {
+		url := "/web_api/show-simple-gateways"
+		postData, _ := json.Marshal(apiArgs{"details-level": "uid"})
+		resp, err := s.sendRequest(url, bytes.NewReader(postData))
+		collectErr = cmp.Or(collectErr, err)
+		var result struct {
+			Objects []string
+		}
+		json.Unmarshal(resp, &result)
+		return result.Objects
+	}
+	getGatewayNameIP := func(uid string) (name, ip string) {
+		url := "/web_api/show-simple-gateway"
+		postData, _ := json.Marshal(apiArgs{"uid": uid})
+		resp, err := s.sendRequest(url, bytes.NewReader(postData))
+		collectErr = cmp.Or(collectErr, err)
+		var result struct {
+			name string
+			ip   string `json:"ipv4-address"`
+		}
+		json.Unmarshal(resp, &result)
+		return result.name, result.ip
+	}
+	routeMap := make(map[string][]json.RawMessage)
+	ipMap := make(map[string]string)
+	for _, uid := range getGatewayUIDs() {
+		name, ip := getGatewayNameIP(uid)
+		ipMap[name] = ip
+		routeMap[name] = collect0(extractRoute, "gaia_api/v1.7/show-static-routes",
+			apiArgs{"target": ip, "limit": 200})
+	}
+	rawConf["GatewayRoutes"] = routeMap
 	if collectErr != nil {
 		return nil, fmt.Errorf("While reading device: %v", collectErr)
 	}
 	out, _ := json.Marshal(rawConf)
 	errlog.DoLog(logConfig, string(out))
 	cf, err := s.ParseConfig(out, "<device>")
-	//out, _ = json.Marshal(cf)
-	//errlog.DoLog(logConfig, string(out))
 	if err != nil {
 		err = fmt.Errorf("While parsing device config: %v", err)
 	}
+	cf.(*chkpConfig).GatewayIP = ipMap
 	return cf, err
 }
 

@@ -7,15 +7,16 @@ import (
 )
 
 type chkpConfig struct {
-	Rules    []*chkpRule
-	Networks []*chkpNetwork
-	Hosts    []*chkpHost
-	TCP      []*chkpTCP
-	UDP      []*chkpUDP
-	ICMP     []*chkpICMP
-	ICMP6    []*chkpICMP6
-	SvOther  []*chkpSvOther
-	Routes   map[string][]*chkpRoute
+	Rules         []*chkpRule
+	Networks      []*chkpNetwork
+	Hosts         []*chkpHost
+	TCP           []*chkpTCP
+	UDP           []*chkpUDP
+	ICMP          []*chkpICMP
+	ICMP6         []*chkpICMP6
+	SvOther       []*chkpSvOther
+	GatewayRoutes map[string][]*chkpRoute
+	GatewayIP     map[string]string
 }
 
 type chkpRule struct {
