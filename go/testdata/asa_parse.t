@@ -1358,7 +1358,7 @@ crypto ca certificate map ca-map 10
 tunnel-group-map ca-map 10 193.155.130.20
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: 'tunnel-group-map ca-map 10 193.155.130.20' references unknown 'tunnel-group 193.155.130.20'
+ERROR>>> While reading file device: 'tunnel-group-map ca-map 10 193.155.130.20' references unknown 'tunnel-group 193.155.130.20'
 =END=
 
 ############################################################
@@ -1369,7 +1369,7 @@ tunnel-group 193.155.130.20 general-attributes
  default-group-policy VPN-group1
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: 'default-group-policy VPN-group1' references unknown 'group-policy VPN-group1'
+ERROR>>> While reading file device: 'default-group-policy VPN-group1' references unknown 'group-policy VPN-group1'
 =END=
 
 ############################################################
@@ -1379,7 +1379,7 @@ crypto ca certificate map ca-map
 tunnel-group-map ca-map 20 193.155.130.20
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'crypto ca certificate map ca-map'
+ERROR>>> While reading file device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'crypto ca certificate map ca-map'
 =END=
 
 ############################################################
@@ -1396,7 +1396,7 @@ crypto ca certificate map ca-map 10 11 12 13
 tunnel-group-map ca-map 20 193.155.130.20
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'crypto ca certificate map ca-map'
+ERROR>>> While reading file device: 'tunnel-group-map ca-map 20 193.155.130.20' references unknown 'crypto ca certificate map ca-map'
 =END=
 
 ############################################################
@@ -2217,7 +2217,7 @@ ldap attribute-map LDAPMAP
   map-value memberOf "CN=g-m2,OU=VPN,DC=example,DC=com" VPN-group-G2
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: Bad indentation in subcommands:
+ERROR>>> While reading file device: Bad indentation in subcommands:
 ERROR>>> >>  map-name memberOf Group-Policy<<
 ERROR>>> >> map-value memberOf "CN=g-m1,OU=VPN,DC=example,DC=com" VPN-group-G1<<
 =END=

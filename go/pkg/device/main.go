@@ -219,7 +219,7 @@ func (s *state) loadSpocFile(fname string) (deviceconf.Config, error) {
 	c, err := s.ParseConfig(data, fname)
 	if err != nil {
 		b := path.Base(fname)
-		return nil, fmt.Errorf("While reading %s: %v", b, err)
+		return nil, fmt.Errorf("While reading file %s: %v", b, err)
 	}
 	return c, nil
 }
