@@ -141,9 +141,8 @@ type chkpSvOther struct {
 }
 
 type chkpRoute struct {
-	Comment    string        `json:"comment,omitempty"`
 	Address    string        `json:"address"`
-	MaskLenght int           `json:"mask-lenght"`
+	MaskLength int           `json:"mask-length"`
 	Type       string        `json:"type"`
 	NextHop    []chkpGateway `json:"next-hop"`
 }

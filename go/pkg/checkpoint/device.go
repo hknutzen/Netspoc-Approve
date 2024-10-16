@@ -109,9 +109,8 @@ func (s *State) LoadDevice(
 		return part.response, err
 	}
 	// Collect JSON data from different API endpoints.
-	type apiArgs map[string]interface{}
 	var collectErr error
-	collect0 := func(extract extractFunc, endPoint string, args apiArgs,
+	collect0 := func(extract extractFunc, endPoint string, args jsonMap,
 	) (result []json.RawMessage) {
 		if collectErr != nil {
 			return
@@ -163,25 +162,25 @@ func (s *State) LoadDevice(
 		}
 	}
 	rawConf["rules"] = collect0(extractRulebase, "show-access-rulebase",
-		apiArgs{
+		jsonMap{
 			"name":                  "network",
 			"details-level":         "standard",
 			"use-object-dictionary": false,
 		})
-	collect := func(attr, endPoint string, args apiArgs) {
+	collect := func(attr, endPoint string, args jsonMap) {
 		rawConf[attr] = collect0(extractObject, endPoint, args)
 	}
-	collect("networks", "show-networks", apiArgs{"details-level": "full"})
-	collect("hosts", "show-hosts", apiArgs{"details-level": "full"})
-	collect("tcp", "show-services-tcp", apiArgs{"details-level": "full"})
-	collect("udp", "show-services-udp", apiArgs{"details-level": "full"})
-	collect("icmp", "show-services-icmp", apiArgs{"details-level": "full"})
-	collect("icmp6", "show-services-icmp6", apiArgs{"details-level": "full"})
-	collect("svOther", "show-services-other", apiArgs{"details-level": "full"})
+	collect("networks", "show-networks", jsonMap{"details-level": "full"})
+	collect("hosts", "show-hosts", jsonMap{"details-level": "full"})
+	collect("tcp", "show-services-tcp", jsonMap{"details-level": "full"})
+	collect("udp", "show-services-udp", jsonMap{"details-level": "full"})
+	collect("icmp", "show-services-icmp", jsonMap{"details-level": "full"})
+	collect("icmp6", "show-services-icmp6", jsonMap{"details-level": "full"})
+	collect("svOther", "show-services-other", jsonMap{"details-level": "full"})
 	// Collect static routes of all gateways.
 	getGatewayUIDs := func() []string {
 		url := "/web_api/show-simple-gateways"
-		postData, _ := json.Marshal(apiArgs{"details-level": "uid"})
+		postData, _ := json.Marshal(jsonMap{"details-level": "uid"})
 		resp, err := s.sendRequest(url, bytes.NewReader(postData))
 		collectErr = cmp.Or(collectErr, err)
 		var result struct {
@@ -192,7 +191,7 @@ func (s *State) LoadDevice(
 	}
 	getGatewayNameIP := func(uid string) (name, ip string) {
 		url := "/web_api/show-simple-gateway"
-		postData, _ := json.Marshal(apiArgs{"uid": uid})
+		postData, _ := json.Marshal(jsonMap{"uid": uid})
 		resp, err := s.sendRequest(url, bytes.NewReader(postData))
 		collectErr = cmp.Or(collectErr, err)
 		var result struct {
@@ -208,7 +207,7 @@ func (s *State) LoadDevice(
 		name, ip := getGatewayNameIP(uid)
 		ipMap[name] = ip
 		routeMap[name] = collect0(extractRoute, "gaia_api/v1.7/show-static-routes",
-			apiArgs{"target": ip, "limit": 200})
+			jsonMap{"target": ip, "limit": 200})
 	}
 	rawConf["GatewayRoutes"] = routeMap
 	if collectErr != nil {
@@ -252,6 +251,7 @@ func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
 	p1 := c1.(*chkpConfig)
 	p2 := c2.(*chkpConfig)
 	s.changes, s.installOn = diffConfig(p1, p2)
+	s.changes = append(s.changes, diffRoutes(p1, p2)...)
 	return nil
 }
 
