@@ -47,10 +47,10 @@ func (s *State) LoadDevice(
 			v = fmt.Sprintf(`{"user":"%s","password":"%s"}`, user, pass)
 			resp, err :=
 				s.client.Post(uri, "application/json", strings.NewReader(v))
-			errlog.DoLog(logLogin, resp.Status)
 			if err != nil {
 				return err
 			}
+			errlog.DoLog(logLogin, resp.Status)
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("status code: %d", resp.StatusCode)
@@ -270,6 +270,7 @@ func (s *State) ShowChanges() string {
 }
 
 func (s *State) ApplyCommands(logFh *os.File) error {
+	simulated := os.Getenv("SIMULATE_ROUTER") != ""
 	sendCmd := func(endpoint string, args interface{}) ([]byte, error) {
 		url := "/web_api/" + endpoint
 		postData, _ := json.Marshal(args)
@@ -281,7 +282,9 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 	}
 	waitTask := func(id string) error {
 		for {
-			time.Sleep(1 * time.Second)
+			if !simulated {
+				time.Sleep(1 * time.Second)
+			}
 			resp, err := sendCmd("show-task", jsonMap{"task-id": id})
 			if err != nil {
 				return err
