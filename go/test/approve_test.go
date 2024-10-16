@@ -22,7 +22,7 @@ import (
 
 func talksHTTPS(model string) bool {
 	switch model {
-	case "NSX", "PAN-OS":
+	case "CHECKPOINT", "NSX", "PAN-OS":
 		return true
 	}
 	return false
