@@ -12,6 +12,98 @@ POST /web_api/show-task
 }
 =END=
 
+############################################################
+=TITLE=Device gives status 500
+=SCENARIO=
+POST /web_api/
+500
+device not ready
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> status code: 500
+ERROR>>> Devices unreachable: router
+=OUTPUT=
+--router.login
+TESTSERVER/web_api/login
+{"user":"admin","password":"xxx"}
+500 Internal Server Error
+=END=
+
+############################################################
+=TITLE=Device gives no valid answer
+=SCENARIO=
+POST /web_api/
+EOF
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> Post "TESTSERVER/web_api/login": EOF
+ERROR>>> Devices unreachable: router
+=OUTPUT=
+--router.login
+TESTSERVER/web_api/login
+{"user":"admin","password":"xxx"}
+=END=
+
+############################################################
+=TITLE=Login fails
+=SCENARIO=
+POST /web_api/login
+400
+{
+  "code" : "err_login_failed",
+  "message" : "Authentication to server failed."
+}
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> status code: 400
+ERROR>>> Devices unreachable: router
+=END=
+
+############################################################
+=TITLE=Only login succeeds
+=SCENARIO=
+[[standard]]
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> status code: 404, uri: /web_api/discard
+ERROR>>> 404 page not found
+=END=
+
+############################################################
+=TITLE=Only discard operation succeeds
+=SCENARIO=
+[[standard]]
+POST /web_api/discard
+{}
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: status code: 404, uri: TESTSERVER/web_api/show-access-rulebase
+ERROR>>> 404 page not found
+=END=
+
+############################################################
+=TITLE=Invalid config in response
+=SCENARIO=
+[[standard]]
+POST /web_api/discard
+{}
+POST /web_api/show-access-rulebase
+INVALID
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: invalid character 'I' looking for beginning of value
+=END=
+
+############################################################
+=TITLE=Empty config from device
+=SCENARIO=
+[[standard]]
+POST /web_api/
+{}
+=NETSPOC=NONE
+=WARNING=NONE
+
+############################################################
 =TITLE=Remove simple rule
 =SCENARIO=
 [[standard]]
@@ -90,6 +182,7 @@ TESTSERVER/web_api/login
 
 =END=
 
+############################################################
 =TITLE=Add simple rule
 =SCENARIO=
 [[standard]]
