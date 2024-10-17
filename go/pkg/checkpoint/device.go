@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 type State struct {
 	client    *http.Client
 	prefix    string
+	user      string
 	sid       string
 	changes   []change
 	installOn []string
@@ -65,17 +67,19 @@ func (s *State) LoadDevice(
 				return err
 			}
 			s.sid = result.Sid
+			s.user = user
+			b := strings.ReplaceAll(string(body), s.sid, "xxx")
+			errlog.DoLog(logLogin, b)
 			return nil
 		})
 	if err != nil {
 		return nil, err
 	}
 
-	// Discard uncommited changes from previous run.
-	_, err = s.sendRequest("/web_api/discard", bytes.NewReader([]byte("{}")))
-	if err != nil {
+	if err := s.discardSessions(logLogin); err != nil {
 		return nil, err
 	}
+
 	// Collect unparsed configuration of device.
 	rawConf := make(jsonMap)
 	// Parts of configuration read from checkpoint device.
@@ -103,10 +107,10 @@ func (s *State) LoadDevice(
 	}
 	extractRoute := func(data []byte) (*rawPart, error) {
 		part := &struct {
-			response *rawPart `json:"response-message"`
+			Response *rawPart `json:"response-message"`
 		}{}
 		err := json.Unmarshal(data, part)
-		return part.response, err
+		return part.Response, err
 	}
 	// Collect JSON data from different API endpoints.
 	var collectErr error
@@ -120,31 +124,8 @@ func (s *State) LoadDevice(
 		}
 		// Read partial results until 'total' is reached.
 		for {
-			apiPath := s.prefix + "/web_api/" + endPoint
 			body, _ := json.Marshal(args)
-			req, err := http.NewRequest("POST", apiPath, bytes.NewReader(body))
-			if err != nil {
-				collectErr = err
-				return
-			}
-			req.Header.Set("X-chkp-sid", s.sid)
-			req.Header.Set("content-type", "application/json")
-			resp, err := s.client.Do(req)
-			if err != nil {
-				collectErr = err
-				return
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				msg := fmt.Sprintf("status code: %d, uri: %s",
-					resp.StatusCode, apiPath)
-				if body, _ := io.ReadAll(resp.Body); len(body) != 0 {
-					msg += "\n" + string(body)
-				}
-				collectErr = errors.New(msg)
-				return
-			}
-			partJSON, err := io.ReadAll(resp.Body)
+			partJSON, err := s.sendRequest("/web_api/"+endPoint, body, logLogin)
 			if err != nil {
 				collectErr = err
 				return
@@ -178,35 +159,33 @@ func (s *State) LoadDevice(
 	collect("icmp6", "show-services-icmp6", jsonMap{"details-level": "full"})
 	collect("svOther", "show-services-other", jsonMap{"details-level": "full"})
 	// Collect static routes of all gateways.
-	getGatewayUIDs := func() []string {
-		url := "/web_api/show-simple-gateways"
-		postData, _ := json.Marshal(jsonMap{"details-level": "uid"})
-		resp, err := s.sendRequest(url, bytes.NewReader(postData))
-		collectErr = cmp.Or(collectErr, err)
-		var result struct {
-			Objects []string
-		}
-		json.Unmarshal(resp, &result)
-		return result.Objects
-	}
+	//
+	// We need IP address of each simple gateway,
+	// because call "gaia_api/v1.7/show-static-routes"
+	// currently only works with IP and not with name as argument.
 	getGatewayNameIP := func(uid string) (name, ip string) {
 		url := "/web_api/show-simple-gateway"
 		postData, _ := json.Marshal(jsonMap{"uid": uid})
-		resp, err := s.sendRequest(url, bytes.NewReader(postData))
+		resp, err := s.sendRequest(url, postData, logLogin)
 		collectErr = cmp.Or(collectErr, err)
 		var result struct {
-			name string
-			ip   string `json:"ipv4-address"`
+			Name string
+			IP   string `json:"ipv4-address"`
 		}
 		json.Unmarshal(resp, &result)
-		return result.name, result.ip
+		return result.Name, result.IP
 	}
+	uids, err := s.getUIDs("show-simple-gateways", logLogin)
+	collectErr = cmp.Or(collectErr, err)
 	routeMap := make(map[string][]json.RawMessage)
 	ipMap := make(map[string]string)
-	for _, uid := range getGatewayUIDs() {
+	for _, uid := range uids {
 		name, ip := getGatewayNameIP(uid)
+		if collectErr != nil {
+			return nil, fmt.Errorf("While reading device: %v", collectErr)
+		}
 		ipMap[name] = ip
-		routeMap[name] = collect0(extractRoute, "gaia_api/v1.7/show-static-routes",
+		routeMap[name] = collect0(extractRoute, "gaia-api/v1.7/show-static-routes",
 			jsonMap{"target": ip, "limit": 200})
 	}
 	rawConf["GatewayRoutes"] = routeMap
@@ -223,24 +202,30 @@ func (s *State) LoadDevice(
 	return cf, err
 }
 
-func (s *State) sendRequest(path string, body io.Reader) ([]byte, error) {
-	req, err := http.NewRequest("POST", s.prefix+path, body)
+func (s *State) sendRequest(path string, body []byte, logFh *os.File,
+) ([]byte, error) {
+	errlog.DoLog(logFh, path)
+	req, err := http.NewRequest("POST", s.prefix+path, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("X-chkp-sid", s.sid)
 	if body != nil {
 		req.Header.Set("content-type", "application/json")
+		errlog.DoLog(logFh, string(body))
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
+		errlog.DoLog(logFh, err.Error())
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		errlog.DoLog(logFh, strconv.Itoa(resp.StatusCode))
 		msg := fmt.Sprintf("status code: %d, uri: %s", resp.StatusCode, path)
 		if body, _ := io.ReadAll(resp.Body); len(body) != 0 {
 			msg += "\n" + string(body)
+			errlog.DoLog(logFh, string(body))
 		}
 		return nil, errors.New(msg)
 	}
@@ -274,9 +259,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 	sendCmd := func(endpoint string, args interface{}) ([]byte, error) {
 		url := "/web_api/" + endpoint
 		postData, _ := json.Marshal(args)
-		errlog.DoLog(logFh, url)
-		errlog.DoLog(logFh, string(postData))
-		resp, err := s.sendRequest(url, bytes.NewReader(postData))
+		resp, err := s.sendRequest(url, postData, logFh)
 		errlog.DoLog(logFh, string(resp))
 		return resp, err
 	}
@@ -340,6 +323,51 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 	}
 	return waitCmd("install-policy",
 		jsonMap{"policy-package": "standard", "targets": s.installOn})
+}
+
+// Discard uncommited changes from previous runs.
+func (s *State) discardSessions(logFh *os.File) error {
+	l, err := s.getUIDs("show-sessions", logFh)
+	if err != nil {
+		return err
+	}
+	for _, uid := range l {
+		postData, _ := json.Marshal(jsonMap{"uid": uid})
+		body, err := s.sendRequest("/web_api/show-session", postData, logFh)
+		errlog.DoLog(logFh, string(body))
+		if err != nil {
+			return err
+		}
+		var v struct {
+			UID         string
+			UserName    string `json:"user-name"`
+			Application string
+		}
+		json.Unmarshal(body, &v)
+		if v.UserName == s.user && v.Application == "WEB_API" {
+			postData, _ := json.Marshal(jsonMap{"uid": v.UID})
+			body, err := s.sendRequest("/web_api/discard", postData, logFh)
+			if err != nil {
+				return err
+			}
+			errlog.DoLog(logFh, string(body))
+		}
+	}
+	return nil
+}
+
+func (s *State) getUIDs(call string, logFh *os.File) ([]string, error) {
+	url := "/web_api/" + call
+	args := []byte(`{"details-level": "uid"}`)
+	resp, err := s.sendRequest(url, args, logFh)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Objects []string
+	}
+	json.Unmarshal(resp, &result)
+	return result.Objects, nil
 }
 
 func (s *State) CloseConnection()         {}
