@@ -36,26 +36,78 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	}
 	aObjects := getObjList(a)
 	aObjMap := getObjMap(aObjects)
+	markDeletable := func(n string) {
+		if aObj, found := aObjMap[n]; found {
+			aObj.setDeletable()
+		}
+	}
+	// Compare objects referenced by src/dst of rule or by members of group.
+	compareObjects := func(attr string, chg1, chg2 jsonMap, aL, bL []chkpName) {
+		getNameMap := func(l []chkpName) map[chkpName]bool {
+			m := make(map[chkpName]bool)
+			for _, n := range l {
+				m[n] = true
+			}
+			return m
+		}
+		aMap := getNameMap(aL)
+		bMap := getNameMap(bL)
+		var add []chkpName
+		var remove []chkpName
+		for _, aName := range aL {
+			if !bMap[aName] {
+				remove = append(remove, aName)
+				markDeletable(string(aName))
+			}
+		}
+		for _, bName := range bL {
+			if !aMap[bName] {
+				add = append(add, bName)
+			}
+		}
+		if add != nil {
+			chg1[attr] = map[string][]chkpName{"add": add}
+			// It is currently not allowed to both, add and remove in one change.
+			if remove != nil {
+				chg2[attr] = map[string][]chkpName{"remove": remove}
+			}
+		} else if remove != nil {
+			chg1[attr] = map[string][]chkpName{"remove": remove}
+		}
+	}
+
 	for _, bObj := range getObjList(b) {
 		name := bObj.getName()
 		jb, _ := json.Marshal(bObj)
 		if aObj, found := aObjMap[string(name)]; found {
 			// Object is found on device and marked as needed.
 			aObj.setNeeded()
-			ja, _ := json.Marshal(aObj)
-			if d := cmp.Diff(ja, jb); d != "" {
-				errlog.Abort("Values of %q differ between device and Netspoc.\n"+
-					"Please modify manually.\n%s",
-					name, d)
+			// Compare members of groups or attributes of other objects.
+			switch aReal := aObj.(type) {
+			case *chkpGroup:
+				bReal := bObj.(*chkpGroup)
+				chg1 := make(jsonMap)
+				chg2 := make(jsonMap)
+				compareObjects("members", chg1, chg2, aReal.Members, bReal.Members)
+				if len(chg1) > 0 {
+					chg1["name"] = name
+					addChange("set-group", chg1)
+				}
+				if len(chg2) > 0 {
+					chg2["name"] = name
+					addChange("set-group", chg2)
+				}
+			default:
+				ja, _ := json.Marshal(aObj)
+				if d := cmp.Diff(ja, jb); d != "" {
+					errlog.Abort("Values of %q differ between device and Netspoc.\n"+
+						"Please modify manually.\n%s",
+						name, d)
+				}
 			}
 		} else {
 			// Add definition of new object to device.
 			addChange("add-"+bObj.getAPIObject(), bObj)
-		}
-	}
-	markDeletable := func(n string) {
-		if aObj, found := aObjMap[n]; found {
-			aObj.setDeletable()
 		}
 	}
 	ab := &rulesPair{
@@ -109,53 +161,27 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			for i, aRule := range a.Rules[r.LowA:r.HighA] {
 				bRule := b.Rules[r.LowB:r.HighB][i]
 				aRule.needed = true
-				changed := make(jsonMap)
-				getNameMap := func(l []chkpName) map[chkpName]bool {
-					m := make(map[chkpName]bool)
-					for _, n := range l {
-						m[n] = true
-					}
-					return m
-				}
-				compareObjects := func(attr string, aL, bL []chkpName) {
-					aMap := getNameMap(aL)
-					bMap := getNameMap(bL)
-					var add []chkpName
-					var remove []chkpName
-					for _, aName := range aL {
-						if !bMap[aName] {
-							remove = append(remove, aName)
-							markDeletable(string(aName))
-						}
-					}
-					for _, bName := range bL {
-						if !aMap[bName] {
-							add = append(add, bName)
-						}
-					}
-					if add != nil && remove != nil {
-						// Replace all if elements are both added and removed.
-						changed[attr] = bL
-					} else if add != nil {
-						changed[attr] = map[string][]chkpName{"add": add}
-					} else if remove != nil {
-						changed[attr] = map[string][]chkpName{"remove": remove}
-					}
-				}
+				chg1 := make(jsonMap)
+				chg2 := make(jsonMap)
 				if aRule.Comments != bRule.Comments {
-					changed["comments"] = bRule.Comments
+					chg1["comments"] = bRule.Comments
 				}
 				if aRule.Action != bRule.Action {
-					changed["action"] = bRule.Action
+					chg1["action"] = bRule.Action
 				}
-				compareObjects("source", aRule.Source, bRule.Source)
-				compareObjects("destination", aRule.Destination, bRule.Destination)
-				compareObjects("service", aRule.Service, bRule.Service)
-				if len(changed) > 0 {
-					setInstallOn(bRule)
-					changed["name"] = bRule.Name
-					addChange("set-access-rule", changed)
+				compareObjects("source", chg1, chg2, aRule.Source, bRule.Source)
+				compareObjects("destination", chg1, chg2,
+					aRule.Destination, bRule.Destination)
+				compareObjects("service", chg1, chg2, aRule.Service, bRule.Service)
+				add := func(chg jsonMap) {
+					if len(chg) > 0 {
+						setInstallOn(bRule)
+						chg["name"] = bRule.Name
+						addChange("set-access-rule", chg)
+					}
 				}
+				add(chg1)
+				add(chg2)
 			}
 		}
 	}
@@ -187,6 +213,9 @@ func getObjList(cf *chkpConfig) []object {
 	for _, o := range cf.Hosts {
 		result = append(result, o)
 	}
+	for _, o := range cf.Groups {
+		result = append(result, o)
+	}
 	for _, o := range cf.TCP {
 		result = append(result, o)
 	}
@@ -197,6 +226,9 @@ func getObjList(cf *chkpConfig) []object {
 		result = append(result, o)
 	}
 	for _, o := range cf.ICMP6 {
+		result = append(result, o)
+	}
+	for _, o := range cf.SvOther {
 		result = append(result, o)
 	}
 	for _, o := range cf.SvOther {
