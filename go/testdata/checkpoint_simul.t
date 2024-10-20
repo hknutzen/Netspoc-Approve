@@ -65,7 +65,7 @@ ERROR>>> Devices unreachable: router
 [[standard]]
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> status code: 404, uri: /web_api/discard
+ERROR>>> status code: 404, uri: /web_api/show-sessions
 ERROR>>> 404 page not found
 =END=
 
@@ -73,11 +73,13 @@ ERROR>>> 404 page not found
 =TITLE=Only discard operation succeeds
 =SCENARIO=
 [[standard]]
+POST /web_api/show-sessions
+{}
 POST /web_api/discard
 {}
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: status code: 404, uri: TESTSERVER/web_api/show-access-rulebase
+ERROR>>> While reading device: status code: 404, uri: /web_api/show-access-rulebase
 ERROR>>> 404 page not found
 =END=
 
@@ -85,10 +87,10 @@ ERROR>>> 404 page not found
 =TITLE=Invalid config in response
 =SCENARIO=
 [[standard]]
-POST /web_api/discard
-{}
 POST /web_api/show-access-rulebase
 INVALID
+POST /web_api/
+{}
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: invalid character 'I' looking for beginning of value
@@ -114,26 +116,20 @@ POST /web_api/show-access-rulebase
   "total" : 1,
   "rulebase" : [ {
     "name" : "rule1",
-    "type" : "access-rule",
     "source" : [ {
-      "name" : "Any",
-      "type" : "CpmiAnyObject"
+      "name" : "Any"
     } ],
     "destination" : [ {
-      "name" : "Any",
-      "type" : "CpmiAnyObject"
+      "name" : "Any"
     } ],
     "service" : [ {
-      "name" : "icmp-proto",
-      "type" : "service-other"
+      "name" : "icmp-proto"
     } ],
     "action" : {
-      "name" : "Accept",
-      "type" : "RulebaseAction"
+      "name" : "Accept"
     },
     "install-on" : [ {
-      "name" : "gw7",
-      "type" : "simple-gateway"
+      "name" : "gw7"
     } ],
     "tags" : [ ]
   } ]
@@ -147,8 +143,34 @@ POST /web_api/
 TESTSERVER/web_api/login
 {"user":"admin","password":"xxx"}
 200 OK
+{
+  "sid": "xxx"
+}
+
+/web_api/show-sessions
+{"details-level": "uid"}
+/web_api/show-access-rulebase
+{"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
+/web_api/show-networks
+{"details-level":"full","limit":500}
+/web_api/show-hosts
+{"details-level":"full","limit":500}
+/web_api/show-groups
+{"details-level":"full","limit":500,"use-object-dictionary":false}
+/web_api/show-services-tcp
+{"details-level":"full","limit":500}
+/web_api/show-services-udp
+{"details-level":"full","limit":500}
+/web_api/show-services-icmp
+{"details-level":"full","limit":500}
+/web_api/show-services-icmp6
+{"details-level":"full","limit":500}
+/web_api/show-services-other
+{"details-level":"full","limit":500}
+/web_api/show-simple-gateways
+{"details-level": "uid"}
 --router.config
-{"GatewayRoutes":{},"hosts":null,"icmp":null,"icmp6":null,"networks":null,"rules":[{"name":"rule1","type":"access-rule","source":[{"name":"Any","type":"CpmiAnyObject"}],"destination":[{"name":"Any","type":"CpmiAnyObject"}],"service":[{"name":"icmp-proto","type":"service-other"}],"action":{"name":"Accept","type":"RulebaseAction"},"install-on":[{"name":"gw7","type":"simple-gateway"}],"tags":[]}],"svOther":null,"tcp":null,"udp":null}
+{"GatewayRoutes":{},"groups":null,"hosts":null,"icmp":null,"icmp6":null,"networks":null,"rules":[{"name":"rule1","source":[{"name":"Any"}],"destination":[{"name":"Any"}],"service":[{"name":"icmp-proto"}],"action":{"name":"Accept"},"install-on":[{"name":"gw7"}],"tags":[]}],"svOther":null,"tcp":null,"udp":null}
 --router.change
 /web_api/delete-access-rule
 {"layer":"network","name":"rule1"}
@@ -203,7 +225,7 @@ POST /web_api/
 }
 =OUTPUT=
 --router.config
-{"GatewayRoutes":{},"hosts":null,"icmp":null,"icmp6":null,"networks":null,"rules":null,"svOther":null,"tcp":null,"udp":null}
+{"GatewayRoutes":{},"groups":null,"hosts":null,"icmp":null,"icmp6":null,"networks":null,"rules":null,"svOther":null,"tcp":null,"udp":null}
 --router.change
 /web_api/add-access-rule
 {"name":"rule1","layer":"network","action":"Accept","source":["Any"],"destination":["Any"],"service":["https"],"install-on":["test-fw"],"position":"bottom"}
