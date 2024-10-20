@@ -153,13 +153,13 @@ func (s *State) LoadDevice(
 	}
 	collect("networks", "show-networks", jsonMap{"details-level": "full"})
 	collect("hosts", "show-hosts", jsonMap{"details-level": "full"})
+	collect("groups", "show-groups", jsonMap{"details-level": "full",
+		"use-object-dictionary": false})
 	collect("tcp", "show-services-tcp", jsonMap{"details-level": "full"})
 	collect("udp", "show-services-udp", jsonMap{"details-level": "full"})
 	collect("icmp", "show-services-icmp", jsonMap{"details-level": "full"})
 	collect("icmp6", "show-services-icmp6", jsonMap{"details-level": "full"})
 	collect("svOther", "show-services-other", jsonMap{"details-level": "full"})
-	collect("groups", "show-groups",
-		jsonMap{"details-level": "full", "use-object-dictionary": false})
 	// Collect static routes of all gateways.
 	//
 	// We need IP address of each simple gateway,
