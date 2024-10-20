@@ -10,6 +10,7 @@ type chkpConfig struct {
 	Rules         []*chkpRule
 	Networks      []*chkpNetwork
 	Hosts         []*chkpHost
+	Groups        []*chkpGroup
 	TCP           []*chkpTCP
 	UDP           []*chkpUDP
 	ICMP          []*chkpICMP
@@ -88,6 +89,7 @@ func (o *chkpObject) setDeletable()       { o.deletable = true }
 
 func (o *chkpNetwork) getAPIObject() string { return "network" }
 func (o *chkpHost) getAPIObject() string    { return "host" }
+func (o *chkpGroup) getAPIObject() string   { return "group" }
 func (o *chkpTCP) getAPIObject() string     { return "service-tcp" }
 func (o *chkpUDP) getAPIObject() string     { return "service-udp" }
 func (o *chkpICMP) getAPIObject() string    { return "service-icmp" }
@@ -106,6 +108,11 @@ type chkpHost struct {
 	chkpObject
 	IPv4Address string `json:"ipv4-address,omitempty"`
 	IPv6Address string `json:"ipv6-address,omitempty"`
+}
+
+type chkpGroup struct {
+	chkpObject
+	Members []chkpName `json:"members"`
 }
 
 type chkpTCP struct {
