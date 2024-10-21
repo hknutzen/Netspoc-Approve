@@ -76,13 +76,13 @@ func ApproveOrCompare(
 		if logDir != "" {
 			s.logFname = path.Join(logDir, path.Base(fname))
 		}
+		defer s.CloseConnection()
 		var err error
 		if isCompare {
 			err = s.compare(fname)
 		} else {
 			err = s.approve(fname)
 		}
-		s.CloseConnection()
 		if err != nil {
 			errlog.Abort("%v", err)
 		}
