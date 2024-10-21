@@ -37,7 +37,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	aObjects := getObjList(a)
 	aObjMap := getObjMap(aObjects)
 	markDeletable := func(n string) {
-		if aObj, found := aObjMap[n]; found {
+		if aObj, ok := aObjMap[n]; ok {
 			aObj.setDeletable()
 		}
 	}
@@ -75,7 +75,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			chg1[attr] = map[string][]chkpName{"remove": remove}
 		}
 	}
-
+	// Compare objects defined from Netspoc with objects from device.
 	for _, bObj := range getObjList(b) {
 		name := bObj.getName()
 		jb, _ := json.Marshal(bObj)
@@ -110,6 +110,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			addChange("add-"+bObj.getAPIObject(), bObj)
 		}
 	}
+	// Compare rules.
 	ab := &rulesPair{
 		aRules: a.Rules,
 		bRules: b.Rules,
@@ -184,6 +185,23 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				add(chg2)
 			}
 		}
+	}
+	// Mark members of deletable groups.
+	var mark func(*chkpGroup)
+	mark = func(group *chkpGroup) {
+		if !group.needed && group.deletable {
+			for _, name := range group.Members {
+				if obj := aObjMap[string(name)]; obj != nil {
+					obj.setDeletable()
+					if g2, ok := obj.(*chkpGroup); ok {
+						mark(g2)
+					}
+				}
+			}
+		}
+	}
+	for _, g := range a.Groups {
+		mark(g)
 	}
 	// Remove unneeded objects from device.
 	for _, aObj := range aObjects {
