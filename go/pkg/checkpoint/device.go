@@ -268,7 +268,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 	waitTask := func(id string) error {
 		for {
 			if !simulated {
-				time.Sleep(1 * time.Second)
+				time.Sleep(10 * time.Second)
 			}
 			resp, err := sendCmd("show-task", jsonMap{"task-id": id})
 			if err != nil {
