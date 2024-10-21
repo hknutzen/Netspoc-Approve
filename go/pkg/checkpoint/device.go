@@ -359,13 +359,6 @@ func (s *State) discardSessions(logFh *os.File) error {
 	return nil
 }
 
-func (s *State) logout(logFh *os.File) {
-	resp, err := s.sendRequest("/web_api/logout", []byte(`{}`), logFh)
-	if err == nil {
-		errlog.DoLog(logFh, string(resp))
-	}
-}
-
 func (s *State) getUIDs(call string, logFh *os.File) ([]string, error) {
 	url := "/web_api/" + call
 	args := []byte(`{"details-level": "uid"}`)
