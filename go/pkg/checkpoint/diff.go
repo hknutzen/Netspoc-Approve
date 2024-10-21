@@ -186,28 +186,35 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			}
 		}
 	}
-	// Mark members of deletable groups.
-	var mark func(*chkpGroup)
-	mark = func(group *chkpGroup) {
-		if !group.needed && group.deletable {
+	willDelete := func(obj object) bool {
+		return !obj.getNeeded() && !obj.getReadOnly() &&
+			(obj.getDeletable() ||
+				strings.Contains(strings.ToLower(obj.getComments()), "netspoc"))
+	}
+	// Mark members of to be deleted group.
+	// Delete group, but only after all references have been deleted.
+	var markAndDelete func(*chkpGroup)
+	markAndDelete = func(group *chkpGroup) {
+		if willDelete(group) {
 			for _, name := range group.Members {
 				if obj := aObjMap[string(name)]; obj != nil {
-					obj.setDeletable()
-					if g2, ok := obj.(*chkpGroup); ok {
-						mark(g2)
+					if !obj.getDeletable() {
+						obj.setDeletable()
+						if g2, ok := obj.(*chkpGroup); ok {
+							markAndDelete(g2)
+						}
 					}
 				}
 			}
+			addChange("delete-group", jsonMap{"name": group.Name})
 		}
 	}
 	for _, g := range a.Groups {
-		mark(g)
+		markAndDelete(g)
 	}
 	// Remove unneeded objects from device.
 	for _, aObj := range aObjects {
-		if !aObj.getNeeded() && !aObj.getReadOnly() &&
-			(aObj.getDeletable() ||
-				strings.Contains(strings.ToLower(aObj.getComments()), "netspoc")) {
+		if _, ok := aObj.(*chkpGroup); !ok && willDelete(aObj) {
 			addChange("delete-"+aObj.getAPIObject(),
 				jsonMap{"name": aObj.getName()})
 		}
