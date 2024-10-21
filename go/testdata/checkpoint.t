@@ -324,10 +324,12 @@ add-network
 add-host
 {"name":"h_10.1.9.3","ipv4-address":"10.1.9.3"}
 set-access-rule
-{"destination":["h_10.1.8.1","h_10.1.9.1"],
+{"destination":{"add":["h_10.1.9.1"]},
  "name":"test rule",
  "service":{"remove":["udp_123"]},
  "source":{"add":["n_10.1.3.0-24"]}}
+set-access-rule
+{"destination":{"remove":["h_10.1.9.9"]},"name":"test rule"}
 delete-host
 {"name":"h_10.1.9.9"}
 delete-service-udp
