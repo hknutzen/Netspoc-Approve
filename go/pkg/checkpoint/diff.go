@@ -256,8 +256,5 @@ func getObjList(cf *chkpConfig) []object {
 	for _, o := range cf.SvOther {
 		result = append(result, o)
 	}
-	for _, o := range cf.SvOther {
-		result = append(result, o)
-	}
 	return result
 }
