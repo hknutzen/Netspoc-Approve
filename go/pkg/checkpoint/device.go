@@ -154,7 +154,7 @@ func (s *State) LoadDevice(
 	collect("Networks", "show-networks", jsonMap{"details-level": "full"})
 	collect("Hosts", "show-hosts", jsonMap{"details-level": "full"})
 	collect("Groups", "show-groups", jsonMap{"details-level": "full",
-		"use-object-dictionary": false})
+		"dereference-group-members": true})
 	collect("TCP", "show-services-tcp", jsonMap{"details-level": "full"})
 	collect("UDP", "show-services-udp", jsonMap{"details-level": "full"})
 	collect("ICMP", "show-services-icmp", jsonMap{"details-level": "full"})
@@ -349,13 +349,21 @@ func (s *State) discardSessions(logFh *os.File) error {
 		if v.UserName == s.user && v.Application == "WEB_API" {
 			postData, _ := json.Marshal(jsonMap{"uid": v.UID})
 			body, err := s.sendRequest("/web_api/discard", postData, logFh)
-			if err != nil {
-				return err
-			}
 			errlog.DoLog(logFh, string(body))
+			if err != nil {
+				// Ignore error and continue with next session.
+				continue
+			}
 		}
 	}
 	return nil
+}
+
+func (s *State) logout(logFh *os.File) {
+	resp, err := s.sendRequest("/web_api/logout", []byte(`{}`), logFh)
+	if err == nil {
+		errlog.DoLog(logFh, string(resp))
+	}
 }
 
 func (s *State) getUIDs(call string, logFh *os.File) ([]string, error) {
@@ -372,5 +380,10 @@ func (s *State) getUIDs(call string, logFh *os.File) ([]string, error) {
 	return result.Objects, nil
 }
 
-func (s *State) CloseConnection()         {}
+func (s *State) CloseConnection() {
+	if s.sid != "" {
+		s.sendRequest("/web_api/logout", []byte(`{}`), nil)
+	}
+}
+
 func (s *State) GetErrUnmanaged() []error { return nil }
