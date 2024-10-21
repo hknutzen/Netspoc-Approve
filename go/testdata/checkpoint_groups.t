@@ -89,10 +89,10 @@ set-group
 {"members":{"add":["h1","h2"]},"name":"g1"}
 set-group
 {"members":{"remove":["g2"]},"name":"g1"}
-delete-host
-{"name":"h4"}
 delete-group
 {"name":"g2"}
+delete-host
+{"name":"h4"}
 =END=
 
 ############################################################
