@@ -142,7 +142,7 @@ func (s *State) LoadDevice(
 			args["offset"] = part.To
 		}
 	}
-	rawConf["rules"] = collect0(extractRulebase, "show-access-rulebase",
+	rawConf["Rules"] = collect0(extractRulebase, "show-access-rulebase",
 		jsonMap{
 			"name":                  "network",
 			"details-level":         "standard",
@@ -151,15 +151,15 @@ func (s *State) LoadDevice(
 	collect := func(attr, endPoint string, args jsonMap) {
 		rawConf[attr] = collect0(extractObject, endPoint, args)
 	}
-	collect("networks", "show-networks", jsonMap{"details-level": "full"})
-	collect("hosts", "show-hosts", jsonMap{"details-level": "full"})
-	collect("groups", "show-groups", jsonMap{"details-level": "full",
+	collect("Networks", "show-networks", jsonMap{"details-level": "full"})
+	collect("Hosts", "show-hosts", jsonMap{"details-level": "full"})
+	collect("Groups", "show-groups", jsonMap{"details-level": "full",
 		"use-object-dictionary": false})
-	collect("tcp", "show-services-tcp", jsonMap{"details-level": "full"})
-	collect("udp", "show-services-udp", jsonMap{"details-level": "full"})
-	collect("icmp", "show-services-icmp", jsonMap{"details-level": "full"})
-	collect("icmp6", "show-services-icmp6", jsonMap{"details-level": "full"})
-	collect("svOther", "show-services-other", jsonMap{"details-level": "full"})
+	collect("TCP", "show-services-tcp", jsonMap{"details-level": "full"})
+	collect("UDP", "show-services-udp", jsonMap{"details-level": "full"})
+	collect("ICMP", "show-services-icmp", jsonMap{"details-level": "full"})
+	collect("ICMP6", "show-services-icmp6", jsonMap{"details-level": "full"})
+	collect("SvOther", "show-services-other", jsonMap{"details-level": "full"})
 	// Collect static routes of all gateways.
 	//
 	// We need IP address of each simple gateway,
