@@ -156,7 +156,7 @@ TESTSERVER/web_api/login
 /web_api/show-hosts
 {"details-level":"full","limit":500}
 /web_api/show-groups
-{"details-level":"full","limit":500,"use-object-dictionary":false}
+{"dereference-group-members":true,"details-level":"full","limit":500}
 /web_api/show-services-tcp
 {"details-level":"full","limit":500}
 /web_api/show-services-udp
@@ -170,7 +170,7 @@ TESTSERVER/web_api/login
 /web_api/show-simple-gateways
 {"details-level": "uid"}
 --router.config
-{"GatewayRoutes":{},"groups":null,"hosts":null,"icmp":null,"icmp6":null,"networks":null,"rules":[{"name":"rule1","source":[{"name":"Any"}],"destination":[{"name":"Any"}],"service":[{"name":"icmp-proto"}],"action":{"name":"Accept"},"install-on":[{"name":"gw7"}],"tags":[]}],"svOther":null,"tcp":null,"udp":null}
+{"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"Rules":[{"name":"rule1","source":[{"name":"Any"}],"destination":[{"name":"Any"}],"service":[{"name":"icmp-proto"}],"action":{"name":"Accept"},"install-on":[{"name":"gw7"}],"tags":[]}],"SvOther":null,"TCP":null,"UDP":null}
 --router.change
 /web_api/delete-access-rule
 {"layer":"network","name":"rule1"}
@@ -225,7 +225,7 @@ POST /web_api/
 }
 =OUTPUT=
 --router.config
-{"GatewayRoutes":{},"groups":null,"hosts":null,"icmp":null,"icmp6":null,"networks":null,"rules":null,"svOther":null,"tcp":null,"udp":null}
+{"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"Rules":null,"SvOther":null,"TCP":null,"UDP":null}
 --router.change
 /web_api/add-access-rule
 {"name":"rule1","layer":"network","action":"Accept","source":["Any"],"destination":["Any"],"service":["https"],"install-on":["test-fw"],"position":"bottom"}
