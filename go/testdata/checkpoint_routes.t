@@ -225,3 +225,41 @@ gaia_api/v1.7/set-static-route
 {"address":"10.1.1.0","mask-length":24,
  "next-hop":[{"gateway":"10.1.1.11"}],"target":"other","type":"gateway"}
 =END=
+
+############################################################
+=TITLE=Merge routes from raw
+=DEVICE=
+{
+  "GatewayRoutes": {
+   "gw1": [
+    [[route {ip: 10.1.1.0, len: 24, hop: 10.1.1.11} ]],
+    [[route {ip: 10.1.2.0, len: 23, hop: 10.1.1.22} ]],
+    [[route {ip: 10.1.0.0, len: 16, hop: 10.1.0.99} ]]
+   ],
+   "other": [
+    [[route {ip: 10.1.4.0, len: 24, hop: 10.1.1.44} ]]
+   ]
+  }
+}
+=NETSPOC=
+--router
+{
+  "GatewayRoutes": {
+   "gw1": [
+    [[route {ip: 10.1.0.0, len: 16, hop: 10.1.0.99} ]]
+   ]
+  }
+}
+--router.raw
+{
+  "GatewayRoutes": {
+   "gw1": [
+    [[route {ip: 10.1.1.0, len: 24, hop: 10.1.1.11} ]],
+    [[route {ip: 10.1.2.0, len: 23, hop: 10.1.1.22} ]]
+   ],
+   "other": [
+    [[route {ip: 10.1.4.0, len: 24, hop: 10.1.1.44} ]]
+   ]
+  }
+}
+=OUTPUT=NONE
