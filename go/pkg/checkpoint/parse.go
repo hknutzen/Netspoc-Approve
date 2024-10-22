@@ -2,6 +2,9 @@ package checkpoint
 
 import (
 	"encoding/json"
+	"fmt"
+	"path"
+	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 )
@@ -31,6 +34,7 @@ type chkpRule struct {
 	Track       *chkpTrack  `json:"track,omitempty"`
 	InstallOn   []chkpName  `json:"install-on"`
 	Position    interface{} `json:"position,omitempty"`
+	Append      bool        `json:"append,omitempty"` // From raw file.
 	needed      bool
 }
 
@@ -158,16 +162,68 @@ type chkpGateway struct {
 	Gateway string `json:"gateway"`
 }
 
-func (s *State) ParseConfig(data []byte, fName string) (
-	deviceconf.Config, error) {
-
+func (s *State) ParseConfig(data []byte, fName string,
+) (deviceconf.Config, error) {
 	cf := &chkpConfig{}
 	if len(data) == 0 {
 		return cf, nil
 	}
 	err := json.Unmarshal(data, cf)
+	if err != nil {
+		return nil, err
+	}
 	for _, r := range cf.Rules {
 		r.Layer = "network"
 	}
-	return cf, err
+	if path.Ext(fName) == ".raw" {
+		if err := checkRaw(cf); err != nil {
+			return nil, err
+		}
+	}
+	return cf, nil
+}
+
+func checkRaw(cf *chkpConfig) error {
+	checkName := func(n string) error {
+		if !strings.HasPrefix(n, "Raw ") {
+			return fmt.Errorf(
+				"Must only define name starting with 'Raw ': %s", n)
+		}
+		return nil
+	}
+	// Raw file is allowed to reference
+	// - other objects from raw file, having name starting with "Raw ",
+	// - or system defined names like "Any" or "echo-request".
+	// Names with "_" or " " are assumed to be defined by Netspoc.
+	checkRef := func(from string, l []chkpName) error {
+		for _, n := range l {
+			s := string(n)
+			if !strings.HasPrefix(s, "Raw ") && strings.ContainsAny(s, " _") {
+				return fmt.Errorf(
+					"Must not reference name from Netspoc in %q: %s", from, s)
+			}
+		}
+		return nil
+	}
+	for _, r := range cf.Rules {
+		if err := checkName(r.Name); err != nil {
+			return err
+		}
+		for _, l := range [][]chkpName{r.Source, r.Destination, r.Service} {
+			if err := checkRef(r.Name, l); err != nil {
+				return err
+			}
+		}
+	}
+	for _, g := range cf.Groups {
+		if err := checkRef(g.Name, g.Members); err != nil {
+			return err
+		}
+	}
+	for _, o := range getObjList(cf) {
+		if err := checkName(o.getName()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
