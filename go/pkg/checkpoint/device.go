@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -20,12 +21,13 @@ import (
 )
 
 type State struct {
-	client    *http.Client
-	prefix    string
-	user      string
-	sid       string
-	changes   []change
-	installOn []string
+	client       *http.Client
+	prefix       string
+	user         string
+	sid          string
+	changes      []change
+	installOn    []string
+	routeChanges []change
 }
 type change struct {
 	endpoint string
@@ -161,7 +163,14 @@ func (s *State) LoadDevice(
 	collect("ICMP6", "show-services-icmp6", jsonMap{"details-level": "full"})
 	collect("SvOther", "show-services-other", jsonMap{"details-level": "full"})
 	// Collect static routes of all gateways.
-	//
+	getGateways := func() []string {
+		if collectErr != nil {
+			return nil
+		}
+		uids, err := s.getUIDs("show-simple-gateways", logLogin)
+		collectErr = cmp.Or(collectErr, err)
+		return uids
+	}
 	// We need IP address of each simple gateway,
 	// because call "gaia_api/v1.7/show-static-routes"
 	// currently only works with IP and not with name as argument.
@@ -177,14 +186,12 @@ func (s *State) LoadDevice(
 		json.Unmarshal(resp, &result)
 		return result.Name, result.IP
 	}
-	uids, err := s.getUIDs("show-simple-gateways", logLogin)
-	collectErr = cmp.Or(collectErr, err)
 	routeMap := make(map[string][]json.RawMessage)
 	ipMap := make(map[string]string)
-	for _, uid := range uids {
+	for _, uid := range getGateways() {
 		name, ip := getGatewayNameIP(uid)
 		if collectErr != nil {
-			return nil, fmt.Errorf("While reading device: %v", collectErr)
+			break
 		}
 		ipMap[name] = ip
 		routeMap[name] = collect0(extractRoute, "gaia-api/v1.7/show-static-routes",
@@ -238,17 +245,17 @@ func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
 	p1 := c1.(*chkpConfig)
 	p2 := c2.(*chkpConfig)
 	s.changes, s.installOn = diffConfig(p1, p2)
-	s.changes = append(s.changes, diffRoutes(p1, p2)...)
+	s.routeChanges = diffRoutes(p1, p2)
 	return nil
 }
 
 func (s *State) HasChanges() bool {
-	return len(s.changes) != 0
+	return len(s.changes) != 0 || len(s.routeChanges) != 0
 }
 
 func (s *State) ShowChanges() string {
 	var collect strings.Builder
-	for _, chg := range s.changes {
+	for _, chg := range slices.Concat(s.changes, s.routeChanges) {
 		postData, _ := json.Marshal(chg.postData)
 		fmt.Fprintln(&collect, chg.endpoint)
 		fmt.Fprintln(&collect, string(postData))
@@ -315,16 +322,26 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 		}
 		return waitTask(result.TaskID)
 	}
-	for _, c := range s.changes {
+	if len(s.changes) > 0 {
+		for _, c := range s.changes {
+			if _, err := sendCmd(c.endpoint, c.postData); err != nil {
+				return err
+			}
+		}
+		if err := waitCmd("publish", jsonMap{}); err != nil {
+			return err
+		}
+		if err := waitCmd("install-policy",
+			jsonMap{"policy-package": "standard", "targets": s.installOn}); err != nil {
+			return err
+		}
+	}
+	for _, c := range s.routeChanges {
 		if _, err := sendCmd(c.endpoint, c.postData); err != nil {
 			return err
 		}
 	}
-	if err := waitCmd("publish", jsonMap{}); err != nil {
-		return err
-	}
-	return waitCmd("install-policy",
-		jsonMap{"policy-package": "standard", "targets": s.installOn})
+	return nil
 }
 
 // Discard uncommited changes from previous runs.
