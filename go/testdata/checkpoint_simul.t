@@ -70,17 +70,135 @@ ERROR>>> 404 page not found
 =END=
 
 ############################################################
-=TITLE=Only discard operation succeeds
+=TITLE=No sessions to discard and empty config
+=SCENARIO=
+[[standard]]
+POST /web_api
+{}
+=NETSPOC=NONE
+=OUTPUT=
+--router.login
+TESTSERVER/web_api/login
+{"user":"admin","password":"xxx"}
+200 OK
+{
+  "sid": "xxx"
+}
+
+/web_api/show-sessions
+{"details-level": "uid"}
+/web_api/show-access-rulebase
+{"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
+/web_api/show-networks
+{"details-level":"full","limit":500}
+/web_api/show-hosts
+{"details-level":"full","limit":500}
+/web_api/show-groups
+{"dereference-group-members":true,"details-level":"full","limit":500}
+/web_api/show-services-tcp
+{"details-level":"full","limit":500}
+/web_api/show-services-udp
+{"details-level":"full","limit":500}
+/web_api/show-services-icmp
+{"details-level":"full","limit":500}
+/web_api/show-services-icmp6
+{"details-level":"full","limit":500}
+/web_api/show-services-other
+{"details-level":"full","limit":500}
+/web_api/show-simple-gateways
+{"details-level": "uid"}
+=END=
+
+############################################################
+=TITLE=Discard session
 =SCENARIO=
 [[standard]]
 POST /web_api/show-sessions
-{}
+{ "objects": [ "id1" ] }
+POST /web_api/show-session
+{ "uid": "id1", "user-name": "admin", "application": "WEB_API" }
 POST /web_api/discard
 {}
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: status code: 404, uri: /web_api/show-access-rulebase
 ERROR>>> 404 page not found
+=OUTPUT=
+--router.login
+TESTSERVER/web_api/login
+{"user":"admin","password":"xxx"}
+200 OK
+{
+  "sid": "xxx"
+}
+
+/web_api/show-sessions
+{"details-level": "uid"}
+/web_api/show-session
+{"uid":"id1"}
+{ "uid": "id1", "user-name": "admin", "application": "WEB_API" }
+
+/web_api/discard
+{"uid":"id1"}
+{}
+
+/web_api/show-access-rulebase
+{"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
+404
+404 page not found
+
+=END=
+
+############################################################
+=TITLE=Show session fails
+=SCENARIO=
+[[standard]]
+POST /web_api/show-sessions
+{ "objects": [ "id1" ] }
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> status code: 404, uri: /web_api/show-session
+ERROR>>> 404 page not found
+=END=
+
+############################################################
+=TITLE=Ignore failure during discard
+=SCENARIO=
+[[standard]]
+POST /web_api/show-sessions
+{ "objects": [ "uid1" ] }
+POST /web_api/show-session
+{ "uid": "uid1", "user-name": "admin", "application": "WEB_API" }
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: status code: 404, uri: /web_api/show-access-rulebase
+ERROR>>> 404 page not found
+=OUTPUT=
+--router.login
+TESTSERVER/web_api/login
+{"user":"admin","password":"xxx"}
+200 OK
+{
+  "sid": "xxx"
+}
+
+/web_api/show-sessions
+{"details-level": "uid"}
+/web_api/show-session
+{"uid":"uid1"}
+{ "uid": "uid1", "user-name": "admin", "application": "WEB_API" }
+
+/web_api/discard
+{"uid":"uid1"}
+404
+404 page not found
+
+
+/web_api/show-access-rulebase
+{"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
+404
+404 page not found
+
 =END=
 
 ############################################################
@@ -95,15 +213,6 @@ POST /web_api/
 =ERROR=
 ERROR>>> While reading device: invalid character 'I' looking for beginning of value
 =END=
-
-############################################################
-=TITLE=Empty config from device
-=SCENARIO=
-[[standard]]
-POST /web_api/
-{}
-=NETSPOC=NONE
-=WARNING=NONE
 
 ############################################################
 =TITLE=Remove simple rule
@@ -256,5 +365,34 @@ POST /web_api/
     "task-name" : ""
   } ]
 }
+
+=END=
+
+############################################################
+=TITLE=Use gateway IP in GAIA API for changing static routes
+=SCENARIO=
+[[standard]]
+POST /web_api/show-simple-gateways
+{ "objects": [ "uid1" ] }
+POST /web_api/show-simple-gateway
+{ "name": "gw1", "ipv4-address": "10.1.1.1" }
+POST /web_api/gaia-api/v1.7/show-static-routes
+{ "response-message": { "objects" : [] } }
+POST /web_api
+{}
+=NETSPOC=
+{ "GatewayRoutes": { "gw1": [
+{
+ "address": "10.11.0.0",
+ "mask-length": 17,
+ "type": "gateway",
+ "next-hop" : [{ "gateway" : "10.11.1.12" }]
+}
+]}}
+=OUTPUT=
+--router.change
+/web_api/gaia_api/v1.7/set-static-route
+{"address":"10.11.0.0","mask-length":17,"next-hop":[{"gateway":"10.11.1.12"}],"target":"10.1.1.1","type":"gateway"}
+{}
 
 =END=
