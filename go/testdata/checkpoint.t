@@ -1,4 +1,4 @@
-=TEMPL=simple
+=TEMPL=rule
 {
   "name": "{{.}}",
   "action": "Accept",
@@ -16,8 +16,8 @@
 =NETSPOC=
 {
   "Rules": [
-    [[simple http]],
-    [[simple https]]
+    [[rule http]],
+    [[rule https]]
   ]
 }
 =OUTPUT=
@@ -48,8 +48,8 @@ add-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[simple http]],
-    [[simple https]]
+    [[rule http]],
+    [[rule https]]
   ]
 }
 =NETSPOC=
@@ -66,13 +66,13 @@ delete-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[simple http]]
+    [[rule http]]
   ]
 }
 =NETSPOC=
 {
   "Rules": [
-    [[simple https]]
+    [[rule https]]
   ]
 }
 =OUTPUT=
@@ -341,14 +341,14 @@ delete-service-udp
 =DEVICE=
 {
   "Rules": [
-    [[simple http]]
+    [[rule http]]
     ]
 }
 =NETSPOC=
 {
   "Rules": [
-    [[simple https]],
-    [[simple http]]
+    [[rule https]],
+    [[rule http]]
     ]
 }
 =OUTPUT=
@@ -369,14 +369,14 @@ add-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[simple http]]
+    [[rule http]]
   ]
 }
 =NETSPOC=
 {
   "Rules": [
-    [[simple http]],
-    [[simple https]]
+    [[rule http]],
+    [[rule https]]
   ]
 }
 =OUTPUT=
@@ -397,17 +397,17 @@ add-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[simple http]],
-    [[simple https]],
-    [[simple ldap]]
+    [[rule http]],
+    [[rule https]],
+    [[rule ldap]]
   ]
 }
 =NETSPOC=
 {
   "Rules": [
-    [[simple http]],
-    [[simple ssh]],
-    [[simple ldap]]
+    [[rule http]],
+    [[rule ssh]],
+    [[rule ldap]]
   ]
 }
 =OUTPUT=
@@ -430,18 +430,18 @@ add-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[simple http]],
-    [[simple https]],
-    [[simple ldap]]
+    [[rule http]],
+    [[rule https]],
+    [[rule ldap]]
   ]
 }
 =NETSPOC=
 {
   "Rules": [
-    [[simple http]],
-    [[simple ssh]],
-    [[simple smtp]],
-    [[simple pop-3]]
+    [[rule http]],
+    [[rule ssh]],
+    [[rule smtp]],
+    [[rule pop-3]]
   ]
 }
 =OUTPUT=
@@ -486,15 +486,15 @@ add-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[simple http]],
-    [[simple https]]
+    [[rule http]],
+    [[rule https]]
   ]
 }
 =NETSPOC=
 {
   "Rules": [
-    [[simple http]],
-    [[simple ssh]]
+    [[rule http]],
+    [[rule ssh]]
   ]
 }
 =OUTPUT=
