@@ -513,6 +513,46 @@ add-access-rule
 =END=
 
 ############################################################
+=TITLE=Change typically unused attributes
+=DEVICE=
+{
+  "Rules": [
+    {
+      "name": "test",
+      "action": "Accept",
+      "comments": "Some comment",
+      "source-negate": true,
+      "destination-negate": true,
+      "service-negate": true,
+      "enabled": false,
+      "install-on": ["test-fw"]
+    }
+  ]
+}
+=NETSPOC=
+{
+  "Rules": [
+    {
+      "name": "test",
+      "action": "Drop",
+      "enabled": true,
+      "install-on": ["test-fw"]
+    }
+  ]
+}
+=OUTPUT=
+set-access-rule
+{
+ "action":"Drop",
+ "comments":"",
+ "destination-negate":false,
+ "enabled":true,
+ "name":"test",
+ "service-negate":false,
+ "source-negate":false}
+=END=
+
+############################################################
 =TITLE=Change attribute "install-on"
 =DEVICE=
 {

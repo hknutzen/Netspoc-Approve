@@ -174,6 +174,18 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				if aRule.Action != bRule.Action {
 					chg1["action"] = bRule.Action
 				}
+				if aRule.SourceNegate != bRule.SourceNegate {
+					chg1["source-negate"] = bRule.SourceNegate
+				}
+				if aRule.DestinationNegate != bRule.DestinationNegate {
+					chg1["destination-negate"] = bRule.DestinationNegate
+				}
+				if aRule.ServiceNegate != bRule.ServiceNegate {
+					chg1["service-negate"] = bRule.ServiceNegate
+				}
+				if aRule.Disabled != bRule.Disabled {
+					chg1["enabled"] = !bRule.Disabled
+				}
 				compareObjects("source", chg1, chg2, aRule.Source, bRule.Source)
 				compareObjects("destination", chg1, chg2,
 					aRule.Destination, bRule.Destination)
