@@ -102,7 +102,7 @@ ERROR>>> Authentication failed
 --netspoc/p1/log/router.drc
 ERROR>>> Authentication failed
 --status/router
-router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
+{"approve":{"result":"ERRORS","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -119,7 +119,7 @@ router:ERROR>>> Authentication failed
 --netspoc/p1/log/router.drc
 ERROR>>> Authentication failed
 --status/router
-router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
+{"approve":{"result":"ERRORS","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -194,7 +194,7 @@ Parsed device config
 2024 09 29 16:19:50 POLICY: p1
 2024 09 29 16:19:50 END: OK
 --status/router
-router;;p1;OK;;;;;;;;;;;;;1727626790;
+{"approve":{"result":"OK","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -218,7 +218,7 @@ comp: device unchanged
 2024 09 29 16:19:50 POLICY: p1
 2024 09 29 16:19:50 END: OK
 --status/router
-router;;;;;;;;;;;;UPTODATE;p1;;1727626790;;
+{"approve":{"result":"","policy":"","time":0},"compare":{"result":"UPTODATE","policy":"p1","time":1727626790}}
 =END=
 
 ############################################################
@@ -301,7 +301,7 @@ comp: *** device changed ***
 --netspoc/p1/log/router.cmp
 no ip route 10.20.0.0 255.255.0.0 10.1.2.3\N ip route 10.20.0.0 255.255.0.0 10.1.2.99
 --status/router
-router;;;;;;;;;;;;DIFF;p1;;1727626790;;
+{"approve":{"result":"","policy":"","time":0},"compare":{"result":"DIFF","policy":"p1","time":1727626790}}
 =END=
 
 ############################################################
@@ -314,12 +314,12 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =NETSPOC=
 ip route 10.20.0.0 255.255.0.0 10.1.2.99
 =SETUP=
-echo 'router;;;;;usr;;;;;;;DIFF;p0;;123;' > status/router
+echo '{"compare":{"result":"DIFF","policy":"p0","time":123}}' > status/router
 =WARNING=
 OK, details in netspoc/p1/log/router.compare
 =OUTPUT=
 --status/router
-router;;;;;usr;;;;;;;DIFF;p0;;123;
+{"compare":{"result":"DIFF","policy":"p0","time":123}}
 =END=
 
 ############################################################
@@ -333,12 +333,12 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =NETSPOC=
 ip route 10.20.0.0 255.255.0.0 10.1.2.99
 =SETUP=
-echo 'router;;;;;usr;;;;;;;DIFF;p0;;123;999;' > status/router
+echo '{"approve":{"time":999},"compare":{"result":"DIFF","policy":"p0","time":123}}' > status/router
 =WARNING=
 OK, details in netspoc/p1/log/router.compare
 =OUTPUT=
 --status/router
-router;;;;;usr;;;;;;;DIFF;p1;;1727626790;999;
+{"approve":{"result":"","policy":"","time":999},"compare":{"result":"DIFF","policy":"p1","time":1727626790}}
 =END=
 
 ############################################################
@@ -718,6 +718,8 @@ Got device config
 Parsed device config
 WARNING>>> Got unexpected output from 'ip route 10.20.0.0 255.255.0.0 10.1.2.3':
 WARNING>>> WARNING: Route already exists
+--status/router
+{"approve":{"result":"WARNINGS","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -1002,7 +1004,7 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 2024 09 29 16:19:50 POLICY: p1
 2024 09 29 16:19:50 END: FAILED
 -- status/router
-router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
+{"approve":{"result":"ERRORS","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################

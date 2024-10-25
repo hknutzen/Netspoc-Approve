@@ -131,9 +131,9 @@ func Main() int {
 		} else {
 			result := "OK"
 			if errors {
-				result = "***ERRORS***"
+				result = "ERRORS"
 			} else if warnings {
-				result = "***WARNINGS***"
+				result = "WARNINGS"
 			}
 			status.SetApprove(dir, devName, policy, result)
 		}

@@ -86,20 +86,20 @@ func check(device, statusDir, base, policy string) {
 	v := status.Read(statusDir, device)
 
 	devicePolicy := ""
-	approveTime := ""
+	approveTime := int64(0)
 
 	// Check status of last approve.
-	switch v[status.APP_STATUS] {
-	case "OK", "***WARNINGS***":
-		devicePolicy = v[status.APP_POLICY]
-		approveTime = v[status.COMP_DTIME]
+	switch v.Approve.Result {
+	case "OK", "WARNINGS":
+		devicePolicy = v.Approve.Policy
+		approveTime = v.Approve.Time
 	}
 
 	// Check status of last compare.
-	if status.TimeLess(approveTime, v[status.COMP_TIME]) {
-		switch v[status.COMP_RESULT] {
+	if approveTime < v.Compare.Time {
+		switch v.Compare.Result {
 		case "UPTODATE":
-			devicePolicy = v[status.COMP_POLICY]
+			devicePolicy = v.Compare.Policy
 		case "DIFF":
 			devicePolicy = ""
 		}

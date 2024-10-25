@@ -1,5 +1,6 @@
 {{$NEXT}}
 
+ - Changed format of status file for command 'missing-approve' to JSON.
  - Fixed URL for committing changes to device of type PAN-OS.
    Previously the URL looked like
    https://address/api/?key=xxx&https://address/api/?key=xxx&type=commit
