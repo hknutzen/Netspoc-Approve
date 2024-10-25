@@ -180,3 +180,14 @@ router
 =ERROR=
 ERROR>>> Can't find path of 'iptables-restore'
 =END=
+
+############################################################
+=TITLE=Bad credentials file
+=SCENARIO=[[scenario]]
+=NETSPOC=
+ip route add 0.0.0.0/0 via 10.1.1.99
+=SETUP=
+echo abc 123 >credentials
+=ERROR=
+ERROR>>> Expected 3 fields in lines of credentials
+=END=
