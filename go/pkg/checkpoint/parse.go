@@ -24,18 +24,22 @@ type chkpConfig struct {
 }
 
 type chkpRule struct {
-	Name        string      `json:"name"`
-	Layer       string      `json:"layer,omitempty"`
-	Comments    string      `json:"comments,omitempty"`
-	Action      chkpName    `json:"action"`
-	Source      []chkpName  `json:"source"`
-	Destination []chkpName  `json:"destination"`
-	Service     []chkpName  `json:"service"`
-	Track       *chkpTrack  `json:"track,omitempty"`
-	InstallOn   []chkpName  `json:"install-on"`
-	Position    interface{} `json:"position,omitempty"`
-	Append      bool        `json:"append,omitempty"` // From raw file.
-	needed      bool
+	Name              string       `json:"name"`
+	Layer             string       `json:"layer,omitempty"`
+	Comments          string       `json:"comments,omitempty"`
+	Action            chkpName     `json:"action"`
+	Source            []chkpName   `json:"source"`
+	Destination       []chkpName   `json:"destination"`
+	Service           []chkpName   `json:"service"`
+	Disabled          invertedBool `json:"enabled,omitempty"`
+	SourceNegate      bool         `json:"source-negate,omitempty"`
+	DestinationNegate bool         `json:"destination-negate,omitempty"`
+	ServiceNegate     bool         `json:"service-negate,omitempty"`
+	Track             *chkpTrack   `json:"track,omitempty"`
+	InstallOn         []chkpName   `json:"install-on"`
+	Position          interface{}  `json:"position,omitempty"`
+	Append            bool         `json:"append,omitempty"` // From raw file.
+	needed            bool
 }
 
 type chkpName string
@@ -53,6 +57,23 @@ func (n *chkpName) UnmarshalJSON(b []byte) error {
 	}
 	*n = chkpName(name)
 	return nil
+}
+
+// Default value of attribute 'enabled' is true.
+// But zero value of bool is false in Go.
+// Hence we store the inverted value in attribute 'disabled'.
+type invertedBool bool
+
+func (inv *invertedBool) UnmarshalJSON(b []byte) error {
+	var v bool
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	*inv = invertedBool(!v)
+	return nil
+}
+func (b *invertedBool) MarshalJSON() ([]byte, error) {
+	return json.Marshal(!*b)
 }
 
 type chkpTrack struct {
