@@ -22,7 +22,7 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 	return ab.aRules[ai].Name == ab.bRules[bi].Name &&
 		// We may have different rules with identical name on different devices,
 		// because rule names are generated from service names in Netspoc.
-		// Reason ist, that the same service may expand to different rules
+		// Reason is, that the same service may expand to different rules
 		// on different firewalls.
 		slices.Equal(ab.aRules[ai].InstallOn, ab.bRules[bi].InstallOn)
 }
