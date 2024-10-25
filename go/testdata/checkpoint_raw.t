@@ -91,7 +91,7 @@ ERROR>>> While reading file router.raw: Must not reference name from Netspoc in 
 ]}
 -- router.raw
 { "Rules": [
-   { "name": "Raw top", "action": "Accept", "service": ["https"] },
+   { "name": "Raw top", "action": "Accept", "service": ["https"],"enabled":true},
    { "name": "Raw bot", "action": "Accept", "service": ["smtp"], "append": true }
   ]
 }
@@ -121,7 +121,7 @@ add-access-rule
 }
 -- router.raw
 { "Rules": [
- { "name": "Raw 2", "action": "Accept", "source": ["Raw g2"], "service": ["Raw s2"] } ],
+ { "name": "Raw 2", "action": "Accept", "source": ["Raw g2"], "service": ["Raw s2"], "enabled": false } ],
  "Hosts": [
  { "name": "Raw h2", "ipv4-address": "10.1.8.2" } ],
  "Groups": [
@@ -143,7 +143,7 @@ add-service-tcp
 add-service-tcp
 {"name":"Raw s2","port":"8082"}
 add-access-rule
-{"name":"Raw 2","layer":"network","action":"Accept","source":["Raw g2"],"destination":null,"service":["Raw s2"],"install-on":null,"position":{"above":"Cleanup rule"}}
+{"name":"Raw 2","layer":"network","action":"Accept","source":["Raw g2"],"destination":null,"service":["Raw s2"],"enabled":false,"install-on":null,"position":{"above":"Cleanup rule"}}
 add-access-rule
 {"name":"rule_1","layer":"network","action":"Accept","source":["g1"],"destination":null,"service":["tcp_8080"],"install-on":null,"position":{"above":"Cleanup rule"}}
 =END=
