@@ -20,13 +20,14 @@ var defaultVals = map[string]string{
 }
 
 type Config struct {
+	BaseDir        string
 	NetspocDir     string
 	LockfileDir    string
-	netspocGit     string
 	HistoryDir     string
 	StatusDir      string
-	CheckBanner    *regexp.Regexp
 	aaaCredentials string
+	netspocGit     string
+	CheckBanner    *regexp.Regexp
 	systemUser     string
 	ServerIPList   []netip.Addr
 	Timeout        int
@@ -66,7 +67,8 @@ func LoadConfig() (*Config, error) {
 	var c Config
 	seen := make(map[string]bool)
 
-	insert := func(key, val string) error {
+	insert := func(key string, values ...string) error {
+		val := values[0]
 		getInt := func() (int, error) {
 			i, err := strconv.Atoi(val)
 			if err != nil {
@@ -75,13 +77,13 @@ func LoadConfig() (*Config, error) {
 			}
 			if i < 0 {
 				return 0, fmt.Errorf(
-					"Expected positive integer for '%s' in %s: %v", key, file, err)
+					"Expected positive integer for '%s' in %s: %v", key, file, i)
 			}
 			return i, nil
 		}
 		getIPList := func() ([]netip.Addr, error) {
 			var result []netip.Addr
-			for _, s := range strings.Fields(val) {
+			for _, s := range values {
 				ip, err := netip.ParseAddr(s)
 				if err != nil {
 					return nil, fmt.Errorf("Expected IP address in '%s' of %s: %v",
@@ -93,6 +95,17 @@ func LoadConfig() (*Config, error) {
 		}
 		var err error
 		switch key {
+		case "server_ip_list":
+			c.ServerIPList, err = getIPList()
+			return err
+		}
+		if len(values) != 1 {
+			return fmt.Errorf("Expected exactly one value for %q in %s: %v",
+				key, file, values)
+		}
+		switch key {
+		case "basedir":
+			c.BaseDir = val
 		case "netspocdir":
 			c.NetspocDir = val
 		case "lockfiledir":
@@ -112,8 +125,6 @@ func LoadConfig() (*Config, error) {
 			c.aaaCredentials = val
 		case "systemuser":
 			c.systemUser = val
-		case "server_ip_list":
-			c.ServerIPList, err = getIPList()
 		case "timeout":
 			c.Timeout, err = getInt()
 		case "login_timeout":
@@ -134,17 +145,17 @@ func LoadConfig() (*Config, error) {
 		if len(words) == 0 || words[0][0] == '#' {
 			continue
 		}
-		if len(words) != 3 || words[1] != "=" {
+		if len(words) < 3 || words[1] != "=" {
 			warn("Ignoring line '%s' in %s", line, file)
 			continue
 		}
-		key, val := words[0], words[2]
+		key := words[0]
 		if seen[key] {
 			warn("Ignoring duplicate key '%s' in %s", key, file)
 			continue
 		}
 		seen[key] = true
-		if err := insert(key, val); err != nil {
+		if err := insert(key, words[2:]...); err != nil {
 			return nil, err
 		}
 	}
@@ -154,6 +165,19 @@ func LoadConfig() (*Config, error) {
 				return nil, err
 			}
 		}
+	}
+	if c.BaseDir != "" {
+		set := func(k, v string) {
+			if !seen[k] {
+				seen[k] = true
+				insert(k, path.Join(c.BaseDir, v))
+			}
+		}
+		set("netspocdir", "policies")
+		set("lockfiledir", "lock")
+		set("historydir", "history")
+		set("statusdir", "status")
+		set("aaa_credentials", "credentials")
 	}
 	for _, k := range []string{"netspocdir", "lockfiledir"} {
 		if !seen[k] {
@@ -165,6 +189,8 @@ func LoadConfig() (*Config, error) {
 
 func (c *Config) GetVal(key string) string {
 	switch key {
+	case "basedir":
+		return c.BaseDir
 	case "netspocdir":
 		return c.NetspocDir
 	case "lockfiledir":

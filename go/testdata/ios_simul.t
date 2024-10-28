@@ -102,7 +102,7 @@ ERROR>>> Authentication failed
 --netspoc/p1/log/router.drc
 ERROR>>> Authentication failed
 --status/router
-router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
+{"approve":{"result":"FAILED","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -119,7 +119,7 @@ router:ERROR>>> Authentication failed
 --netspoc/p1/log/router.drc
 ERROR>>> Authentication failed
 --status/router
-router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
+{"approve":{"result":"FAILED","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -194,7 +194,7 @@ Parsed device config
 2024 09 29 16:19:50 POLICY: p1
 2024 09 29 16:19:50 END: OK
 --status/router
-router;;p1;OK;;;;;;;;;;;;;1727626790;
+{"approve":{"result":"OK","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -218,7 +218,7 @@ comp: device unchanged
 2024 09 29 16:19:50 POLICY: p1
 2024 09 29 16:19:50 END: OK
 --status/router
-router;;;;;;;;;;;;UPTODATE;p1;;1727626790;;
+{"approve":{"result":"","policy":"","time":0},"compare":{"result":"UPTODATE","policy":"p1","time":1727626790}}
 =END=
 
 ############################################################
@@ -256,7 +256,7 @@ comp: device unchanged
 =OPTIONS=-C -q=0 --LOGFILE d/file
 
 ############################################################
-=TITLE=Can't create log directory
+=TITLE=Can't create directory for logfile
 =SCENARIO=
 [[std_scenario]]
 # sh run
@@ -267,6 +267,19 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =ERROR=
 ERROR>>> Can't mkdir code/router: not a directory
 =OPTIONS=-C -q=0 --LOGFILE code/router/log
+
+############################################################
+=TITLE=Without option -L logdir for test coverage
+=OPTIONS=-q=0
+=PARAMS=code/router
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=WARNING=
+Requesting device config
+Got device config
+Parsed device config
+=END=
 
 ############################################################
 =TITLE=do-approve compare: changed
@@ -288,7 +301,7 @@ comp: *** device changed ***
 --netspoc/p1/log/router.cmp
 no ip route 10.20.0.0 255.255.0.0 10.1.2.3\N ip route 10.20.0.0 255.255.0.0 10.1.2.99
 --status/router
-router;;;;;;;;;;;;DIFF;p1;;1727626790;;
+{"approve":{"result":"","policy":"","time":0},"compare":{"result":"DIFF","policy":"p1","time":1727626790}}
 =END=
 
 ############################################################
@@ -301,12 +314,12 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =NETSPOC=
 ip route 10.20.0.0 255.255.0.0 10.1.2.99
 =SETUP=
-echo 'router;;;;;usr;;;;;;;DIFF;p0;;123;' > status/router
+echo '{"compare":{"result":"DIFF","policy":"p0","time":123}}' > status/router
 =WARNING=
 OK, details in netspoc/p1/log/router.compare
 =OUTPUT=
 --status/router
-router;;;;;usr;;;;;;;DIFF;p0;;123;
+{"compare":{"result":"DIFF","policy":"p0","time":123}}
 =END=
 
 ############################################################
@@ -320,12 +333,12 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =NETSPOC=
 ip route 10.20.0.0 255.255.0.0 10.1.2.99
 =SETUP=
-echo 'router;;;;;usr;;;;;;;DIFF;p0;;123;999;' > status/router
+echo '{"approve":{"time":999},"compare":{"result":"DIFF","policy":"p0","time":123}}' > status/router
 =WARNING=
 OK, details in netspoc/p1/log/router.compare
 =OUTPUT=
 --status/router
-router;;;;;usr;;;;;;;DIFF;p1;;1727626790;999;
+{"approve":{"result":"","policy":"","time":999},"compare":{"result":"DIFF","policy":"p1","time":1727626790}}
 =END=
 
 ############################################################
@@ -340,6 +353,58 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.99
 --router.cmp
 no ip route 10.20.0.0 255.255.0.0 10.1.2.3\N ip route 10.20.0.0 255.255.0.0 10.1.2.99
 =OPTIONS=-C
+
+############################################################
+=TITLE=Error logging to .cmp file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+mkdir router.cmp.1727626790
+touch router.cmp
+chmod a-w router.cmp
+=ERROR=
+ERROR>>> open router.cmp: permission denied
+=OPTIONS=-C
+
+############################################################
+=TITLE=Error logging to .login file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+mkdir router.login.1727626790
+touch router.login
+chmod a-w router.login
+=ERROR=
+ERROR>>> open router.login: permission denied
+=OPTIONS=-C
+
+############################################################
+=TITLE=Error logging to .config file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+mkdir router.config.1727626790
+touch router.config
+chmod a-w router.config
+=ERROR=
+ERROR>>> open router.config: permission denied
+=OPTIONS=-C
+
+############################################################
+=TITLE=Error logging to .change file
+=SCENARIO=[[std_scenario]]
+=NETSPOC=
+ip route 10.20.0.0 255.255.0.0 10.1.2.99
+=SETUP=
+mkdir router.change.1727626790
+touch router.change
+chmod a-w router.change
+=ERROR=
+ERROR>>> open router.change: permission denied
+=END=
 
 ############################################################
 =TITLE=Compare with missing banner
@@ -653,6 +718,8 @@ Got device config
 Parsed device config
 WARNING>>> Got unexpected output from 'ip route 10.20.0.0 255.255.0.0 10.1.2.3':
 WARNING>>> WARNING: Route already exists
+--status/router
+{"approve":{"result":"OK","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -937,5 +1004,20 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 2024 09 29 16:19:50 POLICY: p1
 2024 09 29 16:19:50 END: FAILED
 -- status/router
-router;;p1;***ERRORS***;;;;;;;;;;;;;1727626790;
+{"approve":{"result":"FAILED","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
+=END=
+
+############################################################
+=TITLE=Without historydir
+=DO_APPROVE=
+=SCENARIO=[[std_scenario]]
+=NETSPOC=NONE
+=SETUP=
+sed -i 's/^historydir.*$//' .netspoc-approve
+=OUTPUT=
+--netspoc/p1/log/router.compare
+Requesting device config
+Got device config
+Parsed device config
+comp: device unchanged
 =END=

@@ -79,37 +79,6 @@ ERROR>>> Got unexpected output from 'ip route del 0.0.0.0/0 via 10.1.1.1':
 ERROR>>> RTNETLINK answers: Invalid argument
 =END=
 
-#############################################################
-#=TITLE=SSH login with prompt to TTY, password from user
-## Partially reuse previous test data.
-#=SCENARIO=
-#Enter Password:<!>
-#=OUTPUT=
-#--router.login
-#Enter Password:secret
-#router#PS1=router#
-#router#echo $?
-#router#
-#=END=
-#
-#prepare_simulation($scenario);
-#my $perl_opt = $ENV{HARNESS_PERL_SWITCHES} || '';
-#use Expect;
-#my $expect = Expect->new();
-#$expect->log_stdout(0);
-#$expect->spawn(
-#    "$^X $perl_opt -I lib bin/drc3.pl -q -L $ENV{HOME} $ENV{HOME}/code/router")
-#    or die "Cannot spawn";
-#
-#ok($expect->expect(10, "Password for"), "$title: prompt");
-#$expect->send("secret\n");
-#ok($expect->expect(10, "thank you"), "$title: accepted");
-#$expect->expect(10, 'eof');
-#$expect->soft_close();
-#
-#my $dir = $ENV{HOME};
-#check_output($title, $dir, $out, '');
-
 ############################################################
 =TITLE=Unexpected echo in response to command
 # Use banner to garble echo of command.
@@ -210,4 +179,15 @@ router
 -A INPUT -j ACCEPT -s 10.1.11.111 -d 10.10.1.2 -p tcp --dport 22
 =ERROR=
 ERROR>>> Can't find path of 'iptables-restore'
+=END=
+
+############################################################
+=TITLE=Bad credentials file
+=SCENARIO=[[scenario]]
+=NETSPOC=
+ip route add 0.0.0.0/0 via 10.1.1.99
+=SETUP=
+echo abc 123 >credentials
+=ERROR=
+ERROR>>> Expected 3 fields in lines of credentials
 =END=

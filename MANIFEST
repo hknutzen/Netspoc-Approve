@@ -74,6 +74,7 @@ go/staticcheck.conf
 go/test/approve_test.go
 go/test/capture/capture.go
 go/test/drc_test.go
+go/test/httpsim/server.go
 go/test/tstdata/testdata.go
 go/testdata/asa_acl.t
 go/testdata/asa_ipv6.t
@@ -93,7 +94,9 @@ go/testdata/linux_raw.t
 go/testdata/linux_route.t
 go/testdata/linux_simul.t
 go/testdata/nsx.t
+go/testdata/nsx_simul.t
 go/testdata/pan-os.t
+go/testdata/pan-os_simul.t
 go/testdata/simulate-cisco.pl
 lib/Netspoc/Approve/Load_Config.pm
 t/newpolicy.t

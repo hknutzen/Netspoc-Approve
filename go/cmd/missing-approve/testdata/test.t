@@ -1,5 +1,5 @@
 ############################################################
-=TITLE=no status file for ipv4 device
+=TITLE=no valid status file for ipv4 device
 =INPUT=
 --p2/code/A
 lalala
@@ -8,7 +8,7 @@ A
 =END=
 
 ############################################################
-=TITLE=no status file for ipv4 device in ipv6 mode
+=TITLE=no valid status file for ipv4 device in ipv6 mode
 =INPUT=
 --p2/code/ipv4/A
 lalala
@@ -17,7 +17,7 @@ A
 =END=
 
 ############################################################
-=TITLE=no status file for ipv6 device in ipv4 mode
+=TITLE=no valid status file for ipv6 device in ipv4 mode
 =INPUT=
 --p2/code/ipv6/A
 lalala
@@ -26,7 +26,7 @@ A
 =END=
 
 ############################################################
-=TITLE=no status file for ipv4 and ipv6 devices
+=TITLE=missing status file for ipv4 and ipv6 devices
 =INPUT=
 --p2/code/A
 Code for device A
@@ -56,9 +56,13 @@ IPv4 code
 --p1/code/ipv6/B
 Old IPv6 code
 --status/A
-f1;f2;p1;OK;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980299;1519980388;
+{"approve":{"result":"OK","policy":"p1","time":1519980388},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980299}
+}
 --status/B
-f1;f2;p2;***ERRORS***;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980492;1519980388;
+{"approve":{"result":"FAILED","policy":"p2","time":1519980388},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
+}
 =OUTPUT=
 A
 B
@@ -80,9 +84,13 @@ IPv4 code
 --p1/code/ipv6/B
 IPv6 code
 --status/A
-f1;f2;p1;OK;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980299;1519980388;
+{"approve":{"result":"OK","policy":"p1","time":1519980388},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980299}
+}
 --status/B
-f1;f2;p2;***ERRORS***;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980492;1519980388;
+{"approve":{"result":"FAILED","policy":"p2","time":1519980388},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
+}
 =OUTPUT=NONE
 
 ############################################################
@@ -93,7 +101,9 @@ Code for device A
 --p1/code/A
 Code for device A
 --status/A
-f1;f2;p2;***ERRORS***;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980492;1519980500;
+{"approve":{"result":"FAILED","policy":"p2","time":1519980500},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
+}
 =OUTPUT=NONE
 
 ############################################################
@@ -104,7 +114,9 @@ Code for device A
 --p1/code/A
 Code for device A
 --status/A
-f1;f2;p1;OK;f5;f6;f7;f8;f9;f10;f11;f12;DIFF;p2;f15;1519980492;1519980388;
+{"approve":{"result":"OK","policy":"p1","time":1519980388},
+ "compare":{"result":"DIFF","policy":"p2","time":1519980492}
+}
 =OUTPUT=
 A
 =END=
@@ -115,7 +127,9 @@ A
 --p2/code/A
 Code for device A
 --status/A
-f1;f2;p2;***ERRORS***;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980492;1519980500;
+{"approve":{"result":"FAILED","policy":"p2","time":1519980500},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
+}
 =OUTPUT=
 A
 =END=
@@ -125,8 +139,6 @@ A
 =INPUT=
 --p2/code/A
 Code for device A
---status/A
-f1;f2;;;f5;f6;f7;f8;f9;f10;f11;f12;;;f15;;;
 =OUTPUT=
 A
 =END=
@@ -137,7 +149,9 @@ A
 --p2/code/A
 Code for device A
 --status/A
-f1;f2;p2;OK;f5;f6;f7;f8;f9;f10;f11;f12;;;f15;;1519980388;
+{"approve":{"result":"OK","policy":"p2","time":1519980388},
+ "compare":{"result":"","policy":"","time":0}
+}
 =OUTPUT=NONE
 
 ############################################################
@@ -146,7 +160,9 @@ f1;f2;p2;OK;f5;f6;f7;f8;f9;f10;f11;f12;;;f15;;1519980388;
 --p2/code/A
 Code for device A
 --status/A
-f1;f2;;;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p2;f15;1519980492;;
+{"approve":{"result":"","policy":"","time":0},
+ "compare":{"result":"UPTODATE","policy":"p2","time":1519980492}
+}
 =OUTPUT=NONE
 
 ############################################################
@@ -157,7 +173,9 @@ Code for device A
 --p1/code/A
 Code for device A
 --status/A
-f1;f2;;;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980492;;
+{"approve":{"result":"","policy":"","time":0},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
+}
 =SETUP=
 bzip2 p1/code/A
 =OUTPUT=NONE
@@ -170,7 +188,9 @@ Code for device A
 --p1/code/A
 Code for device A
 --status/A
-f1;f2;;;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980492;;
+{"approve":{"result":"","policy":"","time":0},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
+}
 =SETUP=
 gzip p1/code/A
 =OUTPUT=
@@ -185,7 +205,9 @@ Code for device A
 --p1/code/A
 Old code for device A
 --status/A
-f1;f2;;;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980492;;
+{"approve":{"result":"","policy":"","time":0},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
+}
 =SETUP=
 bzip2 p1/code/A
 =OUTPUT=
@@ -204,7 +226,9 @@ Code for device A
 --p1/code/A.info
 version 1
 --status/A
-f1;f2;;;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980492;;
+{"approve":{"result":"","policy":"","time":0},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
+}
 =OUTPUT=NONE
 
 ############################################################
@@ -219,7 +243,9 @@ Code for device A
 --p1/code/A.raw
 raw1
 --status/A
-f1;f2;;;f5;f6;f7;f8;f9;f10;f11;f12;UPTODATE;p1;f15;1519980492;;
+{"approve":{"result":"","policy":"","time":0},
+ "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
+}
 =OUTPUT=
 A
 =END=

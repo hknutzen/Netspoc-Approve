@@ -182,7 +182,7 @@ no access-list inside_in line 1 extended permit tcp 1000::abcd:1:0/96 1000::abcd
 --ipv6/router
 access-group outside_in in interface outside
 =ERROR=
-ERROR>>> While reading router: 'access-group outside_in in interface outside' references unknown 'access-list outside_in'
+ERROR>>> While reading file router: 'access-group outside_in in interface outside' references unknown 'access-list outside_in'
 =END=
 
 ############################################################

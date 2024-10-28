@@ -71,6 +71,26 @@ ERROR>>> Unexpected model "" in file code/router.info
 =END=
 
 ############################################################
+=TITLE=Bad info file
+=NETSPOC=
+--router.info
+NO_JSON
+=ERROR=
+panic: invalid character 'N' looking for beginning of value
+=END=
+
+############################################################
+=TITLE=Unreadable info file
+=NETSPOC=
+--router.info
+{ "model": "IOS", "ip_list": ["1.2.3.4"] }
+=SETUP=
+chmod a-r code/router.info
+=ERROR=
+panic: open code/router.info: permission denied
+=END=
+
+############################################################
 =TITLE=Missing config file
 =SCENARIO=NONE
 =NETSPOC=NONE
@@ -81,6 +101,16 @@ Error: No config file found in [.netspoc-approve /usr/local/etc/netspoc-approve 
 =END=
 
 ############################################################
+=TITLE=Unreadable config file
+=SCENARIO=NONE
+=NETSPOC=NONE
+=SETUP=
+chmod a-r .netspoc-approve
+=ERROR=
+Error: Can't open .netspoc-approve: permission denied
+=END=
+
+############################################################
 =TITLE=Missing lockfile dir
 =SCENARIO=NONE
 =NETSPOC=NONE
@@ -88,4 +118,15 @@ Error: No config file found in [.netspoc-approve /usr/local/etc/netspoc-approve 
 rmdir LOCK
 =ERROR=
 Error: open LOCK/router: no such file or directory
+=END=
+
+############################################################
+=TITLE=Unreadable file from Netspoc
+=NETSPOC=
+--router.info
+{ "model": "IOS", "ip_list": ["1.2.3.4"] }
+=SETUP=
+mkdir code/router
+=ERROR=
+ERROR>>> Can't read code/router: is a directory
 =END=

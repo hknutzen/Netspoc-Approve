@@ -129,13 +129,7 @@ func Main() int {
 				status.SetCompare(dir, devName, policy, changed)
 			}
 		} else {
-			result := "OK"
-			if errors {
-				result = "***ERRORS***"
-			} else if warnings {
-				result = "***WARNINGS***"
-			}
-			status.SetApprove(dir, devName, policy, result)
+			status.SetApprove(dir, devName, policy, failed)
 		}
 	}
 

@@ -37,14 +37,14 @@ func (s *State) LoadDevice(
 	devName := ""
 	err := httpdevice.TryReachableHTTPLogin(path, cfg,
 		func(name, ip, user, pass string) error {
-			s.client = httpdevice.GetHTTPClient(cfg)
+			client, addr := httpdevice.GetHTTPClient(cfg, ip)
+			s.client = client
 			s.devUser = user
-			key, err := s.getAPIKey(ip, user, pass, logLogin)
+			key, err := s.getAPIKey(addr, user, pass, logLogin)
 			if err != nil {
 				return err
 			}
-			prefix := fmt.Sprintf("https://%s/api/?key=%s&", ip, key)
-			s.urlPrefix = prefix
+			s.urlPrefix = fmt.Sprintf("%s/api/?key=%s&", addr, key)
 			if !s.checkHA(logLogin) {
 				return fmt.Errorf("not in active state: %s (%s)", ip, name)
 			}
@@ -74,10 +74,10 @@ func (s *State) LoadDevice(
 	return config, err
 }
 
-func (s *State) getAPIKey(ip, user, pass string, logFH *os.File) (
+func (s *State) getAPIKey(addr, user, pass string, logFH *os.File) (
 	string, error) {
 
-	base, err := url.Parse("https://" + string(ip))
+	base, err := url.Parse(addr)
 	if err != nil {
 		return "", err
 	}
@@ -199,8 +199,7 @@ func (s *State) ApplyCommands(logFH *os.File) error {
 		return parseResponse(body)
 	}
 	commit := func() error {
-		cmd := s.urlPrefix +
-			"type=commit&action=partial&cmd=<commit><partial><admin><member>" +
+		cmd := "type=commit&action=partial&cmd=<commit><partial><admin><member>" +
 			s.devUser + "</member></admin></partial></commit>"
 		msg, data, err := doCmd(cmd)
 		if err != nil {
@@ -222,10 +221,12 @@ func (s *State) ApplyCommands(logFH *os.File) error {
 			return err
 		}
 		id := j.Job
+		simulated := os.Getenv("SIMULATE_ROUTER") != ""
 		for {
-			time.Sleep(10 * time.Second)
-			cmd := s.urlPrefix +
-				"type=op&cmd=<show><jobs><id>" + id + "</id></jobs></show>"
+			if !simulated {
+				time.Sleep(10 * time.Second)
+			}
+			cmd := "type=op&cmd=<show><jobs><id>" + id + "</id></jobs></show>"
 			_, data, err := doCmd(cmd)
 			if err != nil {
 				return err

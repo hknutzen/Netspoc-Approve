@@ -36,8 +36,7 @@ func (s *State) LoadDevice(
 
 	err := httpdevice.TryReachableHTTPLogin(spocFile, cfg,
 		func(name, ip, user, pass string) error {
-			s.prefix = fmt.Sprintf("https://%s", ip)
-			s.client = httpdevice.GetHTTPClient(cfg)
+			s.client, s.prefix = httpdevice.GetHTTPClient(cfg, ip)
 			jar, err := cookiejar.New(nil)
 			if err != nil {
 				return err
@@ -52,10 +51,10 @@ func (s *State) LoadDevice(
 			errlog.DoLog(logLogin, v.Encode())
 			v.Set("j_password", pass)
 			resp, err := s.client.PostForm(uri, v)
-			errlog.DoLog(logLogin, resp.Status)
 			if err != nil {
 				return err
 			}
+			errlog.DoLog(logLogin, resp.Status)
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("status code: %d", resp.StatusCode)
 			}
@@ -82,7 +81,7 @@ func (s *State) LoadDevice(
 	var resultStruct struct{ Results []struct{ Id string } }
 	err = json.Unmarshal(data, &resultStruct)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("while parsing %s: %w", path, err)
 	}
 	for _, result := range resultStruct.Results {
 		// Ignore all policies not created by Netspoc.
@@ -136,7 +135,7 @@ func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
 		}
 		err = json.Unmarshal(out, &results)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("while parsing %s: %w", path, err)
 		}
 		for _, result := range results.Results {
 			err = json.Unmarshal(result, &id)

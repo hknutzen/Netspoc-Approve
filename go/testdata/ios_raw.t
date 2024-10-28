@@ -214,7 +214,7 @@ interface Ethernet1
 interface Ethernet1
  ip access-group Ethernet1_in in
 =ERROR=
-ERROR>>> While reading router.raw: 'ip access-group Ethernet1_in in' references unknown 'ip access-list extended Ethernet1_in'
+ERROR>>> While reading file router.raw: 'ip access-group Ethernet1_in in' references unknown 'ip access-list extended Ethernet1_in'
 =END=
 
 ############################################################
