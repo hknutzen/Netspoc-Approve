@@ -69,7 +69,7 @@ lockfiledir = %s
 	// Set 'current' policy to 'p2'.
 	os.Symlink("p2", path.Join(workDir, "current"))
 
-	// Execute shell commands to change working directory.
+	// Execute shell commands to change content of working directory.
 	if d.Setup != "" {
 		t.Cleanup(func() {
 			// Make files writeable again if =SETUP= commands have
