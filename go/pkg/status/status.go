@@ -18,8 +18,12 @@ type status struct {
 	Compare action `json:"compare"`
 }
 
-func SetApprove(statusDir, device, policy, result string) {
+func SetApprove(statusDir, device, policy string, failed bool) {
 	v := Read(statusDir, device)
+	result := "OK"
+	if failed {
+		result = "FAILED"
+	}
 	v.Approve = action{result, policy, mytime.Now().Unix()}
 	write(statusDir, device, v)
 }

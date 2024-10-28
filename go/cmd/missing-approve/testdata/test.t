@@ -1,5 +1,5 @@
 ############################################################
-=TITLE=no status file for ipv4 device
+=TITLE=no valid status file for ipv4 device
 =INPUT=
 --p2/code/A
 lalala
@@ -8,7 +8,7 @@ A
 =END=
 
 ############################################################
-=TITLE=no status file for ipv4 device in ipv6 mode
+=TITLE=no valid status file for ipv4 device in ipv6 mode
 =INPUT=
 --p2/code/ipv4/A
 lalala
@@ -17,7 +17,7 @@ A
 =END=
 
 ############################################################
-=TITLE=no status file for ipv6 device in ipv4 mode
+=TITLE=no valid status file for ipv6 device in ipv4 mode
 =INPUT=
 --p2/code/ipv6/A
 lalala
@@ -26,7 +26,7 @@ A
 =END=
 
 ############################################################
-=TITLE=no status file for ipv4 and ipv6 devices
+=TITLE=missing status file for ipv4 and ipv6 devices
 =INPUT=
 --p2/code/A
 Code for device A
@@ -60,7 +60,7 @@ Old IPv6 code
  "compare":{"result":"UPTODATE","policy":"p1","time":1519980299}
 }
 --status/B
-{"approve":{"result":"ERRORS","policy":"p2","time":1519980388},
+{"approve":{"result":"FAILED","policy":"p2","time":1519980388},
  "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
 }
 =OUTPUT=
@@ -84,11 +84,11 @@ IPv4 code
 --p1/code/ipv6/B
 IPv6 code
 --status/A
-{"approve":{"result":"WARNINGS","policy":"p1","time":1519980388},
+{"approve":{"result":"OK","policy":"p1","time":1519980388},
  "compare":{"result":"UPTODATE","policy":"p1","time":1519980299}
 }
 --status/B
-{"approve":{"result":"ERRORS","policy":"p2","time":1519980388},
+{"approve":{"result":"FAILED","policy":"p2","time":1519980388},
  "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
 }
 =OUTPUT=NONE
@@ -101,7 +101,7 @@ Code for device A
 --p1/code/A
 Code for device A
 --status/A
-{"approve":{"result":"ERRORS","policy":"p2","time":1519980500},
+{"approve":{"result":"FAILED","policy":"p2","time":1519980500},
  "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
 }
 =OUTPUT=NONE
@@ -127,7 +127,7 @@ A
 --p2/code/A
 Code for device A
 --status/A
-{"approve":{"result":"ERRORS","policy":"p2","time":1519980500},
+{"approve":{"result":"FAILED","policy":"p2","time":1519980500},
  "compare":{"result":"UPTODATE","policy":"p1","time":1519980492}
 }
 =OUTPUT=

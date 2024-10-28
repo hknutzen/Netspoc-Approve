@@ -102,7 +102,7 @@ ERROR>>> Authentication failed
 --netspoc/p1/log/router.drc
 ERROR>>> Authentication failed
 --status/router
-{"approve":{"result":"ERRORS","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
+{"approve":{"result":"FAILED","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -119,7 +119,7 @@ router:ERROR>>> Authentication failed
 --netspoc/p1/log/router.drc
 ERROR>>> Authentication failed
 --status/router
-{"approve":{"result":"ERRORS","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
+{"approve":{"result":"FAILED","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -719,7 +719,7 @@ Parsed device config
 WARNING>>> Got unexpected output from 'ip route 10.20.0.0 255.255.0.0 10.1.2.3':
 WARNING>>> WARNING: Route already exists
 --status/router
-{"approve":{"result":"WARNINGS","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
+{"approve":{"result":"OK","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
@@ -1004,7 +1004,7 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 2024 09 29 16:19:50 POLICY: p1
 2024 09 29 16:19:50 END: FAILED
 -- status/router
-{"approve":{"result":"ERRORS","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
+{"approve":{"result":"FAILED","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
 =END=
 
 ############################################################
