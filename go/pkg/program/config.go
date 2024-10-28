@@ -20,13 +20,14 @@ var defaultVals = map[string]string{
 }
 
 type Config struct {
+	BaseDir        string
 	NetspocDir     string
 	LockfileDir    string
-	netspocGit     string
 	HistoryDir     string
 	StatusDir      string
-	CheckBanner    *regexp.Regexp
 	aaaCredentials string
+	netspocGit     string
+	CheckBanner    *regexp.Regexp
 	systemUser     string
 	ServerIPList   []netip.Addr
 	Timeout        int
@@ -103,6 +104,8 @@ func LoadConfig() (*Config, error) {
 				key, file, values)
 		}
 		switch key {
+		case "basedir":
+			c.BaseDir = val
 		case "netspocdir":
 			c.NetspocDir = val
 		case "lockfiledir":
@@ -163,6 +166,19 @@ func LoadConfig() (*Config, error) {
 			}
 		}
 	}
+	if c.BaseDir != "" {
+		set := func(k, v string) {
+			if !seen[k] {
+				seen[k] = true
+				insert(k, path.Join(c.BaseDir, v))
+			}
+		}
+		set("netspocdir", "policies")
+		set("lockfiledir", "lock")
+		set("historydir", "history")
+		set("statusdir", "status")
+		set("aaa_credentials", "credentials")
+	}
 	for _, k := range []string{"netspocdir", "lockfiledir"} {
 		if !seen[k] {
 			return nil, fmt.Errorf("Missing '%s' in %s", k, file)
@@ -173,6 +189,8 @@ func LoadConfig() (*Config, error) {
 
 func (c *Config) GetVal(key string) string {
 	switch key {
+	case "basedir":
+		return c.BaseDir
 	case "netspocdir":
 		return c.NetspocDir
 	case "lockfiledir":

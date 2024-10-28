@@ -10,15 +10,6 @@ Usage: PROGRAM KEY
 =END=
 
 ############################################################
-=TITLE=Missing required option
-=CONFIG=
-lockfiledir = /tmp
-checkbanner = NetSPoC
-=ERROR=
-Error: Missing 'netspocdir' in .netspoc-approve
-=OPTIONS=checkbanner
-
-############################################################
 =TITLE=Read default value
 =CONFIG=
 netspocdir = /tmp
@@ -127,6 +118,32 @@ timeout = -1
 =ERROR=
 Error: Expected positive integer for 'timeout' in .netspoc-approve: -1
 =OPTIONS=timeout
+
+############################################################
+=TITLE=Missing required option
+=CONFIG=
+lockfiledir = /tmp
+checkbanner = NetSPoC
+=ERROR=
+Error: Missing 'netspocdir' in .netspoc-approve
+=OPTIONS=checkbanner
+
+############################################################
+=TITLE= Get netspocdir from basedir
+=CONFIG=
+basedir = /tmp
+=OUTPUT=
+/tmp/policies
+=OPTIONS=netspocdir
+
+############################################################
+=TITLE= Don't overwrite given netspocdir from basedir
+=CONFIG=
+basedir = /tmp
+netspocdir = /other/netspoc
+=OUTPUT=
+/other/netspoc
+=OPTIONS=netspocdir
 
 ############################################################
 =TITLE=Read netspocdir

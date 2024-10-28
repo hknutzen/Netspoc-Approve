@@ -1,5 +1,13 @@
 {{$NEXT}}
 
+ - Added new config option 'basedir'. If this option is given,
+   default values are used for these old options:
+   - netspocdir      => ${basedir}/policies,
+   - lockfiledir     => ${basedir}/lock
+   - historydir      => ${basedir}/history
+   - statusdir       => ${basedir}/status
+   - aaa_credentials => ${basedir}/credentials
+   These old options will be no longer valid in next version of this software.
  - Changed format of status file for command 'missing-approve' to JSON.
  - Fixed URL for committing changes to device of type PAN-OS.
    Previously the URL looked like
