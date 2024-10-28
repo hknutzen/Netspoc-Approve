@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+3.035     2024-10-28 12:06:44+01:00 Europe/Berlin
+
  - Added new config option 'basedir'. If this option is given,
    default values are used for these old options:
    - netspocdir      => ${basedir}/policies,
