@@ -40,14 +40,23 @@ use strict;
 use warnings;
 use IO::Handle;
 use Fcntl qw(:DEFAULT :flock);
-use Netspoc::Approve::Load_Config;
 
 sub abort { die "Error:", @_, "\n"; }
+sub get_conf {
+    my($k) = @_;
+    my $v = `get-netspoc-approve-conf $k` or die "Missing '$k' in config";
+    chomp $v;
+    return $v;
+}
 
-my $config = Netspoc::Approve::Load_Config::load();
+# Set secure path, if run as other user.
+# Real UID != effective UID or started by sudo.
+if ($> != $< or $ENV{SUDO_USER}) {
+    $ENV{PATH} = "/usr/local/bin:/usr/bin:/bin";
+}
 
 # Path of policy database.
-my $policydb = $config->{netspocdir};
+my $policydb = get_conf("netspocdir");
 
 # Name of netspoc compiler, PATH from sanitized environment (see below).
 my $compiler = 'netspoc';
@@ -60,12 +69,6 @@ my $next = "$policydb/next";
 
 # The lock file for preventing concurrent updates.
 my $lock = "$policydb/LOCK";
-
-# Set secure path, if run as other user.
-# Real UID != effective UID or started by sudo.
-if ($> != $< or $ENV{SUDO_USER}) {
-    $ENV{PATH} = "/usr/local/bin:/usr/bin:/bin";
-}
 
 # Lock policy database.
 sysopen my $lock_fh, "$lock", O_RDONLY | O_CREAT or
@@ -107,7 +110,7 @@ chdir($next) or log_abort("Can't 'cd $next': $!");
 
 # Check out newest files from repository into subdirectory "src".
 system('git', 'clone',
-       '--quiet', '--depth', '1', $config->{netspoc_git}, 'src') == 0
+       '--quiet', '--depth', '1', get_conf('netspoc_git'), 'src') == 0
     or log_abort("Can't git clone to $psrc");
 
 # Read current policy name from POLICY file.

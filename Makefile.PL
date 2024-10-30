@@ -31,11 +31,7 @@ my %WriteMakefileArgs = (
   ],
   "LICENSE" => "gpl",
   "NAME" => "Netspoc::Approve",
-  "PREREQ_PM" => {
-    "Carp" => 0,
-    "strict" => 0,
-    "warnings" => 0
-  },
+  "PREREQ_PM" => {},
   "TEST_REQUIRES" => {
     "Cwd" => 0,
     "Fcntl" => 0,
@@ -45,9 +41,11 @@ my %WriteMakefileArgs = (
     "IPC::Run3" => 0,
     "Test::Differences" => 0,
     "Test::More" => 0,
-    "Time::HiRes" => 0
+    "Time::HiRes" => 0,
+    "strict" => 0,
+    "warnings" => 0
   },
-  "VERSION" => "3.035",
+  "VERSION" => "3.036",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -55,7 +53,6 @@ my %WriteMakefileArgs = (
 
 
 my %FallbackPrereqs = (
-  "Carp" => 0,
   "Cwd" => 0,
   "Fcntl" => 0,
   "File::Path" => 0,

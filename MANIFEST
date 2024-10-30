@@ -98,6 +98,5 @@ go/testdata/nsx_simul.t
 go/testdata/pan-os.t
 go/testdata/pan-os_simul.t
 go/testdata/simulate-cisco.pl
-lib/Netspoc/Approve/Load_Config.pm
 t/newpolicy.t
 tidyall.ini

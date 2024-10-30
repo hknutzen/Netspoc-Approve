@@ -1,3 +1,10 @@
+3.036     2024-10-30 17:20:21+01:00 Europe/Berlin
+
+ - Fixed command 'newpolicy.pl' to be compatible with new config
+   option 'basedir'.
+ - Option 'basedir' will become mandatory in next version of this software
+   and not in this version as announced previously.
+
 3.035     2024-10-28 12:06:44+01:00 Europe/Berlin
 
  - Added new config option 'basedir'. If this option is given,
