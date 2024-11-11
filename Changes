@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+3.037     2024-11-11 16:12:54+01:00 Europe/Berlin
+
  - Config option 'basedir' is mandatory now.
    Change your directory structure to this values before upgrading:
    - netspocdir      => ${basedir}/policies,
