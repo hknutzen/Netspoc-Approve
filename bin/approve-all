@@ -16,8 +16,8 @@ done | start-jobs -q $PARALLEL ||
 
 # Remember time of last run
 # for use in cronjob starting newpolicy and approve-all.
-DIR=$(get-netspoc-approve-conf lockfiledir)
-FILE=$DIR/approve-all.last
+BASE=$(get-netspoc-approve-conf basedir)
+FILE=$BASE/lock/approve-all.last
 touch $FILE
 # Make newly created file writable for other users.
 chmod -f a+w $FILE

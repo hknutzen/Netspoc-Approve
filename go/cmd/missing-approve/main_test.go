@@ -43,19 +43,17 @@ func TestMain(t *testing.T) {
 
 func runTest(t *testing.T, d descr) {
 	workDir := t.TempDir()
-	statusDir := filepath.Join(workDir, "status")
-	os.Mkdir(statusDir, 0744)
+
+	policies := filepath.Join(workDir, "policies")
+	os.Mkdir(policies, 0744)
+	os.Mkdir(filepath.Join(workDir, "status"), 0744)
 
 	// Initialize os.Args, add default options.
 	os.Args = []string{"missing-approve"}
 
 	// Prepare config file.
 	configFile := filepath.Join(workDir, ".netspoc-approve")
-	config := fmt.Sprintf(`
-netspocdir = %s
-statusdir = %s
-lockfiledir = %s
-`, workDir, statusDir, workDir)
+	config := fmt.Sprintln("basedir = ", workDir)
 	if err := os.WriteFile(configFile, []byte(config), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +65,7 @@ lockfiledir = %s
 	testtxt.PrepareInDir(t, workDir, "INPUT", d.Input)
 
 	// Set 'current' policy to 'p2'.
-	os.Symlink("p2", path.Join(workDir, "current"))
+	os.Symlink("p2", path.Join(policies, "current"))
 
 	// Execute shell commands to change content of working directory.
 	if d.Setup != "" {

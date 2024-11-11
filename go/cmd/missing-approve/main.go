@@ -45,14 +45,13 @@ func Main() int {
 	if err != nil {
 		return abort("%v", err)
 	}
-	base := cfg.NetspocDir
-	policyDir, err := filepath.EvalSymlinks(path.Join(base, "current"))
+	policies := path.Join(cfg.BaseDir, "policies")
+	policyDir, err := filepath.EvalSymlinks(path.Join(policies, "current"))
 	if err != nil {
 		return abort("Can't get 'current' policy directory: %v", err)
 	}
 	policy := filepath.Base(policyDir)
 	codeDir := path.Join(policyDir, "code")
-	statusDir := cfg.StatusDir
 
 	// Ignore ipv6 file, if ipv4 file already has been processed.
 	seen := make(map[string]bool)
@@ -72,7 +71,7 @@ func Main() int {
 			}
 			if !seen[device] {
 				seen[device] = true
-				check(device, statusDir, base, policy)
+				check(cfg, device, policies, policy)
 			}
 			return nil
 		})
@@ -82,8 +81,8 @@ func Main() int {
 	return 0
 }
 
-func check(device, statusDir, base, policy string) {
-	v := status.Read(statusDir, device)
+func check(cfg *program.Config, device, policies, policy string) {
+	v := status.Read(cfg, device)
 
 	devicePolicy := ""
 	approveTime := int64(0)
@@ -118,8 +117,8 @@ func check(device, statusDir, base, policy string) {
 	// Compare Netspoc code of device policy with Netspoc code of current policy.
 	for _, dir := range []string{"code", "code/ipv6", "code/ipv4"} {
 		for _, ext := range []string{"", ".raw"} {
-			p1 := path.Join(base, devicePolicy, dir, device+ext)
-			p2 := path.Join(base, policy, dir, device+ext)
+			p1 := path.Join(policies, devicePolicy, dir, device+ext)
+			p2 := path.Join(policies, policy, dir, device+ext)
 			d1 := readFile(p1)
 			d2, _ := os.ReadFile(p2)
 			if !slices.Equal(d1, d2) {

@@ -17,7 +17,7 @@ func (c *Config) GetUserPass(hostName string) (string, string, error) {
 		}
 		return c.User, c.Password, err
 	}
-	return c.getAAAPassword(hostName)
+	return c.getSystemPassword(hostName)
 }
 
 // Read password from user.
@@ -27,7 +27,7 @@ func (c *Config) askPassword() (string, error) {
 	return string(pass), err
 }
 
-// Format of aaa_credentials file
+// Format of credentials file
 // - multiple lines
 // - three fields, separated by whitespace: pattern username password
 // - If current device name matches pattern, then return username and password.
@@ -36,11 +36,8 @@ func (c *Config) askPassword() (string, error) {
 //   - ? matches one character
 //
 // - First matching line is taken.
-func (c *Config) getAAAPassword(name string) (string, string, error) {
-	file := c.aaaCredentials
-	if file == "" {
-		return "", "", fmt.Errorf("Must configure attribute 'aaa_credentials'")
-	}
+func (c *Config) getSystemPassword(name string) (string, string, error) {
+	file := path.Join(c.BaseDir, "credentials")
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return "", "", fmt.Errorf("Can't %v", err)

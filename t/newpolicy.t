@@ -104,11 +104,10 @@ sub setup_netspoc {
     system "git clone --quiet $bare netspoc";
 
     # Create config file .netspoc-approve for newpolicy
-    mkdir('policydb');
+    mkdir('policies');
     mkdir('lock');
     write_file('.netspoc-approve', <<"END");
-netspocdir = $dir/policydb
-lockfiledir = $dir/lock
+basedir = $dir
 netspoc_git = file://$bare
 END
 }
@@ -149,8 +148,7 @@ fi
 exit \$status
 END
 
-    # Install sudo-newpolicy, that simply calls newpolicy.pl
-    # Use current perl interpreter.
+    # Install sudo-newpolicy, that simply calls newpolicy.pl.
     write_file("$dir/my-bin/sudo-newpolicy", <<"END");
 #!/bin/sh
 $^X $APPROVE_DIR/bin/newpolicy.pl
@@ -183,7 +181,7 @@ sub check_newpolicy {
 #        diag $line;
     }
     close $fh;
-    $got =~ s|\Q$dir/policydb/||;
+    $got =~ s|\Q$dir/policies/||;
     eq_or_diff($got, $expected, $title);
 }
 
@@ -195,14 +193,14 @@ network:n1 = { ip = 10.1.1.0/24; }
 END
 setup_bin($dir);
 
-system 'touch policydb/LOCK';
+system 'touch policies/LOCK';
 
 # Let newpolicy.pl wait.
 sysopen my $wait_fh, 'do-wait', O_RDONLY | O_CREAT;
 flock($wait_fh, LOCK_EX);
 my $fh1 = start_newpolicy();
 # Wait until netspoc files have been cloned.
-while(not -f 'policydb/next/src/.git/refs/heads/master') {
+while(not -f 'policies/next/src/.git/refs/heads/master') {
     usleep 1000;
 }
 
@@ -283,9 +281,9 @@ change_netspoc(<<'END');
 -- topology
 network:n1 = { ip = 10.1.1.0/24; }  # Changed
 END
-# Remove link in policydb and check if policy number is restored from
+# Remove link in policies and check if policy number is restored from
 # file src/POLICY.
-system 'rm policydb/current';
+system 'rm policies/current';
 
 $fh1 = start_newpolicy();
 

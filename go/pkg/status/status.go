@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/mytime"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 type action struct {
@@ -18,18 +19,18 @@ type status struct {
 	Compare action `json:"compare"`
 }
 
-func SetApprove(statusDir, device, policy string, failed bool) {
-	v := Read(statusDir, device)
+func SetApprove(cfg *program.Config, device, policy string, failed bool) {
+	v := Read(cfg, device)
 	result := "OK"
 	if failed {
 		result = "FAILED"
 	}
 	v.Approve = action{result, policy, mytime.Now().Unix()}
-	write(statusDir, device, v)
+	write(cfg, device, v)
 }
 
-func SetCompare(statusDir, device, policy string, changed bool) {
-	v := Read(statusDir, device)
+func SetCompare(cfg *program.Config, device, policy string, changed bool) {
+	v := Read(cfg, device)
 	result := ""
 	if !changed {
 		result = "UPTODATE"
@@ -42,18 +43,20 @@ func SetCompare(statusDir, device, policy string, changed bool) {
 		return
 	}
 	v.Compare = action{result, policy, mytime.Now().Unix()}
-	write(statusDir, device, v)
+	write(cfg, device, v)
 }
 
-func Read(statusDir, device string) status {
-	fname := path.Join(statusDir, device)
+func Read(cfg *program.Config, device string) status {
+	fname := path.Join(cfg.BaseDir, "status", device)
 	data, _ := os.ReadFile(fname)
 	var v status
 	json.Unmarshal(data, &v)
 	return v
 }
 
-func write(statusDir, device string, v status) {
+func write(cfg *program.Config, device string, v status) {
+	statusDir := path.Join(cfg.BaseDir, "status")
+	os.Mkdir(statusDir, 0755)
 	fname := path.Join(statusDir, device)
 	data, _ := json.Marshal(v)
 	if err := os.WriteFile(fname, data, 0644); err != nil {

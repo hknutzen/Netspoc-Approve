@@ -80,10 +80,10 @@ Enter Password:<!>
 Enter Password:<!>
 =NETSPOC=NONE
 =ERROR=
-FAILED, details in netspoc/p1/log/router.compare
+FAILED, details in policies/p1/log/router.compare
 =OUTPUT=
 ERROR>>> Authentication failed
---netspoc/p1/log/router.compare
+--policies/p1/log/router.compare
 ERROR>>> Authentication failed
 =END=
 
@@ -96,10 +96,10 @@ Enter Password:<!>
 Enter Password:<!>
 =NETSPOC=NONE
 =ERROR=
-FAILED, details in netspoc/p1/log/router.drc
+FAILED, details in policies/p1/log/router.drc
 =OUTPUT=
 ERROR>>> Authentication failed
---netspoc/p1/log/router.drc
+--policies/p1/log/router.drc
 ERROR>>> Authentication failed
 --status/router
 {"approve":{"result":"FAILED","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
@@ -116,7 +116,7 @@ Enter Password:<!>
 =ERROR=NONE
 =OUTPUT=
 router:ERROR>>> Authentication failed
---netspoc/p1/log/router.drc
+--policies/p1/log/router.drc
 ERROR>>> Authentication failed
 --status/router
 {"approve":{"result":"FAILED","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
@@ -185,7 +185,7 @@ END
 =NETSPOC=
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =OUTPUT=
---netspoc/p1/log/router.drc
+--policies/p1/log/router.drc
 Requesting device config
 Got device config
 Parsed device config
@@ -208,7 +208,7 @@ END
 =NETSPOC=
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =OUTPUT=
---netspoc/p1/log/router.compare
+--policies/p1/log/router.compare
 Requesting device config
 Got device config
 Parsed device config
@@ -291,14 +291,14 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =NETSPOC=
 ip route 10.20.0.0 255.255.0.0 10.1.2.99
 =WARNING=
-OK, details in netspoc/p1/log/router.compare
+OK, details in policies/p1/log/router.compare
 =OUTPUT=
---netspoc/p1/log/router.compare
+--policies/p1/log/router.compare
 Requesting device config
 Got device config
 Parsed device config
 comp: *** device changed ***
---netspoc/p1/log/router.cmp
+--policies/p1/log/router.cmp
 no ip route 10.20.0.0 255.255.0.0 10.1.2.3\N ip route 10.20.0.0 255.255.0.0 10.1.2.99
 --status/router
 {"approve":{"result":"","policy":"","time":0},"compare":{"result":"DIFF","policy":"p1","time":1727626790}}
@@ -316,7 +316,7 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.99
 =SETUP=
 echo '{"compare":{"result":"DIFF","policy":"p0","time":123}}' > status/router
 =WARNING=
-OK, details in netspoc/p1/log/router.compare
+OK, details in policies/p1/log/router.compare
 =OUTPUT=
 --status/router
 {"compare":{"result":"DIFF","policy":"p0","time":123}}
@@ -335,7 +335,7 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.99
 =SETUP=
 echo '{"approve":{"time":999},"compare":{"result":"DIFF","policy":"p0","time":123}}' > status/router
 =WARNING=
-OK, details in netspoc/p1/log/router.compare
+OK, details in policies/p1/log/router.compare
 =OUTPUT=
 --status/router
 {"approve":{"result":"","policy":"","time":999},"compare":{"result":"DIFF","policy":"p1","time":1727626790}}
@@ -710,9 +710,9 @@ WARNING: Route already exists
 =NETSPOC=
 ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =WARNING=
-OK, details in netspoc/p1/log/router.drc
+OK, details in policies/p1/log/router.drc
 =OUTPUT=
---netspoc/p1/log/router.drc
+--policies/p1/log/router.drc
 Requesting device config
 Got device config
 Parsed device config
@@ -857,14 +857,14 @@ ERROR>>> No matching entry found in credentials
 =END=
 
 ############################################################
-=TITLE=Missing attribute aaa_credentials
+=TITLE=Missing credentials file
 =SCENARIO=[[std_scenario]]
 =NETSPOC=
 ip route 10.0.0.0 255.0.0.0 10.11.22.33
 =SETUP=
-sed -i 's/^aaa_credentials.*$//' .netspoc-approve
+rm credentials
 =ERROR=
-ERROR>>> Must configure attribute 'aaa_credentials'
+ERROR>>> Can't open credentials: no such file or directory
 =END=
 
 ############################################################
@@ -909,9 +909,9 @@ ip route 10.0.0.0 255.0.0.0 10.11.22.33
 =SETUP=
 rm credentials
 =ERROR=
-FAILED, details in netspoc/p1/log/router.compare
+FAILED, details in policies/p1/log/router.compare
 =OUTPUT=
---netspoc/p1/log/router.compare
+--policies/p1/log/router.compare
 ERROR>>> Can't open credentials: no such file or directory
 --history/router
 2024 09 29 16:19:50 START: compare router
@@ -951,11 +951,11 @@ Warning: Permanently added '10.1.2.3' (RSA) to the list of known hosts.
 =SCENARIO=NONE
 =NETSPOC=NONE
 =ERROR=
-FAILED, details in netspoc/p1/log/router.compare
+FAILED, details in policies/p1/log/router.compare
 =SETUP=
 echo some_stuff > status/router
 =OUTPUT=
---netspoc/p1/log/router.compare
+--policies/p1/log/router.compare
 ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 --history/router
 2024 09 29 16:19:50 START: compare router
@@ -976,7 +976,7 @@ some_stuff
 =SETUP=
 echo some_stuff > status/router
 =OUTPUT=
---netspoc/p1/log/router.compare
+--policies/p1/log/router.compare
 ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 --history/router
 2024 09 29 16:19:50 START: --brief compare router
@@ -997,7 +997,7 @@ some_stuff
 =SETUP=
 echo some_stuff > status/router
 =OUTPUT=
---netspoc/p1/log/router.drc
+--policies/p1/log/router.drc
 ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 --history/router
 2024 09 29 16:19:50 START: --brief approve router
@@ -1015,7 +1015,7 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 =SETUP=
 sed -i 's/^historydir.*$//' .netspoc-approve
 =OUTPUT=
---netspoc/p1/log/router.compare
+--policies/p1/log/router.compare
 Requesting device config
 Got device config
 Parsed device config

@@ -58,11 +58,9 @@ Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
 --credentials
 * adm adm-secret
 --.netspoc-approve
-netspocdir = .
-lockfiledir = .
+basedir = .
 checkbanner = NetSPoC
 systemuser = none
-aaa_credentials = credentials
 timeout = 1
 --code/router
 ip route 10.0.0.0 255.0.0.0 10.11.22.33

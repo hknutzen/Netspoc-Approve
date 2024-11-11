@@ -225,9 +225,11 @@ func (s *state) loadSpocFile(fname string) (deviceconf.Config, error) {
 }
 
 // Set lock for exclusive approval.
-func SetLock(fname, dir string) (*os.File, error) {
-	lockFile := path.Join(dir, path.Base(fname))
-	fh, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDONLY, 0666)
+func SetLock(fname string, cfg *program.Config) (*os.File, error) {
+	lockDir := path.Join(cfg.BaseDir, "lock")
+	os.Mkdir(lockDir, 0755)
+	lockFile := path.Join(lockDir, path.Base(fname))
+	fh, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
 	}

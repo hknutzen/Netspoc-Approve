@@ -82,9 +82,9 @@ Error: No config file found in [.netspoc-approve /usr/local/etc/netspoc-approve 
 =SCENARIO=NONE
 =NETSPOC=NONE
 =SETUP=
-rm netspoc/current
+rm policies/current
 =ERROR=
-Error: Can't get 'current' policy directory: lstat netspoc/current: no such file or directory
+Error: Can't get 'current' policy directory: lstat policies/current: no such file or directory
 =END=
 
 ############################################################
@@ -93,7 +93,7 @@ Error: Can't get 'current' policy directory: lstat netspoc/current: no such file
 =SCENARIO=NONE
 =NETSPOC=NONE
 =SETUP=
-rm netspoc/p1/code/router
+rm policies/p1/code/router
 =ERROR=
 Error: unknown device "router"
 =END=
@@ -104,9 +104,9 @@ Error: unknown device "router"
 =SCENARIO=NONE
 =NETSPOC=NONE
 =SETUP=
-rmdir LOCK
+chmod a-rwx lock
 =ERROR=
-Error: open LOCK/router: no such file or directory
+Error: open lock/router: permission denied
 =END=
 
 ############################################################
@@ -116,8 +116,9 @@ Error: open LOCK/router: no such file or directory
 =NETSPOC=NONE
 =SETUP=
 rmdir history
+touch history
 =ERROR=
-Error: can't open history/router: no such file or directory
+Error: can't open history/router: not a directory
 =END=
 
 ############################################################
@@ -126,11 +127,11 @@ Error: can't open history/router: no such file or directory
 =SCENARIO=NONE
 =NETSPOC=NONE
 =ERROR=
-FAILED, details in netspoc/p1/log/router.compare
+FAILED, details in policies/p1/log/router.compare
 =OUTPUT=
-ERROR>>> Unexpected model "DO-APPROVE" in file netspoc/p1/code/router.info
---netspoc/p1/log/router.compare
-ERROR>>> Unexpected model "DO-APPROVE" in file netspoc/p1/code/router.info
+ERROR>>> Unexpected model "DO-APPROVE" in file policies/p1/code/router.info
+--policies/p1/log/router.compare
+ERROR>>> Unexpected model "DO-APPROVE" in file policies/p1/code/router.info
 =END=
 
 ############################################################
@@ -139,9 +140,9 @@ ERROR>>> Unexpected model "DO-APPROVE" in file netspoc/p1/code/router.info
 =SCENARIO=NONE
 =NETSPOC=NONE
 =SETUP=
-mkdir -p netspoc/p1/log/router.compare.1727626790
-touch netspoc/p1/log/router.compare
-chmod a-r netspoc/p1/log/router.compare
+mkdir -p policies/p1/log/router.compare.1727626790
+touch policies/p1/log/router.compare
+chmod a-r policies/p1/log/router.compare
 =ERROR=
-Error: can't open netspoc/p1/log/router.compare: permission denied
+Error: can't open policies/p1/log/router.compare: permission denied
 =END=

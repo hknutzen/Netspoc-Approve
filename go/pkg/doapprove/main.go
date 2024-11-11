@@ -47,8 +47,8 @@ func Main() int {
 		return abort("%v", err)
 	}
 	// Get directory of current policy.
-	base := cfg.NetspocDir
-	dir, err := filepath.EvalSymlinks(path.Join(base, "current"))
+	policies := path.Join(cfg.BaseDir, "policies")
+	dir, err := filepath.EvalSymlinks(path.Join(policies, "current"))
 	if err != nil {
 		return abort("Can't get 'current' policy directory: %v", err)
 	}
@@ -73,7 +73,7 @@ func Main() int {
 		fs.Usage()
 		return 1
 	}
-	lockFH, err := device.SetLock(devName, cfg.LockfileDir)
+	lockFH, err := device.SetLock(devName, cfg)
 	if lockFH != nil {
 		defer lockFH.Close()
 	}
@@ -123,14 +123,12 @@ func Main() int {
 	}
 
 	// Update status file.
-	if dir := cfg.StatusDir; dir != "" {
-		if isCompare {
-			if !errors {
-				status.SetCompare(dir, devName, policy, changed)
-			}
-		} else {
-			status.SetApprove(dir, devName, policy, failed)
+	if isCompare {
+		if !errors {
+			status.SetCompare(cfg, devName, policy, changed)
 		}
+	} else {
+		status.SetApprove(cfg, devName, policy, failed)
 	}
 
 	okMsg := "OK"
@@ -151,22 +149,19 @@ func Main() int {
 }
 
 func openHistoryLog(cfg *program.Config, devName string) (*os.File, error) {
-	if dir := cfg.HistoryDir; dir != "" {
-		fname := path.Join(dir, devName)
-		fh, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return nil, err
-		}
-		return fh, nil
+	historyDir := path.Join(cfg.BaseDir, "history")
+	os.MkdirAll(historyDir, 0755)
+	fname := path.Join(historyDir, devName)
+	fh, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+	return fh, nil
 }
 
 func logHistory(fh *os.File, args ...any) {
-	if fh != nil {
-		prefix := mytime.Now().Format("2006 01 02 15:04:05")
-		fmt.Fprintln(fh, slices.Concat([]any{prefix}, args)...)
-	}
+	prefix := mytime.Now().Format("2006 01 02 15:04:05")
+	fmt.Fprintln(fh, slices.Concat([]any{prefix}, args)...)
 }
 
 func fileExists(path string) bool {
