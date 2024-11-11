@@ -18,7 +18,7 @@ bin/drc3.pl
 bin/get-netspoc-approve-conf
 bin/missing-approve
 bin/newpolicy
-bin/newpolicy.pl
+bin/newpolicy.sh
 bin/start-jobs
 bin/sudo-newpolicy
 dist.ini

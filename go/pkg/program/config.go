@@ -16,24 +16,19 @@ var defaultVals = map[string]string{
 	"timeout":       "60",
 	"login_timeout": "3",
 	"keep_history":  "365", // delete history older than this (in days)
-	"compress_at":   "7",   // compress netspocdir after that many days
+	"compress_at":   "7",   // compress 'policies' directory after that many days
 }
 
 type Config struct {
-	BaseDir        string
-	NetspocDir     string
-	LockfileDir    string
-	HistoryDir     string
-	StatusDir      string
-	aaaCredentials string
-	netspocGit     string
-	CheckBanner    *regexp.Regexp
-	systemUser     string
-	ServerIPList   []netip.Addr
-	Timeout        int
-	LoginTimeout   int
-	keepHistory    int
-	compressAt     int
+	BaseDir      string
+	netspocGit   string
+	CheckBanner  *regexp.Regexp
+	systemUser   string
+	ServerIPList []netip.Addr
+	Timeout      int
+	LoginTimeout int
+	keepHistory  int
+	compressAt   int
 	// Is only set by command line option -u.
 	User     string
 	Password string
@@ -106,23 +101,13 @@ func LoadConfig() (*Config, error) {
 		switch key {
 		case "basedir":
 			c.BaseDir = val
-		case "netspocdir":
-			c.NetspocDir = val
-		case "lockfiledir":
-			c.LockfileDir = val
 		case "netspoc_git":
 			c.netspocGit = val
-		case "historydir":
-			c.HistoryDir = val
-		case "statusdir":
-			c.StatusDir = val
 		case "checkbanner":
 			c.CheckBanner, err = regexp.Compile(val)
 			if err != nil {
 				err = fmt.Errorf("Invalid regexp in '%s' of %s: %v", key, file, err)
 			}
-		case "aaa_credentials":
-			c.aaaCredentials = val
 		case "systemuser":
 			c.systemUser = val
 		case "timeout":
@@ -166,23 +151,8 @@ func LoadConfig() (*Config, error) {
 			}
 		}
 	}
-	if c.BaseDir != "" {
-		set := func(k, v string) {
-			if !seen[k] {
-				seen[k] = true
-				insert(k, path.Join(c.BaseDir, v))
-			}
-		}
-		set("netspocdir", "policies")
-		set("lockfiledir", "lock")
-		set("historydir", "history")
-		set("statusdir", "status")
-		set("aaa_credentials", "credentials")
-	}
-	for _, k := range []string{"netspocdir", "lockfiledir"} {
-		if !seen[k] {
-			return nil, fmt.Errorf("Missing '%s' in %s", k, file)
-		}
+	if c.BaseDir == "" {
+		return nil, fmt.Errorf("Missing 'basedir' in %s", file)
 	}
 	return &c, nil
 }
@@ -191,23 +161,13 @@ func (c *Config) GetVal(key string) string {
 	switch key {
 	case "basedir":
 		return c.BaseDir
-	case "netspocdir":
-		return c.NetspocDir
-	case "lockfiledir":
-		return c.LockfileDir
 	case "netspoc_git":
 		return c.netspocGit
-	case "historydir":
-		return c.HistoryDir
-	case "statusdir":
-		return c.StatusDir
 	case "checkbanner":
 		if re := c.CheckBanner; re != nil {
 			return re.String()
 		}
 		return ""
-	case "aaa_credentials":
-		return c.aaaCredentials
 	case "systemuser":
 		return c.systemUser
 	case "server_ip_list":

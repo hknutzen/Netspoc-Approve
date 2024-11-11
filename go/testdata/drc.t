@@ -115,9 +115,9 @@ Error: Can't open .netspoc-approve: permission denied
 =SCENARIO=NONE
 =NETSPOC=NONE
 =SETUP=
-rmdir LOCK
+mkdir -p lock/router
 =ERROR=
-Error: open LOCK/router: no such file or directory
+Error: open lock/router: is a directory
 =END=
 
 ############################################################

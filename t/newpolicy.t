@@ -104,11 +104,10 @@ sub setup_netspoc {
     system "git clone --quiet $bare netspoc";
 
     # Create config file .netspoc-approve for newpolicy
-    mkdir('policydb');
+    mkdir('policies');
     mkdir('lock');
     write_file('.netspoc-approve', <<"END");
-netspocdir = $dir/policydb
-lockfiledir = $dir/lock
+basedir = $dir
 netspoc_git = file://$bare
 END
 }
@@ -149,11 +148,10 @@ fi
 exit \$status
 END
 
-    # Install sudo-newpolicy, that simply calls newpolicy.pl
-    # Use current perl interpreter.
+    # Install sudo-newpolicy, that simply calls newpolicy.sh.
     write_file("$dir/my-bin/sudo-newpolicy", <<"END");
 #!/bin/sh
-$^X $APPROVE_DIR/bin/newpolicy.pl
+$APPROVE_DIR/bin/newpolicy.sh
 END
 
     system "chmod a+x $dir/my-bin/*";
@@ -183,7 +181,7 @@ sub check_newpolicy {
 #        diag $line;
     }
     close $fh;
-    $got =~ s|\Q$dir/policydb/||;
+    $got =~ s|\Q$dir/policies/||;
     eq_or_diff($got, $expected, $title);
 }
 
@@ -195,14 +193,14 @@ network:n1 = { ip = 10.1.1.0/24; }
 END
 setup_bin($dir);
 
-system 'touch policydb/LOCK';
+system 'touch policies/LOCK';
 
 # Let newpolicy.pl wait.
 sysopen my $wait_fh, 'do-wait', O_RDONLY | O_CREAT;
 flock($wait_fh, LOCK_EX);
 my $fh1 = start_newpolicy();
 # Wait until netspoc files have been cloned.
-while(not -f 'policydb/next/src/.git/refs/heads/master') {
+while(not -f 'policies/next/src/.git/refs/heads/master') {
     usleep 1000;
 }
 
@@ -281,17 +279,53 @@ END
 
 change_netspoc(<<'END');
 -- topology
-network:n1 = { ip = 10.1.1.0/24; }  # Changed
+network:n1 = { ip = 10.1.1.0/24; }  # Change1
 END
-# Remove link in policydb and check if policy number is restored from
+# Remove link in policies and check if policy number is restored from
 # file src/POLICY.
-system 'rm policydb/current';
+system 'rm policies/current';
 
 $fh1 = start_newpolicy();
 
-check_newpolicy($fh1, <<'END', 'Restore policy number');
+check_newpolicy($fh1, <<'END', 'Restore policy number from file');
 Processing current changeset
 Finished 'p4'
+END
+
+# Take larger value from POLICY file
+change_netspoc(<<'END');
+-- topology
+network:n1 = { ip = 10.1.1.0/24; }  # Change2
+END
+
+change_netspoc(<<'END');
+-- POLICY
+# p123
+END
+
+$fh1 = start_newpolicy();
+
+check_newpolicy($fh1, <<'END', 'Take larger policy number from file');
+Processing current changeset
+Finished 'p124'
+END
+
+# Take larger value from symbolic link
+change_netspoc(<<'END');
+-- topology
+network:n1 = { ip = 10.1.1.0/24; }  # Change3
+END
+
+change_netspoc(<<'END');
+-- POLICY
+# p9
+END
+
+$fh1 = start_newpolicy();
+
+check_newpolicy($fh1, <<'END', 'Take larger policy number from symlink');
+Processing current changeset
+Finished 'p125'
 END
 
 ############################################################

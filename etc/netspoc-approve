@@ -6,16 +6,26 @@
 # Only the most specific file is used.
 # Syntax: key = value
 
-# Directory, where generated device configuration is searched.
-# The directory is assumed to have this content
-# - current, a symbilc link to a subdirectory named pnnnn
-# - pnnnn, a subdirectory
-# - pnnnn/code, contains one file for each device
-netspocdir  = /home/diamonds/netspoc
+# Location of base directory with different subdirectories and files:
+# - policies directory
+#   Has different subdirectories with snapshots of Netspoc configuration
+#   and generated device configurations.
+#   The directory is assumed to have this content
+#   - current, a symbolic link to a subdirectory named p<nnnn>
+#   - p<nnnn>, a subdirectory
+#   - p<nnnn>/code, contains one file for each device
+# - lock directory
+#   Has lock files which prevent concurrent access to a device.
+# - status directory
+#   Has status files showing the approve and compare status of each device.
+# - history directory
+#   Logs approve and compare operations for each device.
+# - credentials file
+#   Password file for systemuser.
+basedir = /home/diamonds
 
-# Directory where lockfiles are created which prevent
-# concurrent access to a device.
-lockfiledir = /home/diamonds/lock
+# Git repository used to check out Netspoc files.
+netspoc_git = git@localhost:netspoc.git
 
 # Optional
 
@@ -26,33 +36,23 @@ lockfiledir = /home/diamonds/lock
 checkbanner = NetSPoC
 
 # If value is set, call newpolicy and approve with "sudo" as this user.
-# In this case, read the password from file given in aaa_credentials.
-systemuser  = diamonds
-
-# Password file for systemuser.
-# Found credentials are used to automatically login.
-aaa_credentials = /home/diamonds/.aaa_credentials
-
-# Create a status file for each approved or compared device.
-statusdir   = /home/diamonds/status
-
-# Create a log file for each approved or compared device.
-historydir  = /home/diamonds/history
+# In this case, read the password from file given in credentials.
+systemuser = diamonds
 
 # Space delimited list of IP addresses of this server.
 # Each address is compared with value of policy_distribution_point from Netspoc
 # to decide, if a proxy server must be used to reach a destination.
 #server_ip_list = 10.1.2.3, 10.3.4.5, 2001:db8::3
 
-# Timeout in seconds during established session
+# Timeout in seconds during established session.
 #timeout = 500
 
 # Timeout in seconds when establishing new session to device.
 #login_timeout = 10
 
-# Delete policy directories in netspocdir, historydir, statusdir
+# Delete old files and directories in 'policies', 'status', 'history', 'lock'
 # after this many days.
 # keep_history = 365
 
-# Compress files in netspocdir after this many days.
+# Compress files in 'policies' directory after this many days.
 # compress_at = 4

@@ -1,9 +1,9 @@
 #!/bin/sh
-# Wrapper script for newpolicy.pl
-# Calls newpolicy.pl via "sudo" as "systemuser".
+# Wrapper script for newpolicy.sh
+# Calls newpolicy.sh via "sudo" as "systemuser".
 
 USER=$(get-netspoc-approve-conf systemuser)
-CMD=/usr/local/bin/newpolicy.pl
+CMD=/usr/local/bin/newpolicy.sh
 
 # sudo needs to preserve environment variable
 # - GIT_PROTOCOL

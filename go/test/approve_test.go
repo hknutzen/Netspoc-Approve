@@ -104,7 +104,7 @@ func runTest(t *testing.T, d descr, devType string) {
 	defer os.Chdir(prevDir)
 	os.Chdir(workDir)
 
-	var netspocDir, codeDir string
+	var codeDir string
 
 	// Call command "drc" or "do-approve".
 	// Initialize os.Args, add default options.
@@ -112,15 +112,14 @@ func runTest(t *testing.T, d descr, devType string) {
 	if d.Scenario == "" || !d.DoApprove {
 		mainFunc = drc.Main
 		os.Args = []string{"drc", "-q"}
-		netspocDir = workDir
 		codeDir = "code"
 	} else {
 		mainFunc = doapprove.Main
 		os.Args = []string{"do-approve"}
-		netspocDir = path.Join(workDir, "netspoc")
-		p1Dir := path.Join(netspocDir, "p1")
+		policiesDir := path.Join(workDir, "policies")
+		p1Dir := path.Join(policiesDir, "p1")
 		os.MkdirAll(p1Dir, 0755)
-		os.Symlink("p1", path.Join(netspocDir, "current"))
+		os.Symlink("p1", path.Join(policiesDir, "current"))
 		codeDir = path.Join(p1Dir, "code")
 	}
 	// Add more options.
@@ -172,32 +171,21 @@ func runTest(t *testing.T, d descr, devType string) {
 		}
 		// Prepare credentials file. Declare user as system user.
 		credentialsFile := path.Join(workDir, "credentials")
-		id := "admin"
-		line := "* " + id + " secret\n"
-		if err := os.WriteFile(credentialsFile, []byte(line), 0644); err != nil {
-			t.Fatal(err)
-		}
+		line := "* admin secret\n"
+		os.WriteFile(credentialsFile, []byte(line), 0644)
+		// Prepare subdirectories.
+		os.Mkdir(path.Join(workDir, "lock"), 0755)
+		os.Mkdir(path.Join(workDir, "status"), 0755)
+		os.Mkdir(path.Join(workDir, "history"), 0755)
 		// Prepare config file.
-		addDir := func(dir string) string {
-			result := path.Join(workDir, dir)
-			if err := os.Mkdir(result, 0755); err != nil {
-				t.Fatal(err)
-			}
-			return result
-		}
 		configFile := ".netspoc-approve"
 		config := fmt.Sprintf(`
-netspocdir = %s
-lockfiledir = %s
-historydir = %s
-statusdir = %s
+basedir = %s
 checkbanner = NetSPoC
-systemuser = %s
-aaa_credentials = %s
+systemuser = admin
 timeout = 1
 `,
-			netspocDir, addDir("LOCK"), addDir("history"), addDir("status"),
-			id, credentialsFile)
+			workDir)
 		if err := os.WriteFile(configFile, []byte(config), 0644); err != nil {
 			t.Fatal(err)
 		}

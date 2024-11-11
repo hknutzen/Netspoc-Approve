@@ -2,8 +2,7 @@
 ############################################################
 =TITLE=Missing argument
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 checkbanner = NetSPoC
 =ERROR=
 Usage: PROGRAM KEY
@@ -12,8 +11,7 @@ Usage: PROGRAM KEY
 ############################################################
 =TITLE=Read default value
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 =OUTPUT=
 60
 =OPTIONS=timeout
@@ -21,8 +19,7 @@ lockfiledir = /tmp
 ############################################################
 =TITLE=Read changed default value
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 timeout = 10
 =OUTPUT=
 10
@@ -31,8 +28,7 @@ timeout = 10
 ############################################################
 =TITLE=Duplicate option
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 timeout = 10
 timeout = 20
 =WARNING=
@@ -44,11 +40,10 @@ WARNING>>> Ignoring duplicate key 'timeout' in .netspoc-approve
 ############################################################
 =TITLE=Warn on invalid config lines
 =CONFIG=
-netspocdir = /tmp
 INVALID
 INVALID value
+basedir = /tmp
 INVALID =
-lockfiledir = /tmp
 KEY = VALUE
 checkbanner = NetSPoC
 timeout = 1
@@ -72,8 +67,7 @@ Error: Invalid regexp in 'checkbanner' of .netspoc-approve: error parsing regexp
 ############################################################
 =TITLE=Read empty checkbanner
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 =OUTPUT=
 
 =OPTIONS=checkbanner
@@ -89,8 +83,7 @@ Error: Expected IP address in 'server_ip_list' of .netspoc-approve: ParseAddr("1
 ############################################################
 =TITLE=Read empty server_ip_list
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 =OUTPUT=
 
 =OPTIONS=server_ip_list
@@ -98,10 +91,10 @@ lockfiledir = /tmp
 ############################################################
 =TITLE=More than one value
 =CONFIG=
-netspocdir = /tmp1 /tmp2
+basedir = /tmp1 /tmp2
 =ERROR=
-Error: Expected exactly one value for "netspocdir" in .netspoc-approve: [/tmp1 /tmp2]
-=OPTIONS=netspocdir
+Error: Expected exactly one value for "basedir" in .netspoc-approve: [/tmp1 /tmp2]
+=OPTIONS=basedir
 
 ############################################################
 =TITLE=Invalid timeout value
@@ -122,92 +115,32 @@ Error: Expected positive integer for 'timeout' in .netspoc-approve: -1
 ############################################################
 =TITLE=Missing required option
 =CONFIG=
-lockfiledir = /tmp
 checkbanner = NetSPoC
 =ERROR=
-Error: Missing 'netspocdir' in .netspoc-approve
+Error: Missing 'basedir' in .netspoc-approve
 =OPTIONS=checkbanner
 
 ############################################################
-=TITLE= Get netspocdir from basedir
+=TITLE=Read basedir
 =CONFIG=
 basedir = /tmp
 =OUTPUT=
-/tmp/policies
-=OPTIONS=netspocdir
-
-############################################################
-=TITLE= Don't overwrite given netspocdir from basedir
-=CONFIG=
-basedir = /tmp
-netspocdir = /other/netspoc
-=OUTPUT=
-/other/netspoc
-=OPTIONS=netspocdir
-
-############################################################
-=TITLE=Read netspocdir
-=CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
-=OUTPUT=
 /tmp
-=OPTIONS=netspocdir
-
-############################################################
-=TITLE=Read lockfiledir
-=CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
-=OUTPUT=
-/tmp
-=OPTIONS=lockfiledir
+=OPTIONS=basedir
 
 ############################################################
 =TITLE=Read netspoc_git
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 netspoc_git = /opt/git/netspoc.git
 =OUTPUT=
 /opt/git/netspoc.git
 =OPTIONS=netspoc_git
 
 ############################################################
-=TITLE=Read historydir
-=CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
-historydir = abc
-=OUTPUT=
-abc
-=OPTIONS=historydir
-
-############################################################
-=TITLE=Read statusdir
-=CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
-statusdir = abc-345
-=OUTPUT=
-abc-345
-=OPTIONS=statusdir
-
-############################################################
-=TITLE=Read aaa_credentials
-=CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
-aaa_credentials = .file
-=OUTPUT=
-.file
-=OPTIONS=aaa_credentials
-
-############################################################
 =TITLE=Read systemuser
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 systemuser = netspoc_user
 =OUTPUT=
 netspoc_user
@@ -216,8 +149,7 @@ netspoc_user
 ############################################################
 =TITLE=Read server_ip_list
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 server_ip_list = 10.1.2.3 10.4.5.6 dead::beef
 =OUTPUT=
 10.1.2.3 10.4.5.6 dead::beef
@@ -226,8 +158,7 @@ server_ip_list = 10.1.2.3 10.4.5.6 dead::beef
 ############################################################
 =TITLE=Read login_timeout
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 login_timeout = 3
 =OUTPUT=
 3
@@ -236,8 +167,7 @@ login_timeout = 3
 ############################################################
 =TITLE=Read keep_history
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 keep_history = 30
 =OUTPUT=
 30
@@ -246,8 +176,7 @@ keep_history = 30
 ############################################################
 =TITLE=Read compress_at
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 compress_at = 7
 =OUTPUT=
 7
@@ -256,8 +185,7 @@ compress_at = 7
 ############################################################
 =TITLE=Read unknown key
 =CONFIG=
-netspocdir = /tmp
-lockfiledir = /tmp
+basedir = /tmp
 =OUTPUT=
 
 =OPTIONS=UNKNOWN

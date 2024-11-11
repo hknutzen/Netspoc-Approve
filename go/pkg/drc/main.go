@@ -59,13 +59,11 @@ func Main() int {
 		}
 		cfg.User = *user
 		fname := args[0]
-		lockFH, err := device.SetLock(fname, cfg.LockfileDir)
-		if lockFH != nil {
-			defer lockFH.Close()
-		}
+		lockFH, err := device.SetLock(fname, cfg)
 		if err != nil {
 			return abort("%v", err)
 		}
+		defer lockFH.Close()
 		return device.ApproveOrCompare(
 			*isCompare, fname, cfg, *logDir, *logFile, *quiet)
 	case 2:

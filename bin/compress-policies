@@ -11,10 +11,11 @@ set -e
 DAYS=$(get-netspoc-approve-conf compress_at)
 [ -n "$DAYS" ] && [ "$DAYS" -ge 0 ] || DAYS=4
 
-# Get netspoc directory from config file.
-DIR=$(get-netspoc-approve-conf netspocdir)
+# Get base directory from config file.
+BASE=$(get-netspoc-approve-conf basedir)
 
 # Find toplevel directories, created DAYS days ago.
+DIR="$BASE/policies"
 find $DIR -maxdepth 1 -mindepth 1 -type d -daystart -ctime $DAYS -print0 |
 # Find files inside these directories,
 # but ignore toplevel files, i.e. "compile.log".

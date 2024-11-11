@@ -25,7 +25,8 @@
 #
 
 PROG=sudo-newpolicy
-POLICYDB=$(get-netspoc-approve-conf netspocdir)
+BASE=$(get-netspoc-approve-conf basedir)
+POLICYDB="$BASE/policies"
 LOCK=$POLICYDB/LOCK
 CURRENT=$POLICYDB/current
 NEXT=$POLICYDB/next

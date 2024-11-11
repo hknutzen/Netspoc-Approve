@@ -25,7 +25,7 @@ my %WriteMakefileArgs = (
     "bin/get-netspoc-approve-conf",
     "bin/missing-approve",
     "bin/newpolicy",
-    "bin/newpolicy.pl",
+    "bin/newpolicy.sh",
     "bin/start-jobs",
     "bin/sudo-newpolicy"
   ],
@@ -45,7 +45,7 @@ my %WriteMakefileArgs = (
     "strict" => 0,
     "warnings" => 0
   },
-  "VERSION" => "3.036",
+  "VERSION" => "3.037",
   "test" => {
     "TESTS" => "t/*.t"
   }
