@@ -1,12 +1,13 @@
 {{$NEXT}}
 
  - Config option 'basedir' is mandatory now.
-   Change your directory structure to this values befor upgrading:
+   Change your directory structure to this values before upgrading:
    - netspocdir      => ${basedir}/policies,
    - lockfiledir     => ${basedir}/lock
    - historydir      => ${basedir}/history
    - statusdir       => ${basedir}/status
    - aaa_credentials => ${basedir}/credentials
+  - Migrated Perl script newpolicy.pl to shell script newpolicy.sh.
 
 3.036     2024-10-30 17:20:21+01:00 Europe/Berlin
 

@@ -148,10 +148,10 @@ fi
 exit \$status
 END
 
-    # Install sudo-newpolicy, that simply calls newpolicy.pl.
+    # Install sudo-newpolicy, that simply calls newpolicy.sh.
     write_file("$dir/my-bin/sudo-newpolicy", <<"END");
 #!/bin/sh
-$^X $APPROVE_DIR/bin/newpolicy.pl
+$APPROVE_DIR/bin/newpolicy.sh
 END
 
     system "chmod a+x $dir/my-bin/*";
@@ -279,7 +279,7 @@ END
 
 change_netspoc(<<'END');
 -- topology
-network:n1 = { ip = 10.1.1.0/24; }  # Changed
+network:n1 = { ip = 10.1.1.0/24; }  # Change1
 END
 # Remove link in policies and check if policy number is restored from
 # file src/POLICY.
@@ -287,9 +287,45 @@ system 'rm policies/current';
 
 $fh1 = start_newpolicy();
 
-check_newpolicy($fh1, <<'END', 'Restore policy number');
+check_newpolicy($fh1, <<'END', 'Restore policy number from file');
 Processing current changeset
 Finished 'p4'
+END
+
+# Take larger value from POLICY file
+change_netspoc(<<'END');
+-- topology
+network:n1 = { ip = 10.1.1.0/24; }  # Change2
+END
+
+change_netspoc(<<'END');
+-- POLICY
+# p123
+END
+
+$fh1 = start_newpolicy();
+
+check_newpolicy($fh1, <<'END', 'Take larger policy number from file');
+Processing current changeset
+Finished 'p124'
+END
+
+# Take larger value from symbolic link
+change_netspoc(<<'END');
+-- topology
+network:n1 = { ip = 10.1.1.0/24; }  # Change3
+END
+
+change_netspoc(<<'END');
+-- POLICY
+# p9
+END
+
+$fh1 = start_newpolicy();
+
+check_newpolicy($fh1, <<'END', 'Take larger policy number from symlink');
+Processing current changeset
+Finished 'p125'
 END
 
 ############################################################
