@@ -15,10 +15,7 @@ func Capture(std **os.File, f func()) string {
 
 	old := *std
 	*std = w
-	defer func() {
-		*std = old
-	}()
-
+	defer func() { *std = old }()
 	out := make(chan string)
 	go func() {
 		var buf bytes.Buffer

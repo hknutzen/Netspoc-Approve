@@ -24,8 +24,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-PROG=suid-newpolicy
-POLICYDB=$(get-netspoc-approve-conf netspocdir)
+PROG=sudo-newpolicy
+BASE=$(get-netspoc-approve-conf basedir)
+POLICYDB="$BASE/policies"
 LOCK=$POLICYDB/LOCK
 CURRENT=$POLICYDB/current
 NEXT=$POLICYDB/next

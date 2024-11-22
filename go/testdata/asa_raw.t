@@ -12,8 +12,8 @@ route inside 10.20.0.0 255.248.0.0 10.1.2.3
 --router.raw
 unexpected foo
 =ERROR=
-ERROR>>> While reading router.raw: Unexpected command:
->>unexpected foo<<
+ERROR>>> While reading file router.raw: Unexpected command:
+ERROR>>> >>unexpected foo<<
 =END=
 
 ############################################################
@@ -224,7 +224,7 @@ access-group inside_in in interface inside
 --router.raw
 access-group inside_in in interface inside
 =ERROR=
-ERROR>>> While reading router.raw: 'access-group inside_in in interface inside' references unknown 'access-list inside_in'
+ERROR>>> While reading file router.raw: 'access-group inside_in in interface inside' references unknown 'access-list inside_in'
 =END=
 
 ############################################################

@@ -15,41 +15,26 @@ my %WriteMakefileArgs = (
   "DISTNAME" => "Netspoc-Approve",
   "EXE_FILES" => [
     "bin/approve-all",
-    "bin/approve.pl",
     "bin/compare-all",
     "bin/compress-policies",
     "bin/delete-old-policies",
-    "bin/drc-asa",
-    "bin/drc-ios",
-    "bin/drc-linux",
-    "bin/drc-nsx",
-    "bin/drc-pan-os",
+    "bin/diamonds",
+    "bin/do-approve",
+    "bin/drc",
     "bin/drc3.pl",
     "bin/get-netspoc-approve-conf",
     "bin/missing-approve",
     "bin/newpolicy",
-    "bin/newpolicy.pl",
-    "bin/start-jobs"
+    "bin/newpolicy.sh",
+    "bin/start-jobs",
+    "bin/sudo-newpolicy"
   ],
   "LICENSE" => "gpl",
   "NAME" => "Netspoc::Approve",
-  "PREREQ_PM" => {
-    "Carp" => 0,
-    "Cwd" => 0,
-    "Exporter" => 0,
-    "Fcntl" => 0,
-    "File::Basename" => 0,
-    "Getopt::Long" => 0,
-    "IO::Handle" => 0,
-    "JSON" => 0,
-    "JSON::XS" => 0,
-    "NetAddr::IP::Util" => 0,
-    "POSIX" => 0,
-    "strict" => 0,
-    "warnings" => 0
-  },
+  "PREREQ_PM" => {},
   "TEST_REQUIRES" => {
-    "Expect" => 0,
+    "Cwd" => 0,
+    "Fcntl" => 0,
     "File::Path" => 0,
     "File::Spec::Functions" => 0,
     "File::Temp" => 0,
@@ -57,9 +42,10 @@ my %WriteMakefileArgs = (
     "Test::Differences" => 0,
     "Test::More" => 0,
     "Time::HiRes" => 0,
-    "lib" => 0
+    "strict" => 0,
+    "warnings" => 0
   },
-  "VERSION" => "3.032",
+  "VERSION" => "3.038",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -67,26 +53,15 @@ my %WriteMakefileArgs = (
 
 
 my %FallbackPrereqs = (
-  "Carp" => 0,
   "Cwd" => 0,
-  "Expect" => 0,
-  "Exporter" => 0,
   "Fcntl" => 0,
-  "File::Basename" => 0,
   "File::Path" => 0,
   "File::Spec::Functions" => 0,
   "File::Temp" => 0,
-  "Getopt::Long" => 0,
-  "IO::Handle" => 0,
   "IPC::Run3" => 0,
-  "JSON" => 0,
-  "JSON::XS" => 0,
-  "NetAddr::IP::Util" => 0,
-  "POSIX" => 0,
   "Test::Differences" => 0,
   "Test::More" => 0,
   "Time::HiRes" => 0,
-  "lib" => 0,
   "strict" => 0,
   "warnings" => 0
 );

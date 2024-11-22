@@ -1923,7 +1923,7 @@ action=set&type=config&
 ]]
 [[postfix]]
 =ERROR=
-ERROR>>> While reading router.raw: Must not use rule name starting with 'r<NUM>': r3-2-1
+ERROR>>> While reading file router.raw: Must not use rule name starting with 'r<NUM>': r3-2-1
 =END=
 
 ############################################################
@@ -2195,7 +2195,7 @@ ERROR>>> Unknown name 'vsys2' in VSYS of device configuration
 </devices></config>
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: XML syntax error on line 3: element <entry> closed by </devices>
+ERROR>>> While reading file device: XML syntax error on line 3: element <entry> closed by </devices>
 =END=
 
 ############################################################
@@ -2209,5 +2209,5 @@ ERROR>>> While reading device: XML syntax error on line 3: element <entry> close
 =NETSPOC=
 <"bad file"
 =ERROR=
-ERROR>>> While reading router: XML syntax error on line 1: expected element name after <
+ERROR>>> While reading file router: XML syntax error on line 1: expected element name after <
 =END=

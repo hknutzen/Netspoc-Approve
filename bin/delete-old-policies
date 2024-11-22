@@ -28,10 +28,9 @@ else
 fi
 
 # Delete toplevel directories and files, modified more than $DAYS days ago.
-for WHAT in netspocdir historydir statusdir lockfiledir ; do
-
-    # Get directory from config file
-    DIR=$(get-netspoc-approve-conf $WHAT)
+BASE=$(get-netspoc-approve-conf basedir)
+for SUB in policies history status lock ; do
+    DIR="$BASE/$SUB"
     if [ "$DIR" ]; then
         find $DIR -maxdepth 1 -mtime +$DAYS -exec rm -rf {} \;
     fi

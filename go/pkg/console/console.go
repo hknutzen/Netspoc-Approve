@@ -6,7 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 	expect "github.com/tailscale/goexpect"
 )
 
@@ -18,10 +20,10 @@ type Conn struct {
 	log          *os.File
 }
 
-func GetSSHConn(spocFile, user string, cfg *device.Config, logLogin *os.File) (
+func GetSSHConn(spocFile, user string, cfg *program.Config, logLogin *os.File) (
 	*Conn, error) {
 
-	ip, pdp, err := device.GetIPPDP(spocFile)
+	ip, pdp, err := codefiles.GetIPPDP(spocFile)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +49,7 @@ func GetSSHConn(spocFile, user string, cfg *device.Config, logLogin *os.File) (
 }
 
 // Check if ip is located on this server. Otherwise ip is used as proxy server.
-func isThisServer(ip string, cfg *device.Config) bool {
+func isThisServer(ip string, cfg *program.Config) bool {
 	// If ServerIPList isn't configured, never use a proxy server.
 	if len(cfg.ServerIPList) == 0 {
 		return true
@@ -79,18 +81,36 @@ func (c *Conn) Close() {
 
 // Wait for prompt.
 // Remove all "\r" characters in output for simplicity.
-func (c *Conn) expectLog(prompt *regexp.Regexp, t time.Duration) string {
+func (c *Conn) expectLog(prompt *regexp.Regexp, t time.Duration,
+) (string, error) {
 	out, _, err := c.con.Expect(prompt, t)
 	out = strings.ReplaceAll(out, "\r\n", "\n")
 	c.logString(out)
+	return out, err
+}
+
+func (c *Conn) WaitLogin(prompt string) string {
+	out, err := c.expectLog(regexp.MustCompile(prompt), c.ShortTimeout)
 	if err != nil {
-		device.Abort("while waiting for prompt '%s': %v", prompt, err)
+		errlog.Abort("while waiting for login prompt '%s': %v", prompt, err)
 	}
 	return out
 }
 
-func (c *Conn) ShortWait(re string) string {
-	return c.expectLog(regexp.MustCompile(re), c.ShortTimeout)
+func (c *Conn) WaitShort(prompt string) string {
+	out, err := c.expectLog(regexp.MustCompile(prompt), c.ShortTimeout)
+	if err != nil {
+		errlog.Abort("while waiting for prompt '%s': %v", prompt, err)
+	}
+	return out
+}
+
+func (c *Conn) waitPrompt(re *regexp.Regexp) string {
+	out, err := c.expectLog(re, c.Timeout)
+	if err != nil {
+		errlog.Abort("while waiting for prompt '%s': %v", re, err)
+	}
+	return out
 }
 
 func (c *Conn) TryPrompt() bool {
@@ -107,12 +127,12 @@ func (c *Conn) Send(cmd string) {
 
 func (c *Conn) IssueCmd(cmd, re string) string {
 	c.Send(cmd)
-	return c.expectLog(regexp.MustCompile(re), c.Timeout)
+	return c.waitPrompt(regexp.MustCompile(re))
 }
 
 func (c *Conn) SendCmd(cmd string) {
 	c.Send(cmd)
-	c.expectLog(c.promptRE, c.Timeout)
+	c.waitPrompt(c.promptRE)
 }
 
 func (c *Conn) GetCmdOutput(cmd string) string {
@@ -121,7 +141,7 @@ func (c *Conn) GetCmdOutput(cmd string) string {
 }
 
 func (c *Conn) GetOutput() string {
-	out := c.expectLog(c.promptRE, c.Timeout)
+	out := c.waitPrompt(c.promptRE)
 	out = c.StripStdPrompt(out)
 	return out
 }
@@ -133,7 +153,7 @@ func (c *Conn) SetStdPrompt(p *regexp.Regexp) {
 func (c *Conn) StripStdPrompt(s string) string {
 	loc := c.promptRE.FindStringIndex(s)
 	if loc == nil {
-		device.Abort("Missing prompt '%s' in response:\n'%v'", c.promptRE, s)
+		errlog.Abort("Missing prompt '%s' in response:\n'%v'", c.promptRE, s)
 	}
 	i := loc[0]
 	// Don't remove trailing "\n".
@@ -144,7 +164,7 @@ func (c *Conn) StripEcho(cmd, s string) string {
 	cShort := cmd
 	cmd += "\n"
 	if len(s) < len(cmd) || s[:len(cmd)] != cmd {
-		device.Abort("Got unexpected echo in response to '%s':\n%v", cShort, s)
+		errlog.Abort("Got unexpected echo in response to '%s':\n%v", cShort, s)
 	}
 	return s[len(cmd):]
 }

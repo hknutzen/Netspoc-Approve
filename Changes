@@ -1,3 +1,70 @@
+3.038     2024-11-22 13:41:49+01:00 Europe/Berlin
+
+ - Fix issue recognize prompt during login.
+   New ASA Software does not send leading CR character.
+   Removed required CR character for login prompt.
+
+3.037     2024-11-11 16:12:54+01:00 Europe/Berlin
+
+ - Config option 'basedir' is mandatory now.
+   Change your directory structure to this values before upgrading:
+   - netspocdir      => ${basedir}/policies,
+   - lockfiledir     => ${basedir}/lock
+   - historydir      => ${basedir}/history
+   - statusdir       => ${basedir}/status
+   - aaa_credentials => ${basedir}/credentials
+  - Migrated Perl script newpolicy.pl to shell script newpolicy.sh.
+
+3.036     2024-10-30 17:20:21+01:00 Europe/Berlin
+
+ - Fixed command 'newpolicy.pl' to be compatible with new config
+   option 'basedir'.
+ - Option 'basedir' will become mandatory in next version of this software
+   and not in this version as announced previously.
+
+3.035     2024-10-28 12:06:44+01:00 Europe/Berlin
+
+ - Added new config option 'basedir'. If this option is given,
+   default values are used for these old options:
+   - netspocdir      => ${basedir}/policies,
+   - lockfiledir     => ${basedir}/lock
+   - historydir      => ${basedir}/history
+   - statusdir       => ${basedir}/status
+   - aaa_credentials => ${basedir}/credentials
+   These old options will be no longer valid in next version of this software.
+ - Changed format of status file for command 'missing-approve' to JSON.
+ - Fixed URL for committing changes to device of type PAN-OS.
+   Previously the URL looked like
+   https://address/api/?key=xxx&https://address/api/?key=xxx&type=commit
+
+3.034     2024-10-04 10:26:33+02:00 Europe/Berlin
+
+ - For device of type ASA that has interface not known by Netspoc,
+   ACL of this interface is no longer removed during approve.
+ - Migrated program 'approve.pl' from Perl to Go as 'do-approve'.
+ - Migrated program 'missing-approve' from shell script to Go.
+ - Program 'diamonds' is no longer a manually installed executable
+   with SUID bit set, but a shell script calling 'sudo'.
+ - Program 'newpolicy' no longer calls 'suid-newpolicy' but 'sudo-newpolicy'
+   which is a shell script calling 'sudo'.
+ - Modified error message for failed login.
+   Option '--brief' of command 'do-approve' now only suppresses
+   messages about failed logins, but not other timeouts.
+ - Error message 'Authentication failed' is now also shown for ASA.
+   Previously a timeout message was shown.
+
+3.033     2024-09-06 10:31:32+02:00 Europe/Berlin
+
+ - Migrated program 'drc3.pl' from Perl to Go.
+   It is named 'drc' now.
+   'drc3.pl' is still available as symbolic link to 'drc'.
+   Programs 'drc-asa', 'drc-ios', 'drc-linux', 'drc-nsx', 'drc-pan-os'
+   have been removed.
+ - When running 'diamonds compare' or 'drc3.pl -C' and device has changed,
+   then changes are written to file '*.cmp'.
+ - Migrated program 'get-netspoc-approve-conf' from Perl to Go.
+ - This warning from ASA is ignored now: 'crypto map entry will be incomplete'.
+
 3.032     2024-08-14 11:55:20+02:00 Europe/Berlin
 
  - Fixed sorting of rules for NSX where rule references group

@@ -5,11 +5,11 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/pkg/diff/myers"
-	"golang.org/x/exp/slices"
 )
 
 type rulesPair struct {

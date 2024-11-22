@@ -5,14 +5,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
 // Check that non anchor commands from raw file are referenced by some
 // anchor and are referenced only once.
 var isReferenced map[*cmd]bool
 
-func (a *Config) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
+func (a *Config) MergeSpoc(d deviceconf.Config) deviceconf.Config {
 	b := d.(*Config)
 	lookup := a.lookup
 	for prefix := range b.lookup {
@@ -26,7 +27,7 @@ func (a *Config) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
 		for name, bl := range bMap {
 			switch prefix {
 			case "tunnel-group-map", "webvpn":
-				device.Abort("Command '%s' not supported in raw file", prefix)
+				errlog.Abort("Command '%s' not supported in raw file", prefix)
 			}
 			bCmd := bl[0]
 			// Select anchor commands.
@@ -57,7 +58,7 @@ func (a *Config) MergeSpoc(d device.DeviceConfig) device.DeviceConfig {
 	}
 	sort.Strings(warnings)
 	for _, w := range warnings {
-		device.Warning(w)
+		errlog.Warning(w)
 	}
 	return a
 }
@@ -122,7 +123,7 @@ func mergeRefs(ab *cmdsPair, a, b *cmd) {
 			al := findSimpleObject(bl, ab.a)
 			if al == nil {
 				if _, found := ab.a.lookup[prefix][bName]; found && ab.b.isRaw {
-					device.Abort("Name clash for '%s %s' from raw", prefix, bName)
+					errlog.Abort("Name clash for '%s %s' from raw", prefix, bName)
 				}
 				ab.a.lookup[prefix][bName] = bl
 				al = bl
@@ -139,7 +140,7 @@ func mergeRefs(ab *cmdsPair, a, b *cmd) {
 		storeName := bName
 		if a != nil {
 			if isReferenced[refCmd] {
-				device.Abort("Must reference '%s %s' only once in raw",
+				errlog.Abort("Must reference '%s %s' only once in raw",
 					prefix, bName)
 			}
 			storeName = a.ref[i]
@@ -148,7 +149,7 @@ func mergeRefs(ab *cmdsPair, a, b *cmd) {
 				b.name = storeName
 			}
 		} else if _, found := ab.a.lookup[prefix][bName]; found && ab.b.isRaw {
-			device.Abort("Name clash for '%s %s' from raw", prefix, bName)
+			errlog.Abort("Name clash for '%s %s' from raw", prefix, bName)
 		}
 		isReferenced[refCmd] = true
 		refPair := *ab

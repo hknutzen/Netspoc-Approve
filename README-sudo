@@ -1,0 +1,20 @@
+README for sudo configuration
+
+Programs newpolicy.pl and approve.pl write files to directories
+netspocdir, statusdir and historydir.
+If these programs are called by different users,
+each user would need to have write access to these directories.
+
+For accountablity reasons, files written to these dirtectories
+must not be changeable by an individual user.
+We use "sudo" to restrict access to these directories by only those two programs.
+
+To achieve this,
+- Create a dedicated user <X>, which owns netspocdir, statusdir and historydir.
+- Add this user to /usr/local/etc/netspoc-approve as
+    systemuser = <X>
+- A wrapper script "sudo-newpolicy" calls "sudo -u <X> newpolicy.pl".
+- A wrapper script "diamonds" calls "sudo -u <X> do-approve".
+- Add two entries to your /etc/sudoers file:
+    ALL ALL = (<X>) NOPASSWD : /usr/local/bin/newpolicy.pl
+    ALL ALL = (<X>) NOPASSWD : /usr/local/bin/do-appove

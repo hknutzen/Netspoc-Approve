@@ -319,11 +319,11 @@ ERROR>>> While reading device: 'access-group inside in interface inside' referen
 =TITLE=Can't login
 =SCENARIO=
 netspoc@10.1.2.3's password: <!>
-netspoc@10.1.2.3's password:
+netspoc@10.1.2.3's password: <!>
 Connection to 172.20.82.1 closed by remote host.
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> while waiting for prompt '[>#]': expect: timer expired after 1 seconds
+ERROR>>> Authentication failed
 =END=
 
 ############################################################
@@ -334,10 +334,48 @@ Type help or '?' for a list of available commands.
 router>
 # enable
 password: <!>
-password:
+password: <!>
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> Authentication for enable mode failed
+=END=
+
+############################################################
+=TITLE=SSH login without enable
+=SCENARIO=
+[[login_scenario]]
+=SUBST=/router>/router#/
+=NETSPOC=NONE
+=OUTPUT=
+--router.login
+Are you sure you want to continue connecting (yes/no)?yes
+
+***********************************************************
+**                 managed by NetSPoC                    **
+***********************************************************
+netspoc@10.1.2.3's password: secret
+
+Type help or '?' for a list of available commands.
+router#
+router#sh pager
+pager lines 24
+
+router#terminal pager 0
+router#sh term
+
+Width = 80, no monitor
+terminal interactive
+router#configure terminal
+router#terminal width 511
+router#end
+router#sh ver
+Cisco Adaptive Security Appliance Software Version 9.4(4)5
+Hardware:   ASA5550, 4096 MB RAM, CPU Pentium 4 3000 MHz
+Configuration last modified by netspoc at 10:40:44.291 CEDT Thu Oct 19 2017
+
+router#show hostname
+router
+router#
 =END=
 
 ############################################################

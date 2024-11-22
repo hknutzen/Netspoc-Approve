@@ -12,7 +12,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 type State struct {
@@ -28,13 +31,12 @@ type change struct {
 }
 
 func (s *State) LoadDevice(
-	spocFile string, cfg *device.Config, logLogin, logConfig *os.File) (
-	device.DeviceConfig, error) {
+	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) (
+	deviceconf.Config, error) {
 
-	err := device.TryReachableHTTPLogin(spocFile, cfg,
+	err := httpdevice.TryReachableHTTPLogin(spocFile, cfg,
 		func(name, ip, user, pass string) error {
-			s.prefix = fmt.Sprintf("https://%s", ip)
-			s.client = device.GetHTTPClient(cfg)
+			s.client, s.prefix = httpdevice.GetHTTPClient(cfg, ip)
 			jar, err := cookiejar.New(nil)
 			if err != nil {
 				return err
@@ -42,17 +44,17 @@ func (s *State) LoadDevice(
 			s.client.Jar = jar
 
 			uri := s.prefix + "/api/session/create"
-			device.DoLog(logLogin, "POST "+uri)
+			errlog.DoLog(logLogin, "POST "+uri)
 			v := url.Values{}
 			v.Set("j_username", user)
 			v.Set("j_password", "xxx")
-			device.DoLog(logLogin, v.Encode())
+			errlog.DoLog(logLogin, v.Encode())
 			v.Set("j_password", pass)
 			resp, err := s.client.PostForm(uri, v)
-			device.DoLog(logLogin, resp.Status)
 			if err != nil {
 				return err
 			}
+			errlog.DoLog(logLogin, resp.Status)
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("status code: %d", resp.StatusCode)
 			}
@@ -79,7 +81,7 @@ func (s *State) LoadDevice(
 	var resultStruct struct{ Results []struct{ Id string } }
 	err = json.Unmarshal(data, &resultStruct)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("while parsing %s: %w", path, err)
 	}
 	for _, result := range resultStruct.Results {
 		// Ignore all policies not created by Netspoc.
@@ -109,7 +111,7 @@ func (s *State) LoadDevice(
 	if err != nil {
 		return nil, err
 	}
-	device.DoLog(logConfig, string(out))
+	errlog.DoLog(logConfig, string(out))
 
 	config, err := s.ParseConfig(out, "<device>")
 	if err != nil {
@@ -133,7 +135,7 @@ func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
 		}
 		err = json.Unmarshal(out, &results)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("while parsing %s: %w", path, err)
 		}
 		for _, result := range results.Results {
 			err = json.Unmarshal(result, &id)
@@ -177,7 +179,7 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
+func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
 	p1 := c1.(*NsxConfig)
 	p2 := c2.(*NsxConfig)
 	s.changes = diffConfig(p1, p2)
@@ -199,13 +201,13 @@ func (s *State) ShowChanges() string {
 
 func (s *State) ApplyCommands(logFh *os.File) error {
 	for _, c := range s.changes {
-		device.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
-		device.DoLog(logFh, "DATA: "+string(c.postData))
+		errlog.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
+		errlog.DoLog(logFh, "DATA: "+string(c.postData))
 		resp, err := s.sendRequest(c.method, c.url, bytes.NewReader(c.postData))
 		if err != nil {
 			return err
 		}
-		device.DoLog(logFh, "RESP: "+string(resp))
+		errlog.DoLog(logFh, "RESP: "+string(resp))
 	}
 	return nil
 }

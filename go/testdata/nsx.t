@@ -744,7 +744,7 @@ rules:
 - { id: r3-2-1}
 ]]
 =ERROR=
-ERROR>>> While reading router.raw: Must not use rule name starting with 'r<NUM>': r3-2-1
+ERROR>>> While reading file router.raw: Must not use rule name starting with 'r<NUM>': r3-2-1
 =END=
 
 ############################################################
@@ -932,7 +932,7 @@ PUT /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1/rules/raw
 [[one_rule]]
 =SUBST=|/Netspoc-tcp_80"|/Netspoc-tcp_80","/infra/services/Netspoc-udp_123"|
 =ERROR=
-ERROR>>> While reading router: Expecting exactly one element in source/destination/service of rule r1
+ERROR>>> While reading file router: Expecting exactly one element in source/destination/service of rule r1
 =END=
 
 ############################################################
@@ -943,7 +943,7 @@ ERROR>>> While reading router: Expecting exactly one element in source/destinati
 =NETSPOC=
 [[one_rule]]
 =ERROR=
-ERROR>>> While reading device: Expecting exactly one element in source/destination/service of rule r1
+ERROR>>> While reading file device: Expecting exactly one element in source/destination/service of rule r1
 =END=
 
 ############################################################
@@ -951,7 +951,7 @@ ERROR>>> While reading device: Expecting exactly one element in source/destinati
 =NETSPOC=
 {invalid
 =ERROR=
-ERROR>>> While reading router: invalid character 'i' looking for beginning of object key string
+ERROR>>> While reading file router: invalid character 'i' looking for beginning of object key string
 =END=
 
 ############################################################
@@ -963,7 +963,7 @@ ERROR>>> While reading router: invalid character 'i' looking for beginning of ob
 =NETSPOC=
 [[one_rule]]
 =ERROR=
-ERROR>>> While reading device: invalid character '#' looking for beginning of value
+ERROR>>> While reading file device: invalid character '#' looking for beginning of value
 =END=
 
 ############################################################
@@ -982,7 +982,7 @@ ERROR>>> While reading device: invalid character '#' looking for beginning of va
 =DEVICE=# Some comment
 =NETSPOC={}
 =ERROR=
-ERROR>>> While reading device: unexpected end of JSON input
+ERROR>>> While reading file device: unexpected end of JSON input
 =END=
 
 ############################################################
@@ -1521,7 +1521,7 @@ PUT /policy/api/v1/infra/services/Netspoc-icmp
   ]
 }
 =ERROR=
-ERROR>>> While reading router.raw: Must only define service where name has prefix 'Netspoc-raw': Netspoc-icmp
+ERROR>>> While reading file router.raw: Must only define service where name has prefix 'Netspoc-raw': Netspoc-icmp
 =END=
 
 ############################################################
@@ -1545,7 +1545,7 @@ ERROR>>> While reading router.raw: Must only define service where name has prefi
   ]
 }
 =ERROR=
-ERROR>>> While reading router.raw: Must only define group where name has prefix 'Netspoc': my-group
+ERROR>>> While reading file router.raw: Must only define group where name has prefix 'Netspoc': my-group
 =END=
 
 ############################################################
@@ -1569,7 +1569,7 @@ ERROR>>> While reading router.raw: Must only define group where name has prefix 
   ]
 }
 =ERROR=
-ERROR>>> While reading router.raw: Must not use group name starting with 'Netspoc-g<NUM>': Netspoc-g1
+ERROR>>> While reading file router.raw: Must not use group name starting with 'Netspoc-g<NUM>': Netspoc-g1
 =END=
 
 ############################################################

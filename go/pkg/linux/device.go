@@ -3,14 +3,18 @@ package linux
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/sorted"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 const (
@@ -38,21 +42,23 @@ type config struct {
 }
 
 func (s *State) LoadDevice(
-	spocFile string, cfg *device.Config, logLogin, logConfig *os.File,
-) (device.DeviceConfig, error) {
-	user, pass := cfg.GetUserPass(device.GetHostname(spocFile))
-	var err error
+	spocFile string, cfg *program.Config, logLogin, logConfig *os.File,
+) (deviceconf.Config, error) {
+	user, pass, err := cfg.GetUserPass(codefiles.GetHostname(spocFile))
+	if err != nil {
+		return nil, err
+	}
 	s.conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
 		return nil, err
 	}
-	hostName := device.GetHostname(spocFile)
+	hostName := codefiles.GetHostname(spocFile)
 	s.loginEnable(pass, cfg)
 	s.logVersion()
 	s.checkDeviceName(hostName)
 	s.checkBanner(cfg)
 	s.conn.SetLogFH(logConfig)
-	s.ip, _, _ = device.GetIPPDP(spocFile)
+	s.ip, _, _ = codefiles.GetIPPDP(spocFile)
 	s.user = user
 
 	return &config{
@@ -61,11 +67,11 @@ func (s *State) LoadDevice(
 	}, err
 }
 
-func (s *State) loginEnable(pass string, cfg *device.Config) {
+func (s *State) loginEnable(pass string, cfg *program.Config) {
 	conn := s.conn
 	stdPrompt := `\r\n\S*\s?[%>$#]\s?(?:\x27\S*)?`
 	passPrompt := stdPrompt + `|(?i)password:`
-	out := conn.ShortWait(passPrompt + `|\(yes/no.*\)\?`)
+	out := conn.WaitLogin(passPrompt + `|\(yes/no.*\)\?`)
 	if strings.HasSuffix(out, "?") {
 		out = conn.IssueCmd("yes", passPrompt)
 	}
@@ -73,7 +79,7 @@ func (s *State) loginEnable(pass string, cfg *device.Config) {
 		out = conn.IssueCmd(pass, passPrompt)
 	}
 	if strings.HasSuffix(out, "word:") {
-		device.Abort("Authentication failed")
+		errlog.Abort("Authentication failed")
 	}
 
 	// Force prompt to simple, known value.
@@ -93,11 +99,11 @@ func (s *State) checkDeviceName(name string) {
 	out := s.conn.GetCmdOutput("hostname -s")
 	out = strings.TrimSuffix(out, "\n")
 	if name != out {
-		device.Abort("Wrong device name: %q, expected: %q", out, name)
+		errlog.Abort("Wrong device name: %q, expected: %q", out, name)
 	}
 }
 
-func (s *State) checkBanner(cfg *device.Config) {
+func (s *State) checkBanner(cfg *program.Config) {
 	re := cfg.CheckBanner.String()
 	lines := s.conn.GetCmdOutput("grep '" + re + "' /etc/issue")
 	if len(lines) == 0 {
@@ -123,7 +129,7 @@ func (s *State) getDeviceIPTables() tables {
 	return s.parseIPTables(strings.Split(string(out), "\n"))
 }
 
-func (s *State) GetChanges(c1, c2 device.DeviceConfig) error {
+func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
 	p1 := c1.(*config)
 	p2 := c2.(*config)
 	s.change = diffConfig(p1, p2)
@@ -165,7 +171,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 		tmpFile := deviceIPTablesFile + ".new"
 		s.writeStartupIPTables(cf.iptables, tmpFile)
 		s.cmd("chmod a+x " + tmpFile)
-		device.Info("Changing iptables running config")
+		errlog.Info("Changing iptables running config")
 		s.cmd(tmpFile)
 		s.cmd("mv -f " + tmpFile + " " + deviceIPTablesFile)
 	}
@@ -186,7 +192,7 @@ func (s *State) cmd(c string) {
 		out := s.conn.GetOutput()
 		out = s.conn.StripEcho(ci, out)
 		if out != "" {
-			device.Abort("Got unexpected output from '%s':\n%s", ci, out)
+			errlog.Abort("Got unexpected output from '%s':\n%s", ci, out)
 		}
 	}
 	check(c1)
@@ -194,7 +200,7 @@ func (s *State) cmd(c string) {
 		check(c2)
 	}
 	if s.conn.GetCmdOutput("echo $?") != "0\n" {
-		device.Abort("%s failed (exit status)",
+		errlog.Abort("%s failed (exit status)",
 			strings.Replace(c, "\n", "\\N ", 1))
 	}
 }
@@ -222,17 +228,17 @@ func (s *State) findIPTablesRestoreCmd() string {
 	out := s.conn.GetCmdOutput("which iptables-restore")
 	cmd := strings.TrimSpace(out)
 	if !strings.HasSuffix(cmd, "iptables-restore") {
-		device.Abort("Can't find path of 'iptables-restore'")
+		errlog.Abort("Can't find path of 'iptables-restore'")
 	}
 	return cmd
 }
 
 func getIPTablesConfig(tb tables) []string {
 	var result []string
-	for _, tName := range sorted.Keys(tb) {
+	for _, tName := range slices.Sorted(maps.Keys(tb)) {
 		chains := tb[tName]
 		result = append(result, "*"+tName)
-		cNames := sorted.Keys(chains)
+		cNames := slices.Sorted(maps.Keys(chains))
 		for _, cName := range cNames {
 			chain := chains[cName]
 			result = append(result, ":"+cName+" "+chain.policy)
@@ -251,7 +257,7 @@ func getIPTablesConfig(tb tables) []string {
 func createTemp(name string) *os.File {
 	file, err := os.CreateTemp("", name)
 	if err != nil {
-		device.Abort("can't %v", err)
+		errlog.Abort("can't %v", err)
 	}
 	return file
 }
@@ -267,13 +273,13 @@ func (s *State) writeStartup(file *os.File, lines []string, dst string) {
 func (s *State) putScp(src, dst string) {
 	remote := s.user + "@" + s.ip + ":"
 	cmd := exec.Command("scp", "-q", src, remote+dst)
-	device.Info("Executing %s", cmd)
+	errlog.Info("Executing %s", cmd)
 	if os.Getenv("SIMULATE_ROUTER") != "" {
 		return
 	}
 	err := cmd.Run()
 	if err != nil {
-		device.Abort("%s failed: %v", cmd, err)
+		errlog.Abort("%s failed: %v", cmd, err)
 	}
 }
 

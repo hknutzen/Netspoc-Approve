@@ -8,7 +8,7 @@ import (
 	"path"
 	"regexp"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/device"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 )
 
 func parseAPIKey(body []byte) (string, error) {
@@ -38,7 +38,7 @@ func parseResponse(data []byte) (string, []byte, error) {
 }
 
 func (s *State) ParseConfig(data []byte, fName string) (
-	device.DeviceConfig, error) {
+	deviceconf.Config, error) {
 
 	config := &PanConfig{}
 	if len(data) == 0 {

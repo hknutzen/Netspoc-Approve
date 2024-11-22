@@ -3,10 +3,9 @@ package linux
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
-
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/sorted"
 )
 
 func diffConfig(a, b *config) change {
@@ -68,14 +67,14 @@ func diffIPTables(a, b tables) string {
 	if extra := checkExtra(a, b); extra != "" {
 		return fmt.Sprintf("iptables differs at [tables: %s]", extra)
 	}
-	for _, tName := range sorted.Keys(a) {
+	for _, tName := range slices.Sorted(maps.Keys(a)) {
 		aChains := a[tName]
 		bChains := b[tName]
 		if extra := checkExtra(aChains, bChains); extra != "" {
 			return fmt.Sprintf("iptables differs at %s: [chains: %s]",
 				tName, extra)
 		}
-		for _, cName := range sorted.Keys(aChains) {
+		for _, cName := range slices.Sorted(maps.Keys(aChains)) {
 			aChain := aChains[cName]
 			bChain := bChains[cName]
 			if aChain.policy != bChain.policy {
@@ -115,7 +114,7 @@ func diffIPTables(a, b tables) string {
 func checkExtra[T any](a, b map[string]T) string {
 	getExtra := func(a, b map[string]T) string {
 		var extra []string
-		for _, name := range sorted.Keys(a) {
+		for _, name := range slices.Sorted(maps.Keys(a)) {
 			if _, found := b[name]; !found {
 				extra = append(extra, name)
 			}

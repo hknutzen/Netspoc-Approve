@@ -319,13 +319,21 @@ ip access-list extended eth0_in-DRC-0
 interface eth0
  shutdown
  ip access-group eth0_in-DRC-0 in
-ip access-list extended eth1_in-DRC-0
- deny ip any any
 interface eth1
- ip access-group eth1_in-DRC-0 in
-=NETSPOC=NONE
-=OUTPUT=NONE
-
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group eth0_in-DRC-0 in
+interface eth2
+ ip address 10.1.2.1 255.255.255.0
+ ip access-group eth0_in-DRC-0 in
+=NETSPOC=
+interface eth2
+ ip address 10.1.2.1 255.255.255.0
+=WARNING=
+WARNING>>> Interface 'eth1' on device is not known by Netspoc
+=OUTPUT=
+interface eth2
+no ip access-group eth0_in-DRC-0 in
+=END=
 
 ############################################################
 =TITLE=Change ACL referenced from two interfaces
@@ -729,8 +737,10 @@ ERROR>>> Interface 'Serial3' from Netspoc not known on device
 =END=
 
 ############################################################
-=TITLE=Check device interfaces
+=TITLE=Check device interfaces, leave ACL of unknown interface unchanged
 =DEVICE=
+ip access-list extended test1-DRC-0
+ permit ip any 10.127.18.0 0.0.0.255
 interface Serial1
  ip address 10.1.1.1 255.255.255.0
 interface Serial2
@@ -739,6 +749,7 @@ interface Serial2
  ip address 1.1.1.1 255.255.255.0 secondary
 interface Serial3
  ip address 10.1.3.1 255.255.255.0
+ ip access-group test1-DRC-0 in
 =NETSPOC=
 ip access-list extended test1
  permit ip any 10.127.18.0 0.0.0.255
@@ -759,6 +770,17 @@ ip access-list extended test
 =WARNING=
 WARNING>>> Different address defined for interface Serial1: Device: "10.1.1.1 255.255.255.0", Netspoc: "1.1.1.1 255.0.0.0,10.1.2.1 255.255.255.0,10.1.2.250 255.255.255.0"
 WARNING>>> Interface 'Serial3' on device is not known by Netspoc
+=OUTPUT=
+ip access-list extended test1-DRC-1
+permit ip any 10.127.18.0 0.0.0.255
+exit
+interface Serial1
+ip access-group test1-DRC-1 in
+ip access-list extended test2-DRC-0
+permit ip any 10.127.18.0 0.0.0.255
+exit
+interface Serial2
+ip access-group test2-DRC-0 in
 =END=
 
 ############################################################

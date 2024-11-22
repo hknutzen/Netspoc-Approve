@@ -8,8 +8,8 @@ set -e
 PARALLEL=$(expr "$1" \| 40)
 
 # Get directory from config file
-DIR=$(get-netspoc-approve-conf netspocdir)
-cd $DIR/current/code
+BASE=$(get-netspoc-approve-conf basedir)
+cd $BASE/policies/current/code
 
 DEVICES=""
 for device in * ; do
@@ -18,7 +18,7 @@ if [ -d $device ] ; then
     cd $device;
     for device in * ; do
                case $device in *.*|\*) continue;; esac
-               if [ ! -e $DIR/current/code/$device ]; then
+               if [ ! -e $BASE/policies/current/code/$device ]; then
                    DEVICES="${DEVICES} $device";
                fi
     done
