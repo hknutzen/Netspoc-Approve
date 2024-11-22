@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+3.038     2024-11-22 13:41:49+01:00 Europe/Berlin
+
  - Fix issue recognize prompt during login.
    New ASA Software does not send leading CR character.
    Removed required CR character for login prompt.
