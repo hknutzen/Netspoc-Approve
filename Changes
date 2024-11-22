@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+ - Fix issue recognize prompt during login.
+   New ASA Software does not send leading CR character.
+   Removed required CR character for login prompt.
+
 3.037     2024-11-11 16:12:54+01:00 Europe/Berlin
 
  - Config option 'basedir' is mandatory now.
