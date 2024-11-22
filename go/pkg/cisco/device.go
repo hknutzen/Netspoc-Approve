@@ -20,7 +20,7 @@ func (s *State) LoginEnable(pass string, cfg *program.Config) {
 	// Look for prompt. Ignore prompt lines with whitespace or multiple
 	// hash that may occur in lines of banner.
 	waitPrompt := func(enter, suffix string) bool {
-		stdPrompt := `\r\n\r?[^#> ]+[>#] ?$`
+		stdPrompt := `\n\r?[^#> ]+[>#] ?$`
 		out = conn.IssueCmd(enter, `(?i)password:|`+stdPrompt)
 		bannerLines += out
 		out = strings.TrimSuffix(out, " ")
