@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+3.039     2025-01-10 09:38:22+01:00 Europe/Berlin
+
  - Added more named ports for Cisco IOS:
    drip, onep-plain, onep-tls, time
 
