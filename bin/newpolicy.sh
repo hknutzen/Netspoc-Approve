@@ -1,22 +1,23 @@
 #!/bin/bash
 
-# newpolicy.sh -- Checkout configuration from Netspoc for Approve
+# newpolicy.sh -- Prepare configuration from Netspoc for Approve
 #
 # DESCRIPTION
 #
-# Integrates NetSPoC with version control / build management.
-# - creates a new directory 'next' in policy db
-# - extracts newest configuration from repository into 'next'
-# - identifies the current policy from policy db
-# - calculates the next policy tag
-# - compiles the new policy
-# - renames directory 'next' to name of next policy tag
-# - marks new policy in policy db as current
+# Prepare latest Netspoc configuration for deployment to devices.
+# - create a new directory 'next' in policy db
+# - extract newest configuration from repository into 'next'
+# - identify the current policy from policy db
+# - calculate the next policy tag
+# - compile the new policy
+# - rename directory 'next' to name of next policy tag
+# - mark new policy as current
+#
 #
 # COPYRIGHT AND DISCLAIMER
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2024 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2025 by Heinz Knutzen <heinz.knutzen@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,41 +33,73 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-# Abort on each error
-set -e
-
 BASE=$(get-netspoc-approve-conf basedir)
 GIT_URL=$(get-netspoc-approve-conf netspoc_git)
 
 # Path of policy database.
 POLICYDB=$BASE/policies
 
-# Link to current policy.
-LINK=$POLICYDB/current
+# The link to current policy.
+CURRENT=$POLICYDB/current
 
 # Intermediate name for next policy.
 NEXT=$POLICYDB/next
 
-# The lock file for preventing concurrent updates.
-LOCK=$POLICYDB/LOCK
+# Bind lockfile to file descriptor.
+# File is observed by 'newpolicy'.
+exec 9<>$POLICYDB/LOCK
 
+main() {
+    # Error code 1 signals, that a process is already running.
+    flock -n 9 || exit 1
+    uptodate && exit 0
+    # Repeatedly try to compile after bad commits have been reverted.
+    while true; do
+        prepare_next
+        if netspoc $PSRC $PCODE; then
+            handle_success
+        else
+            echo Newest changeset failed to compile
+            # Mark data as failed for use in 'newpolicy'.
+            touch $POLICYDB/failed
+            [ "$PREV_POLICY" ] &&
+                echo "Left current policy as '$PREV_POLICY'"
+            if try_revert; then
+                # Revert was successful, try to compile again.
+                continue
+            fi
+        fi
+        break
+    done
+    touch $POLICYDB/LOCK # Used in 'newpolicy'.
+    exit 0
+}
 
-# Filehandle "9" is set below at end of this sub shell.
-# Set exclusive lock to prevent parallel runs of this script.
-(
-    # Status code 2 signals, that a process is already running.
-    # No error message needed, because this is only called from wrapper script.
-    flock -n -e 9 || exit 2
+# true  (0): all changes from repository already have been processed.
+# false (1): SRC isn't up to date.
+uptodate () {
+    (set -e
+     DIR=$CURRENT
+     [ -d $NEXT ] && DIR=$NEXT
+     [ -f "$DIR/src/.git/refs/heads/master" ] || return 1
+     cd $DIR/src
+     rev1=$(git rev-parse HEAD)
+     orig=$(git rev-parse --abbrev-ref @{u} | sed 's/\// /g')
+     rev2=$(git ls-remote $orig | cut -f1)
+     [ "$rev1" == "$rev2" ]
+    )
+}
 
-    # We got the lock.
+prepare_next() {
+    cd $POLICYDB
 
-    # Cleanup leftovers from possible previous unsuccessful build of this policy.
+    # Cleanup leftovers from previous unsuccessful build of this policy.
     rm -rf $NEXT
 
-    # Create directory for new policy.
+    # Create temporary directory for new policy.
     mkdir $NEXT
 
-    # Directory and file names of new policy in policy database.
+    # Directory and file names of next policy.
     PSRC=$NEXT/src
     PCODE=$NEXT/code
     PLOG=$NEXT/compile.log
@@ -78,7 +111,9 @@ LOCK=$POLICYDB/LOCK
     cd $NEXT
 
     # Check out newest files from repository into subdirectory "src".
-    git clone --quiet --depth 1 $GIT_URL src
+    # Use '--depth 2' for 'git revert' below,
+    # as it needs diff to previous commit.
+    git clone --quiet --depth 2 $GIT_URL src
 
     # Read current policy name from POLICY file,
     # which should contain one line: "# p1234 comment ...".
@@ -89,7 +124,7 @@ LOCK=$POLICYDB/LOCK
     [ "$FCOUNT" ] || FCOUNT=0
 
     # Read current policy name from symbolic link.
-    PREV_POLICY=$(readlink $LINK) || true
+    PREV_POLICY=$(readlink $CURRENT) || true
     if [ "$PREV_POLICY" ] ; then
         LCOUNT=$(echo $PREV_POLICY | grep -Po '\d+' | head -n 1)
     fi
@@ -112,35 +147,28 @@ LOCK=$POLICYDB/LOCK
 
     # Get next policy name.
     POLICY=p$COUNT
+}
 
-    # Compile new policy.
-    if ! netspoc $PSRC $PCODE; then
-        echo New policy failed to compile
-        # Mark data as failed for use in wrapper.
-        touch $POLICYDB/failed
-        [ "$PREV_POLICY" ] && echo "Left current policy as '$PREV_POLICY'"
-        # Failure.
-        exit 1
-    fi
-
-    # Compiled successfully.
-
+# Compiled successfully.
+handle_success() {
     # Update POLICY file of current version.
     cd $PSRC
     echo "# $POLICY # Current policy, don't edit manually!" > POLICY
     git add POLICY
     git commit -m $POLICY
-    # This assumes 'git config pull.rebase true' to be set.
-    git pull --quiet
+    HASH=$(git log -n 1 --format='format:%H')
+    git pull --no-rebase --quiet
     git push --quiet
+    # Remove pulled commits so we recognize them as new in next run.
+    git reset --hard $HASH
 
     # Move temporary directory to final name.
     cd $POLICYDB
     mv next $POLICY
 
     # Mark new policy as current.
-    rm -f $LINK;
-    ln -s $POLICY $LINK
+    rm -f $CURRENT;
+    ln -s $POLICY $CURRENT
     echo "Updated current policy to '$POLICY'"
 
     # Remove 'failed' marker.
@@ -152,7 +180,31 @@ LOCK=$POLICYDB/LOCK
         PREV_CODE=$PREV_POLICY/code
         find $PREV_CODE \( -name '*.config' -o -name '*.rules' \) | xargs rm
     fi
+}
 
-    # Success.
-    exit 0
-) 9>$LOCK
+# Try to revert bad commit, but only if author has an email address.
+# This prevents automated commits from newpolicy and from netspoc-api
+# from getting reverted.
+# Return value: true (0): revert was successful.
+try_revert() {
+    cd $PSRC
+    EMAIL=$(git log -n 1 --format='format:%ae')
+    ADMIN_EMAILS=$(get-netspoc-approve-conf admin_emails)
+    { git log -n 1 --pretty=short; echo ---; cat $PLOG; } |
+        mail -s "Newpolicy failed!" "$EMAIL,$ADMIN_EMAILS"
+    # Only revert if systemuser has empty email. Otherwise this
+    # script would accidently revert already reverted commit.
+    if [ -n "$EMAIL" ] && [ -z $(git config user.email) ]; then
+        HASH=$(git log -n 1 --format='format:%H')
+        if git revert --no-edit $HASH; then
+            git pull --quiet
+            git push --quiet
+            git log -n 1 --pretty=short $HASH |
+                mail -s "Your commit has been reverted" "$EMAIL,$ADMIN_EMAILS"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+main

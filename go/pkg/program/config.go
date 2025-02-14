@@ -16,12 +16,14 @@ var defaultVals = map[string]string{
 	"timeout":       "60",
 	"login_timeout": "3",
 	"keep_history":  "365", // delete history older than this (in days)
-	"compress_at":   "7",   // compress 'policies' directory after that many days
+	// Compress 'policies' directory after that many days.
+	"compress_at": "7",
 }
 
 type Config struct {
 	BaseDir      string
 	netspocGit   string
+	adminEmails  string
 	CheckBanner  *regexp.Regexp
 	systemUser   string
 	ServerIPList []netip.Addr
@@ -103,6 +105,8 @@ func LoadConfig() (*Config, error) {
 			c.BaseDir = val
 		case "netspoc_git":
 			c.netspocGit = val
+		case "admin_emails":
+			c.adminEmails = val
 		case "checkbanner":
 			c.CheckBanner, err = regexp.Compile(val)
 			if err != nil {
@@ -163,6 +167,8 @@ func (c *Config) GetVal(key string) string {
 		return c.BaseDir
 	case "netspoc_git":
 		return c.netspocGit
+	case "admin_emails":
+		return c.adminEmails
 	case "checkbanner":
 		if re := c.CheckBanner; re != nil {
 			return re.String()

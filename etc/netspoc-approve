@@ -42,17 +42,21 @@ systemuser = diamonds
 # Space delimited list of IP addresses of this server.
 # Each address is compared with value of policy_distribution_point from Netspoc
 # to decide, if a proxy server must be used to reach a destination.
-#server_ip_list = 10.1.2.3, 10.3.4.5, 2001:db8::3
+#server_ip_list = 10.1.2.3 10.3.4.5 2001:db8::3
 
 # Timeout in seconds during established session.
-#timeout = 500
+#timeout = 60
 
 # Timeout in seconds when establishing new session to device.
-#login_timeout = 10
+#login_timeout = 3
 
 # Delete old files and directories in 'policies', 'status', 'history', 'lock'
 # after this many days.
-# keep_history = 365
+#keep_history = 365
 
 # Compress files in 'policies' directory after this many days.
-# compress_at = 4
+#compress_at = 7
+
+# Send email to given addresses if newpolicy fails
+# to compile current change set.
+#admin_emails = a@example.com,b@example.com

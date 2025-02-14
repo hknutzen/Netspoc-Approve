@@ -1,5 +1,15 @@
 {{$NEXT}}
 
+ - Command 'newpolicy' now tries to revert bad commits.
+   newpolicy calls netspoc to compile current change set.
+   If this fails, newpolicy reverts the newest commit and
+   then calls netspoc again.
+   An email is sent to the author of that bad commit
+   and additionally to addresses given in config option 'admin_emails'.
+   Only the newest commit and only a commit where the autor email is given
+   is tried to revert.
+ - Added new option 'admin_emails' to config file.
+
 3.039     2025-01-10 09:38:22+01:00 Europe/Berlin
 
  - Added more named ports for Cisco IOS:

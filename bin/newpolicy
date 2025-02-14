@@ -1,13 +1,12 @@
 #!/bin/bash
-# newpolicy -- Wrapper script for newpolicy.pl or for suid-newpolicy
+# newpolicy -- Call 'suid-newpolicy' to process next policy.
 #
-# This script allows multiple users to request a run of newpolicy.pl.
-# It handles parallel calls from multiple users.
-# It starts only a single process of newpolicy.pl,
-# but shows output of running processes to multiple users.
+# This script allows unprivileged users to call newpolicy.sh.
+# If newpolicy.sh already runs, it waits for it to be finished.
+# Afterwards the output of newpolicy.sh is shown.
 #
 # https://github.com/hknutzen/Netspoc-Approve
-# (c) 2024 by Heinz Knutzen <heinz.knutzen@gmail.com>
+# (c) 2025 by Heinz Knutzen <heinz.knutzen@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,82 +23,26 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-PROG=sudo-newpolicy
 BASE=$(get-netspoc-approve-conf basedir)
-POLICYDB="$BASE/policies"
-LOCK=$POLICYDB/LOCK
+POLICYDB=$BASE/policies
 CURRENT=$POLICYDB/current
-NEXT=$POLICYDB/next
-LOG=$NEXT/compile.log
+LOCK=$POLICYDB/LOCK
 
-# Exists if compile failed and compile.log may be outdated.
-FAILED=$POLICYDB/failed
+msg () { echo $@ >&2; }
 
-msg   () { echo $@ >&2; }
-abort () { echo $@ >&2; exit 1; }
-
-[ -n "$(type $PROG)" ] || abort "Can't find command '$PROG'"
-
-# true  (0): all changes from repository have already been processed
-# false (1): SRC isn't up to date
-uptodate () {
-    (set -e
-     [ -f "$SRC/.git/refs/heads/master" ] || return 1
-     cd $SRC
-     rev1=$(git rev-parse HEAD)
-     orig=$(git rev-parse --abbrev-ref @{u} | sed 's/\// /g')
-     rev2=$(git ls-remote $orig | cut -f1)
-     [ "$rev1" == "$rev2" ]
-    )
+START=$(date +%s%4N)
+msg "Processing scheduled"
+sudo-newpolicy&
+# Check wait status to see if new process was started.
+wait $! || {
+    # Otherwise wait for already running process to be finished.
+    msg "Process is already running"
+    flock -s $LOCK -c true
 }
 
-# Wait as long as newpolicy.pl is running.
-# Then show message about success.
-wait_newpolicy_finished () {
-    # If LOCK becomes available, we know that script has finished.
-    flock -s $LOCK -c true 2>/dev/null
-    if [ -f $FAILED ] ; then
-        cat $POLICYDB/next/compile.log >&2
-    else
-        msg "Finished '$(basename $(readlink -f $POLICYDB/current))'"
-    fi
-}
-
-# Filehandle "9" is set below at end of this if-clause.
-# Try to get shared lock.
-# Other instances of this script are allowed to get the lock,
-# but newpolicy.pl isn't.
-if flock -n -s 9 ; then
-
-    # We got the lock.
-    # newpolicy.pl isn't running.
-    POLICY=$(basename $(readlink $CURRENT || echo 'unknown'))
-    SRC=$POLICYDB/$POLICY/src
-    if uptodate ; then
-
-        # No pending changes in repository.
-        msg "Newest changeset is already available as current $POLICY"
-        exit
-    fi
+[ $(date -r $LOCK +%s%4N) -le $START ] && msg "Nothing changed"
+if [ -f $POLICYDB/failed ] ; then
+    cat $POLICYDB/next/compile.log >&2
 else
-
-    # newpolicy.pl is already running
-    SRC=$POLICYDB/next/src
-    if ! [ -f "$SRC/.git/refs/heads/master" ] || uptodate ; then
-        msg "Newest changeset is currently processed"
-        wait_newpolicy_finished
-        exit
-    fi
-    msg "Waiting for current process to be finished"
-    wait_newpolicy_finished
-
-fi 9<$LOCK
-
-# Start newpolicy.pl in background.
-# Process must not be terminated if this script is killed.
-msg "Processing current changeset"
-$PROG </dev/null >/dev/null 2>&1 &
-
-# Wait until $PROG has really started.
-for i in $(seq 1 5); do flock -n -s $LOCK -c true || break; sleep 0.1; done
-wait_newpolicy_finished
+    msg "Current policy is $(basename $(readlink $CURRENT))"
+fi

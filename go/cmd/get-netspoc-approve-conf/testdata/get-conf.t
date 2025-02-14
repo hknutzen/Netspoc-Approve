@@ -138,6 +138,15 @@ netspoc_git = /opt/git/netspoc.git
 =OPTIONS=netspoc_git
 
 ############################################################
+=TITLE=Read admin_emails
+=CONFIG=
+basedir = /tmp
+admin_emails = a@example.com,b@example.com
+=OUTPUT=
+a@example.com,b@example.com
+=OPTIONS=admin_emails
+
+############################################################
 =TITLE=Read systemuser
 =CONFIG=
 basedir = /tmp

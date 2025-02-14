@@ -6,4 +6,4 @@
 # PATH is preserved by default, needs to contain /usr/local/bin
 # LANG is preserved by default.
 Defaults env_keep += GIT_PROTOCOL
-ALL ALL = (netspoc) NOPASSWD : /usr/local/bin/newpolicy.pl, /usr/local/bin/approve.pl
+ALL ALL = (netspoc) NOPASSWD : /usr/local/bin/newpolicy.sh, /usr/local/bin/do-approve
