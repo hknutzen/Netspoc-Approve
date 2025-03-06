@@ -103,10 +103,6 @@ func Main() int {
 	for _, line := range lines {
 		if strings.HasPrefix(line, "ERROR>>>") {
 			errors = true
-			if *brief &&
-				strings.HasPrefix(line, "ERROR>>> while waiting for login prompt") {
-				continue
-			}
 		} else if strings.HasPrefix(line, "WARNING>>>") {
 			warnings = true
 		} else if strings.HasPrefix(line, "comp: ***") {
@@ -115,7 +111,9 @@ func Main() int {
 			continue
 		}
 		if *brief {
-			fmt.Printf("%s:%s\n", devName, line)
+			if !strings.HasPrefix(line, "ERROR>>> while waiting for login prompt") {
+				fmt.Printf("%s:%s\n", devName, line)
+			}
 		} else {
 			fmt.Println(line)
 		}

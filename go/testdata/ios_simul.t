@@ -981,6 +981,7 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 --history/router
 2024 09 29 16:19:50 START: --brief compare router
 2024 09 29 16:19:50 POLICY: p1
+2024 09 29 16:19:50 RES: ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 2024 09 29 16:19:50 END: FAILED
 --status/router
 some_stuff
@@ -1002,6 +1003,7 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 --history/router
 2024 09 29 16:19:50 START: --brief approve router
 2024 09 29 16:19:50 POLICY: p1
+2024 09 29 16:19:50 RES: ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 2024 09 29 16:19:50 END: FAILED
 -- status/router
 {"approve":{"result":"FAILED","policy":"p1","time":1727626790},"compare":{"result":"","policy":"","time":0}}
