@@ -122,9 +122,7 @@ func Main() int {
 
 	// Update status file.
 	if isCompare {
-		if !errors {
-			status.SetCompare(cfg, devName, policy, changed)
-		}
+		status.SetCompare(cfg, devName, policy, changed || errors)
 	} else {
 		status.SetApprove(cfg, devName, policy, failed)
 	}

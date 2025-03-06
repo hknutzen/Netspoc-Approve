@@ -963,7 +963,7 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 2024 09 29 16:19:50 RES: ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 2024 09 29 16:19:50 END: FAILED
 --status/router
-some_stuff
+{"approve":{"result":"","policy":"","time":0},"compare":{"result":"DIFF","policy":"p1","time":1727626790}}
 =END=
 
 ############################################################
@@ -984,7 +984,7 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 2024 09 29 16:19:50 RES: ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
 2024 09 29 16:19:50 END: FAILED
 --status/router
-some_stuff
+{"approve":{"result":"","policy":"","time":0},"compare":{"result":"DIFF","policy":"p1","time":1727626790}}
 =END=
 
 ############################################################
@@ -995,8 +995,6 @@ some_stuff
 =SCENARIO=NONE
 =NETSPOC=NONE
 =ERROR=NONE
-=SETUP=
-echo some_stuff > status/router
 =OUTPUT=
 --policies/p1/log/router.drc
 ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: timer expired after 3 seconds
