@@ -206,7 +206,7 @@ func normalizeIPTables(pairs map[string]string) {
 	// Ignore match option for standard protocols.
 	if v, found := pairs["-m"]; found {
 		proto := pairs["-p"]
-		if strings.ToLower(v) == strings.ToLower(proto) {
+		if strings.EqualFold(v, proto) {
 			delete(pairs, "-m")
 		}
 	}
