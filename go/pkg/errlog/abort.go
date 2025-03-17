@@ -14,7 +14,7 @@ func HandleAbort(f func() int) (exitCode int) {
 	return f()
 }
 
-func Abort(format string, args ...interface{}) {
+func Abort(format string, args ...any) {
 	PrintWithMarker("ERROR>>> ", format, args...)
 	panic(bailout{})
 }

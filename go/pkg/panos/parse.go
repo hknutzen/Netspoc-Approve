@@ -275,7 +275,7 @@ func stripWhitespace(s string) string {
 // Example:
 // <a><b>v</b><c>w</c></a>
 // => <b>v</b><c>w</c>
-func printXMLValue(v interface{}) string {
+func printXMLValue(v any) string {
 	b, err := xml.Marshal(v)
 	if err != nil {
 		panic(err)
@@ -286,7 +286,7 @@ func printXMLValue(v interface{}) string {
 	return url.QueryEscape(string(b))
 }
 
-func printXML(v interface{}) string {
+func printXML(v any) string {
 	b, err := xml.Marshal(v)
 	if err != nil {
 		panic(err)

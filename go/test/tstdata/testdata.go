@@ -314,7 +314,7 @@ func (s *state) doTemplSubst(text string) (string, error) {
 		prevIdx = p[1]
 		pair := text[p[0]+2 : p[1]-2] // without "[[" and "]]"
 		var name string
-		var data interface{}
+		var data any
 		if i := strings.IndexAny(pair, " \t\n"); i != -1 {
 			name = pair[:i]
 			y := pair[i+1:]

@@ -213,11 +213,11 @@ func setupNetspoc(input string) {
 	os.Mkdir("policies", 0700)
 	os.Mkdir("lock", 0700)
 	os.WriteFile(".netspoc-approve",
-		[]byte(fmt.Sprintf(`
+		fmt.Appendf(nil, `
 basedir = %s
 netspoc_git = file://%s
 admin_emails = admin1@example.com
-`, dir, bare)), 0600)
+`, dir, bare), 0600)
 }
 
 func changeNetspoc(input string) {
@@ -271,7 +271,7 @@ func setupBin() {
 	origGit, _ := exec.Command("which", "git").Output()
 	origGit = bytes.TrimSpace(origGit)
 	os.WriteFile(path.Join(myBin, "git"),
-		[]byte(fmt.Sprintf(`#!/bin/bash
+		fmt.Appendf(nil, `#!/bin/bash
 %s "$@"
 status=$?
 
@@ -281,13 +281,13 @@ if echo $* | grep -q '^clone'; then
 fi
 
 exit $status
-`, string(origGit), dir)), 0700)
+`, string(origGit), dir), 0700)
 
 	// Install dummy version of 'mail' command.
 	os.WriteFile(path.Join(myBin, "mail"),
-		[]byte(fmt.Sprintf(`#!/bin/sh
+		fmt.Appendf(nil, `#!/bin/sh
 { echo mail "$@"; cat; echo --END--; } >> %s/mail
-`, dir)), 0700)
+`, dir), 0700)
 	os.Setenv("PATH", fmt.Sprintf("%s/my-bin:%s", dir, os.Getenv("PATH")))
 }
 

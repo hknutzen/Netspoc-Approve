@@ -67,7 +67,7 @@ type nsxServiceEntry struct {
 	ProtocolNumber   int      `json:"protocol_number"`
 }
 
-type jsonMap map[string]interface{}
+type jsonMap map[string]any
 
 func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
 	var result jsonMap

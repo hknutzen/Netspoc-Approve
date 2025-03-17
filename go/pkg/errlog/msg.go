@@ -12,13 +12,13 @@ import (
 
 var Quiet bool
 
-func Info(format string, args ...interface{}) {
+func Info(format string, args ...any) {
 	if !Quiet {
 		fmt.Fprintf(stderrLog, format+"\n", args...)
 	}
 }
 
-func Warning(format string, args ...interface{}) {
+func Warning(format string, args ...any) {
 	PrintWithMarker("WARNING>>> ", format, args...)
 }
 
@@ -45,7 +45,7 @@ func SetStderrLog(fname string) {
 	}
 }
 
-func PrintWithMarker(m string, format string, args ...interface{}) {
+func PrintWithMarker(m string, format string, args ...any) {
 	out := fmt.Sprintf(format, args...)
 	out = strings.TrimSuffix(out, "\n")
 	out = strings.ReplaceAll(out, "\n", "\n"+m)

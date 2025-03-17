@@ -194,6 +194,6 @@ func (c *Config) GetVal(key string) string {
 	return ""
 }
 
-func warn(f string, l ...interface{}) {
+func warn(f string, l ...any) {
 	fmt.Fprintf(os.Stderr, "WARNING>>> "+f+"\n", l...)
 }

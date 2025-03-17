@@ -165,7 +165,7 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func abort(format string, args ...interface{}) int {
+func abort(format string, args ...any) int {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
 	return 1
 }

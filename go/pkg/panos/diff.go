@@ -130,12 +130,9 @@ func (ab *rulesPair) diffRules(vsysPath string) []string {
 				result = append(result, cmd)
 			}
 		} else if r.IsInsert() {
-			aPos := r.LowA
 			// Adapt position to next available rule if this rule has
 			// just been deleted.
-			if aPos < delIdx {
-				aPos = delIdx
-			}
+			aPos := max(r.LowA, delIdx)
 			// New rule is initially appended as last element.
 			// Move to given position where required.
 			moveTo := ""
