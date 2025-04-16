@@ -107,6 +107,8 @@ TESTSERVER/web_api/login
 {"details-level":"full","limit":500}
 /web_api/show-simple-gateways
 {"details-level": "uid"}
+/web_api/show-simple-clusters
+{"details-level": "uid"}
 =END=
 
 ############################################################
@@ -278,6 +280,8 @@ TESTSERVER/web_api/login
 {"details-level":"full","limit":500}
 /web_api/show-simple-gateways
 {"details-level": "uid"}
+/web_api/show-simple-clusters
+{"details-level": "uid"}
 --router.config
 {"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"Rules":[{"name":"rule1","source":[{"name":"Any"}],"destination":[{"name":"Any"}],"service":[{"name":"icmp-proto"}],"action":{"name":"Accept"},"install-on":[{"name":"gw7"}],"tags":[]}],"SvOther":null,"TCP":null,"UDP":null}
 --router.change
@@ -378,19 +382,47 @@ POST /web_api/show-simple-gateway
 { "name": "gw1", "ipv4-address": "10.1.1.1" }
 POST /web_api/gaia-api/v1.7/show-static-routes
 { "response-message": { "objects" : [] } }
+POST /web_api/show-simple-clusters
+{ "objects": [ "uid2" ] }
+POST /web_api/show-simple-cluster
+{
+ "name": "cluster1",
+ "ipv4-address": "10.2.2.1",
+ "cluster-members": [
+  { "ip-address": "10.2.2.2" },
+  { "ip-address": "10.2.2.3" } ]
+}
+POST /web_api/gaia-api/v1.7/show-static-routes
+{ "response-message": { "objects" : [] } }
 POST /web_api
 {}
 =NETSPOC=
-{ "GatewayRoutes": { "gw1": [
-{
- "address": "10.11.0.0",
- "mask-length": 17,
- "type": "gateway",
- "next-hop" : [{ "gateway" : "10.11.1.12" }]
-}
-]}}
+{ "GatewayRoutes": {
+ "gw1": [
+ {
+  "address": "10.11.0.0",
+  "mask-length": 17,
+  "type": "gateway",
+  "next-hop" : [{ "gateway" : "10.11.1.12" }]
+ }],
+ "cluster1": [
+ {
+  "address": "10.1.2.0",
+  "mask-length": 24,
+  "type": "gateway",
+  "next-hop" : [{ "gateway" : "10.1.2.2" }]
+ }]
+}}
 =OUTPUT=
 --router.change
+/web_api/gaia_api/v1.7/set-static-route
+{"address":"10.1.2.0","mask-length":24,"next-hop":[{"gateway":"10.1.2.2"}],"target":"10.2.2.2","type":"gateway"}
+{}
+
+/web_api/gaia_api/v1.7/set-static-route
+{"address":"10.1.2.0","mask-length":24,"next-hop":[{"gateway":"10.1.2.2"}],"target":"10.2.2.3","type":"gateway"}
+{}
+
 /web_api/gaia_api/v1.7/set-static-route
 {"address":"10.11.0.0","mask-length":17,"next-hop":[{"gateway":"10.11.1.12"}],"target":"10.1.1.1","type":"gateway"}
 {}
