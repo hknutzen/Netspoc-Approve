@@ -1,9 +1,8 @@
-.build
 Netspoc-Approve*
 *~
 released/
-TAGS
-go/test/coverage.out
-go/cmd/*/*
-!go/cmd/*/*.go
-!go/cmd/*/testdata
+go/test/c*.out
+bin/do-approve
+bin/drc
+bin/get-netspoc-approve-conf
+bin/missing-approve

@@ -17,7 +17,7 @@ dir=$(dirname $(readlink -f $0))
 # Prevent error: /lib64/libc.so.6: version `GLIBC_2.34' not found
 export CGO_ENABLED=0
 for d in $dir/cmd/*; do
-    ( cd $d; go build -ldflags="-X '$NAME=$V'" )
+    ( cd $d; go build -o "$dir/../bin/" -ldflags="-X '$NAME=$V'" )
 done
 
 # Do static analysis of source code.
