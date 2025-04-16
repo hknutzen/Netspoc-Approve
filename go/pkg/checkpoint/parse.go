@@ -20,7 +20,7 @@ type chkpConfig struct {
 	ICMP6         []*chkpICMP6
 	SvOther       []*chkpSvOther
 	GatewayRoutes map[string][]*chkpRoute
-	GatewayIP     map[string]string
+	GatewayIPs    map[string][]string
 }
 
 type chkpRule struct {
