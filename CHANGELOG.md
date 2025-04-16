@@ -16,3 +16,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Current date and time is used as version number.
+- Timout message is logged to history file of device.
+- Status of device is marked as DIFF if compare has errors.
+  Previously the error was silently ignored.
