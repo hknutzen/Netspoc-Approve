@@ -41,51 +41,51 @@ func diffRoutes(a, b *chkpConfig) []change {
 			aRoutes: aRoutes,
 			bRoutes: bRoutes,
 		}
-		target := gw
-		// Workaroud for bug in Checkpoint version R81.20
-		// which only accepts IP as target.
-		if ip := a.GatewayIP[gw]; ip != "" {
-			target = ip
+		ips, found := a.GatewayIPs[gw]
+		if !found {
+			// In tests use name of gateway as target.
+			ips = []string{gw}
 		}
-
-		diff := myers.Diff(nil, ab).Ranges
-		for _, r := range diff {
-			if r.IsDelete() {
-				// Remove route from device.
-				for _, aRoute := range aRoutes[r.LowA:r.HighA] {
-					addChange("gaia_api/v1.7/delete-static-route", jsonMap{
-						"target":      target,
-						"address":     aRoute.Address,
-						"mask-length": aRoute.MaskLength,
-					})
-				}
-			} else if r.IsInsert() {
-				// Add route from Netspoc.
-				for _, bRoute := range bRoutes[r.LowB:r.HighB] {
-					addChange("gaia_api/v1.7/set-static-route", jsonMap{
-						"target":      target,
-						"address":     bRoute.Address,
-						"mask-length": bRoute.MaskLength,
-						"type":        bRoute.Type,
-						"next-hop":    bRoute.NextHop,
-					})
-				}
-			} else if r.IsEqual() {
-				// Change type or hops of route.
-				for i, aRoute := range aRoutes[r.LowA:r.HighA] {
-					bRoute := bRoutes[r.LowB:r.HighB][i]
-					changed := make(jsonMap)
-					if aRoute.Type != bRoute.Type {
-						changed["type"] = bRoute.Type
+		for _, ip := range ips {
+			diff := myers.Diff(nil, ab).Ranges
+			for _, r := range diff {
+				if r.IsDelete() {
+					// Remove route from device.
+					for _, aRoute := range aRoutes[r.LowA:r.HighA] {
+						addChange("gaia_api/v1.7/delete-static-route", jsonMap{
+							"target":      ip,
+							"address":     aRoute.Address,
+							"mask-length": aRoute.MaskLength,
+						})
 					}
-					if !slices.Equal(aRoute.NextHop, bRoute.NextHop) {
-						changed["next-hop"] = bRoute.NextHop
+				} else if r.IsInsert() {
+					// Add route from Netspoc.
+					for _, bRoute := range bRoutes[r.LowB:r.HighB] {
+						addChange("gaia_api/v1.7/set-static-route", jsonMap{
+							"target":      ip,
+							"address":     bRoute.Address,
+							"mask-length": bRoute.MaskLength,
+							"type":        bRoute.Type,
+							"next-hop":    bRoute.NextHop,
+						})
 					}
-					if len(changed) > 0 {
-						changed["target"] = target
-						changed["address"] = bRoute.Address
-						changed["mask-length"] = bRoute.MaskLength
-						addChange("gaia_api/v1.7/set-static-route", changed)
+				} else if r.IsEqual() {
+					// Change type or hops of route.
+					for i, aRoute := range aRoutes[r.LowA:r.HighA] {
+						bRoute := bRoutes[r.LowB:r.HighB][i]
+						changed := make(jsonMap)
+						if aRoute.Type != bRoute.Type {
+							changed["type"] = bRoute.Type
+						}
+						if !slices.Equal(aRoute.NextHop, bRoute.NextHop) {
+							changed["next-hop"] = bRoute.NextHop
+						}
+						if len(changed) > 0 {
+							changed["target"] = ip
+							changed["address"] = bRoute.Address
+							changed["mask-length"] = bRoute.MaskLength
+							addChange("gaia_api/v1.7/set-static-route", changed)
+						}
 					}
 				}
 			}

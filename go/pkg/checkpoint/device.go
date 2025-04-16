@@ -162,40 +162,55 @@ func (s *State) LoadDevice(
 	collect("ICMP", "show-services-icmp", jsonMap{"details-level": "full"})
 	collect("ICMP6", "show-services-icmp6", jsonMap{"details-level": "full"})
 	collect("SvOther", "show-services-other", jsonMap{"details-level": "full"})
-	// Collect static routes of all gateways.
-	getGateways := func() []string {
+	// Collect static routes of all simple gateways and clusters.
+	getUIDs := func(kind string) []string {
 		if collectErr != nil {
 			return nil
 		}
-		uids, err := s.getUIDs("show-simple-gateways", logLogin)
+		uids, err := s.getUIDs("show-simple-"+kind+"s", logLogin)
 		collectErr = cmp.Or(collectErr, err)
 		return uids
 	}
-	// We need IP address of each simple gateway,
-	// because call "gaia_api/v1.7/show-static-routes"
-	// currently only works with IP and not with name as argument.
-	getGatewayNameIP := func(uid string) (name, ip string) {
-		url := "/web_api/show-simple-gateway"
+	// Get IP address of each simple gateway|cluster.
+	// Only for cluster, collect list of IP addresses of cluster members.
+	getNameIPList := func(kind, uid string) (string, string, []string) {
+		url := "/web_api/show-simple-" + kind
 		postData, _ := json.Marshal(jsonMap{"uid": uid})
 		resp, err := s.sendRequest(url, postData, logLogin)
 		collectErr = cmp.Or(collectErr, err)
+		type member struct {
+			IP string `json:"ip-address"`
+		}
 		var result struct {
-			Name string
-			IP   string `json:"ipv4-address"`
+			Name           string
+			ClusterMembers []member `json:"cluster-members"`
+			IP             string   `json:"ipv4-address"`
 		}
 		json.Unmarshal(resp, &result)
-		return result.Name, result.IP
+		var ips []string
+		if kind == "gateway" {
+			ips = []string{result.IP}
+		} else {
+			ips = make([]string, len(result.ClusterMembers))
+			for i, m := range result.ClusterMembers {
+				ips[i] = m.IP
+			}
+		}
+		return result.Name, result.IP, ips
 	}
 	routeMap := make(map[string][]json.RawMessage)
-	ipMap := make(map[string]string)
-	for _, uid := range getGateways() {
-		name, ip := getGatewayNameIP(uid)
-		if collectErr != nil {
-			break
+	ipMap := make(map[string][]string)
+	for _, kind := range []string{"gateway", "cluster"} {
+		for _, uid := range getUIDs(kind) {
+			name, ip, ips := getNameIPList(kind, uid)
+			if collectErr != nil {
+				break
+			}
+			ipMap[name] = ips
+			routeMap[name] = collect0(extractRoute,
+				"gaia-api/v1.7/show-static-routes",
+				jsonMap{"target": ip, "limit": 200})
 		}
-		ipMap[name] = ip
-		routeMap[name] = collect0(extractRoute, "gaia-api/v1.7/show-static-routes",
-			jsonMap{"target": ip, "limit": 200})
 	}
 	rawConf["GatewayRoutes"] = routeMap
 	if collectErr != nil {
@@ -207,7 +222,7 @@ func (s *State) LoadDevice(
 	if err != nil {
 		err = fmt.Errorf("While parsing device config: %v", err)
 	}
-	cf.(*chkpConfig).GatewayIP = ipMap
+	cf.(*chkpConfig).GatewayIPs = ipMap
 	return cf, err
 }
 
