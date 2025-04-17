@@ -1,5 +1,5 @@
 #!/bin/bash
-# newpolicy -- Call 'suid-newpolicy' to process next policy.
+# newpolicy -- Call 'sudo-newpolicy' to process next policy.
 #
 # This script allows unprivileged users to call newpolicy.sh.
 # If newpolicy.sh already runs, it waits for it to be finished.
