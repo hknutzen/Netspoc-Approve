@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [2025-04-16-1813]
 
+### Changed
+
+- Option '--brief' of commands 'diamonds approve', 'diamonds compare'
+  now only ignores login failure on timeout.
+  SSH negotiation error is no longer silently ignored.
+
 ### Added
 
 - 'CHANGELOG.md'

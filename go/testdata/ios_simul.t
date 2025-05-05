@@ -1008,6 +1008,28 @@ ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: 
 =END=
 
 ############################################################
+=TITLE=do-approve --brief approve: SSH closes connection
+=DO_APPROVE=
+=PARAMS=approve router
+=OPTIONS=--brief
+=SCENARIO=
+Unable to negotiate with UNKNOWN port 65535: no matching cipher found.
+EOF
+=NETSPOC=NONE
+=ERROR=NONE
+=OUTPUT=
+--policies/p1/log/router.login
+Unable to negotiate with UNKNOWN port 65535: no matching cipher found.
+--policies/p1/log/router.drc
+ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: Process not running
+--history/router
+2024 09 29 16:19:50 START: --brief approve router
+2024 09 29 16:19:50 POLICY: p1
+2024 09 29 16:19:50 RES: ERROR>>> while waiting for login prompt '(?i)password:|\(yes/no.*\)\?': expect: Process not running
+2024 09 29 16:19:50 END: FAILED
+=END=
+
+############################################################
 =TITLE=Without historydir
 =DO_APPROVE=
 =SCENARIO=[[std_scenario]]

@@ -100,24 +100,27 @@ func Main() int {
 		return abort("can't %v", err)
 	}
 	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, "ERROR>>>") {
+	for _, ln := range lines {
+		if strings.HasPrefix(ln, "ERROR>>>") {
 			errors = true
-		} else if strings.HasPrefix(line, "WARNING>>>") {
+		} else if strings.HasPrefix(ln, "WARNING>>>") {
 			warnings = true
-		} else if strings.HasPrefix(line, "comp: ***") {
+		} else if strings.HasPrefix(ln, "comp: ***") {
 			changed = true
 		} else {
 			continue
 		}
 		if *brief {
-			if !strings.HasPrefix(line, "ERROR>>> while waiting for login prompt") {
-				fmt.Printf("%s:%s\n", devName, line)
+			isTimeout :=
+				strings.HasPrefix(ln, "ERROR>>> while waiting for login prompt") &&
+					strings.Contains(ln, "timer expired")
+			if !isTimeout {
+				fmt.Printf("%s:%s\n", devName, ln)
 			}
 		} else {
-			fmt.Println(line)
+			fmt.Println(ln)
 		}
-		logHistory(hLog, "RES:", line)
+		logHistory(hLog, "RES:", ln)
 	}
 
 	// Update status file.
