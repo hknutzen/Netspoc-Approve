@@ -44,6 +44,9 @@ The simulation will print this command line garbled by banner text.
 
 MARKER is any non empty string of word characters.
 
+Special case:
+If scenario file is single line "EOF", connection is closed prematurely.
+
 =cut
 
 use strict;
@@ -133,9 +136,15 @@ sub send_line {
     print @parts;
 }
 
+my $eof = $preamble =~ s/EOF$//;
+
 # Send preamble on startup.
 $preamble ||= '';
 send_line $preamble;
+
+if ($eof) {
+    exit;
+}
 
 # Read command,
 # send command echo,
