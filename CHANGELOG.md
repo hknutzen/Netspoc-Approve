@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Log SUDO_USER in history file if approve or compare was initiated by
+  non systemuser.
+
 ## [2025-05-05-1235]
 
 ### Changed

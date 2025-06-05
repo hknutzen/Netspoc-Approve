@@ -85,6 +85,9 @@ func Main() int {
 		return abort("can't %v", err)
 	}
 	logHistory(hLog, "START:", strings.Join(os.Args[1:], " "))
+	if u := os.Getenv("SUDO_USER"); u != "" {
+		logHistory(hLog, "SUDO_USER:", u)
+	}
 	logHistory(hLog, "POLICY:", policy)
 	var warnings, errors, changed, failed bool
 	stat := device.ApproveOrCompare(
