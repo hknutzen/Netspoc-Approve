@@ -37,10 +37,7 @@ func (s *State) LoadDevice(
 	err := httpdevice.TryReachableHTTPLogin(spocFile, cfg,
 		func(name, ip, user, pass string) error {
 			s.client, s.prefix = httpdevice.GetHTTPClient(cfg, ip)
-			jar, err := cookiejar.New(nil)
-			if err != nil {
-				return err
-			}
+			jar, _ := cookiejar.New(nil)
 			s.client.Jar = jar
 
 			uri := s.prefix + "/api/session/create"
