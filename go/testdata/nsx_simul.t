@@ -4,7 +4,7 @@ H: x-xsrf-token: secret
 =END=
 
 ############################################################
-=TITLE=Device gives no valid answer
+=TITLE=Device gives status 500
 =SCENARIO=
 POST /api
 500
@@ -18,6 +18,21 @@ ERROR>>> Devices unreachable: router
 POST TESTSERVER/api/session/create
 j_password=xxx&j_username=admin
 500 Internal Server Error
+=END=
+
+############################################################
+=TITLE=Device gives no valid answer
+=SCENARIO=
+POST /api
+EOF
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> Post "TESTSERVER/api/session/create": EOF
+ERROR>>> Devices unreachable: router
+=OUTPUT=
+--router.login
+POST TESTSERVER/api/session/create
+j_password=xxx&j_username=admin
 =END=
 
 ############################################################
