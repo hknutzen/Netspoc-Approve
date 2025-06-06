@@ -106,7 +106,7 @@ func (s *State) LoadDevice(
 
 	out, err := json.Marshal(rawConf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("While parsing JSON from device: %v", err)
 	}
 	errlog.DoLog(logConfig, string(out))
 
@@ -152,10 +152,7 @@ func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
 }
 
 func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte, error) {
-	req, err := http.NewRequest(method, s.prefix+path, body)
-	if err != nil {
-		return nil, err
-	}
+	req, _ := http.NewRequest(method, s.prefix+path, body)
 	req.Header.Set("x-xsrf-token", s.token)
 	if body != nil {
 		req.Header.Set("content-type", "application/json")
