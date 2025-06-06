@@ -13,14 +13,14 @@ import (
 )
 
 var (
-	urlRe    = regexp.MustCompile(`(?m)^(GET|POST|PUT)[ ]+(\S*)[ ]*\n`)
+	urlRe    = regexp.MustCompile(`(?m)^(GET|POST|PUT|DELETE)[ ]+(\S*)[ ]*\n`)
 	statusRe = regexp.MustCompile(`^\d{3}[ ]*\n`)
 )
 
 /*
 NewTLSServer creates a new httptest.Server from an input text.
 Input text has multiple blocks.
-Each block is starting with a line GET|POST|PUT <URL>.
+Each block is starting with a line GET|POST|PUT|DELETE <URL>.
 It follows an optional status code which defaults to 200.
 Then follow optional header lines marked with "H: ".
 Remaining lines are used as response body.
@@ -46,7 +46,7 @@ func NewTLSServer(t *testing.T, input string) *httptest.Server {
 	router := mux.NewRouter()
 	il := urlRe.FindAllStringSubmatchIndex(input, -1)
 	if il == nil || il[0][0] != 0 {
-		t.Fatal("Missing 'GET|POST|PUT url' in first line")
+		t.Fatal("Missing 'GET|POST|PUT|DELETE url' in first line")
 	}
 	for i, p := range il {
 		method := input[p[2]:p[3]]
