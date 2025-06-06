@@ -10,12 +10,12 @@ GET /api?type=keygen
 GET /api/?type=op&cmd=<show><high-availability><state/></high-availability></show>
 <response status = 'success'>
  <result>
-  <enabled>yes</enabled>
+  <enabled>{{or .enabled "yes"}}</enabled>
   <group>
-   <mode>Active-Passive</mode>
+   <mode>{{or .mode "Active-Passive"}}</mode>
    <local-info>
     <ha2-port>hsci</ha2-port>
-    <state>active</state>
+    <state>{{or .state "active"}}</state>
    </local-info>
   </group>
  </result>
@@ -129,6 +129,32 @@ TESTSERVER/api/?key=xxx&type=op&cmd=<show><high-availability><state/></high-avai
 =END=
 
 ############################################################
+=TITLE=HA check fails with EOF
+=SCENARIO=
+[[apikey]]
+GET /api/?type=op&cmd=<show><high-availability><state/></high-availability></show>
+<INVALID/>
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> not in active state: 10.1.13.33 (router)
+ERROR>>> Devices unreachable: router
+=END=
+
+############################################################
+=TITLE=HA check can't parse HA mode
+=SCENARIO=
+[[apikey]]
+GET /api/?type=op&cmd=<show><high-availability><state/></high-availability></show>
+<response status = 'success'>
+ <INVALID/>
+</response>
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> not in active state: 10.1.13.33 (router)
+ERROR>>> Devices unreachable: router
+=END=
+
+############################################################
 =TITLE=Only HA check succeeds
 =SCENARIO=
 [[checkHA]]
@@ -189,6 +215,51 @@ TESTSERVER/api/?key=xxx&type=op&cmd=<show><high-availability><state/></high-avai
  </result>
 </response>
 
+=END=
+
+############################################################
+=TITLE=HA mode Active-Active
+=SCENARIO=
+[[checkHA
+mode: Active-Active
+state: active-primary
+]]
+[[empty_missing_vsys]]
+=NETSPOC=NONE
+=OUTPUT=
+--router.login
+TESTSERVER/api?password=xxx&type=keygen&user=admin
+<response status = 'success'>
+ <result><key>xxx</key></result>
+</response>
+
+TESTSERVER/api/?key=xxx&type=op&cmd=<show><high-availability><state/></high-availability></show>
+<response status = 'success'>
+ <result>
+  <enabled>yes</enabled>
+  <group>
+   <mode>Active-Active</mode>
+   <local-info>
+    <ha2-port>hsci</ha2-port>
+    <state>active-primary</state>
+   </local-info>
+  </group>
+ </result>
+</response>
+
+=END=
+
+############################################################
+=TITLE=Invalid HA mode
+=SCENARIO=
+[[checkHA
+mode: invalid
+]]
+[[empty_missing_vsys]]
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> not in active state: 10.1.13.33 (router)
+ERROR>>> Devices unreachable: router
 =END=
 
 ############################################################
@@ -337,7 +408,7 @@ ERROR>>> Commit failed: Get "TESTSERVER/api/?key=LUFRPT=&type=op&cmd=<show><jobs
 =END=
 
 ############################################################
-=TITLE=Invalid XML in job status
+=TITLE=Invalid response in job status
 =SCENARIO=
 [[empty_with_vsys]]
 GET /api/?action=set&type=config
