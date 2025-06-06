@@ -62,6 +62,123 @@ ERROR>>> while parsing /policy/api/v1/infra/domains/default/gateway-policies: in
 =END=
 
 ############################################################
+=TITLE=Error reading single policy from device
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies/
+EOF
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{
+ "result_count": 1,
+ "results": [{"resource_type":"GatewayPolicy", "id":"Netspoc-v1"}]
+}
+GET /policy/api/v1/infra/services
+{}
+GET /policy/api/v1/infra/domains/default/groups
+{}
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> Get "TESTSERVER/policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1": EOF
+=END=
+
+############################################################
+=TITLE=Invalid JSON reading single policy from device
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies/
+INVALID
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{
+ "result_count": 1,
+ "results": [{"resource_type":"GatewayPolicy", "id":"Netspoc-v1"}]
+}
+GET /policy/api/v1/infra/services
+{}
+GET /policy/api/v1/infra/domains/default/groups
+{}
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While parsing JSON from device: json: error calling MarshalJSON for type json.RawMessage: invalid character 'I' looking for beginning of value
+=END=
+
+############################################################
+=TITLE=Missing response for services
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{}
+GET /policy/api/v1/infra/services
+EOF
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> Get "TESTSERVER/policy/api/v1/infra/services?cursor=": EOF
+=END=
+
+############################################################
+=TITLE=Invalid JSON response for services
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{}
+GET /policy/api/v1/infra/services
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> while parsing /policy/api/v1/infra/services: unexpected end of JSON input
+=END=
+
+############################################################
+=TITLE=Invalid JSON response for groups
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{}
+GET /policy/api/v1/infra/services
+{}
+GET /policy/api/v1/infra/domains/default/groups
+{
+ "result_count": 1,
+ "results": ["invalid"]
+}
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> json: cannot unmarshal string into Go value of type struct { Id string }
+=END=
+
+############################################################
+=TITLE=Unexpected group with multiple expressions
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{}
+GET /policy/api/v1/infra/services
+{}
+GET /policy/api/v1/infra/domains/default/groups
+{
+ "result_count": 1,
+ "results": [
+  {
+   "id": "Netspoc-g1",
+   "expression": [
+    {
+     "id": "id1",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": ["10.1.1.1", "10.1.1.9"]
+    },
+    {
+     "id": "id2",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": ["10.1.1.2", "10.1.1.8"]
+    }
+   ]
+  }
+ ]
+}
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: Expecting exactly one expression in group Netspoc-g1
+=END=
+
+############################################################
 =TITLE=Empty policies, services and groups
 =SCENARIO=
 [[session]]
@@ -73,6 +190,57 @@ GET /policy/api/v1/infra/domains/default/groups
 {}
 =NETSPOC=NONE
 =WARNING=NONE
+
+############################################################
+=TITLE=Leave non Netspoc policies unchanged
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{
+ "result_count": 1,
+ "results": [ { "resource_type": "GatewayPolicy", "id": "MAGIC" } ]
+}
+GET /policy/api/v1/infra/services
+{}
+GET /policy/api/v1/infra/domains/default/groups
+{}
+=NETSPOC=NONE
+=WARNING=NONE
+
+############################################################
+=TITLE=Remove policy from device
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+{
+ "resource_type": "GatewayPolicy",
+ "id": "Netspoc-v1",
+ "rules": [
+  {"action":"DROP",
+   "id":"r1",
+   "source_groups":["ANY"],
+   "destination_groups":["ANY"],
+   "services":["ANY"],
+   "scope":["/infra/tier-0s/v1"],
+   "direction":"OUT",
+   "ip_protocol":"IPV4"
+  }]
+}
+DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{
+ "result_count": 1,
+ "results": [{"resource_type":"GatewayPolicy", "id":"Netspoc-v1"}]
+}
+GET /policy/api/v1/infra/services
+{}
+GET /policy/api/v1/infra/domains/default/groups
+{}
+=NETSPOC=NONE
+=OUTPUT=
+--router.change
+URI: DELETE /policy/api/v1/infra/domains/default/gateway-policies/Netspoc-v1
+=END=
 
 ############################################################
 =TITLE=Add ICMP service to empty device
@@ -107,6 +275,37 @@ URI: PUT /policy/api/v1/infra/services/Netspoc-icmp
 DATA: {"service_entries":[{"id":"id","protocol":"ICMPv4","resource_type":"ICMPTypeServiceEntry"}]}
 RESP: {}
 
+=END=
+
+############################################################
+=TITLE=Adding service fails
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{}
+GET /policy/api/v1/infra/services
+{}
+GET /policy/api/v1/infra/domains/default/groups
+{}
+PUT /policy/api/v1/infra/services/
+EOF
+=NETSPOC=
+{
+ "services": [
+  {
+   "id": "Netspoc-icmp",
+   "service_entries": [
+    {
+     "id": "id",
+     "protocol": "ICMPv4",
+     "resource_type": "ICMPTypeServiceEntry"
+    }
+   ]
+  }
+  ]
+}
+=ERROR=
+ERROR>>> Put "TESTSERVER/policy/api/v1/infra/services/Netspoc-icmp": EOF
 =END=
 
 ############################################################
