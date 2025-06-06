@@ -199,12 +199,16 @@ func (s *State) ShowChanges() string {
 func (s *State) ApplyCommands(logFh *os.File) error {
 	for _, c := range s.changes {
 		errlog.DoLog(logFh, fmt.Sprintf("URI: %s %s", c.method, c.url))
-		errlog.DoLog(logFh, "DATA: "+string(c.postData))
+		if c.postData != nil {
+			errlog.DoLog(logFh, "DATA: "+string(c.postData))
+		}
 		resp, err := s.sendRequest(c.method, c.url, bytes.NewReader(c.postData))
 		if err != nil {
 			return err
 		}
-		errlog.DoLog(logFh, "RESP: "+string(resp))
+		if len(resp) != 0 {
+			errlog.DoLog(logFh, "RESP: "+string(resp))
+		}
 	}
 	return nil
 }
