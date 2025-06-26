@@ -39,11 +39,15 @@
 {
  "resource_type": "Rule",
  "id": "{{.id}}",
+ {{with .destinations_excluded}}"destinations_excluded": {{.}},{{end}}
+ {{with .sources_excluded}}"sources_excluded": {{.}},{{end}}
+ {{with .service_entries}}"service_entries": "{{.}}",{{end}}
+ {{with .profiles}}"profiles": [ "{{.}}" ],{{end}}
  {{with .logged}}"logged": {{.}},{{end}}
  {{with .disabled}}"disabled": {{.}},{{end}}
  {{with .tag}}"tag": "{{.}}",{{end}}
  {{with .unknownattribute}}"unknownattribute": "{{.}}",{{end}}
- "scope": [ "/infra/tier-0s/v1" ],
+ "scope": [ "{{or .scope "/infra/tier-0s/v1"}}" ],
  "direction": "{{or .dir "OUT"}}",
  "ip_protocol": "{{or .proto "IPV4"}}",
  "sequence_number": {{or .seq 20}},
@@ -1595,5 +1599,167 @@ rules:
 - { id: r1, src: g0, dst: 10.1.2.1, srv: tcp_80 }
 services:
 - [tcp, 80]
+]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Sort rules by source elements
+=DEVICE=
+[[config
+rules:
+- { id: r1, src: 10.1.1.20, dst: 10.1.2.1, srv: tcp_80 }
+- { id: r2, src: 10.1.2.40, dst: 10.1.2.1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=NETSPOC=
+[[config
+rules:
+- { id: r2, src: 10.1.2.40, dst: 10.1.2.1, srv: tcp_80 }
+- { id: r1, src: 10.1.1.20, dst: 10.1.2.1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Sort rules by source elements with mixed group / single element
+=DEVICE=
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+rules:
+- { id: r1, src: g0, dst: 10.1.2.1, srv: tcp_80 }
+- { id: r2, src: 10.1.2.40, dst: 10.1.2.1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=NETSPOC=
+[[config
+groups:
+- { id: g0, ip: '10.1.1.10","10.1.1.20' }
+rules:
+- { id: r2, src: 10.1.2.40, dst: 10.1.2.1, srv: tcp_80 }
+- { id: r1, src: g0, dst: 10.1.2.1, srv: tcp_80 }
+services:
+- [tcp, 80]
+]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Sort rules with attribute "logged"
+=DEVICE=
+[[config
+rules:
+- { id: r1, logged: true }
+- { id: r3, logged: false }
+- { id: r2, logged: true }
+]]
+=NETSPOC=
+[[config
+rules:
+- { id: r1, logged: true }
+- { id: r2, logged: true }
+- { id: r3, logged: false }
+]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Sort rules with attribute "tag"
+=DEVICE=
+[[config
+rules:
+- { id: r2, tag: t2 }
+- { id: r1, tag: t1 }
+]]
+=NETSPOC=
+[[config
+rules:
+- { id: r1, tag: t1 }
+- { id: r2, tag: t2 }
+]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Sort rules with attribute "disabled"
+=DEVICE=
+[[config
+rules:
+- { id: r2, disabled: true }
+- { id: r1, disabled: false }
+]]
+=NETSPOC=
+[[config
+rules:
+- { id: r1, disabled: false }
+- { id: r2, disabled: true }
+]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Sort rules with attributes src/dst_excluded
+=DEVICE=
+[[config
+rules:
+- { id: r4, sources_excluded: false }
+- { id: r3, sources_excluded: true }
+- { id: r2, destinations_excluded: false }
+- { id: r1, destinations_excluded: true }
+]]
+=NETSPOC=
+[[config
+rules:
+- { id: r1, destinations_excluded: true }
+- { id: r2, destinations_excluded: false }
+- { id: r3, sources_excluded: true }
+- { id: r4, sources_excluded: false }
+]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Sort rules with attributes "ip_protocol"
+=DEVICE=
+[[config
+rules:
+- { id: r2, proto: IPV6 }
+- { id: r1, proto: IPV4 }
+]]
+=NETSPOC=
+[[config
+rules:
+- { id: r1, proto: IPV4 }
+- { id: r2, proto: IPV6 }
+]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Sort rules with attribute "profiles"
+=DEVICE=
+[[config
+rules:
+- { id: r2, profiles: p2 }
+- { id: r1, profiles: p1 }
+]]
+=NETSPOC=
+[[config
+rules:
+- { id: r1, profiles: p1 }
+- { id: r2, profiles: p2 }
+]]
+=OUTPUT=NONE
+
+############################################################
+=TITLE=Sort rules by attribute "scope"
+=DEVICE=
+[[config
+rules:
+- { id: r2, scope: /infra/tier-0s/v2 }
+- { id: r1, scope: /infra/tier-0s/v1 }
+]]
+=NETSPOC=
+[[config
+rules:
+- { id: r1, scope: /infra/tier-0s/v1 }
+- { id: r2, scope: /infra/tier-0s/v2 }
 ]]
 =OUTPUT=NONE
