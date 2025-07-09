@@ -392,6 +392,47 @@ ERROR>>> Commit failed: Parsing response: expected element type <response> but h
 =END=
 
 ############################################################
+=TITLE=Useless commit
+=SCENARIO=
+[[empty_with_vsys]]
+GET /api/?action=set&type=config
+<response status="success" code="20"></response>
+GET /api/?type=commit&action=partial
+<response status="success">
+ <msg>The result of this commit would be the same</msg>
+</response>
+=NETSPOC=
+[[minimal_netspoc]]
+=OUTPUT=
+--router.change
+TESTSERVER/api/?key=xxx&action=set&type=config&xpath=/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/service/entry[@name='tcp 80']&element=<protocol><tcp><port>80</port></tcp></protocol>
+<response status="success" code="20"></response>
+
+TESTSERVER/api/?key=xxx&action=set&type=config&xpath=/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules/entry[@name='r1']&element=<action>allow</action><from><member>z1</member></from><to><member>z2</member></to><source><member>any</member></source><destination><member>any</member></destination><service><member>tcp 80</member></service><application><member>any</member></application><rule-type>interzone</rule-type>
+<response status="success" code="20"></response>
+
+TESTSERVER/api/?key=xxx&type=commit&action=partial&cmd=<commit><partial><admin><member>admin</member></admin></partial></commit>
+<response status="success">
+ <msg>The result of this commit would be the same</msg>
+</response>
+
+=END=
+
+############################################################
+=TITLE=Commit with unknown message
+=SCENARIO=
+[[empty_with_vsys]]
+GET /api/?action=set&type=config
+<response status="success" code="20"></response>
+GET /api/?type=commit&action=partial
+<response status="success"><msg>Unknown</msg></response>
+=NETSPOC=
+[[minimal_netspoc]]
+=ERROR=
+ERROR>>> Commit failed: Unexpected message: Unknown
+=END=
+
+############################################################
 =TITLE=Getting job status fails
 =SCENARIO=
 [[empty_with_vsys]]
