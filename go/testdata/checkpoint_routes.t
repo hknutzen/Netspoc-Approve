@@ -71,6 +71,25 @@ gaia_api/v1.7/delete-static-route
 =OUTPUT=NONE
 
 ############################################################
+=TITLE=Leave gateway unchanged if no routes from Netspoc
+=DEVICE=
+{
+  "GatewayRoutes": {
+   "gw1": [
+    [[route {ip: 10.1.1.0, len: 24, hop: 10.1.1.99} ]],
+    [[route {ip: 10.11.0.0, len: 17, hop: 10.11.1.12} ]]
+   ]
+  }
+}
+=NETSPOC=
+{
+  "GatewayRoutes": {
+   "gw1": null
+  }
+}
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Change next hop of route
 =DEVICE=
 {
