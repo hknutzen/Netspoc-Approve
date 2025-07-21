@@ -17,7 +17,7 @@ func TestDrc(t *testing.T) {
 	prevDir, _ := os.Getwd()
 	defer func() { os.Chdir(prevDir) }()
 	os.Chdir(workDir)
-	testtxt.PrepareInDir(t, workDir, "NONE", inFiles)
+	testtxt.PrepareFileOrDir(t, workDir, inFiles)
 	sim := prevDir + "/../testdata/simulate-cisco.pl router scenario"
 	os.Setenv("SIMULATE_ROUTER", sim)
 	os.Setenv("HOME", workDir)

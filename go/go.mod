@@ -6,7 +6,7 @@ require (
 	github.com/creack/pty v1.1.23
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/hknutzen/testtxt v0.0.0-20240408182449-0168fe18ebfb
+	github.com/hknutzen/testtxt v0.0.0-20250721083956-5de181450733
 	github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e
 	github.com/spf13/pflag v1.0.5
 	github.com/tailscale/goexpect v0.0.0-20210902213824-6e8c725cea41
