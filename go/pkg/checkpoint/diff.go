@@ -40,6 +40,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	}
 	aObjects := getObjList(a)
 	aObjMap := getObjMap(aObjects)
+	aIPMap := getIPMap(aObjects)
 	markDeletable := func(n string) {
 		if aObj, ok := aObjMap[n]; ok {
 			aObj.setDeletable()
@@ -109,6 +110,12 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 						name, d)
 				}
 			}
+		} else if aObj := aIPMap[bObj.getIPKey()]; aObj != nil {
+			// Must not define two objects with same IP address,
+			// to prevent error message
+			// "More than one network has the same IP ..."
+			addChange("set-"+bObj.getAPIObject(),
+				jsonMap{"name": aObj.getName(), "new-name": bObj.getName()})
 		} else {
 			// Add definition of new object to device.
 			addChange("add-"+bObj.getAPIObject(), bObj)
@@ -242,6 +249,16 @@ func getObjMap(l []object) map[string]object {
 	m := make(map[string]object)
 	for _, o := range l {
 		m[o.getName()] = o
+	}
+	return m
+}
+
+func getIPMap(l []object) map[string]object {
+	m := make(map[string]object)
+	for _, o := range l {
+		if k := o.getIPKey(); k != "" {
+			m[k] = o
+		}
 	}
 	return m
 }
