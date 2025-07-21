@@ -1,6 +1,5 @@
 ############################################################
 =TITLE=Missing config file
-=INPUT=NONE
 =SETUP=
 rm .netspoc-approve
 =ERROR=
@@ -9,7 +8,6 @@ Error: No config file found in [.netspoc-approve /usr/local/etc/netspoc-approve 
 
 ############################################################
 =TITLE=Missing current policy
-=INPUT=NONE
 =SETUP=
 rm policies/current
 =ERROR=

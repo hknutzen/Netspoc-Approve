@@ -62,7 +62,9 @@ func runTest(t *testing.T, d descr) {
 	os.Setenv("HOME", workDir)
 
 	// Prepare directory with input files.
-	testtxt.PrepareInDir(t, workDir, "INPUT", d.Input)
+	if d.Input != "" {
+		testtxt.PrepareFileOrDir(t, workDir, d.Input)
+	}
 
 	// Set 'current' policy to 'p2'.
 	os.Symlink("p2", path.Join(policies, "current"))
