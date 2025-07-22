@@ -151,9 +151,9 @@ add-host
 add-host
 {"name":"h_10.1.9.9","ipv4-address":"10.1.9.9"}
 add-service-tcp
-{"name":"tcp_81","port":"81"}
+{"name":"tcp_81","ignore-warnings":true,"port":"81"}
 add-service-udp
-{"name":"udp_123","port":"123"}
+{"name":"udp_123","ignore-warnings":true,"port":"123"}
 add-access-rule
 {"name":"test rule",
  "layer":"network",
