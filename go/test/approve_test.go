@@ -159,6 +159,7 @@ func runTest(t *testing.T, d descr, devType string) {
 		// Tell approve command to use simulation by setting environment variable.
 		if talksHTTPS(devType) {
 			httpServer = httpsim.NewTLSServer(t, sc)
+			defer httpServer.Close()
 			os.Setenv("SIMULATE_ROUTER", httpServer.URL)
 		} else {
 			scenarioFile := "scenario"
@@ -243,10 +244,6 @@ timeout = 1
 			})
 		})
 	})
-
-	if httpServer != nil {
-		httpServer.Close()
-	}
 
 	// Normalize error messages.
 	stderr = strings.ReplaceAll(stderr, workDir+"/", "")
