@@ -139,9 +139,9 @@ add-group
 add-group
 {"name":"Raw g2","members":["Raw h2"]}
 add-service-tcp
-{"name":"tcp_8080","port":"8080"}
+{"name":"tcp_8080","ignore-warnings":true,"port":"8080"}
 add-service-tcp
-{"name":"Raw s2","port":"8082"}
+{"name":"Raw s2","ignore-warnings":true,"port":"8082"}
 add-access-rule
 {"name":"Raw 2","layer":"network","action":"Accept","source":["Raw g2"],"destination":null,"service":["Raw s2"],"enabled":false,"install-on":null,"position":{"above":"Cleanup rule"}}
 add-access-rule
