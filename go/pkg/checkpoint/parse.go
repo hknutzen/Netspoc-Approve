@@ -91,6 +91,7 @@ type object interface {
 	getName() string
 	getIPKey() string
 	getComments() string
+	setIgnoreWarnings()
 	getReadOnly() bool
 	getNeeded() bool
 	setNeeded()
@@ -99,15 +100,17 @@ type object interface {
 }
 
 type chkpObject struct {
-	Name      string `json:"name"`
-	Comments  string `json:"comments,omitempty"`
-	ReadOnly  bool   `json:"read-only,omitempty"`
-	needed    bool
-	deletable bool
+	Name           string `json:"name"`
+	Comments       string `json:"comments,omitempty"`
+	IgnoreWarnings bool   `json:"ignore-warnings,omitempty"`
+	ReadOnly       bool   `json:"read-only,omitempty"`
+	needed         bool
+	deletable      bool
 }
 
 func (o *chkpObject) getName() string     { return o.Name }
 func (o *chkpObject) getComments() string { return o.Comments }
+func (o *chkpObject) setIgnoreWarnings()  { o.IgnoreWarnings = true }
 func (o *chkpObject) getReadOnly() bool   { return o.ReadOnly }
 func (o *chkpObject) getNeeded() bool     { return o.needed }
 func (o *chkpObject) setNeeded()          { o.needed = true }

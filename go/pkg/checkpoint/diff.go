@@ -83,7 +83,6 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	// Compare objects defined from Netspoc with objects from device.
 	for _, bObj := range getObjList(b) {
 		name := bObj.getName()
-		jb, _ := json.Marshal(bObj)
 		if aObj, found := aObjMap[string(name)]; found {
 			// Object is found on device and marked as needed.
 			aObj.setNeeded()
@@ -104,6 +103,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				}
 			default:
 				ja, _ := json.Marshal(aObj)
+				jb, _ := json.Marshal(bObj)
 				if d := cmp.Diff(ja, jb); d != "" {
 					errlog.Abort("Values of %q differ between device and Netspoc.\n"+
 						"Please modify manually.\n%s",
@@ -118,6 +118,14 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				jsonMap{"name": aObj.getName(), "new-name": bObj.getName()})
 		} else {
 			// Add definition of new object to device.
+			switch bObj.(type) {
+			case *chkpTCP, *chkpUDP:
+				// Ignore warning
+				// "The port is already used by another service."
+				// This occurs if destination ports are equal,
+				// but source ports are set and unset.
+				bObj.setIgnoreWarnings()
+			}
 			addChange("add-"+bObj.getAPIObject(), bObj)
 		}
 	}
