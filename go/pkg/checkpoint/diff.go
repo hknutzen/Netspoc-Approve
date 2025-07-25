@@ -40,7 +40,6 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	}
 	aObjects := getObjList(a)
 	aObjMap := getObjMap(aObjects)
-	aIPMap := getIPMap(aObjects)
 	markDeletable := func(n string) {
 		if aObj, ok := aObjMap[n]; ok {
 			aObj.setDeletable()
@@ -110,20 +109,15 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 						name, d)
 				}
 			}
-		} else if aObj := aIPMap[bObj.getIPKey()]; aObj != nil {
-			// Must not define two objects with same IP address,
-			// to prevent error message
-			// "More than one network has the same IP ..."
-			addChange("set-"+bObj.getAPIObject(),
-				jsonMap{"name": aObj.getName(), "new-name": bObj.getName()})
 		} else {
 			// Add definition of new object to device.
 			switch bObj.(type) {
-			case *chkpTCP, *chkpUDP:
-				// Ignore warning
-				// "The port is already used by another service."
-				// This occurs if destination ports are equal,
-				// but source ports are set and unset.
+			case *chkpNetwork, *chkpHost, *chkpTCP, *chkpUDP:
+				// Ignore warnings
+				// - "More than one network has the same IP ..."
+				// - "The port is already used by another service."
+				//   This occurs if destination ports are equal,
+				//   but source ports are different.
 				bObj.setIgnoreWarnings()
 			}
 			addChange("add-"+bObj.getAPIObject(), bObj)
