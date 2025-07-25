@@ -131,9 +131,9 @@ add-access-rule
 }
 =OUTPUT=
 add-host
-{"name":"h_1","ipv4-address":"10.1.8.1"}
+{"name":"h_1","ignore-warnings":true,"ipv4-address":"10.1.8.1"}
 add-host
-{"name":"Raw h2","ipv4-address":"10.1.8.2"}
+{"name":"Raw h2","ignore-warnings":true,"ipv4-address":"10.1.8.2"}
 add-group
 {"name":"g_1","members":["h_1"]}
 add-group

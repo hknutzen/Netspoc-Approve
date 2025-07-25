@@ -143,13 +143,13 @@ add-access-rule
 }
 =OUTPUT=
 add-network
-{"name":"n_10.1.1.0-24","subnet4":"10.1.1.0","mask-length4":24}
+{"name":"n_10.1.1.0-24","ignore-warnings":true,"subnet4":"10.1.1.0","mask-length4":24}
 add-network
-{"name":"n_10.1.2.0-24","subnet4":"10.1.2.0","mask-length4":24}
+{"name":"n_10.1.2.0-24","ignore-warnings":true,"subnet4":"10.1.2.0","mask-length4":24}
 add-host
-{"name":"h_10.1.8.1","ipv4-address":"10.1.8.1"}
+{"name":"h_10.1.8.1","ignore-warnings":true,"ipv4-address":"10.1.8.1"}
 add-host
-{"name":"h_10.1.9.9","ipv4-address":"10.1.9.9"}
+{"name":"h_10.1.9.9","ignore-warnings":true,"ipv4-address":"10.1.9.9"}
 add-service-tcp
 {"name":"tcp_81","ignore-warnings":true,"port":"81"}
 add-service-udp
@@ -320,9 +320,9 @@ delete-service-udp
 }
 =OUTPUT=
 add-network
-{"name":"n_10.1.3.0-24","subnet4":"10.1.3.0","mask-length4":24}
+{"name":"n_10.1.3.0-24","ignore-warnings":true,"subnet4":"10.1.3.0","mask-length4":24}
 add-host
-{"name":"h_10.1.9.3","ipv4-address":"10.1.9.3"}
+{"name":"h_10.1.9.3","ignore-warnings":true,"ipv4-address":"10.1.9.3"}
 set-access-rule
 {"destination":{"add":["h_10.1.9.1"]},
  "name":"test rule",
