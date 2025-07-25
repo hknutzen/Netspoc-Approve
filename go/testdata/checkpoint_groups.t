@@ -38,9 +38,9 @@
 }
 =OUTPUT=
 add-host
-{"name":"h4","ipv4-address":"10.1.1.4"}
+{"name":"h4","ignore-warnings":true,"ipv4-address":"10.1.1.4"}
 add-host
-{"name":"h5","ipv4-address":"10.1.1.5"}
+{"name":"h5","ignore-warnings":true,"ipv4-address":"10.1.1.5"}
 set-group
 {"members":{"add":["h4","h5"]},"name":"g1"}
 set-group
