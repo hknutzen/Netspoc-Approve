@@ -153,7 +153,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				setDeletable(aRule.Destination)
 				setDeletable(aRule.Service)
 				addChange("delete-access-rule",
-					jsonMap{"name": aRule.Name, "layer": "network"})
+					jsonMap{"uid": aRule.UID, "layer": "network"})
 			}
 		} else if r.IsInsert() {
 			// Add rules from Netspoc
@@ -199,10 +199,13 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				compareObjects("destination", chg1, chg2,
 					aRule.Destination, bRule.Destination)
 				compareObjects("service", chg1, chg2, aRule.Service, bRule.Service)
+				compareObjects("install-on", chg1, chg2,
+					aRule.InstallOn, bRule.InstallOn)
 				add := func(chg jsonMap) {
 					if len(chg) > 0 {
 						setInstallOn(bRule)
-						chg["name"] = bRule.Name
+						chg["uid"] = aRule.UID
+						chg["layer"] = "network"
 						addChange("set-access-rule", chg)
 					}
 				}

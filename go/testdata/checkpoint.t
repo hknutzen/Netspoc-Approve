@@ -9,6 +9,18 @@
 }
 =END=
 
+=TEMPL=idrule
+{
+  "name": "{{.}}",
+  "uid": "id-{{.}}",
+  "action": "Accept",
+  "source": ["Any"],
+  "destination": ["Any"],
+  "service": ["{{.}}"],
+  "install-on": ["test-fw"]
+}
+=END=
+
 ############################################################
 =TITLE=Add simple rules to empty device
 =DEVICE=
@@ -48,17 +60,17 @@ add-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[rule http]],
-    [[rule https]]
+    [[idrule http]],
+    [[idrule https]]
   ]
 }
 =NETSPOC=
 {}
 =OUTPUT=
 delete-access-rule
-{"layer":"network","name":"http"}
+{"layer":"network","uid":"id-http"}
 delete-access-rule
-{"layer":"network","name":"https"}
+{"layer":"network","uid":"id-https"}
 =END=
 
 ############################################################
@@ -66,7 +78,7 @@ delete-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[rule http]]
+    [[idrule http]]
   ]
 }
 =NETSPOC=
@@ -77,7 +89,7 @@ delete-access-rule
 }
 =OUTPUT=
 delete-access-rule
-{"layer":"network","name":"http"}
+{"layer":"network","uid":"id-http"}
 add-access-rule
 {
  "name":"https",
@@ -172,6 +184,7 @@ add-access-rule
   "Rules": [
     {
       "name": "test rule",
+      "uid": "id-test",
       "action": "Accept",
       "source": ["n_10.1.1.0-24", "n_10.1.2.0-24"],
       "destination": ["h_10.1.8.1", "h_10.1.9.9"],
@@ -219,7 +232,7 @@ add-access-rule
 =OUTPUT=
 delete-access-rule
 {"layer":"network",
- "name":"test rule"}
+ "uid":"id-test"}
 delete-network
 {"name":"n_10.1.1.0-24"}
 delete-network
@@ -241,6 +254,7 @@ delete-service-udp
   "Rules": [
     {
       "name": "test rule",
+      "uid": "id-test",
       "action": "Accept",
       "source": ["n_10.1.1.0-24", "n_10.1.2.0-24"],
       "destination": ["h_10.1.8.1", "h_10.1.9.9"],
@@ -325,11 +339,14 @@ add-host
 {"name":"h_10.1.9.3","ignore-warnings":true,"ipv4-address":"10.1.9.3"}
 set-access-rule
 {"destination":{"add":["h_10.1.9.1"]},
- "name":"test rule",
+ "layer":"network",
  "service":{"remove":["udp_123"]},
- "source":{"add":["n_10.1.3.0-24"]}}
+ "source":{"add":["n_10.1.3.0-24"]},
+ "uid":"id-test"}
 set-access-rule
-{"destination":{"remove":["h_10.1.9.9"]},"name":"test rule"}
+{"destination":{"remove":["h_10.1.9.9"]},
+ "layer":"network",
+ "uid":"id-test"}
 delete-host
 {"name":"h_10.1.9.9"}
 delete-service-udp
@@ -397,9 +414,9 @@ add-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[rule http]],
-    [[rule https]],
-    [[rule ldap]]
+    [[idrule http]],
+    [[idrule https]],
+    [[idrule ldap]]
   ]
 }
 =NETSPOC=
@@ -412,7 +429,7 @@ add-access-rule
 }
 =OUTPUT=
 delete-access-rule
-{"layer":"network","name":"https"}
+{"layer":"network","uid":"id-https"}
 add-access-rule
 {
  "name":"ssh",
@@ -430,9 +447,9 @@ add-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[rule http]],
-    [[rule https]],
-    [[rule ldap]]
+    [[idrule http]],
+    [[idrule https]],
+    [[idrule ldap]]
   ]
 }
 =NETSPOC=
@@ -446,9 +463,9 @@ add-access-rule
 }
 =OUTPUT=
 delete-access-rule
-{"layer":"network","name":"https"}
+{"layer":"network","uid":"id-https"}
 delete-access-rule
-{"layer":"network","name":"ldap"}
+{"layer":"network","uid":"id-ldap"}
 add-access-rule
 {
  "name":"ssh",
@@ -486,8 +503,8 @@ add-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[rule http]],
-    [[rule https]]
+    [[idrule http]],
+    [[idrule https]]
   ]
 }
 =NETSPOC=
@@ -499,7 +516,7 @@ add-access-rule
 }
 =OUTPUT=
 delete-access-rule
-{"layer":"network","name":"https"}
+{"layer":"network","uid":"id-https"}
 add-access-rule
 {
  "name":"ssh",
@@ -519,6 +536,7 @@ add-access-rule
   "Rules": [
     {
       "name": "test",
+      "uid": "id-test",
       "action": "Accept",
       "comments": "Some comment",
       "source-negate": true,
@@ -547,9 +565,10 @@ set-access-rule
  "comments":"",
  "destination-negate":false,
  "enabled":true,
- "name":"test",
+ "layer":"network",
  "service-negate":false,
- "source-negate":false}
+ "source-negate":false,
+ "uid":"id-test"}
 =END=
 
 ############################################################
@@ -559,6 +578,7 @@ set-access-rule
   "Rules": [
     {
       "name": "http",
+      "uid": "id-http",
       "action": "Accept",
       "source": ["Any"],
       "destination": ["Any"],
@@ -582,7 +602,7 @@ set-access-rule
 }
 =OUTPUT=
 delete-access-rule
-{"layer":"network","name":"http"}
+{"layer":"network","uid":"id-http"}
 add-access-rule
 {
  "name":"http",
