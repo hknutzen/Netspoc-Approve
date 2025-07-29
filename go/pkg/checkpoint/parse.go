@@ -26,6 +26,7 @@ type chkpConfig struct {
 
 type chkpRule struct {
 	Name              string       `json:"name"`
+	UID               string       `json:"uid,omitempty"`
 	Layer             string       `json:"layer,omitempty"`
 	Comments          string       `json:"comments,omitempty"`
 	Action            chkpName     `json:"action"`
