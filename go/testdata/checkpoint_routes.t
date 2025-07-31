@@ -20,7 +20,7 @@
   }
 }
 =OUTPUT=
-gaia_api/v1.7/set-static-route
+gaia-api/v1.7/set-static-route
 {"address":"10.11.0.0",
  "mask-length":17,
  "next-hop":[{"gateway":"10.11.1.12"}],
@@ -48,7 +48,7 @@ gaia_api/v1.7/set-static-route
   }
 }
 =OUTPUT=
-gaia_api/v1.7/delete-static-route
+gaia-api/v1.7/delete-static-route
 {"address":"10.11.0.0","mask-length":17,"target":"gw1"}
 =END=
 
@@ -108,7 +108,7 @@ gaia_api/v1.7/delete-static-route
   }
 }
 =OUTPUT=
-gaia_api/v1.7/set-static-route
+gaia-api/v1.7/set-static-route
 {"address":"10.1.1.0","mask-length":24,
  "next-hop":[{"gateway":"10.1.1.11"}],
  "target":"gw1"}
@@ -137,7 +137,7 @@ gaia_api/v1.7/set-static-route
   }
 }
 =OUTPUT=
-gaia_api/v1.7/set-static-route
+gaia-api/v1.7/set-static-route
 {"address":"10.1.1.0","mask-length":24,
  "next-hop":[{"gateway":"10.1.1.11"}],
  "target":"gw1",
@@ -193,13 +193,13 @@ gaia_api/v1.7/set-static-route
   }
 }
 =OUTPUT=
-gaia_api/v1.7/delete-static-route
+gaia-api/v1.7/delete-static-route
 {"address":"10.1.0.0","mask-length":16,"target":"gw1"}
-gaia_api/v1.7/set-static-route
+gaia-api/v1.7/set-static-route
 {"address":"10.1.1.0","mask-length":24,
  "next-hop":[{"gateway":"10.1.1.111"}],
  "target":"gw1"}
-gaia_api/v1.7/set-static-route
+gaia-api/v1.7/set-static-route
 {"address":"10.1.4.0","mask-length":24,
  "next-hop":[{"gateway":"10.1.1.44"}],
  "target":"gw1",
@@ -235,12 +235,12 @@ gaia_api/v1.7/set-static-route
   }
 }
 =OUTPUT=
-gaia_api/v1.7/set-static-route
+gaia-api/v1.7/set-static-route
 {"address":"10.1.0.0","mask-length":16,
  "next-hop":[{"gateway":"10.1.0.199"}],"target":"gw1"}
-gaia_api/v1.7/delete-static-route
+gaia-api/v1.7/delete-static-route
 {"address":"10.1.1.0","mask-length":24,"target":"gw1"}
-gaia_api/v1.7/set-static-route
+gaia-api/v1.7/set-static-route
 {"address":"10.1.1.0","mask-length":24,
  "next-hop":[{"gateway":"10.1.1.11"}],"target":"other","type":"gateway"}
 =END=
