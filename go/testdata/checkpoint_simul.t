@@ -416,15 +416,15 @@ POST /web_api
 }}
 =OUTPUT=
 --router.change
-/web_api/gaia_api/v1.7/set-static-route
+/web_api/gaia-api/v1.7/set-static-route
 {"address":"10.1.2.0","mask-length":24,"next-hop":[{"gateway":"10.1.2.2"}],"target":"10.2.2.2","type":"gateway"}
 {}
 
-/web_api/gaia_api/v1.7/set-static-route
+/web_api/gaia-api/v1.7/set-static-route
 {"address":"10.1.2.0","mask-length":24,"next-hop":[{"gateway":"10.1.2.2"}],"target":"10.2.2.3","type":"gateway"}
 {}
 
-/web_api/gaia_api/v1.7/set-static-route
+/web_api/gaia-api/v1.7/set-static-route
 {"address":"10.11.0.0","mask-length":17,"next-hop":[{"gateway":"10.11.1.12"}],"target":"10.1.1.1","type":"gateway"}
 {}
 
