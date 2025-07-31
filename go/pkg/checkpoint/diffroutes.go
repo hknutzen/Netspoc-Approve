@@ -56,7 +56,7 @@ func diffRoutes(a, b *chkpConfig) []change {
 				if r.IsDelete() {
 					// Remove route from device.
 					for _, aRoute := range aRoutes[r.LowA:r.HighA] {
-						addChange("gaia_api/v1.7/delete-static-route", jsonMap{
+						addChange("gaia-api/v1.7/delete-static-route", jsonMap{
 							"target":      ip,
 							"address":     aRoute.Address,
 							"mask-length": aRoute.MaskLength,
@@ -65,7 +65,7 @@ func diffRoutes(a, b *chkpConfig) []change {
 				} else if r.IsInsert() {
 					// Add route from Netspoc.
 					for _, bRoute := range bRoutes[r.LowB:r.HighB] {
-						addChange("gaia_api/v1.7/set-static-route", jsonMap{
+						addChange("gaia-api/v1.7/set-static-route", jsonMap{
 							"target":      ip,
 							"address":     bRoute.Address,
 							"mask-length": bRoute.MaskLength,
@@ -88,7 +88,7 @@ func diffRoutes(a, b *chkpConfig) []change {
 							changed["target"] = ip
 							changed["address"] = bRoute.Address
 							changed["mask-length"] = bRoute.MaskLength
-							addChange("gaia_api/v1.7/set-static-route", changed)
+							addChange("gaia-api/v1.7/set-static-route", changed)
 						}
 					}
 				}
