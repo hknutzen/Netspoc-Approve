@@ -62,9 +62,9 @@ func (s *State) LoadDevice(
 	s.ip, _, _ = codefiles.GetIPPDP(spocFile)
 	s.user = user
 
-	s.deviceCfg = &config{
-		iptables: s.getDeviceIPTables(),
-		routes:   s.getDeviceRoutes(),
+	s.deviceCfg = &config{iptables: s.getDeviceIPTables()}
+	if len(s.spocCfg.routes) > 0 {
+		s.deviceCfg.routes = s.getDeviceRoutes()
 	}
 	return err
 }

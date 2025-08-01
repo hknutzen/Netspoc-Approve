@@ -68,12 +68,20 @@ router#
 =END=
 
 ############################################################
+=TITLE=Leave static routes unchanged if no routes from Netspoc
+=SCENARIO=
+[[scenario]]
+=NETSPOC=NONE
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Unexpected output of command
 =SCENARIO=
 [[scenario]]
 # ip route del 0.0.0.0/0 via 10.1.1.1
 RTNETLINK answers: Invalid argument
-=NETSPOC=NONE
+=NETSPOC=
+ip route add 0.0.0.0/0 via 10.1.1.99
 =ERROR=
 ERROR>>> Got unexpected output from 'ip route del 0.0.0.0/0 via 10.1.1.1':
 ERROR>>> RTNETLINK answers: Invalid argument
