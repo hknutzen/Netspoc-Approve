@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"path"
 	"regexp"
-
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 )
 
 func parseAPIKey(body []byte) (string, error) {
@@ -37,10 +35,9 @@ func parseResponse(data []byte) (string, []byte, error) {
 	return v.Msg, b, nil
 }
 
-func (s *State) ParseConfig(data []byte, fName string) (
-	deviceconf.Config, error) {
+func (s *State) ParseConfig(data []byte, fName string) (*panConfig, error) {
 
-	config := &PanConfig{}
+	config := &panConfig{}
 	if len(data) == 0 {
 		return config, nil
 	}
@@ -59,7 +56,7 @@ func (s *State) ParseConfig(data []byte, fName string) (
 	return config, err
 }
 
-func checkRaw(c *PanConfig) error {
+func checkRaw(c *panConfig) error {
 	re := regexp.MustCompile(`^r\d`)
 	for _, d := range c.Devices.Entries {
 		for _, v := range d.Vsys {
@@ -75,7 +72,7 @@ func checkRaw(c *PanConfig) error {
 	return nil
 }
 
-func parseResponseConfig(body []byte) (*PanConfig, error) {
+func parseResponseConfig(body []byte) (*panConfig, error) {
 	_, data, err := parseResponse(body)
 	if err != nil {
 		return nil, err
@@ -85,7 +82,7 @@ func parseResponseConfig(body []byte) (*PanConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &PanConfig{Devices: d.Devices, origin: "device"}, nil
+	return &panConfig{Devices: d.Devices, origin: "device"}, nil
 }
 
 type PanResponse struct {
@@ -108,7 +105,7 @@ type PanResultDevices struct {
 	Devices *panDevices `xml:"devices"`
 }
 
-type PanConfig struct {
+type panConfig struct {
 	XMLName xml.Name    `xml:"config"`
 	Devices *panDevices `xml:"devices"`
 	origin  string

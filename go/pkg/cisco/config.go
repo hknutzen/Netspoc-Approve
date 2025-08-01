@@ -5,16 +5,32 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
+
+func (s *State) LoadNetspoc(data []byte, fName string) error {
+	cfg, err := s.ParseConfig(data, fName)
+	if err != nil {
+		return err
+	}
+	if s.SpocCfg == nil {
+		s.SpocCfg = cfg
+	} else {
+		s.MergeSpoc(cfg)
+	}
+	return nil
+}
+
+func (s *State) MoveNetspoc2DeviceConfig() {
+	s.DeviceCfg, s.SpocCfg = s.SpocCfg, nil
+}
 
 // Check that non anchor commands from raw file are referenced by some
 // anchor and are referenced only once.
 var isReferenced map[*cmd]bool
 
-func (a *Config) MergeSpoc(d deviceconf.Config) deviceconf.Config {
-	b := d.(*Config)
+func (s *State) MergeSpoc(b *Config) {
+	a := s.SpocCfg
 	lookup := a.lookup
 	for prefix := range b.lookup {
 		if lookup[prefix] == nil {
@@ -60,7 +76,6 @@ func (a *Config) MergeSpoc(d deviceconf.Config) deviceconf.Config {
 	for _, w := range warnings {
 		errlog.Warning(w)
 	}
-	return a
 }
 
 func mergeCmds(ab *cmdsPair, name, prefix string) {

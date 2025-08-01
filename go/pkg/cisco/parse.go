@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/netip"
 	"path"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
@@ -63,6 +63,7 @@ type cmd struct {
 type parser struct {
 	cmdDescr  []*cmdType
 	prefixMap map[string]*cmdLookup
+	Model     string
 }
 
 func (s *State) SetupParser(cmdInfo string) {
@@ -72,8 +73,10 @@ func (s *State) SetupParser(cmdInfo string) {
 	s.parser = p
 }
 
-func (p *parser) ParseConfig(data []byte, fName string) (
-	deviceconf.Config, error) {
+func (p *parser) ParseConfig(data []byte, fName string) (*Config, error) {
+	if p.Model == "IOS" {
+		data = removeBanner(data)
+	}
 
 	// prefix -> name -> commands with same prefix and name
 	lookup := make(objLookup)
@@ -1029,5 +1032,39 @@ func postprocessACLParts(c *cmd, parts []string) {
 //                  [ destination operator number ]|
 //                { icmp | icmp6 }[ icmp_type [ icmp_code ]]
 //
-// Not implemented, since Netspoc currently not generates object-groups
+// NOT IMPLEMENTED, since Netspoc currently not generates object-groups
 // of services.
+
+// Remove definitions of banner lines from IOS config.
+// banner xxx ^CC
+// <lines>
+// ^C
+func removeBanner(data []byte) []byte {
+	rx := regexp.MustCompile(`^banner\s\S+\s+(.)\S`)
+	i := 0
+	j := 0
+	var endBanner []byte = nil
+	for {
+		e := bytes.Index(data[i:], []byte("\n"))
+		if e == -1 {
+			j += copy(data[j:], data[i:])
+			break
+		}
+		e++
+		e += i
+		line := data[i:e]
+		i = e
+		if endBanner != nil {
+			if bytes.HasPrefix(line, endBanner) {
+				endBanner = nil
+			}
+			continue
+		}
+		if m := rx.FindSubmatch(line); m != nil {
+			endBanner = m[1]
+			continue
+		}
+		j += copy(data[j:], line)
+	}
+	return data[:j]
+}

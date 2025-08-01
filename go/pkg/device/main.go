@@ -9,7 +9,6 @@ import (
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/linux"
@@ -19,10 +18,10 @@ import (
 )
 
 type RealDevice interface {
-	LoadDevice(fname string, c *program.Config, l1, l2 *os.File) (
-		deviceconf.Config, error)
-	ParseConfig(data []byte, fName string) (deviceconf.Config, error)
-	GetChanges(c1, c2 deviceconf.Config) error
+	LoadDevice(fname string, c *program.Config, l1, l2 *os.File) error
+	LoadNetspoc(data []byte, fName string) error
+	MoveNetspoc2DeviceConfig()
+	GetChanges() error
 	GetErrUnmanaged() []error
 	ApplyCommands(*os.File) error
 	HasChanges() bool
@@ -92,11 +91,14 @@ func CompareFiles(fname1, fname2 string, quiet bool) int {
 		errlog.Quiet = quiet
 		errlog.SetStderrLog("")
 		s := &state{RealDevice: getRealDevice(fname2)}
-		conf1, err := s.loadSpoc(fname1)
-		if err != nil {
+		if err := s.loadSpoc(fname1); err != nil {
 			errlog.Abort("%v", err)
 		}
-		if err := s.getCompare(conf1, fname2); err != nil {
+		s.MoveNetspoc2DeviceConfig()
+		if err := s.loadSpoc(fname2); err != nil {
+			errlog.Abort("%v", err)
+		}
+		if err := s.GetChanges(); err != nil {
 			errlog.Abort("%v", err)
 		}
 		s.showCompareInfo()
@@ -137,22 +139,24 @@ func (s *state) approve(fname string) error {
 }
 
 func (s *state) compareDevice(fname string) error {
-	conf1, err := s.loadDevice(fname)
-	if err != nil {
+	if err := s.loadSpoc(fname); err != nil {
 		return err
 	}
-	return s.getCompare(conf1, fname)
+	if err := s.loadDevice(fname); err != nil {
+		return err
+	}
+	return s.GetChanges()
 }
 
-func (s *state) loadDevice(fname string) (deviceconf.Config, error) {
+func (s *state) loadDevice(fname string) error {
 	logConfig, err := s.getLogFH(".config")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer closeLogFH(logConfig)
 	logLogin, err := s.getLogFH(".login")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer closeLogFH(logLogin)
 	return s.LoadDevice(fname, s.config, logLogin, logConfig)
@@ -179,49 +183,26 @@ func (s *state) showCompareInfo() {
 	}
 }
 
-func (s *state) getCompare(c1 deviceconf.Config, fname string) error {
-	c2, err := s.loadSpoc(fname)
-	if err != nil {
+func (s *state) loadSpoc(v4Path string) error {
+	if err := s.loadSpocFile(v4Path); err != nil {
 		return err
 	}
-	return s.GetChanges(c1, c2)
-}
-
-func (s *state) loadSpoc(v4Path string) (deviceconf.Config, error) {
 	v6Path := codefiles.GetIPv6Fname(v4Path)
-	conf4, err := s.loadSpocFile(v4Path)
-	if err != nil {
-		return nil, err
+	if err := s.loadSpocFile(v6Path); err != nil {
+		return err
 	}
-	conf6, err := s.loadSpocFile(v6Path)
-	if err != nil {
-		return nil, err
-	}
-	conf := conf4.MergeSpoc(conf6)
-	return s.addRaw(conf, v4Path)
+	return s.loadSpocFile(v4Path + ".raw")
 }
 
-func (s *state) addRaw(conf deviceconf.Config, v4Path string) (deviceconf.Config, error) {
-	rawPath := v4Path + ".raw"
-	raw, err := s.loadSpocFile(rawPath)
-	if err != nil {
-		return nil, err
-	}
-	conf = conf.MergeSpoc(raw)
-	return conf, nil
-}
-
-func (s *state) loadSpocFile(fname string) (deviceconf.Config, error) {
+func (s *state) loadSpocFile(fname string) error {
 	data, err := os.ReadFile(fname)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("Can't %v", err)
+		return fmt.Errorf("Can't %v", err)
 	}
-	c, err := s.ParseConfig(data, fname)
-	if err != nil {
-		b := path.Base(fname)
-		return nil, fmt.Errorf("While reading file %s: %v", b, err)
+	if err := s.LoadNetspoc(data, fname); err != nil {
+		return fmt.Errorf("While reading file %s: %v", path.Base(fname), err)
 	}
-	return c, nil
+	return nil
 }
 
 // Set lock for exclusive approval.

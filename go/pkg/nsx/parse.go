@@ -7,8 +7,6 @@ import (
 	"path"
 	"regexp"
 	"strings"
-
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 )
 
 type nsxPolicy struct {
@@ -103,16 +101,15 @@ func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
 	return json.Marshal(result)
 }
 
-type NsxConfig struct {
+type nsxConfig struct {
 	Policies []*nsxPolicy
 	Groups   []*nsxGroup
 	Services []*nsxService
 }
 
-func (s *State) ParseConfig(data []byte, fName string) (
-	deviceconf.Config, error) {
+func (s *State) ParseConfig(data []byte, fName string) (*nsxConfig, error) {
 
-	config := &NsxConfig{}
+	config := &nsxConfig{}
 	if len(data) == 0 {
 		return config, nil
 	}
@@ -129,7 +126,7 @@ func (s *State) ParseConfig(data []byte, fName string) (
 	return config, err
 }
 
-func checkRaw(c *NsxConfig) error {
+func checkRaw(c *nsxConfig) error {
 	re := regexp.MustCompile(`^r\d`)
 	for _, p := range c.Policies {
 		for _, r := range p.Rules {
@@ -163,7 +160,7 @@ func checkRaw(c *NsxConfig) error {
 	return nil
 }
 
-func checkConfigValidity(c *NsxConfig) error {
+func checkConfigValidity(c *nsxConfig) error {
 	for _, p := range c.Policies {
 		for _, r := range p.Rules {
 			if len(r.SourceGroups) != 1 || len(r.DestinationGroups) != 1 || len(r.Services) != 1 {

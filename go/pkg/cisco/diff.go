@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/pkg/diff/edit"
 	"github.com/pkg/diff/myers"
@@ -21,11 +20,10 @@ import (
 
 type State struct {
 	*parser
-	Model        string
 	Conn         *console.Conn
 	errUnmanaged []error
-	a            *Config
-	b            *Config
+	DeviceCfg    *Config
+	SpocCfg      *Config
 	Changes      []string
 	subCmdOf     string
 }
@@ -34,9 +32,7 @@ func (s *State) addChange(chg string) {
 	s.Changes = append(s.Changes, chg)
 }
 
-func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
-	s.a = c1.(*Config)
-	s.b = c2.(*Config)
+func (s *State) GetChanges() error {
 	s.alignVRFs()
 	if err := s.checkInterfaces(); err != nil {
 		return err
@@ -60,16 +56,16 @@ func (s *State) ShowChanges() string {
 }
 
 func (s *State) diffConfig() {
-	s.addDefaults(s.a)
-	s.addDefaults(s.b)
-	sortGroups(s.a)
-	sortGroups(s.b)
-	sortRoutes(s.a)
-	sortRoutes(s.b)
+	s.addDefaults(s.DeviceCfg)
+	s.addDefaults(s.SpocCfg)
+	sortGroups(s.DeviceCfg)
+	sortGroups(s.SpocCfg)
+	sortRoutes(s.DeviceCfg)
+	sortRoutes(s.SpocCfg)
 	s.generateNamesForTransfer()
 	comb := make(objLookup)
-	maps.Copy(comb, s.a.lookup)
-	maps.Copy(comb, s.b.lookup)
+	maps.Copy(comb, s.DeviceCfg.lookup)
+	maps.Copy(comb, s.SpocCfg.lookup)
 	for _, prefix := range slices.Sorted(maps.Keys(comb)) {
 		if prefix == "tunnel-group-map" {
 			s.diffTunnelGroupMap()
@@ -96,16 +92,16 @@ func byParsedCmd(_ *Config, c *cmd) string {
 }
 
 func (s *State) diffAnchors(prefix string) {
-	aMap := s.a.lookup[prefix]
-	bMap := s.b.lookup[prefix]
+	aMap := s.DeviceCfg.lookup[prefix]
+	bMap := s.SpocCfg.lookup[prefix]
 	aNames := slices.Sorted(maps.Keys(aMap))
 	bNames := slices.Sorted(maps.Keys(bMap))
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
 func (s *State) diffSomeAnchors(prefix string) {
-	aMap := s.a.lookup[prefix]
-	bMap := s.b.lookup[prefix]
+	aMap := s.DeviceCfg.lookup[prefix]
+	bMap := s.SpocCfg.lookup[prefix]
 	onlyAnchorNames := func(m map[string][]*cmd) []string {
 		var result []string
 		for name, l := range m {
@@ -153,15 +149,15 @@ func byCertMapKey(cf *Config, c *cmd) string {
 
 func (s *State) diffTunnelGroupMap() {
 	prefix := "tunnel-group-map"
-	al := s.a.lookup[prefix][""]
-	bl := s.b.lookup[prefix][""]
+	al := s.DeviceCfg.lookup[prefix][""]
+	bl := s.SpocCfg.lookup[prefix][""]
 	s.diffCmds(al, bl, byCertMapKey)
 }
 
 func (s *State) diffWebVPN() {
 	prefix := "webvpn"
-	al := s.a.lookup[prefix][""]
-	bl := s.b.lookup[prefix][""]
+	al := s.DeviceCfg.lookup[prefix][""]
+	bl := s.SpocCfg.lookup[prefix][""]
 	if al == nil {
 		if bl != nil {
 			s.addCmds(bl)
@@ -217,8 +213,8 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 		}
 	}
 	ab := &cmdsPair{
-		a:     s.a,
-		b:     s.b,
+		a:     s.DeviceCfg,
+		b:     s.SpocCfg,
 		aCmds: al,
 		bCmds: bl,
 		key:   key,
@@ -327,8 +323,8 @@ func (s *State) makeEqual(al, bl []*cmd) {
 		for i, aName := range a.ref {
 			prefix := a.typ.ref[i]
 			bName := b.ref[i]
-			aRef := s.a.lookup[prefix][aName]
-			bRef := s.b.lookup[prefix][bName]
+			aRef := s.DeviceCfg.lookup[prefix][aName]
+			bRef := s.SpocCfg.lookup[prefix][bName]
 			var refName string
 			if prefix == "aaa-server" && aName != bName {
 				refName = bName
@@ -367,7 +363,7 @@ func (s *State) equalizeSimpleObject(al, bl []*cmd) string {
 }
 
 func (s *State) findSimpleObjOnDevice(bl []*cmd) []*cmd {
-	return findSimpleObject(bl, s.a)
+	return findSimpleObject(bl, s.DeviceCfg)
 }
 
 func findSimpleObject(bl []*cmd, a *Config) []*cmd {
@@ -490,7 +486,7 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 			}
 		} else if r.IsDelete() {
 			for i, a := range al[r.LowA:r.HighA] {
-				p := getPrintableCmd(a, s.a)
+				p := getPrintableCmd(a, s.DeviceCfg)
 				p = stripLogRX.ReplaceAllLiteralString(p, "")
 				cmdPos := cmdAndPos{cmd: a, pos: r.LowA + i}
 				delMap[p] = &cmdPos
@@ -718,7 +714,7 @@ func (s *State) diffASAACLs(al, bl []*cmd, diff []edit.Range) {
 	rx := regexp.MustCompile(
 		` log( ((\w+ )?interval \d+|\w+|disable|default))?\b`)
 	for _, a := range del {
-		p := getPrintableCmd(a, s.a)
+		p := getPrintableCmd(a, s.DeviceCfg)
 		p = rx.ReplaceAllLiteralString(p, "")
 		delMap[p] = a
 	}
@@ -747,8 +743,8 @@ func (s *State) diffASAACLs(al, bl []*cmd, diff []edit.Range) {
 // Try to transform subcommands of ga to subcommands of gb if viable.
 // Return true if transformation succeeded.
 func (s *State) equalizedGroups(aName, bName string) bool {
-	ga := s.a.lookup["object-group"][aName][0]
-	gb := s.b.lookup["object-group"][bName][0]
+	ga := s.DeviceCfg.lookup["object-group"][aName][0]
+	gb := s.SpocCfg.lookup["object-group"][bName][0]
 	if ga.parsed != gb.parsed {
 		// Type of object-group differs.
 		return false
@@ -855,9 +851,9 @@ func (s *State) addCmds(l []*cmd) {
 	follow := func(c *cmd) {
 		for i, name := range c.ref {
 			prefix := c.typ.ref[i]
-			bl := s.b.lookup[prefix][name]
+			bl := s.SpocCfg.lookup[prefix][name]
 			if bl[0].typ.fixedName || bl[0].fixedName {
-				if al, found := s.a.lookup[prefix][name]; found {
+				if al, found := s.DeviceCfg.lookup[prefix][name]; found {
 					if prefix == "crypto map" {
 						s.diffCryptoMap(al, bl)
 					} else {
@@ -885,7 +881,7 @@ func (s *State) addCmds(l []*cmd) {
 		if b0.typ.fixedName || b0.fixedName {
 			prefix := b0.typ.prefix
 			name := b0.name
-			if _, found := s.a.lookup[prefix][name]; !found {
+			if _, found := s.DeviceCfg.lookup[prefix][name]; !found {
 				switch prefix {
 				case "aaa-server", "ldap attribute-map":
 					errlog.Abort("'%s %s' must be transferred manually", prefix, name)
@@ -976,7 +972,7 @@ func (s *State) markDeleted(al []*cmd) {
 	follow := func(c *cmd) {
 		for i, name := range c.ref {
 			prefix := c.typ.ref[i]
-			del(s.a.lookup[prefix][name])
+			del(s.DeviceCfg.lookup[prefix][name])
 		}
 	}
 	del = func(al []*cmd) {
@@ -1007,7 +1003,7 @@ func (s *State) deleteUnused() {
 	type pair [2]string
 	toDelete := make(map[pair][]*cmd)
 	stillReferenced := make(map[pair]bool)
-	for prefix, m := range s.a.lookup {
+	for prefix, m := range s.DeviceCfg.lookup {
 		for name, l := range m {
 			var del []*cmd
 			for _, c := range l {
@@ -1024,7 +1020,7 @@ func (s *State) deleteUnused() {
 						follow = func(c *cmd) {
 							for i, name := range c.ref {
 								prefix := c.typ.ref[i]
-								for _, c2 := range s.a.lookup[prefix][name] {
+								for _, c2 := range s.DeviceCfg.lookup[prefix][name] {
 									if !c2.needed {
 										stillReferenced[pair{prefix, name}] = true
 										follow(c2)
@@ -1102,7 +1098,7 @@ func (s *State) deleteUnused() {
 }
 
 func (s *State) printNetspocCmd(c *cmd) string {
-	return getPrintableCmd(c, s.b)
+	return getPrintableCmd(c, s.SpocCfg)
 }
 
 func getPrintableCmd(c *cmd, cf *Config) string {
@@ -1131,11 +1127,11 @@ func (s *State) generateNamesForTransfer() {
 			index++
 		}
 	}
-	for prefix, m := range s.b.lookup {
+	for prefix, m := range s.SpocCfg.lookup {
 		for _, bl := range m {
 			for _, c := range bl {
 				if !(c.typ.fixedName || c.fixedName) {
-					setName(c, s.a.lookup[prefix])
+					setName(c, s.DeviceCfg.lookup[prefix])
 				}
 			}
 		}
@@ -1151,12 +1147,12 @@ func sortGroups(cf *Config) {
 }
 
 func (s *State) findGroupOnDevice(name string) {
-	gb := s.b.lookup["object-group"][name][0]
+	gb := s.SpocCfg.lookup["object-group"][name][0]
 	if gb.ready {
 		return
 	}
 GROUP:
-	for _, l := range s.a.lookup["object-group"] {
+	for _, l := range s.DeviceCfg.lookup["object-group"] {
 		ga := l[0]
 		if ga.parsed != gb.parsed {
 			// Type of object-group differs.
@@ -1401,12 +1397,12 @@ func (s *State) checkASAInterfaces() error {
 		}
 		return m
 	}
-	bIntf2cmd := getImplicitInterfaces(s.b)
+	bIntf2cmd := getImplicitInterfaces(s.SpocCfg)
 
 	// Collect and check named interfaces from device.
 	// Add implicit interfaces when comparing two Netspoc generated configs.
-	aIntf2cmd := getImplicitInterfaces(s.a)
-	for _, c := range s.a.lookup["interface"][""] {
+	aIntf2cmd := getImplicitInterfaces(s.DeviceCfg)
+	for _, c := range s.DeviceCfg.lookup["interface"][""] {
 		name := ""
 		shut := false
 		for _, sc := range c.sub {
@@ -1489,11 +1485,11 @@ func (s *State) checkIOSInterfaces() error {
 	}
 	aKnown := make(map[string]bool)
 	bIntf := make(map[string]*intfInfo)
-	for _, c := range s.b.lookup["interface"][""] {
+	for _, c := range s.SpocCfg.lookup["interface"][""] {
 		name := strings.Fields(c.parsed)[1]
 		bIntf[name] = extractIntfInfo(c)
 	}
-	for _, c := range s.a.lookup["interface"][""] {
+	for _, c := range s.DeviceCfg.lookup["interface"][""] {
 		name := strings.Fields(c.parsed)[1]
 		aInfo := extractIntfInfo(c)
 		aKnown[name] = true
@@ -1524,7 +1520,7 @@ func (s *State) checkIOSInterfaces() error {
 			}
 		}
 	}
-	for _, c := range s.b.lookup["interface"][""] {
+	for _, c := range s.SpocCfg.lookup["interface"][""] {
 		name := strings.Fields(c.parsed)[1]
 		if !aKnown[name] {
 			return fmt.Errorf(
@@ -1560,7 +1556,7 @@ func (s *State) alignVRFs() {
 	// Find VRFs used in Netspoc configuration.
 	bVRF := make(map[string]bool)
 	for _, p := range pairs {
-		for _, c := range s.b.lookup[p.name][""] {
+		for _, c := range s.SpocCfg.lookup[p.name][""] {
 			bVRF[p.get(c)] = true
 		}
 	}
@@ -1572,7 +1568,7 @@ func (s *State) alignVRFs() {
 	// Remove VRFs from device configuration that are not handled by Netspoc.
 	removed := make(map[string]bool)
 	for _, p := range pairs {
-		if l := s.a.lookup[p.name][""]; l != nil {
+		if l := s.DeviceCfg.lookup[p.name][""]; l != nil {
 			j := 0
 			for _, c := range l {
 				vrf := p.get(c)
@@ -1589,9 +1585,9 @@ func (s *State) alignVRFs() {
 			}
 			l = l[:j]
 			if len(l) != 0 {
-				s.a.lookup[p.name][""] = l
+				s.DeviceCfg.lookup[p.name][""] = l
 			} else {
-				delete(s.a.lookup[p.name], "")
+				delete(s.DeviceCfg.lookup[p.name], "")
 			}
 		}
 	}
@@ -1609,7 +1605,7 @@ func (s *State) markNeeded(l []*cmd) {
 		c.needed = true
 		for i, name := range c.ref {
 			prefix := c.typ.ref[i]
-			s.markNeeded(s.a.lookup[prefix][name])
+			s.markNeeded(s.DeviceCfg.lookup[prefix][name])
 		}
 		s.markNeeded(c.sub)
 	}
@@ -1619,13 +1615,13 @@ func (s *State) markNeeded(l []*cmd) {
 // That commands must be left unchanged on device.
 func (s *State) ignoreCryptoGDOI() {
 	rm := make(map[string]bool)
-	for _, c := range s.a.lookup["interface"][""] {
+	for _, c := range s.DeviceCfg.lookup["interface"][""] {
 		l := c.sub
 		j := 0
 		for _, sc := range l {
 			if sc.parsed == "crypto map $REF" {
 				name := sc.ref[0]
-				l2 := s.a.lookup["crypto map"][name]
+				l2 := s.DeviceCfg.lookup["crypto map"][name]
 				if l2[0].parsed == "crypto map $NAME $SEQ gdoi" {
 					rm[name] = true
 					continue
@@ -1637,6 +1633,6 @@ func (s *State) ignoreCryptoGDOI() {
 		c.sub = l[:j]
 	}
 	for name := range rm {
-		delete(s.a.lookup["crypto map"], name)
+		delete(s.DeviceCfg.lookup["crypto map"], name)
 	}
 }

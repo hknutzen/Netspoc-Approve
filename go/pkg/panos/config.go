@@ -2,23 +2,33 @@ package panos
 
 import (
 	"fmt"
-
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 )
 
-// MergeSpoc merges two configurations read from Netspoc.
-// c2 is either read from a raw file or it is a IPv6 configuration.
-func (p1 *PanConfig) MergeSpoc(c2 deviceconf.Config) deviceconf.Config {
-	p2 := c2.(*PanConfig)
+func (s *State) LoadNetspoc(data []byte, fName string) error {
+	cfg, err := s.ParseConfig(data, fName)
+	if err != nil {
+		return err
+	}
+	if s.spocCfg == nil {
+		s.spocCfg = cfg
+	} else {
+		s.mergeSpoc(cfg)
+	}
+	return nil
+}
+
+func (s *State) MoveNetspoc2DeviceConfig() {
+	s.deviceCfg, s.spocCfg = s.spocCfg, nil
+}
+
+// mergeSpoc merges two configurations read from Netspoc.
+func (s *State) mergeSpoc(p2 *panConfig) {
+	p1 := s.spocCfg
 	processVsysPairs(p1, p2, func(v1, v2 *panVsys) error {
 		// Create empty vsys in p1 to add complete vsys from p2 below.
 		if v1 == nil {
-			if p1 == nil || p1.Devices == nil {
-				p1 = &PanConfig{
-					Devices: &panDevices{
-						Entries: []*panDevice{&panDevice{}},
-					},
-				}
+			if p1.Devices == nil {
+				p1.Devices = &panDevices{Entries: []*panDevice{{}}}
 			}
 			d1 := p1.Devices.Entries[0]
 			v1 = &panVsys{Name: v2.Name}
@@ -45,12 +55,11 @@ func (p1 *PanConfig) MergeSpoc(c2 deviceconf.Config) deviceconf.Config {
 		}
 		return nil
 	})
-	return p1
 }
 
-func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
+func processVsysPairs(c1, c2 *panConfig, f func(v1, v2 *panVsys) error) error {
 	getDevVsysMap :=
-		func(c *PanConfig) (*panDevice, map[string]*panVsys) {
+		func(c *panConfig) (*panDevice, map[string]*panVsys) {
 			if c == nil || c.Devices == nil || len(c.Devices.Entries) == 0 {
 				return &panDevice{}, nil
 			}
@@ -83,11 +92,11 @@ func processVsysPairs(c1, c2 *PanConfig, f func(v1, v2 *panVsys) error) error {
 	return nil
 }
 
-func (c *PanConfig) getDevName() string {
+func (c *panConfig) getDevName() string {
 	return c.Devices.Entries[0].Hostname
 }
 
-func (c *PanConfig) checkDeviceName(expected string) error {
+func (c *panConfig) checkDeviceName(expected string) error {
 	name := c.getDevName()
 	if name != expected {
 		return fmt.Errorf("Wrong device name %q, expected %q", name, expected)

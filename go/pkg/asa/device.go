@@ -9,7 +9,6 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/cisco"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
@@ -26,16 +25,15 @@ func Setup() *State {
 }
 
 func (s *State) LoadDevice(
-	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) (
-	deviceconf.Config, error) {
+	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) error {
 
 	user, pass, err := cfg.GetUserPass(codefiles.GetHostname(spocFile))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	s.Conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	hostName := codefiles.GetHostname(spocFile)
 	s.LoginEnable(pass, cfg)
@@ -47,12 +45,12 @@ func (s *State) LoadDevice(
 	errlog.Info("Requesting device config")
 	out := s.Conn.GetCmdOutput("write term")
 	errlog.Info("Got device config")
-	config, err := s.ParseConfig([]byte(out), "<device>")
+	s.DeviceCfg, err = s.ParseConfig([]byte(out), "<device>")
 	errlog.Info("Parsed device config")
 	if err != nil {
 		err = fmt.Errorf("While reading device: %v", err)
 	}
-	return config, err
+	return err
 }
 
 func (s *State) setTerminal() {

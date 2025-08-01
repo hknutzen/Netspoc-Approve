@@ -1,9 +1,24 @@
 package nsx
 
-import "github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
+func (s *State) LoadNetspoc(data []byte, fName string) error {
+	cfg, err := s.ParseConfig(data, fName)
+	if err != nil {
+		return err
+	}
+	if s.spocCfg == nil {
+		s.spocCfg = cfg
+	} else {
+		s.mergeSpoc(cfg)
+	}
+	return nil
+}
 
-func (n1 *NsxConfig) MergeSpoc(c2 deviceconf.Config) deviceconf.Config {
-	n2 := c2.(*NsxConfig)
+func (s *State) MoveNetspoc2DeviceConfig() {
+	s.deviceCfg, s.spocCfg = s.spocCfg, nil
+}
+
+func (s *State) mergeSpoc(n2 *nsxConfig) {
+	n1 := s.spocCfg
 	n1.Groups = append(n1.Groups, n2.Groups...)
 	n1.Services = append(n1.Services, n2.Services...)
 
@@ -17,5 +32,4 @@ POLICY:
 		}
 		n1.Policies = append(n1.Policies, p2)
 	}
-	return n1
 }

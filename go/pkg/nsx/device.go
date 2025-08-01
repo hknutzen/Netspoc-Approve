@@ -12,17 +12,18 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
 type State struct {
-	client  *http.Client
-	prefix  string
-	token   string
-	changes []change
+	client    *http.Client
+	prefix    string
+	token     string
+	deviceCfg *nsxConfig
+	spocCfg   *nsxConfig
+	changes   []change
 }
 type change struct {
 	method   string
@@ -31,8 +32,7 @@ type change struct {
 }
 
 func (s *State) LoadDevice(
-	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) (
-	deviceconf.Config, error) {
+	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) error {
 
 	err := httpdevice.TryReachableHTTPLogin(spocFile, cfg,
 		func(name, ip, user, pass string) error {
@@ -59,13 +59,13 @@ func (s *State) LoadDevice(
 			return nil
 		})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	path := "/policy/api/v1/infra/domains/default/gateway-policies"
 	data, err := s.sendRequest("GET", path, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	type rawConfig struct {
@@ -78,7 +78,7 @@ func (s *State) LoadDevice(
 	var resultStruct struct{ Results []struct{ Id string } }
 	err = json.Unmarshal(data, &resultStruct)
 	if err != nil {
-		return nil, fmt.Errorf("while parsing %s: %w", path, err)
+		return fmt.Errorf("while parsing %s: %w", path, err)
 	}
 	for _, result := range resultStruct.Results {
 		// Ignore all policies not created by Netspoc.
@@ -87,7 +87,7 @@ func (s *State) LoadDevice(
 		}
 		data, err := s.sendRequest("GET", path+"/"+result.Id, nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		rawConf.Policies = append(rawConf.Policies, data)
 	}
@@ -95,26 +95,26 @@ func (s *State) LoadDevice(
 	path = "/policy/api/v1/infra/services"
 	rawConf.Services, err = s.getRawJSON(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	path = "/policy/api/v1/infra/domains/default/groups"
 	rawConf.Groups, err = s.getRawJSON(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	out, err := json.Marshal(rawConf)
 	if err != nil {
-		return nil, fmt.Errorf("While parsing JSON from device: %v", err)
+		return fmt.Errorf("While parsing JSON from device: %v", err)
 	}
 	errlog.DoLog(logConfig, string(out))
 
-	config, err := s.ParseConfig(out, "<device>")
+	s.deviceCfg, err = s.ParseConfig(out, "<device>")
 	if err != nil {
-		return nil, fmt.Errorf("While reading device: %v", err)
+		return fmt.Errorf("While reading device: %v", err)
 	}
-	return config, nil
+	return nil
 }
 
 func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
@@ -130,13 +130,11 @@ func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = json.Unmarshal(out, &results)
-		if err != nil {
+		if err := json.Unmarshal(out, &results); err != nil {
 			return nil, fmt.Errorf("while parsing %s: %w", path, err)
 		}
 		for _, result := range results.Results {
-			err = json.Unmarshal(result, &id)
-			if err != nil {
+			if err := json.Unmarshal(result, &id); err != nil {
 				return nil, err
 			}
 			if strings.HasPrefix(id.Id, "Netspoc") {
@@ -173,10 +171,8 @@ func (s *State) sendRequest(method string, path string, body io.Reader) ([]byte,
 
 }
 
-func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
-	p1 := c1.(*NsxConfig)
-	p2 := c2.(*NsxConfig)
-	s.changes = diffConfig(p1, p2)
+func (s *State) GetChanges() error {
+	s.changes = diffConfig(s.deviceCfg, s.spocCfg)
 	return nil
 }
 

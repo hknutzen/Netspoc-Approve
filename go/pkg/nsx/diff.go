@@ -23,7 +23,7 @@ type nsxInfo struct {
 	groups map[string]*nsxGroup
 }
 
-func diffConfig(a, b *NsxConfig) []change {
+func diffConfig(a, b *nsxConfig) []change {
 	sortGroups(a.Groups)
 	sortGroups(b.Groups)
 
@@ -55,7 +55,7 @@ func diffConfig(a, b *NsxConfig) []change {
 	}
 	addNewServices()
 
-	getPolicyMap := func(c *NsxConfig) map[string]*nsxPolicy {
+	getPolicyMap := func(c *nsxConfig) map[string]*nsxPolicy {
 		m := make(map[string]*nsxPolicy)
 		for _, p := range c.Policies {
 			m[p.Id] = p

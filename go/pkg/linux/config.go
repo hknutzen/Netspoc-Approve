@@ -3,12 +3,28 @@ package linux
 import (
 	"slices"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
-func (a *config) MergeSpoc(d deviceconf.Config) deviceconf.Config {
-	b := d.(*config)
+func (s *State) LoadNetspoc(data []byte, fName string) error {
+	cfg, err := s.ParseConfig(data, fName)
+	if err != nil {
+		return err
+	}
+	if s.spocCfg == nil {
+		s.spocCfg = cfg
+	} else {
+		s.mergeSpoc(cfg)
+	}
+	return nil
+}
+
+func (s *State) MoveNetspoc2DeviceConfig() {
+	s.deviceCfg, s.spocCfg = s.spocCfg, nil
+}
+
+func (s *State) mergeSpoc(b *config) {
+	a := s.spocCfg
 	a.routes = append(a.routes, b.routes...)
 	for tName, bChains := range b.iptables {
 		aChains := a.iptables[tName]
@@ -46,5 +62,4 @@ func (a *config) MergeSpoc(d deviceconf.Config) deviceconf.Config {
 			}
 		}
 	}
-	return a
 }

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
@@ -22,6 +21,8 @@ type State struct {
 	client       *http.Client
 	devUser      string
 	urlPrefix    string
+	deviceCfg    *panConfig
+	spocCfg      *panConfig
 	changes      []change
 	errUnmanaged []error
 }
@@ -31,8 +32,7 @@ type change struct {
 }
 
 func (s *State) LoadDevice(
-	path string, cfg *program.Config, logLogin, logConfig *os.File) (
-	deviceconf.Config, error) {
+	path string, cfg *program.Config, logLogin, logConfig *os.File) error {
 
 	devName := ""
 	err := httpdevice.TryReachableHTTPLogin(path, cfg,
@@ -52,7 +52,7 @@ func (s *State) LoadDevice(
 			return nil
 		})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Use "get", not "show", to get candidate configuration.
@@ -64,14 +64,13 @@ func (s *State) LoadDevice(
 	uri := "type=config&action=get&xpath=/config/devices"
 	body, err := s.httpPrefixGetLog(uri, logConfig)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	config, err := parseResponseConfig(body)
+	s.deviceCfg, err = parseResponseConfig(body)
 	if err != nil {
-		return config, fmt.Errorf("While reading device: %v", err)
+		return fmt.Errorf("While reading device: %v", err)
 	}
-	err = config.checkDeviceName(devName)
-	return config, err
+	return s.deviceCfg.checkDeviceName(devName)
 }
 
 func (s *State) getAPIKey(addr, user, pass string, logFH *os.File) (
@@ -153,10 +152,9 @@ func (s *State) checkHA(logFH *os.File) bool {
 	return false
 }
 
-func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
-
-	p1 := c1.(*PanConfig)
-	p2 := c2.(*PanConfig)
+func (s *State) GetChanges() error {
+	p1 := s.deviceCfg
+	p2 := s.spocCfg
 	err := processVsysPairs(p1, p2, func(v1, v2 *panVsys) error {
 		if v1 == nil {
 			return fmt.Errorf(

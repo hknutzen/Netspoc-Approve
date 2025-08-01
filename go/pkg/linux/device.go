@@ -12,7 +12,6 @@ import (
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
@@ -24,6 +23,8 @@ const (
 
 type State struct {
 	conn         *console.Conn
+	deviceCfg    *config
+	spocCfg      *config
 	change       change
 	ip           string
 	user         string
@@ -43,14 +44,14 @@ type config struct {
 
 func (s *State) LoadDevice(
 	spocFile string, cfg *program.Config, logLogin, logConfig *os.File,
-) (deviceconf.Config, error) {
+) error {
 	user, pass, err := cfg.GetUserPass(codefiles.GetHostname(spocFile))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	s.conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	hostName := codefiles.GetHostname(spocFile)
 	s.loginEnable(pass, cfg)
@@ -61,10 +62,11 @@ func (s *State) LoadDevice(
 	s.ip, _, _ = codefiles.GetIPPDP(spocFile)
 	s.user = user
 
-	return &config{
+	s.deviceCfg = &config{
 		iptables: s.getDeviceIPTables(),
 		routes:   s.getDeviceRoutes(),
-	}, err
+	}
+	return err
 }
 
 func (s *State) loginEnable(pass string, cfg *program.Config) {
@@ -129,10 +131,8 @@ func (s *State) getDeviceIPTables() tables {
 	return s.parseIPTables(strings.Split(string(out), "\n"))
 }
 
-func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
-	p1 := c1.(*config)
-	p2 := c2.(*config)
-	s.change = diffConfig(p1, p2)
+func (s *State) GetChanges() error {
+	s.change = diffConfig(s.deviceCfg, s.spocCfg)
 	return nil
 }
 
