@@ -61,7 +61,7 @@ router#show hostname
 router
 router#
 --router.config
-write term
+sh run
 router#
 --router.change
 No changes applied
@@ -71,7 +71,7 @@ No changes applied
 =TITLE=Change routing, move ACL with two commands in one line
 =SCENARIO=
 [[login_scenario]]
-# write term
+# sh run
 interface Ethernet0/0
  nameif inside
 route inside 0.0.0.0 0.0.0.0 10.1.2.3
@@ -99,7 +99,7 @@ access-group inside in interface inside
 # This results in two prompts received in one packet.
 =OUTPUT=
 --router.config
-write term
+sh run
 interface Ethernet0/0
  nameif inside
 route inside 0.0.0.0 0.0.0.0 10.1.2.3
@@ -129,7 +129,7 @@ router#
 =TITLE=Expected WARNING with object-group
 =SCENARIO=
 [[login_scenario]]
-# write term
+# sh run
 interface Ethernet0/0
  nameif inside
 access-list inside extended deny ip any any
@@ -162,7 +162,7 @@ router#
 =TITLE=Expected WARNING with crypto map
 =SCENARIO=
 [[login_scenario]]
-# write term
+# sh run
 interface Ethernet0/0
  nameif inside
 access-list crypto-acl2 extended permit ip 10.1.3.0 255.255.240.0 host 10.3.4.5
@@ -304,7 +304,7 @@ ERROR>>> foo
 =TITLE=Invalid reference in device config
 =SCENARIO=
 [[login_scenario]]
-# write term
+# sh run
 interface Ethernet0/0
  nameif inside
 access-group inside in interface inside

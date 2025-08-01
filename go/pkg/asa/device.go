@@ -43,7 +43,7 @@ func (s *State) LoadDevice(
 
 	s.Conn.SetLogFH(logConfig)
 	errlog.Info("Requesting device config")
-	out := s.Conn.GetCmdOutput("write term")
+	out := s.Conn.GetCmdOutput("sh run")
 	errlog.Info("Got device config")
 	s.DeviceCfg, err = s.ParseConfig([]byte(out), "<device>")
 	errlog.Info("Parsed device config")
