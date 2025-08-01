@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- ASA: Use command 'sh run' instead of 'write term' to request configuration.
+- Linux: Leave static routes unchanged, if no routes are given by Netspoc.
+
 ### Added
 
 - Log SUDO_USER in history file if approve or compare was initiated by
