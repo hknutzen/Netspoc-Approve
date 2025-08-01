@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/httpdevice"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
@@ -25,20 +24,21 @@ type State struct {
 	prefix       string
 	user         string
 	sid          string
+	deviceCfg    *chkpConfig
+	spocCfg      *chkpConfig
 	changes      []change
 	installOn    []string
 	routeChanges []change
 }
 type change struct {
 	endpoint string
-	postData interface{}
+	postData any
 }
 
-type jsonMap map[string]interface{}
+type jsonMap map[string]any
 
 func (s *State) LoadDevice(
-	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) (
-	deviceconf.Config, error) {
+	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) error {
 
 	// Login to device and get session ID.
 	err := httpdevice.TryReachableHTTPLogin(spocFile, cfg,
@@ -75,11 +75,11 @@ func (s *State) LoadDevice(
 			return nil
 		})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := s.discardSessions(logLogin); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Collect unparsed configuration of device.
@@ -206,24 +206,27 @@ func (s *State) LoadDevice(
 			if collectErr != nil {
 				break
 			}
-			ipMap[name] = ips
-			routeMap[name] = collect0(extractRoute,
-				"gaia-api/v1.7/show-static-routes",
-				jsonMap{"target": ip, "limit": 200})
+			// Collect routes only if Netspoc has generated routes.
+			if len(s.spocCfg.GatewayRoutes[name]) > 0 {
+				ipMap[name] = ips
+				routeMap[name] = collect0(extractRoute,
+					"gaia-api/v1.7/show-static-routes",
+					jsonMap{"target": ip, "limit": 200})
+			}
 		}
 	}
 	rawConf["GatewayRoutes"] = routeMap
 	if collectErr != nil {
-		return nil, fmt.Errorf("While reading device: %v", collectErr)
+		return fmt.Errorf("While reading device: %v", collectErr)
 	}
 	out, _ := json.Marshal(rawConf)
 	errlog.DoLog(logConfig, string(out))
-	cf, err := s.ParseConfig(out, "<device>")
+	s.deviceCfg, err = s.ParseConfig(out, "<device>")
 	if err != nil {
 		err = fmt.Errorf("While parsing device config: %v", err)
 	}
-	cf.(*chkpConfig).GatewayIPs = ipMap
-	return cf, err
+	s.deviceCfg.GatewayIPs = ipMap
+	return err
 }
 
 func (s *State) sendRequest(path string, body []byte, logFh *os.File,
@@ -256,11 +259,9 @@ func (s *State) sendRequest(path string, body []byte, logFh *os.File,
 	return io.ReadAll(resp.Body)
 }
 
-func (s *State) GetChanges(c1, c2 deviceconf.Config) error {
-	p1 := c1.(*chkpConfig)
-	p2 := c2.(*chkpConfig)
-	s.changes, s.installOn = diffConfig(p1, p2)
-	s.routeChanges = diffRoutes(p1, p2)
+func (s *State) GetChanges() error {
+	s.changes, s.installOn = diffConfig(s.deviceCfg, s.spocCfg)
+	s.routeChanges = diffRoutes(s.deviceCfg, s.spocCfg)
 	return nil
 }
 
@@ -280,7 +281,7 @@ func (s *State) ShowChanges() string {
 
 func (s *State) ApplyCommands(logFh *os.File) error {
 	simulated := os.Getenv("SIMULATE_ROUTER") != ""
-	sendCmd := func(endpoint string, args interface{}) ([]byte, error) {
+	sendCmd := func(endpoint string, args any) ([]byte, error) {
 		url := "/web_api/" + endpoint
 		postData, _ := json.Marshal(args)
 		resp, err := s.sendRequest(url, postData, logFh)
@@ -323,7 +324,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 			}
 		}
 	}
-	waitCmd := func(endpoint string, args interface{}) error {
+	waitCmd := func(endpoint string, args any) error {
 		resp, err := sendCmd(endpoint, args)
 		if err != nil {
 			return err
