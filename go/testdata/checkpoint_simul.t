@@ -429,3 +429,70 @@ POST /web_api
 {}
 
 =END=
+
+############################################################
+=TITLE=Leave static routes unchanged if no routes from Netspoc
+=SCENARIO=
+[[standard]]
+POST /web_api/show-simple-gateways
+{ "objects": [ "uid1" ] }
+POST /web_api/show-simple-gateway
+{ "name": "gw1", "ipv4-address": "10.1.1.1" }
+POST /web_api/gaia-api/v1.7/show-static-routes
+{ "response-message": { "objects" : [] } }
+POST /web_api/show-simple-clusters
+{ "objects": [ "uid2" ] }
+POST /web_api/show-simple-cluster
+{
+ "name": "cluster1",
+ "ipv4-address": "10.2.2.1",
+ "cluster-members": [
+  { "ip-address": "10.2.2.2" },
+  { "ip-address": "10.2.2.3" } ]
+}
+POST /web_api/gaia-api/v1.7/show-static-routes
+{ "response-message": { "objects" : [] } }
+POST /web_api
+{}
+=NETSPOC=
+{ "GatewayRoutes": {} }
+=OUTPUT=
+--router.login
+TESTSERVER/web_api/login
+{"user":"admin","password":"xxx"}
+200 OK
+{
+  "sid": "xxx"
+}
+
+/web_api/show-sessions
+{"details-level": "uid"}
+/web_api/show-access-rulebase
+{"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
+/web_api/show-networks
+{"details-level":"full","limit":500}
+/web_api/show-hosts
+{"details-level":"full","limit":500}
+/web_api/show-groups
+{"dereference-group-members":true,"details-level":"full","limit":500}
+/web_api/show-services-tcp
+{"details-level":"full","limit":500}
+/web_api/show-services-udp
+{"details-level":"full","limit":500}
+/web_api/show-services-icmp
+{"details-level":"full","limit":500}
+/web_api/show-services-icmp6
+{"details-level":"full","limit":500}
+/web_api/show-services-other
+{"details-level":"full","limit":500}
+/web_api/show-simple-gateways
+{"details-level": "uid"}
+/web_api/show-simple-gateway
+{"uid":"uid1"}
+/web_api/show-simple-clusters
+{"details-level": "uid"}
+/web_api/show-simple-cluster
+{"uid":"uid2"}
+--router.change
+No changes applied
+=END=
