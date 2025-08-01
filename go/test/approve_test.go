@@ -279,9 +279,8 @@ timeout = 1
 		countEq(t, d.Error, stderr)
 	}
 	if d.Output != "" {
-		expected := d.Output
-		if expected == "NONE" {
-			expected = ""
+		if d.Output == "NONE" {
+			d.Output = ""
 		}
 		if d.Scenario != "" {
 			checkFilesAndStdout(t, d.Output, workDir, stdout, httpServer)
@@ -289,8 +288,8 @@ timeout = 1
 		}
 		// Join following line if it is indented.
 		re := regexp.MustCompile(`\n +`)
-		expected = re.ReplaceAllString(expected, "")
-		countEq(t, expected, stdout)
+		d.Output = re.ReplaceAllString(d.Output, "")
+		countEq(t, d.Output, stdout)
 	}
 }
 
