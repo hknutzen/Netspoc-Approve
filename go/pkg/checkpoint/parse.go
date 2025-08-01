@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"path"
 	"strings"
-
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/deviceconf"
 )
 
 type chkpConfig struct {
@@ -39,7 +37,7 @@ type chkpRule struct {
 	ServiceNegate     bool         `json:"service-negate,omitempty"`
 	Track             *chkpTrack   `json:"track,omitempty"`
 	InstallOn         []chkpName   `json:"install-on"`
-	Position          interface{}  `json:"position,omitempty"`
+	Position          any          `json:"position,omitempty"`
 	Append            bool         `json:"append,omitempty"` // From raw file.
 	needed            bool
 }
@@ -207,7 +205,7 @@ type chkpGateway struct {
 }
 
 func (s *State) ParseConfig(data []byte, fName string,
-) (deviceconf.Config, error) {
+) (*chkpConfig, error) {
 	cf := &chkpConfig{}
 	if len(data) == 0 {
 		return cf, nil

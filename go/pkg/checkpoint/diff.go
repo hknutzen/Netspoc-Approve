@@ -29,7 +29,7 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 
 func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	var changes []change
-	addChange := func(e string, d interface{}) {
+	addChange := func(e string, d any) {
 		changes = append(changes, change{endpoint: e, postData: d})
 	}
 	installMap := make(map[string]bool)
@@ -159,7 +159,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			// Add rules from Netspoc
 			// - add before exiting rule on device or
 			// - add at bottom of ruleset.
-			var pos interface{}
+			var pos any
 			if r.LowA < len(a.Rules) {
 				pos = jsonMap{"above": a.Rules[r.LowA].Name}
 			} else {
