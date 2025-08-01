@@ -25,7 +25,7 @@ It follows an optional status code which defaults to 200.
 Then follow optional header lines marked with "H: ".
 Remaining lines are used as response body.
 Path and query param of each URL line are fed as pattern to mux.NewRouter.
-Method pathPrefix is used to match path param.
+Method PathPrefix is used to match path param.
 
 Special case:
 If body is single line "EOF", the client connection is closed prematurely.
