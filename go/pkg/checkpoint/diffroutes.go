@@ -29,7 +29,7 @@ func sortRoutes(l []*chkpRoute) {
 
 func diffRoutes(a, b *chkpConfig) []change {
 	var changes []change
-	addChange := func(e string, d interface{}) {
+	addChange := func(e string, d any) {
 		changes = append(changes, change{endpoint: e, postData: d})
 	}
 	for _, gw := range slices.Sorted(maps.Keys(b.GatewayRoutes)) {
