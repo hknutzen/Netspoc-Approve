@@ -316,6 +316,17 @@ ERROR>>> While reading device: 'access-group inside in interface inside' referen
 =END=
 
 ############################################################
+=TITLE=Invalid reference in raw Netspoc config
+=SCENARIO=
+[[login_scenario]]
+=NETSPOC=
+--router.raw
+access-group inside in interface inside
+=ERROR=
+ERROR>>> While reading file router.raw: 'access-group inside in interface inside' references unknown 'access-list inside'
+=END=
+
+############################################################
 =TITLE=Can't login
 =SCENARIO=
 netspoc@10.1.2.3's password: <!>
