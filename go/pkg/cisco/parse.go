@@ -561,14 +561,19 @@ func postprocessParsed(lookup objLookup) {
 
 	// Normalize routes:
 	// Strip trailing [metric] in
-	// - "route if_name ip_address netmask gateway_ip [metric]"
-	// - "ipv6 route if_name destination next_hop_ipv6_addr [metric]"
+	// ASA:
+	// - route if_name ip mask gw [metric]
+	// - ipv6 route if_name ip/len gw [metric]
+	// IOS:
+	// - ip route [vrf NAME] ip mask gw [metric]
+	// - ipv6 route [vrf NAME] ip/len gw [metric]
 	stripMetric := func(prefix string) {
 		for _, l := range lookup[prefix] {
 			for _, c := range l {
 				tokens := strings.Split(c.parsed, " ")
-				if len(tokens) == 6 {
-					c.parsed = strings.Join(tokens[:5], " ")
+				ln := len(tokens)
+				if _, err := strconv.Atoi(tokens[ln-1]); err == nil {
+					c.parsed = strings.Join(tokens[:ln-1], " ")
 				}
 			}
 		}

@@ -24,6 +24,7 @@ func (s *State) GetCmdInfo() string { return cmdInfo }
 var cmdInfo = `
 [ANCHOR]
 ip_route *
+ipv6_route *
 interface *
  ip address *
  ip unnumbered *
