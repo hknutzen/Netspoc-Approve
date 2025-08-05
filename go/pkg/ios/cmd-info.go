@@ -1,5 +1,7 @@
 package ios
 
+func (s *State) GetCmdInfo() string { return cmdInfo }
+
 // Description of commands that will be parsed.
 // - $NAME matches name of command; only used in toplevel commands.
 // - $SEQ matches a sequence number.

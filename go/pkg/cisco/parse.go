@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/netip"
 	"path"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,7 +13,17 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
-type Config struct {
+func (s *state) setupParser(cmdInfo string) {
+	s.setupCmdDescr(cmdInfo)
+	s.setupLookup()
+}
+
+type parser struct {
+	cmdDescr  []*cmdType
+	prefixMap map[string]*cmdLookup
+}
+
+type config struct {
 	// prefix -> name -> commands with same prefix and name
 	lookup objLookup
 	isRaw  bool
@@ -60,24 +69,12 @@ type cmd struct {
 	subCmdOf *cmd
 }
 
-type parser struct {
-	cmdDescr  []*cmdType
-	prefixMap map[string]*cmdLookup
-	Model     string
+func (s *state) parseConfig(data []byte, fName string) (*config, error) {
+	data = s.RemoveBanner(data)
+	return s.parser.parseConfig(data, fName)
 }
 
-func (s *State) SetupParser(cmdInfo string) {
-	p := &parser{}
-	p.setupCmdDescr(cmdInfo)
-	p.setupLookup()
-	s.parser = p
-}
-
-func (p *parser) ParseConfig(data []byte, fName string) (*Config, error) {
-	if p.Model == "IOS" {
-		data = removeBanner(data)
-	}
-
+func (p *parser) parseConfig(data []byte, fName string) (*config, error) {
 	// prefix -> name -> commands with same prefix and name
 	lookup := make(objLookup)
 	// Remember previous toplevel command where subcommands are added.
@@ -157,7 +154,7 @@ func (p *parser) ParseConfig(data []byte, fName string) (*Config, error) {
 	}
 	postprocessParsed(lookup)
 	err := p.checkReferences(lookup, isRaw)
-	return &Config{lookup: lookup, isRaw: isRaw}, err
+	return &config{lookup: lookup, isRaw: isRaw}, err
 }
 
 func (p *parser) checkReferences(lookup objLookup, isRaw bool) error {
@@ -232,7 +229,7 @@ OBJ:
 }
 
 // Add definitions of default group-policy and default tunnel-groups.
-func (p *parser) addDefaults(cf *Config) {
+func (p *parser) addDefaults(cf *config) {
 	lookup := cf.lookup
 	for k, vl := range defaultObjects {
 		prefix, name := k[0], k[1]
@@ -1034,37 +1031,3 @@ func postprocessACLParts(c *cmd, parts []string) {
 //
 // NOT IMPLEMENTED, since Netspoc currently not generates object-groups
 // of services.
-
-// Remove definitions of banner lines from IOS config.
-// banner xxx ^CC
-// <lines>
-// ^C
-func removeBanner(data []byte) []byte {
-	rx := regexp.MustCompile(`^banner\s\S+\s+(.)\S`)
-	i := 0
-	j := 0
-	var endBanner []byte = nil
-	for {
-		e := bytes.Index(data[i:], []byte("\n"))
-		if e == -1 {
-			j += copy(data[j:], data[i:])
-			break
-		}
-		e++
-		e += i
-		line := data[i:e]
-		i = e
-		if endBanner != nil {
-			if bytes.HasPrefix(line, endBanner) {
-				endBanner = nil
-			}
-			continue
-		}
-		if m := rx.FindSubmatch(line); m != nil {
-			endBanner = m[1]
-			continue
-		}
-		j += copy(data[j:], line)
-	}
-	return data[:j]
-}

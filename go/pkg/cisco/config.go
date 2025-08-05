@@ -8,29 +8,29 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
-func (s *State) LoadNetspoc(data []byte, fName string) error {
-	cfg, err := s.ParseConfig(data, fName)
+func (s *state) LoadNetspoc(data []byte, fName string) error {
+	cfg, err := s.parseConfig(data, fName)
 	if err != nil {
 		return err
 	}
-	if s.SpocCfg == nil {
-		s.SpocCfg = cfg
+	if s.spocCfg == nil {
+		s.spocCfg = cfg
 	} else {
-		s.MergeSpoc(cfg)
+		s.mergeSpoc(cfg)
 	}
 	return nil
 }
 
-func (s *State) MoveNetspoc2DeviceConfig() {
-	s.DeviceCfg, s.SpocCfg = s.SpocCfg, nil
+func (s *state) MoveNetspoc2DeviceConfig() {
+	s.deviceCfg, s.spocCfg = s.spocCfg, nil
 }
 
 // Check that non anchor commands from raw file are referenced by some
 // anchor and are referenced only once.
 var isReferenced map[*cmd]bool
 
-func (s *State) MergeSpoc(b *Config) {
-	a := s.SpocCfg
+func (s *state) mergeSpoc(b *config) {
+	a := s.spocCfg
 	lookup := a.lookup
 	for prefix := range b.lookup {
 		if lookup[prefix] == nil {

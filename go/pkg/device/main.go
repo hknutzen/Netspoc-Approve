@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/cisco"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
@@ -34,9 +35,9 @@ func getRealDevice(fname string) RealDevice {
 	info, _ := codefiles.LoadInfoFile(fname)
 	switch info.Model {
 	case "ASA":
-		result = asa.Setup()
+		result = cisco.Setup(&asa.State{})
 	case "IOS":
-		result = ios.Setup()
+		result = cisco.Setup(&ios.State{})
 	case "Linux":
 		result = &linux.State{}
 	case "NSX":

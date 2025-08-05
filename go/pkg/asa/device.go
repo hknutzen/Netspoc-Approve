@@ -1,60 +1,16 @@
 package asa
 
 import (
-	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/cisco"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
 )
 
-type State struct {
-	cisco.State
-}
+type State struct{}
 
-func Setup() *State {
-	s := &State{}
-	s.SetupParser(cmdInfo)
-	s.Model = "ASA"
-	return s
-}
-
-func (s *State) LoadDevice(
-	spocFile string, cfg *program.Config, logLogin, logConfig *os.File) error {
-
-	user, pass, err := cfg.GetUserPass(codefiles.GetHostname(spocFile))
-	if err != nil {
-		return err
-	}
-	s.Conn, err = console.GetSSHConn(spocFile, user, cfg, logLogin)
-	if err != nil {
-		return err
-	}
-	hostName := codefiles.GetHostname(spocFile)
-	s.LoginEnable(pass, cfg)
-	s.setTerminal()
-	s.logVersion()
-	s.checkDeviceName(hostName)
-
-	s.Conn.SetLogFH(logConfig)
-	errlog.Info("Requesting device config")
-	out := s.Conn.GetCmdOutput("sh run")
-	errlog.Info("Got device config")
-	s.DeviceCfg, err = s.ParseConfig([]byte(out), "<device>")
-	errlog.Info("Parsed device config")
-	if err != nil {
-		err = fmt.Errorf("While reading device: %v", err)
-	}
-	return err
-}
-
-func (s *State) setTerminal() {
-	conn := s.Conn
+func (s *State) SetTerminal(conn *console.Conn) {
 	out := conn.GetCmdOutput("sh pager")
 	if !strings.Contains(out, "no pager") {
 		conn.SendCmd("terminal pager 0")
@@ -67,51 +23,29 @@ func (s *State) setTerminal() {
 	}
 }
 
-func (s *State) logVersion() {
-	s.Conn.GetCmdOutput("sh ver")
-}
-
-func (s *State) checkDeviceName(name string) {
-	out := s.Conn.GetCmdOutput("show hostname")
+func (s *State) CheckDeviceName(name string, conn *console.Conn) {
+	out := conn.GetCmdOutput("show hostname")
 	out = strings.TrimSuffix(out, "\n")
 	if name != out {
 		errlog.Abort("Wrong device name: %q, expected: %q", out, name)
 	}
 }
 
-func (s *State) ApplyCommands(logFh *os.File) error {
-	s.Conn.SetLogFH(logFh)
-	s.cmd("configure terminal")
-	for _, chg := range s.Changes {
-		s.cmd(chg)
-	}
-	s.cmd("end")
-	out := s.Conn.GetCmdOutput("write memory")
+func (s *State) PrepareDevice(conn *console.Conn)  {}
+func (s *State) ScheduleReload(conn *console.Conn) {}
+func (s *State) ExtendReload(conn *console.Conn)   {}
+func (s *State) CancelReload(conn *console.Conn)   {}
+func (s *State) RemoveBanner(data []byte) []byte   { return data }
+func (s *State) StripReloadBanner(out string, conn *console.Conn,
+) (string, bool) {
+	return out, false
+}
+
+func (s *State) WriteMem(conn *console.Conn) {
+	out := conn.GetCmdOutput("write memory")
 	if !strings.Contains(out, "[OK]") {
 		errlog.Abort("Command 'write memory' failed, missing [OK] in output:\n%s",
 			out)
-	}
-	return nil
-}
-
-// Send 1 or 2 commands in one data packet to device.
-// No output expected from commands.
-// Exceptions are given in map validOutput
-func (s *State) cmd(cmd string) {
-	c1, c2, _ := strings.Cut(cmd, "\n")
-	s.Conn.Send(cmd)
-	check := func(ci string) {
-		out := s.Conn.GetOutput()
-		out = s.Conn.StripEcho(ci, out)
-		if out != "" {
-			if !isValidOutput(ci, out) {
-				errlog.Abort("Got unexpected output from '%s':\n%s", ci, out)
-			}
-		}
-	}
-	check(c1)
-	if c2 != "" {
-		check(c2)
 	}
 }
 
@@ -130,7 +64,7 @@ var validOutput = map[string]*regexp.Regexp{
 		`^WARNING: (For IKEv1, )?L2L tunnel-groups that have names which are not an IP|^address may only be used if the tunnel authentication|^method is Digital Certificates and/or The peer is|^configured to use Aggressive Mode`),
 }
 
-func isValidOutput(cmd, out string) bool {
+func (s *State) IsValidOutput(cmd, out string) bool {
 LINE:
 	for _, line := range strings.Split(out, "\n") {
 		if line == "" {
@@ -151,10 +85,4 @@ LINE:
 		return false
 	}
 	return true
-}
-
-func (s *State) CloseConnection() {
-	if c := s.Conn; c != nil {
-		s.Conn.Close()
-	}
 }

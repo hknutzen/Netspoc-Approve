@@ -12,27 +12,17 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/console"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/ios"
 	"github.com/pkg/diff/edit"
 	"github.com/pkg/diff/myers"
 )
 
-type State struct {
-	*parser
-	Conn         *console.Conn
-	errUnmanaged []error
-	DeviceCfg    *Config
-	SpocCfg      *Config
-	Changes      []string
-	subCmdOf     string
+func (s *state) addChange(chg string) {
+	s.changes = append(s.changes, chg)
 }
 
-func (s *State) addChange(chg string) {
-	s.Changes = append(s.Changes, chg)
-}
-
-func (s *State) GetChanges() error {
+func (s *state) GetChanges() error {
 	s.alignVRFs()
 	if err := s.checkInterfaces(); err != nil {
 		return err
@@ -42,30 +32,30 @@ func (s *State) GetChanges() error {
 	return nil
 }
 
-func (s *State) HasChanges() bool {
-	return len(s.Changes) != 0
+func (s *state) HasChanges() bool {
+	return len(s.changes) != 0
 }
 
-func (s *State) ShowChanges() string {
+func (s *state) ShowChanges() string {
 	var collect strings.Builder
-	for _, chg := range s.Changes {
+	for _, chg := range s.changes {
 		chg = strings.Replace(chg, "\n", "\\N ", 1)
 		fmt.Fprintln(&collect, chg)
 	}
 	return collect.String()
 }
 
-func (s *State) diffConfig() {
-	s.addDefaults(s.DeviceCfg)
-	s.addDefaults(s.SpocCfg)
-	sortGroups(s.DeviceCfg)
-	sortGroups(s.SpocCfg)
-	sortRoutes(s.DeviceCfg)
-	sortRoutes(s.SpocCfg)
+func (s *state) diffConfig() {
+	s.addDefaults(s.deviceCfg)
+	s.addDefaults(s.spocCfg)
+	sortGroups(s.deviceCfg)
+	sortGroups(s.spocCfg)
+	sortRoutes(s.deviceCfg)
+	sortRoutes(s.spocCfg)
 	s.generateNamesForTransfer()
 	comb := make(objLookup)
-	maps.Copy(comb, s.DeviceCfg.lookup)
-	maps.Copy(comb, s.SpocCfg.lookup)
+	maps.Copy(comb, s.deviceCfg.lookup)
+	maps.Copy(comb, s.spocCfg.lookup)
 	for _, prefix := range slices.Sorted(maps.Keys(comb)) {
 		if prefix == "tunnel-group-map" {
 			s.diffTunnelGroupMap()
@@ -87,21 +77,21 @@ func (s *State) diffConfig() {
 	s.deleteUnused()
 }
 
-func byParsedCmd(_ *Config, c *cmd) string {
+func byParsedCmd(_ *config, c *cmd) string {
 	return c.parsed
 }
 
-func (s *State) diffAnchors(prefix string) {
-	aMap := s.DeviceCfg.lookup[prefix]
-	bMap := s.SpocCfg.lookup[prefix]
+func (s *state) diffAnchors(prefix string) {
+	aMap := s.deviceCfg.lookup[prefix]
+	bMap := s.spocCfg.lookup[prefix]
 	aNames := slices.Sorted(maps.Keys(aMap))
 	bNames := slices.Sorted(maps.Keys(bMap))
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
-func (s *State) diffSomeAnchors(prefix string) {
-	aMap := s.DeviceCfg.lookup[prefix]
-	bMap := s.SpocCfg.lookup[prefix]
+func (s *state) diffSomeAnchors(prefix string) {
+	aMap := s.deviceCfg.lookup[prefix]
+	bMap := s.spocCfg.lookup[prefix]
 	onlyAnchorNames := func(m map[string][]*cmd) []string {
 		var result []string
 		for name, l := range m {
@@ -117,7 +107,7 @@ func (s *State) diffSomeAnchors(prefix string) {
 	s.diffNamedCmds2(aMap, bMap, aNames, bNames)
 }
 
-func (s *State) diffNamedCmds2(
+func (s *state) diffNamedCmds2(
 	aMap, bMap map[string][]*cmd, aNames, bNames []string) {
 
 	for _, aName := range aNames {
@@ -131,7 +121,7 @@ func (s *State) diffNamedCmds2(
 }
 
 // Use "subject-name" of referenced "crypto ca certificate map" as key.
-func byCertMapKey(cf *Config, c *cmd) string {
+func byCertMapKey(cf *config, c *cmd) string {
 	if len(c.ref) == 1 {
 		// tunnel-group-map default-group $tunnel-group
 		return "default-group"
@@ -147,17 +137,17 @@ func byCertMapKey(cf *Config, c *cmd) string {
 	return ""
 }
 
-func (s *State) diffTunnelGroupMap() {
+func (s *state) diffTunnelGroupMap() {
 	prefix := "tunnel-group-map"
-	al := s.DeviceCfg.lookup[prefix][""]
-	bl := s.SpocCfg.lookup[prefix][""]
+	al := s.deviceCfg.lookup[prefix][""]
+	bl := s.spocCfg.lookup[prefix][""]
 	s.diffCmds(al, bl, byCertMapKey)
 }
 
-func (s *State) diffWebVPN() {
+func (s *state) diffWebVPN() {
 	prefix := "webvpn"
-	al := s.DeviceCfg.lookup[prefix][""]
-	bl := s.SpocCfg.lookup[prefix][""]
+	al := s.deviceCfg.lookup[prefix][""]
+	bl := s.spocCfg.lookup[prefix][""]
 	if al == nil {
 		if bl != nil {
 			s.addCmds(bl)
@@ -172,10 +162,10 @@ func (s *State) diffWebVPN() {
 	}
 }
 
-type keyFunc func(*Config, *cmd) string
+type keyFunc func(*config, *cmd) string
 
 type cmdsPair struct {
-	a, b         *Config
+	a, b         *config
 	aCmds, bCmds []*cmd
 	key          keyFunc
 }
@@ -192,7 +182,7 @@ func (ab *cmdsPair) Equal(ai, bi int) bool {
 // - subcommands of otherwise equal toplevel command.
 // Return name of existing command, if it is unchanged or modified
 // or return name of new command, if it replaces old command.
-func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
+func (s *state) diffCmds(al, bl []*cmd, key keyFunc) string {
 	// Command on device was already equalized with other command from Netspoc.
 	if len(al) > 0 && al[0].needed {
 		if len(bl) > 0 {
@@ -213,8 +203,8 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 		}
 	}
 	ab := &cmdsPair{
-		a:     s.DeviceCfg,
-		b:     s.SpocCfg,
+		a:     s.deviceCfg,
+		b:     s.spocCfg,
 		aCmds: al,
 		bCmds: bl,
 		key:   key,
@@ -311,7 +301,7 @@ func (s *State) diffCmds(al, bl []*cmd, key keyFunc) string {
 // al and bl are lists of commands, known to be equal, but names may differ.
 // Equalize subcommands and referenced commands.
 // Overwrite command
-func (s *State) makeEqual(al, bl []*cmd) {
+func (s *state) makeEqual(al, bl []*cmd) {
 	for i, a := range al {
 		b := bl[i]
 		a.needed = true
@@ -323,8 +313,8 @@ func (s *State) makeEqual(al, bl []*cmd) {
 		for i, aName := range a.ref {
 			prefix := a.typ.ref[i]
 			bName := b.ref[i]
-			aRef := s.DeviceCfg.lookup[prefix][aName]
-			bRef := s.SpocCfg.lookup[prefix][bName]
+			aRef := s.deviceCfg.lookup[prefix][aName]
+			bRef := s.spocCfg.lookup[prefix][bName]
 			var refName string
 			if prefix == "aaa-server" && aName != bName {
 				refName = bName
@@ -347,7 +337,7 @@ func (s *State) makeEqual(al, bl []*cmd) {
 	}
 }
 
-func (s *State) equalizeSimpleObject(al, bl []*cmd) string {
+func (s *state) equalizeSimpleObject(al, bl []*cmd) string {
 	if !simpleObjEqual(al, bl) {
 		s.markDeleted(al)
 		al = s.findSimpleObjOnDevice(bl)
@@ -362,11 +352,11 @@ func (s *State) equalizeSimpleObject(al, bl []*cmd) string {
 	return bl[0].name
 }
 
-func (s *State) findSimpleObjOnDevice(bl []*cmd) []*cmd {
-	return findSimpleObject(bl, s.DeviceCfg)
+func (s *state) findSimpleObjOnDevice(bl []*cmd) []*cmd {
+	return findSimpleObject(bl, s.deviceCfg)
 }
 
-func findSimpleObject(bl []*cmd, a *Config) []*cmd {
+func findSimpleObject(bl []*cmd, a *config) []*cmd {
 	prefix := bl[0].typ.prefix
 	m := a.lookup[prefix]
 	for _, name := range slices.Sorted(maps.Keys(m)) {
@@ -392,10 +382,10 @@ func simpleObjEqual(al, bl []*cmd) bool {
 	return ac.parsed == bc.parsed && slices.Equal(sortedSub(ac), sortedSub(bc))
 }
 
-func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
+func (s *state) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 	aclName := al[0].subCmdOf.name
 	s.addToplevel("ip access-list resequence " + aclName + " 10000 10000")
-	chgLen := len(s.Changes)
+	chgLen := len(s.changes)
 	idx2Block, maxID := markIOSPermitDenyBlocks(al)
 	type cmdAndPos struct {
 		cmd *cmd
@@ -431,13 +421,13 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 			}
 		}
 		delACL(a)
-		delIdx := len(s.Changes) - 1
+		delIdx := len(s.changes) - 1
 		addACL(b, before, i)
-		top := len(s.Changes) - 1
-		del := s.Changes[delIdx]
-		add := s.Changes[top]
-		s.Changes = s.Changes[:top]
-		s.Changes[top-1] = del + "\n" + add
+		top := len(s.changes) - 1
+		del := s.changes[delIdx]
+		add := s.changes[top]
+		s.changes = s.changes[:top]
+		s.changes[top-1] = del + "\n" + add
 	}
 
 	// Check if insert position is between first and last line
@@ -486,7 +476,7 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 			}
 		} else if r.IsDelete() {
 			for i, a := range al[r.LowA:r.HighA] {
-				p := getPrintableCmd(a, s.DeviceCfg)
+				p := getPrintableCmd(a, s.deviceCfg)
 				p = stripLogRX.ReplaceAllLiteralString(p, "")
 				cmdPos := cmdAndPos{cmd: a, pos: r.LowA + i}
 				delMap[p] = &cmdPos
@@ -535,9 +525,9 @@ func (s *State) diffIOSACLs(al, bl []*cmd, diff []edit.Range) {
 			delACL(cmdPos)
 		}
 	}
-	if len(s.Changes) == chgLen {
+	if len(s.changes) == chgLen {
 		// No changes found; remove initial resequence command.
-		s.Changes = s.Changes[:chgLen-1]
+		s.changes = s.changes[:chgLen-1]
 	} else {
 		s.addToplevel("ip access-list resequence " + aclName + " 10 10")
 	}
@@ -579,7 +569,7 @@ func getIOSAction(c *cmd) string {
 	return action
 }
 
-func (s *State) diffASAACLs(al, bl []*cmd, diff []edit.Range) {
+func (s *state) diffASAACLs(al, bl []*cmd, diff []edit.Range) {
 	// Collect to be added and to be deleted entries.
 	var add, del []*cmd
 	// Position where to add or delete a command.
@@ -632,14 +622,14 @@ func (s *State) diffASAACLs(al, bl []*cmd, diff []edit.Range) {
 	// top-1: no access-list ...\n access-list
 	moveACL := func(a, b *cmd) {
 		delACL(a)
-		i := len(s.Changes) - 1
+		i := len(s.changes) - 1
 		addACL(b)
-		top := len(s.Changes) - 1
-		del := s.Changes[i]
-		add := s.Changes[top]
-		copy(s.Changes[i:], s.Changes[i+1:])
-		s.Changes = s.Changes[:top]
-		s.Changes[top-1] = del + "\n" + add
+		top := len(s.changes) - 1
+		del := s.changes[i]
+		add := s.changes[top]
+		copy(s.changes[i:], s.changes[i+1:])
+		s.changes = s.changes[:top]
+		s.changes[top-1] = del + "\n" + add
 	}
 
 	// al and bl are list of access-list commands known to be equal,
@@ -714,7 +704,7 @@ func (s *State) diffASAACLs(al, bl []*cmd, diff []edit.Range) {
 	rx := regexp.MustCompile(
 		` log( ((\w+ )?interval \d+|\w+|disable|default))?\b`)
 	for _, a := range del {
-		p := getPrintableCmd(a, s.DeviceCfg)
+		p := getPrintableCmd(a, s.deviceCfg)
 		p = rx.ReplaceAllLiteralString(p, "")
 		delMap[p] = a
 	}
@@ -742,9 +732,9 @@ func (s *State) diffASAACLs(al, bl []*cmd, diff []edit.Range) {
 // ga and gb are object-group commands that need to be equal.
 // Try to transform subcommands of ga to subcommands of gb if viable.
 // Return true if transformation succeeded.
-func (s *State) equalizedGroups(aName, bName string) bool {
-	ga := s.DeviceCfg.lookup["object-group"][aName][0]
-	gb := s.SpocCfg.lookup["object-group"][bName][0]
+func (s *state) equalizedGroups(aName, bName string) bool {
+	ga := s.deviceCfg.lookup["object-group"][aName][0]
+	gb := s.spocCfg.lookup["object-group"][bName][0]
 	if ga.parsed != gb.parsed {
 		// Type of object-group differs.
 		return false
@@ -758,7 +748,7 @@ func (s *State) equalizedGroups(aName, bName string) bool {
 	}
 	la := ga.sub
 	lb := gb.sub
-	byOrig := func(_ *Config, c *cmd) string { return c.orig }
+	byOrig := func(_ *config, c *cmd) string { return c.orig }
 	ab := &cmdsPair{aCmds: la, bCmds: lb, key: byOrig}
 	script := myers.Diff(nil, ab)
 	if !script.IsIdentity() {
@@ -789,7 +779,7 @@ type routeDst struct {
 	dst netip.Prefix
 }
 
-func (s *State) diffRoutes(al, bl []*cmd, diff []edit.Range) {
+func (s *state) diffRoutes(al, bl []*cmd, diff []edit.Range) {
 	chgVRF := make(map[string]bool)
 	for _, c := range bl {
 		chgVRF[dstOfRoute(c).vrf] = true
@@ -846,14 +836,14 @@ func (s *State) diffRoutes(al, bl []*cmd, diff []edit.Range) {
 // Then transfer command and its subcommands.
 // Mark transferred commands.
 // Transfer each command only once.
-func (s *State) addCmds(l []*cmd) {
+func (s *state) addCmds(l []*cmd) {
 	var add func(l []*cmd)
 	follow := func(c *cmd) {
 		for i, name := range c.ref {
 			prefix := c.typ.ref[i]
-			bl := s.SpocCfg.lookup[prefix][name]
+			bl := s.spocCfg.lookup[prefix][name]
 			if bl[0].typ.fixedName || bl[0].fixedName {
-				if al, found := s.DeviceCfg.lookup[prefix][name]; found {
+				if al, found := s.deviceCfg.lookup[prefix][name]; found {
 					if prefix == "crypto map" {
 						s.diffCryptoMap(al, bl)
 					} else {
@@ -881,7 +871,7 @@ func (s *State) addCmds(l []*cmd) {
 		if b0.typ.fixedName || b0.fixedName {
 			prefix := b0.typ.prefix
 			name := b0.name
-			if _, found := s.DeviceCfg.lookup[prefix][name]; !found {
+			if _, found := s.deviceCfg.lookup[prefix][name]; !found {
 				switch prefix {
 				case "aaa-server", "ldap attribute-map":
 					errlog.Abort("'%s %s' must be transferred manually", prefix, name)
@@ -899,7 +889,7 @@ func (s *State) addCmds(l []*cmd) {
 	add(l)
 }
 
-func (s *State) addCmd(c *cmd) {
+func (s *state) addCmd(c *cmd) {
 	switch c.typ.prefix {
 	case "aaa-server", "ldap attribute-map", "interface":
 		return
@@ -922,12 +912,12 @@ func (s *State) addCmd(c *cmd) {
 	}
 }
 
-func (s *State) addToplevel(c string) {
+func (s *state) addToplevel(c string) {
 	s.addChange(c)
 	s.subCmdOf = ""
 }
 
-func (s *State) setCmdConfMode(printedSup string) {
+func (s *state) setCmdConfMode(printedSup string) {
 	if s.subCmdOf != printedSup {
 		// Prevent toplevel command "webvpn" be given
 		// in mode (config-group-policy)
@@ -941,7 +931,7 @@ func (s *State) setCmdConfMode(printedSup string) {
 }
 
 // Delete subcommands and parts of multi line command.
-func (s *State) delCmds(l []*cmd) {
+func (s *state) delCmds(l []*cmd) {
 	if len(l) == 0 {
 		return
 	}
@@ -967,12 +957,12 @@ func (s *State) delCmds(l []*cmd) {
 }
 
 // Mark command on device and referenced commands as deleted.
-func (s *State) markDeleted(al []*cmd) {
+func (s *state) markDeleted(al []*cmd) {
 	var del func(al []*cmd)
 	follow := func(c *cmd) {
 		for i, name := range c.ref {
 			prefix := c.typ.ref[i]
-			del(s.DeviceCfg.lookup[prefix][name])
+			del(s.deviceCfg.lookup[prefix][name])
 		}
 	}
 	del = func(al []*cmd) {
@@ -997,13 +987,13 @@ func (s *State) markDeleted(al []*cmd) {
 // Delete unused toplevel command from device
 // - that was previously referenced by command generated from Netspoc or
 // - that was generated by Netspoc, but was accidently not deleted in last run.
-func (s *State) deleteUnused() {
+func (s *state) deleteUnused() {
 	// Collect to be deleted commands.
 	// That are unused, no longer needed commands.
 	type pair [2]string
 	toDelete := make(map[pair][]*cmd)
 	stillReferenced := make(map[pair]bool)
-	for prefix, m := range s.DeviceCfg.lookup {
+	for prefix, m := range s.deviceCfg.lookup {
 		for name, l := range m {
 			var del []*cmd
 			for _, c := range l {
@@ -1020,7 +1010,7 @@ func (s *State) deleteUnused() {
 						follow = func(c *cmd) {
 							for i, name := range c.ref {
 								prefix := c.typ.ref[i]
-								for _, c2 := range s.DeviceCfg.lookup[prefix][name] {
+								for _, c2 := range s.deviceCfg.lookup[prefix][name] {
 									if !c2.needed {
 										stillReferenced[pair{prefix, name}] = true
 										follow(c2)
@@ -1097,11 +1087,11 @@ func (s *State) deleteUnused() {
 	}
 }
 
-func (s *State) printNetspocCmd(c *cmd) string {
-	return getPrintableCmd(c, s.SpocCfg)
+func (s *state) printNetspocCmd(c *cmd) string {
+	return getPrintableCmd(c, s.spocCfg)
 }
 
-func getPrintableCmd(c *cmd, cf *Config) string {
+func getPrintableCmd(c *cmd, cf *config) string {
 	p := c.parsed
 	p = strings.Replace(p, "$NAME", c.name, 1)
 	p = strings.Replace(p, "$SEQ", strconv.Itoa(c.seq), 1)
@@ -1114,7 +1104,7 @@ func getPrintableCmd(c *cmd, cf *Config) string {
 }
 
 // Generate new names for objects from Netspoc: <spoc-name>-DRC-<index>
-func (s *State) generateNamesForTransfer() {
+func (s *state) generateNamesForTransfer() {
 	setName := func(c *cmd, devNames map[string][]*cmd) {
 		prefix := c.name + "-DRC-"
 		index := 0
@@ -1127,11 +1117,11 @@ func (s *State) generateNamesForTransfer() {
 			index++
 		}
 	}
-	for prefix, m := range s.SpocCfg.lookup {
+	for prefix, m := range s.spocCfg.lookup {
 		for _, bl := range m {
 			for _, c := range bl {
 				if !(c.typ.fixedName || c.fixedName) {
-					setName(c, s.DeviceCfg.lookup[prefix])
+					setName(c, s.deviceCfg.lookup[prefix])
 				}
 			}
 		}
@@ -1139,20 +1129,20 @@ func (s *State) generateNamesForTransfer() {
 }
 
 // Sort elements of object-groups for findGroupOnDevice to work.
-func sortGroups(cf *Config) {
+func sortGroups(cf *config) {
 	for _, gl := range cf.lookup["object-group"] {
 		l := gl[0].sub
 		sort.Slice(l, func(i, j int) bool { return l[i].parsed < l[j].parsed })
 	}
 }
 
-func (s *State) findGroupOnDevice(name string) {
-	gb := s.SpocCfg.lookup["object-group"][name][0]
+func (s *state) findGroupOnDevice(name string) {
+	gb := s.spocCfg.lookup["object-group"][name][0]
 	if gb.ready {
 		return
 	}
 GROUP:
-	for _, l := range s.DeviceCfg.lookup["object-group"] {
+	for _, l := range s.deviceCfg.lookup["object-group"] {
 		ga := l[0]
 		if ga.parsed != gb.parsed {
 			// Type of object-group differs.
@@ -1178,7 +1168,7 @@ GROUP:
 	}
 }
 
-func (s *State) diffCryptoMap(al, bl []*cmd) string {
+func (s *state) diffCryptoMap(al, bl []*cmd) string {
 	matchCryptoMap(al, bl, func(aSeqL, bSeqL []*cmd) {
 		s.diffCmds(aSeqL, bSeqL, byParsedCmd)
 	})
@@ -1266,7 +1256,7 @@ func matchCryptoMap(al, bl []*cmd, f func([]*cmd, []*cmd)) {
 // Add routes with long mask first. If we switch the default
 // route, this ensures, that we have the new routes available
 // before deleting the old default route.
-func sortRoutes(cf *Config) {
+func sortRoutes(cf *config) {
 	for _, prefix := range []string{"route", "ip route", "ipv6 route"} {
 		l := cf.lookup[prefix][""]
 		sort.Slice(l, func(i, j int) bool {
@@ -1370,20 +1360,22 @@ func diffUnordered(ab *cmdsPair) []edit.Range {
 	return result
 }
 
-func (s *State) checkInterfaces() error {
-	if s.Model == "IOS" {
+func (s *state) checkInterfaces() error {
+	switch s.realCisco.(type) {
+	case *ios.State:
 		return s.checkIOSInterfaces()
+	default:
+		return s.checkASAInterfaces()
 	}
-	return s.checkASAInterfaces()
 }
 
-func (s *State) checkASAInterfaces() error {
+func (s *state) checkASAInterfaces() error {
 	// For ASA collect implicit interfaces from Netspoc.
 	// These are defined by commands
 	// - "access-group $access-list in|out interface INTF".
 	// - "crypto map $crypto_map interface INTF"
 	// Ignore "access-group $access-list global".
-	getImplicitInterfaces := func(cfg *Config) map[string][]*cmd {
+	getImplicitInterfaces := func(cfg *config) map[string][]*cmd {
 		m := make(map[string][]*cmd)
 		for _, c := range cfg.lookup["access-group"][""] {
 			tokens := strings.Fields(c.parsed)
@@ -1397,12 +1389,12 @@ func (s *State) checkASAInterfaces() error {
 		}
 		return m
 	}
-	bIntf2cmd := getImplicitInterfaces(s.SpocCfg)
+	bIntf2cmd := getImplicitInterfaces(s.spocCfg)
 
 	// Collect and check named interfaces from device.
 	// Add implicit interfaces when comparing two Netspoc generated configs.
-	aIntf2cmd := getImplicitInterfaces(s.DeviceCfg)
-	for _, c := range s.DeviceCfg.lookup["interface"][""] {
+	aIntf2cmd := getImplicitInterfaces(s.deviceCfg)
+	for _, c := range s.deviceCfg.lookup["interface"][""] {
 		name := ""
 		shut := false
 		for _, sc := range c.sub {
@@ -1440,7 +1432,7 @@ func (s *State) checkASAInterfaces() error {
 	return nil
 }
 
-func (s *State) checkIOSInterfaces() error {
+func (s *state) checkIOSInterfaces() error {
 	type intfInfo struct {
 		shut    bool
 		addr    string
@@ -1485,11 +1477,11 @@ func (s *State) checkIOSInterfaces() error {
 	}
 	aKnown := make(map[string]bool)
 	bIntf := make(map[string]*intfInfo)
-	for _, c := range s.SpocCfg.lookup["interface"][""] {
+	for _, c := range s.spocCfg.lookup["interface"][""] {
 		name := strings.Fields(c.parsed)[1]
 		bIntf[name] = extractIntfInfo(c)
 	}
-	for _, c := range s.DeviceCfg.lookup["interface"][""] {
+	for _, c := range s.deviceCfg.lookup["interface"][""] {
 		name := strings.Fields(c.parsed)[1]
 		aInfo := extractIntfInfo(c)
 		aKnown[name] = true
@@ -1520,7 +1512,7 @@ func (s *State) checkIOSInterfaces() error {
 			}
 		}
 	}
-	for _, c := range s.SpocCfg.lookup["interface"][""] {
+	for _, c := range s.spocCfg.lookup["interface"][""] {
 		name := strings.Fields(c.parsed)[1]
 		if !aKnown[name] {
 			return fmt.Errorf(
@@ -1530,7 +1522,7 @@ func (s *State) checkIOSInterfaces() error {
 	return nil
 }
 
-func (s *State) alignVRFs() {
+func (s *state) alignVRFs() {
 	interfaceVRF := func(c *cmd) string {
 		for _, s := range c.sub {
 			if _, v, found := strings.Cut(s.orig, "vrf forwarding "); found {
@@ -1556,7 +1548,7 @@ func (s *State) alignVRFs() {
 	// Find VRFs used in Netspoc configuration.
 	bVRF := make(map[string]bool)
 	for _, p := range pairs {
-		for _, c := range s.SpocCfg.lookup[p.name][""] {
+		for _, c := range s.spocCfg.lookup[p.name][""] {
 			bVRF[p.get(c)] = true
 		}
 	}
@@ -1568,7 +1560,7 @@ func (s *State) alignVRFs() {
 	// Remove VRFs from device configuration that are not handled by Netspoc.
 	removed := make(map[string]bool)
 	for _, p := range pairs {
-		if l := s.DeviceCfg.lookup[p.name][""]; l != nil {
+		if l := s.deviceCfg.lookup[p.name][""]; l != nil {
 			j := 0
 			for _, c := range l {
 				vrf := p.get(c)
@@ -1585,9 +1577,9 @@ func (s *State) alignVRFs() {
 			}
 			l = l[:j]
 			if len(l) != 0 {
-				s.DeviceCfg.lookup[p.name][""] = l
+				s.deviceCfg.lookup[p.name][""] = l
 			} else {
-				delete(s.DeviceCfg.lookup[p.name], "")
+				delete(s.deviceCfg.lookup[p.name], "")
 			}
 		}
 	}
@@ -1600,12 +1592,12 @@ func (s *State) alignVRFs() {
 }
 
 // Mark commands and referenced commands as still needed.
-func (s *State) markNeeded(l []*cmd) {
+func (s *state) markNeeded(l []*cmd) {
 	for _, c := range l {
 		c.needed = true
 		for i, name := range c.ref {
 			prefix := c.typ.ref[i]
-			s.markNeeded(s.DeviceCfg.lookup[prefix][name])
+			s.markNeeded(s.deviceCfg.lookup[prefix][name])
 		}
 		s.markNeeded(c.sub)
 	}
@@ -1613,15 +1605,15 @@ func (s *State) markNeeded(l []*cmd) {
 
 // 'crypto map gdoi' is currently not supported by Netspoc.
 // That commands must be left unchanged on device.
-func (s *State) ignoreCryptoGDOI() {
+func (s *state) ignoreCryptoGDOI() {
 	rm := make(map[string]bool)
-	for _, c := range s.DeviceCfg.lookup["interface"][""] {
+	for _, c := range s.deviceCfg.lookup["interface"][""] {
 		l := c.sub
 		j := 0
 		for _, sc := range l {
 			if sc.parsed == "crypto map $REF" {
 				name := sc.ref[0]
-				l2 := s.DeviceCfg.lookup["crypto map"][name]
+				l2 := s.deviceCfg.lookup["crypto map"][name]
 				if l2[0].parsed == "crypto map $NAME $SEQ gdoi" {
 					rm[name] = true
 					continue
@@ -1633,6 +1625,6 @@ func (s *State) ignoreCryptoGDOI() {
 		c.sub = l[:j]
 	}
 	for name := range rm {
-		delete(s.DeviceCfg.lookup["crypto map"], name)
+		delete(s.deviceCfg.lookup["crypto map"], name)
 	}
 }

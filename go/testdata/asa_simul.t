@@ -291,12 +291,12 @@ WARNING>>> WARNING: Route already exists
 =TITLE=Unexpected command output
 =SCENARIO=
 [[login_scenario]]
-# configure terminal
+# route inside 0.0.0.0 0.0.0.0 10.1.2.4
 foo
 =NETSPOC=
 route inside 0.0.0.0 0.0.0.0 10.1.2.4
 =ERROR=
-ERROR>>> Got unexpected output from 'configure terminal':
+ERROR>>> Got unexpected output from 'route inside 0.0.0.0 0.0.0.0 10.1.2.4':
 ERROR>>> foo
 =END=
 
