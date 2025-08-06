@@ -1544,6 +1544,7 @@ func (s *state) alignVRFs() {
 	}{
 		{"interface", interfaceVRF},
 		{"ip route", routeVRF},
+		{"ipv6 route", routeVRF},
 	}
 	// Find VRFs used in Netspoc configuration.
 	bVRF := make(map[string]bool)

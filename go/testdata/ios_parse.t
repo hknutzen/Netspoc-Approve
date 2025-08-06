@@ -108,18 +108,22 @@ no ip route vrf 013 10.40.0.0 255.255.0.0 10.3.3.4
 =END=
 
 ############################################################
-=TITLE=Change IPv6 routing with vrf
+=TITLE=Change IPv6 routing with vrf, leave unmanaged vrf unchanged
 =DEVICE=
-ipv6 route vrf 001 10::3:0/120 10::2:2 1
+ipv6 route         10::1:0/120 10::2:1
+ipv6 route vrf 099 10::2:0/120 10::2:1
+ipv6 route vrf   1 10::3:0/120 10::2:2 1
 ipv6 route vrf 013 10::4:0/120 10::2:2 2
 =NETSPOC=
 --ipv6/router
-ipv6 route vrf 001 10::3:0/120 10::2:1
+ipv6 route vrf   1 10::3:0/120 10::2:1
 ipv6 route vrf 013 10::4:0/120 10::2:2
 ipv6 route vrf 013 10::5:0/120 10::2:2
+ipv6 route vrf 014 10::6:0/120 10::2:6
 =OUTPUT=
-no ipv6 route vrf 001 10::3:0/120 10::2:2 1\N ipv6 route vrf 001 10::3:0/120 10::2:1
+no ipv6 route vrf   1 10::3:0/120 10::2:2 1\N ipv6 route vrf   1 10::3:0/120 10::2:1
 ipv6 route vrf 013 10::5:0/120 10::2:2
+ipv6 route vrf 014 10::6:0/120 10::2:6
 =END=
 
 ############################################################
