@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/pkg/diff/myers"
 )
 
@@ -104,9 +103,8 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				ja, _ := json.Marshal(aObj)
 				jb, _ := json.Marshal(bObj)
 				if d := cmp.Diff(ja, jb); d != "" {
-					errlog.Abort("Values of %q differ between device and Netspoc.\n"+
-						"Please modify manually.\n%s",
-						name, d)
+					// Modify existimg object on device.
+					addChange("set-"+bObj.getAPIObject(), bObj)
 				}
 			}
 		} else {
