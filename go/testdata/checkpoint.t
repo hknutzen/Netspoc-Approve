@@ -614,3 +614,39 @@ add-access-rule
  "install-on":["other-fw"],
  "position":"bottom"}
 =END=
+
+############################################################
+=TITLE=Change attributes of referenced objects
+=TEMPL=input
+{
+  "Rules": [
+    {
+      "name": "test rule",
+      "uid": "id-test",
+      "action": "Accept",
+      "source": ["my-group"],
+      "destination": ["my-host"],
+      "service": ["my-srv"],
+      "install-on": ["test-fw"]
+    }
+  ],
+  "Groups": [{ "name": "my-group", "members": ["my-net"] }],
+  "Networks": [{ "name": "my-net", "subnet4": "10.1.2.0", "mask-length4": 24 }],
+  "Hosts": [{ "name": "my-host", "ipv4-address": "10.1.9.9" }],
+  "TCP": [{ "name": "my-srv", "port": "81" }]
+}
+=DEVICE=
+[[input]]
+=NETSPOC=
+[[input]]
+=SUBST=/24/25/
+=SUBST=/9.9/9.8/
+=SUBST=/81/80/
+=OUTPUT=
+set-network
+{"name":"my-net","subnet4":"10.1.2.0","mask-length4":25}
+set-host
+{"name":"my-host","ipv4-address":"10.1.9.8"}
+set-service-tcp
+{"name":"my-srv","port":"80"}
+=END=
