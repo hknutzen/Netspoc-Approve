@@ -616,6 +616,67 @@ add-access-rule
 =END=
 
 ############################################################
+=TITLE=Delete, add rule with duplicate name and different install-on
+=DEVICE=
+{
+  "Rules": [
+    {
+      "name": "http",
+      "uid": "id-http",
+      "action": "Accept",
+      "source": ["Any"],
+      "destination": ["Any"],
+      "service": ["http"],
+      "install-on": ["test-fw"]
+    },
+    {
+      "name": "http",
+      "uid": "id-http2",
+      "action": "Accept",
+      "source": ["Any"],
+      "destination": ["Any"],
+      "service": ["http"],
+      "install-on": ["other-fw"]
+    }
+  ]
+}
+=NETSPOC=
+{
+  "Rules": [
+    {
+      "name": "http",
+      "action": "Accept",
+      "source": ["Any"],
+      "destination": ["Any"],
+      "service": ["http"],
+      "install-on": ["other-fw"]
+    },
+    {
+      "name": "http",
+      "action": "Accept",
+      "source": ["Any"],
+      "destination": ["Any"],
+      "service": ["http"],
+      "install-on": ["test-fw"]
+    }
+  ]
+}
+=OUTPUT=
+delete-access-rule
+{"layer":"network","uid":"id-http"}
+add-access-rule
+{
+ "name":"http",
+ "layer":"network",
+ "action":"Accept",
+ "source":["Any"],
+ "destination":["Any"],
+ "service":["http"],
+ "install-on":["test-fw"],
+ "position":"bottom"}
+=END=
+
+############################################################
 =TITLE=Change attributes of referenced objects
 =TEMPL=input
 {
@@ -649,4 +710,124 @@ set-host
 {"name":"my-host","ipv4-address":"10.1.9.8"}
 set-service-tcp
 {"name":"my-srv","port":"80"}
+=END=
+
+############################################################
+=TITLE=Add, remove, change rule referencing predefined ICMP object
+=DEVICE=
+{
+  "ICMP": [
+    {
+      "name": "echo-reply",
+      "icmp-type": 0,
+      "read-only": true
+    },
+    {
+      "name": "dest-unreach",
+      "icmp-type": 3,
+      "read-only": true
+    },
+    {
+      "name": "source-quench",
+      "icmp-type": 4,
+      "read-only": true
+    }
+  ],
+  "Rules": [
+    {
+      "name": "echo-reply",
+      "uid": "id-echo-reply",
+      "action": "Accept",
+      "source": ["Any"],
+      "destination": ["Any"],
+      "service": ["redirect"],
+      "install-on": ["test-fw"]
+    },
+    [[idrule source-quench]]
+  ]
+}
+=NETSPOC=
+{
+  "Rules": [
+    [[rule echo-reply]],
+    [[rule dest-unreach]]
+  ]
+}
+=OUTPUT=
+set-access-rule
+{"layer":"network","service":{"add":["echo-reply"]},"uid":"id-echo-reply"}
+set-access-rule
+{"layer":"network","service":{"remove":["redirect"]},"uid":"id-echo-reply"}
+delete-access-rule
+{"layer":"network","uid":"id-source-quench"}
+add-access-rule
+{
+ "name":"dest-unreach",
+ "layer":"network",
+ "action":"Accept",
+ "source":["Any"],
+ "destination":["Any"],
+ "service":["dest-unreach"],
+ "install-on":["test-fw"],
+ "position":"bottom"}
+=END=
+
+############################################################
+=TITLE=Add, remove, change user defined ICMP object
+=DEVICE=
+{
+  "ICMP": [
+    {
+      "name": "icmp-2",
+      "icmp-type": 2
+    },
+    {
+      "name": "icmp-2-0",
+      "icmp-type": 2,
+      "icmp-code": 0
+    },
+    {
+      "name": "icmp-3-1",
+      "icmp-type": 3,
+      "icmp-code": 1
+    }
+  ],
+  "Rules": [
+    [[idrule icmp-2]]
+  ]
+}
+=NETSPOC=
+{
+  "ICMP": [
+    {
+      "name": "icmp-2-0",
+      "icmp-type": 2
+    },
+    {
+      "name": "icmp-3-1",
+      "icmp-type": 3,
+      "icmp-code": 1
+    },
+    {
+      "name": "icmp-3-0",
+      "icmp-type": 3,
+      "icmp-code": 0
+    },
+    {
+      "name": "icmp-19",
+      "icmp-type": 19
+    }
+  ]
+}
+=OUTPUT=
+set-service-icmp
+{"name":"icmp-2-0","icmp-type":2}
+add-service-icmp
+{"name":"icmp-3-0","icmp-type":3,"icmp-code":0}
+add-service-icmp
+{"name":"icmp-19","icmp-type":19}
+delete-access-rule
+{"layer":"network","uid":"id-icmp-2"}
+delete-service-icmp
+{"name":"icmp-2"}
 =END=
