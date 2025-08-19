@@ -44,7 +44,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			aObj.setDeletable()
 		}
 	}
-	// Compare objects referenced by src/dst of rule or by members of group.
+	// Compare objects referenced by src/dst/srv of rule or by members of group.
 	compareObjects := func(attr string, chg1, chg2 jsonMap, aL, bL []chkpName) {
 		getNameMap := func(l []chkpName) map[chkpName]bool {
 			m := make(map[chkpName]bool)
