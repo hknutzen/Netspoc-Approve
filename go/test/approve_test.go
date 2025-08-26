@@ -166,7 +166,7 @@ func runTest(t *testing.T, d descr, devType string) {
 			if err := os.WriteFile(scenarioFile, []byte(sc), 0644); err != nil {
 				t.Fatal(err)
 			}
-			cmd := prevDir + "/../testdata/simulate-cisco.pl " + deviceName + " " +
+			cmd := prevDir + "/../testdata/simulate-cisco " + deviceName + " " +
 				path.Join(workDir, scenarioFile)
 			os.Setenv("SIMULATE_ROUTER", cmd)
 		}
