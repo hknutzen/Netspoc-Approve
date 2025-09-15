@@ -10,9 +10,8 @@
 {{- end}}
 {
  "groups": [
-{{$first := true}}
-{{range .groups}}
-{{if $first}}{{$first = false}}{{else}},{{end}}
+{{range $idx, $_ := .groups}}
+{{if $idx}},{{end}}
 {
  "id": "Netspoc-{{.id}}",
  "expression": [
@@ -33,9 +32,8 @@
    "id": "Netspoc-v1",
    "resource_type": "GatewayPolicy",
    "rules": [
-{{$first := true}}
-{{range .rules}}
-{{if $first}}{{$first = false}}{{else}},{{end}}
+{{range $idx, $_ := .rules}}
+{{if $idx}},{{end}}
 {
  "resource_type": "Rule",
  "id": "{{.id}}",
@@ -62,9 +60,8 @@
  ],
 {{end}}
  "services": [
-{{$first := true}}
-{{range .services}}
-{{if $first}}{{$first = false}}{{else}},{{end}}
+{{range $idx, $_ := .services}}
+{{if $idx}},{{end}}
 {{if eq "string" (printf "%T" .)}}{{.}}{{continue}}{{end}}
 {{$port := index . 1}}
 {{$proto := index . 0}}
