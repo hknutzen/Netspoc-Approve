@@ -9,6 +9,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/simulator"
 	expect "github.com/tailscale/goexpect"
 )
 
@@ -32,10 +33,32 @@ func GetSSHConn(spocFile, user string, cfg *program.Config, logLogin *os.File) (
 		cmd = append(cmd,
 			[]string{"-o", "ProxyCommand ssh " + pdp + " -W %h:%p"}...)
 	}
+	short := time.Duration(cfg.LoginTimeout) * time.Second
+
+	// Allow in-process simulator based on environment variable.
 	if simul := os.Getenv("SIMULATE_ROUTER"); simul != "" {
+		if strings.HasPrefix(simul, "inline-simulator:") {
+			// Load scenario from file and spawn in-process simulator expecter.
+			scPath := strings.TrimPrefix(simul, "inline-simulator:")
+			data, err := os.ReadFile(scPath)
+			if err != nil {
+				return nil, err
+			}
+			device := codefiles.GetHostname(spocFile)
+			ge, _, err := simulator.SpawnScenarioExpecter(device, string(data), short, expect.PartialMatch(true))
+			if err != nil {
+				return nil, err
+			}
+			return &Conn{
+				con:          ge,
+				log:          logLogin,
+				Timeout:      time.Duration(cfg.Timeout) * time.Second,
+				ShortTimeout: short,
+			}, nil
+		}
+		// Fallback: treat as external command to execute (existing behavior)
 		cmd = strings.Fields(simul)
 	}
-	short := time.Duration(cfg.LoginTimeout) * time.Second
 	con, _, err := expect.SpawnWithArgs(cmd, short, expect.PartialMatch(true))
 	if err != nil {
 		return nil, err
@@ -75,7 +98,9 @@ func (c *Conn) logString(s string) {
 func (c *Conn) Close() {
 	if c.con != nil {
 		c.SetLogFH(nil)
-		c.con.Send("exit\n")
+		// Close the expecter. Avoid sending an explicit "exit" which may
+		// cause spurious write errors if the underlying process already exited.
+		_ = c.con.Close()
 	}
 }
 

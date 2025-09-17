@@ -166,9 +166,8 @@ func runTest(t *testing.T, d descr, devType string) {
 			if err := os.WriteFile(scenarioFile, []byte(sc), 0644); err != nil {
 				t.Fatal(err)
 			}
-			cmd := prevDir + "/../testdata/simulate-cisco " + deviceName + " " +
-				path.Join(workDir, scenarioFile)
-			os.Setenv("SIMULATE_ROUTER", cmd)
+			// Use in-process simulator instead of external test binary
+			os.Setenv("SIMULATE_ROUTER", "inline-simulator:"+path.Join(workDir, scenarioFile))
 		}
 		// Prepare credentials file. Declare user as system user.
 		credentialsFile := path.Join(workDir, "credentials")
