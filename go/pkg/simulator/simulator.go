@@ -2,9 +2,12 @@ package simulator
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -151,6 +154,13 @@ func (s *Simulator) sendLine(line string, reader *bufio.Reader, out io.Writer) e
 
 		// If not the last part, wait for user to press Enter.
 		if i < len(parts)-1 {
+			// If the writer supports Flush(), ensure earlier buffered data
+			// is sent before we block waiting for input (important when out
+			// is a bufferingWriter).
+			if f, ok := out.(interface{ Flush() error }); ok {
+				_ = f.Flush()
+			}
+
 			input, err := reader.ReadString('\n')
 			if err != nil {
 				return nil
@@ -162,6 +172,24 @@ func (s *Simulator) sendLine(line string, reader *bufio.Reader, out io.Writer) e
 		}
 	}
 	return nil
+}
+
+// bufferingWriter accumulates writes in-memory and can flush them in one
+// atomic write to the underlying writer.
+type bufferingWriter struct {
+	final io.Writer
+	buf   bytes.Buffer
+}
+
+func (b *bufferingWriter) Write(p []byte) (int, error) { return b.buf.Write(p) }
+
+func (b *bufferingWriter) Flush() error {
+	if b.buf.Len() == 0 {
+		return nil
+	}
+	_, err := b.final.Write(b.buf.Bytes())
+	b.buf.Reset()
+	return err
 }
 
 // Run executes the simulator session reading from in and writing to out until exit.
@@ -196,16 +224,20 @@ func (s *Simulator) Run(in io.Reader, out io.Writer) error {
 		lookup := strings.TrimPrefix(cmd, "do ")
 		hasDo := len(cmd) != len(lookup)
 
+		// Use a per-command buffering writer so echo+output+prompt are flushed
+		// together in one write, avoiding interleaving races.
+		bw := &bufferingWriter{final: out}
+
 		// Echo command: if a banner applies, echo the garbled variant
 		if b, ok := s.cmd2bCmd[lookup]; ok {
 			if hasDo {
 				b = "do " + b
 			}
-			if err := s.sendLine(b+"\n", reader, out); err != nil {
+			if err := s.sendLine(b+"\n", reader, bw); err != nil {
 				return err
 			}
 		} else {
-			if err := s.sendLine(cmd+"\n", reader, out); err != nil {
+			if err := s.sendLine(cmd+"\n", reader, bw); err != nil {
 				return err
 			}
 		}
@@ -217,13 +249,18 @@ func (s *Simulator) Run(in io.Reader, out io.Writer) error {
 
 		// If there is known output for this command, send it now
 		if outText, ok := s.cmd2out[lookup]; ok {
-			if err := s.sendLine(outText, reader, out); err != nil {
+			if err := s.sendLine(outText, reader, bw); err != nil {
 				return err
 			}
 		}
 
 		// Finally, print the device prompt (no line ending in scenario)
-		if err := s.sendLine(s.device+"#", reader, out); err != nil {
+		if err := s.sendLine(s.device+"#", reader, bw); err != nil {
+			return err
+		}
+
+		// Flush the buffered output for the entire command atomically.
+		if err := bw.Flush(); err != nil {
 			return err
 		}
 	}
@@ -261,6 +298,7 @@ func SpawnScenarioExpecter(device, scenario string, timeout time.Duration, opts 
 	// Channel to report when simulator has ended
 	resCh := make(chan error, 1)
 	var alive int32 = 1
+	var deadAt int64 = 0
 
 	// Run the simulator in a goroutine
 	go func() {
@@ -268,8 +306,17 @@ func SpawnScenarioExpecter(device, scenario string, timeout time.Duration, opts 
 		// When the simulator finishes, signal via channel
 		err := sim.Run(simInR, simOutW)
 		atomic.StoreInt32(&alive, 0)
+		atomic.StoreInt64(&deadAt, time.Now().UnixNano())
 		resCh <- err
 	}()
+
+	// Read graceful shutdown window from env (milliseconds). Default 20ms.
+	graceMs := int64(20)
+	if v := os.Getenv("SIMULATOR_SHUTDOWN_GRACE_MS"); v != "" {
+		if i, err := strconv.ParseInt(v, 10, 64); err == nil && i >= 0 {
+			graceMs = i
+		}
+	}
 
 	ge, ch, err := expect.SpawnGeneric(&expect.GenOptions{
 
@@ -280,12 +327,30 @@ func SpawnScenarioExpecter(device, scenario string, timeout time.Duration, opts 
 		// Wait for simulator to end
 		Wait: func() error { return <-resCh },
 		Close: func() error {
+			// Close immediately; Check() will allow a short grace period
+			// after simulator death so in-flight writes can finish.
 			_ = simInW.Close()
 			return nil
 		},
 
 		// Report not running only after simulator ended AND output has been drained.
-		Check: func() bool { return !(atomic.LoadInt32(&alive) == 0 && tr.EOF()) },
+		Check: func() bool {
+			// If simulator still alive or output not drained, report running.
+			if atomic.LoadInt32(&alive) != 0 || !tr.EOF() {
+				return true
+			}
+			// If we reached here, simulator ended and output drained. Allow a
+			// small grace window after death to avoid races with in-flight
+			// writes. If deadAt is not set, be conservative and report running.
+			da := atomic.LoadInt64(&deadAt)
+			if da == 0 {
+				return true
+			}
+			if time.Since(time.Unix(0, da)) < time.Duration(graceMs)*time.Millisecond {
+				return true
+			}
+			return false
+		},
 	}, timeout, opts...)
 	if err != nil {
 		return nil, nil, err
