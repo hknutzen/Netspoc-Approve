@@ -166,8 +166,8 @@ func runTest(t *testing.T, d descr, devType string) {
 			if err := os.WriteFile(scenarioFile, []byte(sc), 0644); err != nil {
 				t.Fatal(err)
 			}
-			// Use in-process simulator instead of external test binary
-			os.Setenv("SIMULATE_ROUTER", "inline-simulator:"+path.Join(workDir, scenarioFile))
+			// Use in-process simulator by pointing SIMULATE_ROUTER at the scenario file
+			os.Setenv("SIMULATE_ROUTER", path.Join(workDir, scenarioFile))
 		}
 		// Prepare credentials file. Declare user as system user.
 		credentialsFile := path.Join(workDir, "credentials")

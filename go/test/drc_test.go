@@ -20,7 +20,7 @@ func TestDrc(t *testing.T) {
 	os.Chdir(workDir)
 	testtxt.PrepareFileOrDir(t, workDir, inFiles)
 	// Use in-process simulator with the scenario file prepared above.
-	os.Setenv("SIMULATE_ROUTER", "inline-simulator:"+path.Join(workDir, "scenario"))
+	os.Setenv("SIMULATE_ROUTER", path.Join(workDir, "scenario"))
 	os.Setenv("HOME", workDir)
 	pty, tty, err := pty.Open()
 	if err != nil {

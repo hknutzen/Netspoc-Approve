@@ -37,13 +37,10 @@ func GetSSHConn(spocFile, user string, cfg *program.Config, logLogin *os.File) (
 
 	// Allow in-process simulator based on environment variable.
 	if simul := os.Getenv("SIMULATE_ROUTER"); simul != "" {
-		if strings.HasPrefix(simul, "inline-simulator:") {
-			// Load scenario from file and spawn in-process simulator expecter.
-			scPath := strings.TrimPrefix(simul, "inline-simulator:")
-			data, err := os.ReadFile(scPath)
-			if err != nil {
-				return nil, err
-			}
+		// Legacy prefix support: inline-simulator:/path
+		simul = strings.TrimPrefix(simul, "inline-simulator:")
+		// If simul is a readable file, treat it as a scenario file path.
+		if data, err := os.ReadFile(simul); err == nil {
 			device := codefiles.GetHostname(spocFile)
 			ge, _, err := simulator.SpawnScenarioExpecter(device, string(data), short, expect.PartialMatch(true))
 			if err != nil {
