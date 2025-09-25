@@ -149,7 +149,7 @@ the expected command output:
 ***
 *** --- <message> ---
 ***
-This message is schown some time before the actual reload takes place:
+This message is shown some time before the actual reload takes place:
   - SHUTDOWN in 0:05:00
   - SHUTDOWN in 0:01:00
 */
