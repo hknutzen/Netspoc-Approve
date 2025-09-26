@@ -505,7 +505,9 @@ router#
 =END=
 
 ############################################################
-=TITLE=Conf mode, reload banner, small change, write mem
+=TITLE=conf mode, reload banner, small change, write mem, log
+=DO_APPROVE=
+=PARAMS=approve router
 =SCENARIO=
 [[std_scenario]]
 # sh run
@@ -549,7 +551,7 @@ ip route 10.1.1.0 255.255.255.0 10.1.2.3
 ip route 10.1.2.0 255.255.255.0 10.2.3.4
 ip route 10.1.3.0 255.255.255.0 10.2.3.5
 =OUTPUT=
------- router.login
+--policies/p1/log/router.login
 Enter Password:secret
 
 banner motd  managed by NetSPoC
@@ -561,7 +563,7 @@ router#sh ver
 Cisco IOS Software, C2900 Software (C2900-UNIVERSALK9-M), Version 15.1(4)M4,
 router#
 router#
------- router.change
+--policies/p1/log/router.change
 configure terminal
 Enter configuration commands, one per line.  End with CNTL/Z.
 router#no logging console
@@ -639,6 +641,14 @@ router#write memory
 Building configuration...
   Compressed configuration from 106098 bytes to 30504 bytes[OK]
 router#
+--policies/p1/log/router.drc
+Requesting device config
+Got device config
+Parsed device config
+Found banner before output, expecting another prompt
+Found banner after output, checking another prompt
+- Found prompt
+Found banner after output, checking another prompt
 =END=
 
 ############################################################
