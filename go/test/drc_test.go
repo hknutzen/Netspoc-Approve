@@ -3,6 +3,7 @@ package approve_test
 import (
 	"io"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"testing"
@@ -18,8 +19,8 @@ func TestDrc(t *testing.T) {
 	defer func() { os.Chdir(prevDir) }()
 	os.Chdir(workDir)
 	testtxt.PrepareFileOrDir(t, workDir, inFiles)
-	sim := prevDir + "/../testdata/simulate-cisco.pl router scenario"
-	os.Setenv("SIMULATE_ROUTER", sim)
+	// Use in-process simulator with the scenario file prepared above.
+	os.Setenv("SIMULATE_ROUTER", path.Join(workDir, "scenario"))
 	os.Setenv("HOME", workDir)
 	pty, tty, err := pty.Open()
 	if err != nil {

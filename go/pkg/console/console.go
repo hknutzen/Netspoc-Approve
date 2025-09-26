@@ -9,6 +9,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
+	"github.com/hknutzen/Netspoc-Approve/go/test/ciscosim"
 	expect "github.com/tailscale/goexpect"
 )
 
@@ -32,10 +33,31 @@ func GetSSHConn(spocFile, user string, cfg *program.Config, logLogin *os.File) (
 		cmd = append(cmd,
 			[]string{"-o", "ProxyCommand ssh " + pdp + " -W %h:%p"}...)
 	}
-	if simul := os.Getenv("SIMULATE_ROUTER"); simul != "" {
-		cmd = strings.Fields(simul)
-	}
 	short := time.Duration(cfg.LoginTimeout) * time.Second
+
+	// Always treat SIMULATE_ROUTER as a scenario file path when set.
+	if simul := os.Getenv("SIMULATE_ROUTER"); simul != "" {
+		data, err := os.ReadFile(simul)
+		if err != nil {
+			return nil, err
+		}
+		device := codefiles.GetHostname(spocFile)
+		ge, _, err := ciscosim.SpawnScenarioExpecter(
+			device,
+			string(data),
+			short,
+			expect.PartialMatch(true),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return &Conn{
+			con:          ge,
+			log:          logLogin,
+			Timeout:      time.Duration(cfg.Timeout) * time.Second,
+			ShortTimeout: short,
+		}, nil
+	}
 	con, _, err := expect.SpawnWithArgs(cmd, short, expect.PartialMatch(true))
 	if err != nil {
 		return nil, err
