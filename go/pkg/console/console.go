@@ -9,7 +9,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
-	"github.com/hknutzen/Netspoc-Approve/go/pkg/simulator"
+	"github.com/hknutzen/Netspoc-Approve/go/test/ciscosim"
 	expect "github.com/tailscale/goexpect"
 )
 
@@ -35,26 +35,28 @@ func GetSSHConn(spocFile, user string, cfg *program.Config, logLogin *os.File) (
 	}
 	short := time.Duration(cfg.LoginTimeout) * time.Second
 
-	// Allow in-process simulator based on environment variable.
+	// Always treat SIMULATE_ROUTER as a scenario file path when set.
 	if simul := os.Getenv("SIMULATE_ROUTER"); simul != "" {
-		// Legacy prefix support: inline-simulator:/path
-		simul = strings.TrimPrefix(simul, "inline-simulator:")
-		// If simul is a readable file, treat it as a scenario file path.
-		if data, err := os.ReadFile(simul); err == nil {
-			device := codefiles.GetHostname(spocFile)
-			ge, _, err := simulator.SpawnScenarioExpecter(device, string(data), short, expect.PartialMatch(true))
-			if err != nil {
-				return nil, err
-			}
-			return &Conn{
-				con:          ge,
-				log:          logLogin,
-				Timeout:      time.Duration(cfg.Timeout) * time.Second,
-				ShortTimeout: short,
-			}, nil
+		data, err := os.ReadFile(simul)
+		if err != nil {
+			return nil, err
 		}
-		// Fallback: treat as external command to execute (existing behavior)
-		cmd = strings.Fields(simul)
+		device := codefiles.GetHostname(spocFile)
+		ge, _, err := ciscosim.SpawnScenarioExpecter(
+			device,
+			string(data),
+			short,
+			expect.PartialMatch(true),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return &Conn{
+			con:          ge,
+			log:          logLogin,
+			Timeout:      time.Duration(cfg.Timeout) * time.Second,
+			ShortTimeout: short,
+		}, nil
 	}
 	con, _, err := expect.SpawnWithArgs(cmd, short, expect.PartialMatch(true))
 	if err != nil {
@@ -95,9 +97,7 @@ func (c *Conn) logString(s string) {
 func (c *Conn) Close() {
 	if c.con != nil {
 		c.SetLogFH(nil)
-		// Close the expecter. Avoid sending an explicit "exit" which may
-		// cause spurious write errors if the underlying process already exited.
-		_ = c.con.Close()
+		c.con.Send("exit\n")
 	}
 }
 
