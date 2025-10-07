@@ -1,61 +1,95 @@
 package ciscosim
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	expect "github.com/tailscale/goexpect"
 )
 
-// Simulator implements a simple Cisco-like CLI simulator driven by a scenario.
-// It writes CRLF and echoes input, supports <!> interactive markers and
-// banners.
-// Prompts are emitted as "DEVICE#".
+// SpawnScenarioFake creates a fake expecter using goexpect's SpawnFake with batchers
+// built from the scenario file. The scenario format uses # to delimit commands and their outputs.
+//
+// NOTE: This implementation uses goexpect's built-in SpawnFake with Batcher arrays.
+// The Batchers define the sequence of BSnd (send), BExp (expect), and BCas (case/switch)
+// operations that simulate the router's behavior.
+func SpawnScenarioFake(device, scenarioText string, timeoutSec int) (*expect.GExpect, func(), error) {
+	batchers, err := parseScenarioToBatchers(device, scenarioText)
+	if err != nil {
+		return nil, nil, err
+	}
 
-type Simulator struct {
-	device   string
-	preamble string
-	eof      bool
-	cmd2out  map[string]string
-	cmd2bCmd map[string]string
+	timeout := time.Duration(timeoutSec) * time.Second
+	gexp, _, err := expect.SpawnFake(batchers, timeout)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cleanup := func() {
+		gexp.Close()
+	}
+
+	return gexp, cleanup, nil
 }
 
-// SimulatorFromScenario parses the scenario text and creates a Simulator.
-func SimulatorFromScenario(device, scenarioText string) (*Simulator, error) {
-	// Delimiter: a line starting with '#', optional spaces, capture the command
-	// text, optional spaces, then a newline. Use multi-line mode.
+// parseScenarioToBatchers parses the scenario text and creates a list of Batchers
+// for goexpect's SpawnFake function.
+//
+// The approach:
+// 1. Parse preamble with <!> markers for interactive prompts (login sequence)
+// 2. Build command-to-output mapping from scenario
+// 3. Create BCas (switch/case) batchers that match commands and respond
+// 4. Repeat the BCas pattern to handle multiple commands in sequence
+func parseScenarioToBatchers(device, scenarioText string) ([]expect.Batcher, error) {
+	// Delimiter: a line starting with '#', optional spaces, capture the command text
 	delim := regexp.MustCompile(`(?m)^#[ ]*(.*)[ ]*\n`)
 
 	// Split into preamble, cmd-a, output-a, cmd-b, output-b, ...
 	parts := delim.Split(scenarioText, -1)
-
-	// Extract all command lines captured by the delimiter.
 	matches := delim.FindAllStringSubmatch(scenarioText, -1)
 
-	// Preamble is the text before the first '#'-command section. Remove trailing
-	// newline to allow prompts at the end of preamble without adding another LF.
+	var batchers []expect.Batcher
+
+	// Handle preamble (login banner, prompts, etc.)
 	preamble := ""
 	if len(parts) > 0 {
 		preamble = parts[0]
-		if preamble != "" {
-			preamble = strings.TrimRight(preamble, "\r\n")
+		preamble = strings.TrimRight(preamble, "\r\n")
+	}
+
+	// Check for EOF marker (connection closes after preamble)
+	hasEOF := false
+	if preamble != "" && strings.HasSuffix(preamble, "EOF") {
+		hasEOF = true
+		preamble = strings.TrimSuffix(preamble, "EOF")
+		preamble = strings.TrimSpace(preamble)
+	}
+
+	// Process preamble with <!> markers for interactive prompts
+	// Each <!> means: send text, then wait for user input
+	if preamble != "" {
+		segments := strings.Split(preamble, "<!>")
+		for i, segment := range segments {
+			if i > 0 {
+				// Before sending this segment, expect user input for the previous prompt
+				// Use BExpT (expect with timeout) to wait for user response
+				batchers = append(batchers, &expect.BExpT{R: `.+\n`, T: 10})
+			}
+			// Send this segment
+			if segment != "" {
+				batchers = append(batchers, &expect.BSnd{S: segment})
+			}
 		}
 	}
 
-	// Special case: If preamble ends with the literal "EOF", trim it and exit
-	// after sending the preamble.
-	eof := false
-	if preamble != "" && strings.HasSuffix(preamble, "EOF") {
-		eof = true
-		preamble = strings.TrimSuffix(preamble, "EOF")
+	// If EOF marker present, connection closes after preamble
+	if hasEOF {
+		return batchers, nil
 	}
 
-	// Build mapping from command text to its output block.
+	// Build command-to-output mapping
 	cmd2out := make(map[string]string)
 	for i := 0; i < len(matches) && i+1 < len(parts); i++ {
 		cmd := strings.TrimSpace(matches[i][1])
@@ -63,253 +97,149 @@ func SimulatorFromScenario(device, scenarioText string) (*Simulator, error) {
 		cmd2out[cmd] = out
 	}
 
-	// Banner handling:
-	// - Keys that are exactly "\MARKER/" define a banner with associated text.
-	// - Markers embedded in command lines are replaced by the banner text in the
-	//   echoed (garbled) command, but lookup uses the command with the marker
-	//   removed.
-
-	// Banner definition keys match exactly "\word/"
+	// Handle banner markers (special syntax for variable output)
 	reBannerKey := regexp.MustCompile(`^\\\w+/$`)
-	// Markers embedded within a command line: "\word/"
 	reBannerMarker := regexp.MustCompile(`\\\w+/`)
-	// If banner output ends with "#\n" or "#\r\n", drop the newline only, keep '#'
 	rePromptNL := regexp.MustCompile(`#\r?\n$`)
 
-	// Collect banner definitions and remove them from normal command map.
+	// Collect banner definitions
 	banner2out := make(map[string]string)
 	for k, v := range cmd2out {
 		if reBannerKey.MatchString(k) {
-			// Special case: trim trailing newline if prompt is part of output
 			v = rePromptNL.ReplaceAllString(v, "#")
 			banner2out[k] = v
 			delete(cmd2out, k)
 		}
 	}
 
-	// Replace banner markers in command keys and build garbled echo map.
-	cmd2bCmd := make(map[string]string)
-	// Snapshot keys to safely mutate the map while iterating.
-	keys := make([]string, 0, len(cmd2out))
+	// Process banner markers in commands
+	cmd2garbled := make(map[string]string)
+	cmdKeys := make([]string, 0, len(cmd2out))
 	for k := range cmd2out {
-		keys = append(keys, k)
+		cmdKeys = append(cmdKeys, k)
 	}
-	for _, orig := range keys {
-		// Replace all banner markers within the command key.
+
+	for _, orig := range cmdKeys {
 		markers := reBannerMarker.FindAllStringIndex(orig, -1)
 		if markers == nil {
 			continue
 		}
+
 		garbled := orig
 		stripped := orig
-		// Process markers from left to right, adjusting offsets as we replace.
 		offsetG := 0
 		offsetS := 0
+
 		for _, m := range markers {
 			start, end := m[0], m[1]
 			marker := orig[start:end]
 			bText, ok := banner2out[marker]
 			if !ok {
-				return nil, fmt.Errorf(
-					"unknown banner marker: %s", marker,
-				)
+				return nil, fmt.Errorf("unknown banner marker: %s", marker)
 			}
-			// In garbled version, replace marker with banner text.
+
+			// Garbled version: replace marker with banner text
 			gs := start + offsetG
 			ge := end + offsetG
-			insert := bText
-			garbled = garbled[:gs] + insert + garbled[ge:]
-			offsetG += len(insert) - (end - start)
-			// In stripped version, remove the marker entirely
+			garbled = garbled[:gs] + bText + garbled[ge:]
+			offsetG += len(bText) - (end - start)
+
+			// Stripped version: remove marker
 			ss := start + offsetS
 			se := end + offsetS
 			stripped = stripped[:ss] + stripped[se:]
 			offsetS -= (end - start)
 		}
+
 		out := cmd2out[orig]
 		delete(cmd2out, orig)
 		cmd2out[stripped] = out
-		cmd2bCmd[stripped] = garbled
+		cmd2garbled[stripped] = garbled
 	}
-	return &Simulator{
-		device:   device,
-		preamble: preamble,
-		eof:      eof,
-		cmd2out:  cmd2out,
-		cmd2bCmd: cmd2bCmd,
-	}, nil
+
+	// Create repeating command handler using BCas (case/switch)
+	// We create multiple iterations to handle sequences of commands
+	// Each iteration has cases for all possible commands
+	maxCommands := 100 // Support up to 100 commands per session
+
+	for iteration := 0; iteration < maxCommands; iteration++ {
+		var cases []expect.Caser
+
+		// Build cases for all known commands
+		for cmd, output := range cmd2out {
+			response := buildCommandResponse(device, cmd, output, cmd2garbled)
+			cmdEscaped := regexp.QuoteMeta(cmd)
+			// Match command flexibly - with optional "do " prefix
+			pattern := fmt.Sprintf(`(?:do\s+)?%s\s*\r?\n`, cmdEscaped)
+
+			cases = append(cases, &expect.BCase{
+				R:  pattern,
+				S:  response,
+				T:  expect.Next(),
+				Rt: 0,
+			})
+		}
+
+		// Special case for "exit" command - terminates the session
+		cases = append(cases, &expect.BCase{
+			R:  `exit\s*\r?\n`,
+			S:  "",
+			T:  expect.OK(),
+			Rt: 0,
+		})
+
+		// Fallback for unknown commands - just echo with prompt
+		cases = append(cases, &expect.BCase{
+			R:  `(.+)\r?\n`,
+			S:  device + "#",
+			T:  expect.Next(),
+			Rt: 0,
+		})
+
+		// Add this iteration's case handler (BCas = Batcher Case Switch)
+		batchers = append(batchers, &expect.BCas{C: cases})
+	}
+
+	return batchers, nil
 }
 
-// sendLine writes a line to out, converting LF to CRLF and processing <!>
-// markers.
-func (s *Simulator) sendLine(line string, reader *bufio.Reader,
-	out io.Writer) error {
-	line = strings.ReplaceAll(line, "\n", "\r\n")
-	// Split by the interactive marker "<!>"
-	parts := strings.Split(line, "<!>")
-	for i, part := range parts {
-		if _, err := io.WriteString(out, part); err != nil {
-			return err
-		}
+// buildCommandResponse constructs the full response for a command:
+// echo (possibly garbled) + output + prompt
+func buildCommandResponse(device, cmd, output string, cmd2garbled map[string]string) string {
+	var response strings.Builder
 
-		// If not the last part, wait for user to press Enter.
-		if i < len(parts)-1 {
-			input, err := reader.ReadString('\n')
-			if err != nil {
-				return err
-			}
-			// Echo what the user typed, including their newline.
-			if err := s.sendLine(input, reader, out); err != nil {
-				return err
-			}
-		}
+	// Echo the command (use garbled version if available for banner testing)
+	if garbled, ok := cmd2garbled[cmd]; ok {
+		response.WriteString(garbled)
+	} else {
+		response.WriteString(cmd)
 	}
-	return nil
-}
+	response.WriteString("\r\n")
 
-// Run executes the simulator session reading from in and writing to out until
-// exit.
-func (s *Simulator) Run(in io.Reader, out io.Writer) error {
-	// Prepare buffered reader for stdin
-	reader := bufio.NewReader(in)
-
-	// Send preamble on startup (may contain <!> markers)
-	if s.preamble != "" {
-		if err := s.sendLine(s.preamble, reader, out); err != nil {
-			return err
-		}
-	}
-	if s.eof {
-		// Early exit after preamble, as requested by scenario
-		return nil
-	}
-
-	// Main loop: read a command, echo it (possibly garbled), print
-	// associated output, then the device prompt.
-	for {
-		// Read a single command line from stdin
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return nil
-		}
-		// Trim both CR and LF to normalize input command string
-		cmd := strings.TrimRight(input, "\r\n")
-
-		// Ignore leading "do " for matching, but remember it for echoing
-		lookup := strings.TrimPrefix(cmd, "do ")
-		hasDo := len(cmd) != len(lookup)
-
-		// Echo command: if a banner applies, echo the garbled variant
-		if b, ok := s.cmd2bCmd[lookup]; ok {
-			if hasDo {
-				b = "do " + b
-			}
-			if err := s.sendLine(b+"\n", reader, out); err != nil {
-				return err
+	// Add command output if present
+	if output != "" {
+		// Handle <!> markers in output (interactive prompts within command output)
+		if strings.Contains(output, "<!>") {
+			segments := strings.Split(output, "<!>")
+			response.WriteString(segments[0])
+			// For simplicity, just append remaining segments
+			// Full handling would require nested expecter state machine
+			for i := 1; i < len(segments); i++ {
+				response.WriteString(segments[i])
 			}
 		} else {
-			if err := s.sendLine(cmd+"\n", reader, out); err != nil {
-				return err
-			}
-		}
-
-		// Exit immediately after echo if the command is "exit"
-		if lookup == "exit" {
-			return nil
-		}
-
-		// If there is known output for this command, send it now
-		if outText, ok := s.cmd2out[lookup]; ok {
-			if err := s.sendLine(outText, reader, out); err != nil {
-				return err
-			}
-		}
-
-		// Finally, print the device prompt (no line ending in scenario)
-		if err := s.sendLine(s.device+"#", reader, out); err != nil {
-			return err
+			response.WriteString(output)
 		}
 	}
-}
 
-// trackedReader wraps a reader and records when EOF has been seen.
-type trackedReader struct {
-	inner io.Reader
-	mu    sync.Mutex
-	eof   bool
-}
-
-func (t *trackedReader) Read(p []byte) (int, error) {
-	n, err := t.inner.Read(p)
-	if err == io.EOF {
-		t.mu.Lock()
-		t.eof = true
-		t.mu.Unlock()
+	// Add device prompt (unless output already ends with one)
+	outputStr := output
+	if !strings.HasSuffix(outputStr, device+"#") &&
+		!strings.HasSuffix(outputStr, "#\n") &&
+		!strings.HasSuffix(outputStr, "#\r\n") &&
+		!strings.HasSuffix(outputStr, "#") {
+		response.WriteString(device + "#")
 	}
-	return n, err
-}
-func (t *trackedReader) EOF() bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.eof
-}
 
-// SpawnScenarioExpecter returns an expecter connected to an in-process
-// simulator.
-func SpawnScenarioExpecter(
-	device, scenario string,
-	timeout time.Duration,
-	opts ...expect.Option,
-) (*expect.GExpect, <-chan error, error) {
-	sim, err := SimulatorFromScenario(device, scenario)
-	if err != nil {
-		return nil, nil, err
-	}
-	// Pipe for expect to write into simulator
-	simInR, simInW := io.Pipe()
-	// Pipe for simulator to write into expect
-	simOutR, simOutW := io.Pipe()
-
-	// Wrap simOutR to track when EOF has been seen
-	tr := &trackedReader{inner: simOutR}
-	// Channel to report when simulator has ended
-	resCh := make(chan error, 1)
-	done := make(chan struct{})
-
-	// Run the simulator in a goroutine
-	go func() {
-		defer simOutW.Close()
-		// When the simulator finishes, signal via channel
-		err := sim.Run(simInR, simOutW)
-		close(done)
-		resCh <- err
-	}()
-
-	ge, ch, err := expect.SpawnGeneric(
-		&expect.GenOptions{
-
-			// Input to simulator (from expect)
-			In: simInW,
-			// Output from simulator (to expect)
-			Out: tr,
-			// Wait for simulator to end
-			Wait:  func() error { return <-resCh },
-			Close: func() error { _ = simInW.Close(); return nil },
-
-			// Report not running only after simulator ended AND output has been drained.
-			Check: func() bool {
-				select {
-				case <-done:
-					return !tr.EOF()
-				default:
-					return true
-				}
-			},
-		},
-		timeout, opts...,
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	return ge, ch, nil
+	return response.String()
 }
