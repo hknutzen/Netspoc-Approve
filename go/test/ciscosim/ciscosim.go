@@ -1,95 +1,58 @@
 package ciscosim
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
-
-	expect "github.com/tailscale/goexpect"
 )
 
-// SpawnScenarioFake creates a fake expecter using goexpect's SpawnFake with batchers
-// built from the scenario file. The scenario format uses # to delimit commands and their outputs.
-//
-// NOTE: This implementation uses goexpect's built-in SpawnFake with Batcher arrays.
-// The Batchers define the sequence of BSnd (send), BExp (expect), and BCas (case/switch)
-// operations that simulate the router's behavior.
-func SpawnScenarioFake(device, scenarioText string, timeoutSec int) (*expect.GExpect, func(), error) {
-	batchers, err := parseScenarioToBatchers(device, scenarioText)
-	if err != nil {
-		return nil, nil, err
-	}
+// Simulator implements a simple Cisco-like CLI simulator driven by a scenario.
+// It writes CRLF and echoes input, supports <!> interactive markers and
+// banners.
+// Prompts are emitted as "DEVICE#".
 
-	timeout := time.Duration(timeoutSec) * time.Second
-	gexp, _, err := expect.SpawnFake(batchers, timeout)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	cleanup := func() {
-		gexp.Close()
-	}
-
-	return gexp, cleanup, nil
+type Simulator struct {
+	device   string
+	preamble string
+	eof      bool
+	cmd2out  map[string]string
+	cmd2bCmd map[string]string
 }
 
-// parseScenarioToBatchers parses the scenario text and creates a list of Batchers
-// for goexpect's SpawnFake function.
-//
-// The approach:
-// 1. Parse preamble with <!> markers for interactive prompts (login sequence)
-// 2. Build command-to-output mapping from scenario
-// 3. Create BCas (switch/case) batchers that match commands and respond
-// 4. Repeat the BCas pattern to handle multiple commands in sequence
-func parseScenarioToBatchers(device, scenarioText string) ([]expect.Batcher, error) {
-	// Delimiter: a line starting with '#', optional spaces, capture the command text
+// SimulatorFromScenario parses the scenario text and creates a Simulator.
+func SimulatorFromScenario(device, scenarioText string) (*Simulator, error) {
+	// Delimiter: a line starting with '#', optional spaces, capture the command
+	// text, optional spaces, then a newline. Use multi-line mode.
 	delim := regexp.MustCompile(`(?m)^#[ ]*(.*)[ ]*\n`)
 
 	// Split into preamble, cmd-a, output-a, cmd-b, output-b, ...
 	parts := delim.Split(scenarioText, -1)
+
+	// Extract all command lines captured by the delimiter.
 	matches := delim.FindAllStringSubmatch(scenarioText, -1)
 
-	var batchers []expect.Batcher
-
-	// Handle preamble (login banner, prompts, etc.)
+	// Preamble is the text before the first '#'-command section. Remove trailing
+	// newline to allow prompts at the end of preamble without adding another LF.
 	preamble := ""
 	if len(parts) > 0 {
 		preamble = parts[0]
-		preamble = strings.TrimRight(preamble, "\r\n")
-	}
-
-	// Check for EOF marker (connection closes after preamble)
-	hasEOF := false
-	if preamble != "" && strings.HasSuffix(preamble, "EOF") {
-		hasEOF = true
-		preamble = strings.TrimSuffix(preamble, "EOF")
-		preamble = strings.TrimSpace(preamble)
-	}
-
-	// Process preamble with <!> markers for interactive prompts
-	// Each <!> means: send text, then wait for user input
-	if preamble != "" {
-		segments := strings.Split(preamble, "<!>")
-		for i, segment := range segments {
-			if i > 0 {
-				// Before sending this segment, expect user input for the previous prompt
-				// Use BExpT (expect with timeout) to wait for user response
-				batchers = append(batchers, &expect.BExpT{R: `.+\n`, T: 10})
-			}
-			// Send this segment
-			if segment != "" {
-				batchers = append(batchers, &expect.BSnd{S: segment})
-			}
+		if preamble != "" {
+			preamble = strings.TrimRight(preamble, "\r\n")
 		}
 	}
 
-	// If EOF marker present, connection closes after preamble
-	if hasEOF {
-		return batchers, nil
+	// Special case: If preamble ends with the literal "EOF", trim it and exit
+	// after sending the preamble.
+	eof := false
+	if preamble != "" && strings.HasSuffix(preamble, "EOF") {
+		eof = true
+		preamble = strings.TrimSuffix(preamble, "EOF")
 	}
 
-	// Build command-to-output mapping
+	// Build mapping from command text to its output block.
 	cmd2out := make(map[string]string)
 	for i := 0; i < len(matches) && i+1 < len(parts); i++ {
 		cmd := strings.TrimSpace(matches[i][1])
@@ -97,149 +60,296 @@ func parseScenarioToBatchers(device, scenarioText string) ([]expect.Batcher, err
 		cmd2out[cmd] = out
 	}
 
-	// Handle banner markers (special syntax for variable output)
+	// Banner handling:
+	// - Keys that are exactly "\MARKER/" define a banner with associated text.
+	// - Markers embedded in command lines are replaced by the banner text in the
+	//   echoed (garbled) command, but lookup uses the command with the marker
+	//   removed.
+
+	// Banner definition keys match exactly "\word/"
 	reBannerKey := regexp.MustCompile(`^\\\w+/$`)
+	// Markers embedded within a command line: "\word/"
 	reBannerMarker := regexp.MustCompile(`\\\w+/`)
+	// If banner output ends with "#\n" or "#\r\n", drop the newline only, keep '#'
 	rePromptNL := regexp.MustCompile(`#\r?\n$`)
 
-	// Collect banner definitions
+	// Collect banner definitions and remove them from normal command map.
 	banner2out := make(map[string]string)
 	for k, v := range cmd2out {
 		if reBannerKey.MatchString(k) {
+			// Special case: trim trailing newline if prompt is part of output
 			v = rePromptNL.ReplaceAllString(v, "#")
 			banner2out[k] = v
 			delete(cmd2out, k)
 		}
 	}
 
-	// Process banner markers in commands
-	cmd2garbled := make(map[string]string)
-	cmdKeys := make([]string, 0, len(cmd2out))
+	// Replace banner markers in command keys and build garbled echo map.
+	cmd2bCmd := make(map[string]string)
+	// Snapshot keys to safely mutate the map while iterating.
+	keys := make([]string, 0, len(cmd2out))
 	for k := range cmd2out {
-		cmdKeys = append(cmdKeys, k)
+		keys = append(keys, k)
 	}
-
-	for _, orig := range cmdKeys {
+	for _, orig := range keys {
+		// Replace all banner markers within the command key.
 		markers := reBannerMarker.FindAllStringIndex(orig, -1)
 		if markers == nil {
 			continue
 		}
-
 		garbled := orig
 		stripped := orig
+		// Process markers from left to right, adjusting offsets as we replace.
 		offsetG := 0
 		offsetS := 0
-
 		for _, m := range markers {
 			start, end := m[0], m[1]
 			marker := orig[start:end]
 			bText, ok := banner2out[marker]
 			if !ok {
-				return nil, fmt.Errorf("unknown banner marker: %s", marker)
+				return nil, fmt.Errorf(
+					"unknown banner marker: %s", marker,
+				)
 			}
-
-			// Garbled version: replace marker with banner text
+			// In garbled version, replace marker with banner text.
 			gs := start + offsetG
 			ge := end + offsetG
-			garbled = garbled[:gs] + bText + garbled[ge:]
-			offsetG += len(bText) - (end - start)
-
-			// Stripped version: remove marker
+			insert := bText
+			garbled = garbled[:gs] + insert + garbled[ge:]
+			offsetG += len(insert) - (end - start)
+			// In stripped version, remove the marker entirely
 			ss := start + offsetS
 			se := end + offsetS
 			stripped = stripped[:ss] + stripped[se:]
 			offsetS -= (end - start)
 		}
-
 		out := cmd2out[orig]
 		delete(cmd2out, orig)
 		cmd2out[stripped] = out
-		cmd2garbled[stripped] = garbled
+		cmd2bCmd[stripped] = garbled
 	}
-
-	// Create repeating command handler using BCas (case/switch)
-	// We create multiple iterations to handle sequences of commands
-	// Each iteration has cases for all possible commands
-	maxCommands := 100 // Support up to 100 commands per session
-
-	for iteration := 0; iteration < maxCommands; iteration++ {
-		var cases []expect.Caser
-
-		// Build cases for all known commands
-		for cmd, output := range cmd2out {
-			response := buildCommandResponse(device, cmd, output, cmd2garbled)
-			cmdEscaped := regexp.QuoteMeta(cmd)
-			// Match command flexibly - with optional "do " prefix
-			pattern := fmt.Sprintf(`(?:do\s+)?%s\s*\r?\n`, cmdEscaped)
-
-			cases = append(cases, &expect.BCase{
-				R:  pattern,
-				S:  response,
-				T:  expect.Next(),
-				Rt: 0,
-			})
-		}
-
-		// Special case for "exit" command - terminates the session
-		cases = append(cases, &expect.BCase{
-			R:  `exit\s*\r?\n`,
-			S:  "",
-			T:  expect.OK(),
-			Rt: 0,
-		})
-
-		// Fallback for unknown commands - just echo with prompt
-		cases = append(cases, &expect.BCase{
-			R:  `(.+)\r?\n`,
-			S:  device + "#",
-			T:  expect.Next(),
-			Rt: 0,
-		})
-
-		// Add this iteration's case handler (BCas = Batcher Case Switch)
-		batchers = append(batchers, &expect.BCas{C: cases})
-	}
-
-	return batchers, nil
+	return &Simulator{
+		device:   device,
+		preamble: preamble,
+		eof:      eof,
+		cmd2out:  cmd2out,
+		cmd2bCmd: cmd2bCmd,
+	}, nil
 }
 
-// buildCommandResponse constructs the full response for a command:
-// echo (possibly garbled) + output + prompt
-func buildCommandResponse(device, cmd, output string, cmd2garbled map[string]string) string {
-	var response strings.Builder
+// fakeExpecter implements the expecter interface using a bytes.Buffer to store
+// output and simulate command responses synchronously.
+type fakeExpecter struct {
+	sim             *Simulator
+	buffer          bytes.Buffer
+	lastReadIdx     int
+	state           string
+	timeout         time.Duration
+	waitingForInput bool     // True when we've hit a <!> marker and are waiting for Send()
+	inputSegments   []string // Current segments split by <!>
+	inputIdx        int      // Current position in input segments
+	needsPrompt     bool     // True if we need to add prompt after input segments complete
+}
 
-	// Echo the command (use garbled version if available for banner testing)
-	if garbled, ok := cmd2garbled[cmd]; ok {
-		response.WriteString(garbled)
-	} else {
-		response.WriteString(cmd)
+// newFakeExpecter creates a fake expecter backed by the simulator.
+func newFakeExpecter(
+	device, scenario string,
+	timeout time.Duration,
+) (*fakeExpecter, func(), error) {
+	sim, err := SimulatorFromScenario(device, scenario)
+	if err != nil {
+		return nil, nil, err
 	}
-	response.WriteString("\r\n")
 
-	// Add command output if present
-	if output != "" {
-		// Handle <!> markers in output (interactive prompts within command output)
-		if strings.Contains(output, "<!>") {
-			segments := strings.Split(output, "<!>")
-			response.WriteString(segments[0])
-			// For simplicity, just append remaining segments
-			// Full handling would require nested expecter state machine
-			for i := 1; i < len(segments); i++ {
-				response.WriteString(segments[i])
+	fe := &fakeExpecter{
+		sim:     sim,
+		state:   "preamble",
+		timeout: timeout,
+	}
+
+	// Process preamble immediately
+	if sim.preamble != "" {
+		// Split preamble by <!> markers
+		text := sim.preamble
+		text = strings.ReplaceAll(text, "\n", "\r\n")
+		fe.inputSegments = strings.Split(text, "<!>")
+
+		// Write the first segment immediately
+		if len(fe.inputSegments) > 0 {
+			fe.buffer.WriteString(fe.inputSegments[0])
+			fe.inputIdx = 0
+
+			// If there are more segments, we're waiting for user input
+			if len(fe.inputSegments) > 1 {
+				fe.waitingForInput = true
 			}
-		} else {
-			response.WriteString(output)
 		}
 	}
 
-	// Add device prompt (unless output already ends with one)
-	outputStr := output
-	if !strings.HasSuffix(outputStr, device+"#") &&
-		!strings.HasSuffix(outputStr, "#\n") &&
-		!strings.HasSuffix(outputStr, "#\r\n") &&
-		!strings.HasSuffix(outputStr, "#") {
-		response.WriteString(device + "#")
+	if sim.eof {
+		fe.state = "done"
+	} else if !fe.waitingForInput {
+		fe.state = "interactive"
 	}
 
-	return response.String()
+	cleanup := func() {}
+	return fe, cleanup, nil
+}
+
+// Expect waits for a regex pattern to match in the buffer.
+func (f *fakeExpecter) Expect(
+	re *regexp.Regexp,
+	timeout time.Duration,
+) (string, []string, error) {
+	data := f.buffer.String()
+	if loc := re.FindStringIndex(data[f.lastReadIdx:]); loc != nil {
+		end := f.lastReadIdx + loc[1]
+		out := data[f.lastReadIdx:end]
+		f.lastReadIdx = end
+		return out, nil, nil
+	}
+
+	// If we're done (EOF or closed), return "Process not running" error
+	if f.state == "done" {
+		remaining := data[f.lastReadIdx:]
+		return remaining, nil, fmt.Errorf("expect: Process not running")
+	}
+
+	// In a synchronous fake expecter, if pattern doesn't match, timeout immediately
+	remaining := data[f.lastReadIdx:]
+	return remaining, nil, fmt.Errorf(
+		"expect: timer expired after %v seconds", timeout.Seconds(),
+	)
+}
+
+// Send sends a command to the simulator.
+func (f *fakeExpecter) Send(cmd string) error {
+	if f.state == "done" {
+		return nil
+	}
+
+	// Trim both CR and LF to normalize input command string
+	cmd = strings.TrimRight(cmd, "\r\n")
+
+	// Handle multiple commands sent in one call (split by newlines)
+	cmds := strings.Split(cmd, "\n")
+	if len(cmds) > 1 {
+		for _, c := range cmds {
+			if c = strings.TrimSpace(c); c != "" {
+				if err := f.Send(c); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	// If we're waiting for input (in preamble or after interactive prompt),
+	// echo it and continue with next segment
+	if f.waitingForInput {
+		// Echo the user input
+		f.buffer.WriteString(cmd + "\r\n")
+
+		// Move to next segment
+		f.inputIdx++
+		if f.inputIdx < len(f.inputSegments) {
+			f.buffer.WriteString(f.inputSegments[f.inputIdx])
+
+			// Check if there are more segments after this one
+			if f.inputIdx >= len(f.inputSegments)-1 {
+				f.waitingForInput = false
+				// If we need to add a prompt after segments complete
+				if f.needsPrompt {
+					f.buffer.WriteString(f.sim.device + "#")
+					f.needsPrompt = false
+				}
+				// If we were in preamble state, go back to interactive
+				if f.state == "preamble" {
+					f.state = "interactive"
+				}
+			}
+		} else {
+			f.waitingForInput = false
+			if f.needsPrompt {
+				f.buffer.WriteString(f.sim.device + "#")
+				f.needsPrompt = false
+			}
+			if f.state == "preamble" {
+				f.state = "interactive"
+			}
+		}
+		return nil
+	}
+
+	// Regular command handling (interactive state)
+	// Ignore leading "do " for matching, but remember it for echoing
+	lookup := strings.TrimPrefix(cmd, "do ")
+	hasDo := len(cmd) != len(lookup)
+
+	// Echo command: if a banner applies, echo the garbled variant
+	if b, ok := f.sim.cmd2bCmd[lookup]; ok {
+		if hasDo {
+			b = "do " + b
+		}
+		f.buffer.WriteString(b + "\r\n")
+	} else {
+		f.buffer.WriteString(cmd + "\r\n")
+	}
+
+	// Exit immediately after echo if the command is "exit"
+	if lookup == "exit" {
+		f.state = "done"
+		return nil
+	}
+
+	// If there is known output for this command, send it now
+	if outText, ok := f.sim.cmd2out[lookup]; ok {
+		// Process output, replacing LF with CRLF
+		outText = strings.ReplaceAll(outText, "\n", "\r\n")
+		// Handle <!> markers in output - these indicate interactive prompts
+		// within command output
+		parts := strings.Split(outText, "<!>")
+		if len(parts) > 1 {
+			// Write first part
+			f.buffer.WriteString(parts[0])
+			// Mark that we're waiting for input and need to add prompt after
+			f.waitingForInput = true
+			f.inputSegments = parts
+			f.inputIdx = 0
+			f.needsPrompt = true
+			return nil
+		}
+		f.buffer.WriteString(outText)
+	}
+
+	// Finally, print the device prompt (no line ending in scenario)
+	f.buffer.WriteString(f.sim.device + "#")
+
+	return nil
+}
+
+// Close closes the fake expecter.
+func (f *fakeExpecter) Close() error {
+	f.state = "done"
+	return nil
+}
+
+// SpawnScenarioFake returns a fake expecter connected to an in-memory
+// simulator. The scenario parameter can be either a file path or the scenario
+// text itself.
+func SpawnScenarioFake(
+	device, scenario string,
+	timeoutSec int,
+) (*fakeExpecter, func(), error) {
+	// Check if scenario is a file path - if it exists as a file, read it
+	var scenarioText string
+	if data, err := os.ReadFile(scenario); err == nil {
+		scenarioText = string(data)
+	} else {
+		// Treat as literal scenario text
+		scenarioText = scenario
+	}
+	return newFakeExpecter(
+		device, scenarioText, time.Duration(timeoutSec)*time.Second,
+	)
 }
