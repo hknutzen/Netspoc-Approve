@@ -143,7 +143,7 @@ type fakeExpecter struct {
 	sim             *Simulator
 	buffer          bytes.Buffer
 	lastReadIdx     int
-	state           string
+	done            bool
 	timeout         time.Duration
 	waitingForInput bool     // True when we've hit a <!> marker and are waiting for Send()
 	inputSegments   []string // Current segments split by <!>
@@ -161,39 +161,43 @@ func newFakeExpecter(
 		return nil, nil, err
 	}
 
-	fe := &fakeExpecter{
+	f := &fakeExpecter{
 		sim:     sim,
-		state:   "preamble",
 		timeout: timeout,
 	}
 
 	// Process preamble immediately
 	if sim.preamble != "" {
-		// Split preamble by <!> markers
-		text := sim.preamble
-		text = strings.ReplaceAll(text, "\n", "\r\n")
-		fe.inputSegments = strings.Split(text, "<!>")
-
-		// Write the first segment immediately
-		if len(fe.inputSegments) > 0 {
-			fe.buffer.WriteString(fe.inputSegments[0])
-			fe.inputIdx = 0
-
-			// If there are more segments, we're waiting for user input
-			if len(fe.inputSegments) > 1 {
-				fe.waitingForInput = true
-			}
-		}
+		f.sendText(sim.preamble, false)
 	}
 
 	if sim.eof {
-		fe.state = "done"
-	} else if !fe.waitingForInput {
-		fe.state = "interactive"
+		f.done = true
 	}
 
 	cleanup := func() {}
-	return fe, cleanup, nil
+	return f, cleanup, nil
+}
+
+// sendText processes text for output, handling <!> markers and CRLF conversion.
+// If the text contains <!> markers, it writes the first segment and sets up
+// for interactive input. Otherwise, it writes all text to the buffer.
+func (f *fakeExpecter) sendText(text string, addPrompt bool) {
+	// Process output, replacing LF with CRLF
+	text = strings.ReplaceAll(text, "\n", "\r\n")
+	// Handle <!> markers - these indicate interactive prompts
+	parts := strings.Split(text, "<!>")
+	if len(parts) > 1 {
+		// Write first part
+		f.buffer.WriteString(parts[0])
+		// Mark that we're waiting for input
+		f.waitingForInput = true
+		f.inputSegments = parts
+		f.inputIdx = 0
+		f.needsPrompt = addPrompt
+	} else {
+		f.buffer.WriteString(text)
+	}
 }
 
 // Expect waits for a regex pattern to match in the buffer.
@@ -210,7 +214,7 @@ func (f *fakeExpecter) Expect(
 	}
 
 	// If we're done (EOF or closed), return "Process not running" error
-	if f.state == "done" {
+	if f.done {
 		remaining := data[f.lastReadIdx:]
 		return remaining, nil, fmt.Errorf("expect: Process not running")
 	}
@@ -224,7 +228,7 @@ func (f *fakeExpecter) Expect(
 
 // Send sends a command to the simulator.
 func (f *fakeExpecter) Send(cmd string) error {
-	if f.state == "done" {
+	if f.done {
 		return nil
 	}
 
@@ -254,28 +258,15 @@ func (f *fakeExpecter) Send(cmd string) error {
 		f.inputIdx++
 		if f.inputIdx < len(f.inputSegments) {
 			f.buffer.WriteString(f.inputSegments[f.inputIdx])
+		}
 
-			// Check if there are more segments after this one
-			if f.inputIdx >= len(f.inputSegments)-1 {
-				f.waitingForInput = false
-				// If we need to add a prompt after segments complete
-				if f.needsPrompt {
-					f.buffer.WriteString(f.sim.device + "#")
-					f.needsPrompt = false
-				}
-				// If we were in preamble state, go back to interactive
-				if f.state == "preamble" {
-					f.state = "interactive"
-				}
-			}
-		} else {
+		// Check if we've processed all segments
+		if f.inputIdx >= len(f.inputSegments)-1 {
 			f.waitingForInput = false
+			// If we need to add a prompt after segments complete
 			if f.needsPrompt {
 				f.buffer.WriteString(f.sim.device + "#")
 				f.needsPrompt = false
-			}
-			if f.state == "preamble" {
-				f.state = "interactive"
 			}
 		}
 		return nil
@@ -298,28 +289,16 @@ func (f *fakeExpecter) Send(cmd string) error {
 
 	// Exit immediately after echo if the command is "exit"
 	if lookup == "exit" {
-		f.state = "done"
+		f.done = true
 		return nil
 	}
 
 	// If there is known output for this command, send it now
 	if outText, ok := f.sim.cmd2out[lookup]; ok {
-		// Process output, replacing LF with CRLF
-		outText = strings.ReplaceAll(outText, "\n", "\r\n")
-		// Handle <!> markers in output - these indicate interactive prompts
-		// within command output
-		parts := strings.Split(outText, "<!>")
-		if len(parts) > 1 {
-			// Write first part
-			f.buffer.WriteString(parts[0])
-			// Mark that we're waiting for input and need to add prompt after
-			f.waitingForInput = true
-			f.inputSegments = parts
-			f.inputIdx = 0
-			f.needsPrompt = true
+		f.sendText(outText, true)
+		if f.waitingForInput {
 			return nil
 		}
-		f.buffer.WriteString(outText)
 	}
 
 	// Finally, print the device prompt (no line ending in scenario)
@@ -330,26 +309,21 @@ func (f *fakeExpecter) Send(cmd string) error {
 
 // Close closes the fake expecter.
 func (f *fakeExpecter) Close() error {
-	f.state = "done"
+	f.done = true
 	return nil
 }
 
 // SpawnScenarioFake returns a fake expecter connected to an in-memory
-// simulator. The scenario parameter can be either a file path or the scenario
-// text itself.
+// simulator. The scenario parameter is a file path to the scenario file.
 func SpawnScenarioFake(
 	device, scenario string,
 	timeoutSec int,
 ) (*fakeExpecter, func(), error) {
-	// Check if scenario is a file path - if it exists as a file, read it
-	var scenarioText string
-	if data, err := os.ReadFile(scenario); err == nil {
-		scenarioText = string(data)
-	} else {
-		// Treat as literal scenario text
-		scenarioText = scenario
+	data, err := os.ReadFile(scenario)
+	if err != nil {
+		return nil, nil, err
 	}
 	return newFakeExpecter(
-		device, scenarioText, time.Duration(timeoutSec)*time.Second,
+		device, string(data), time.Duration(timeoutSec)*time.Second,
 	)
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
-	ciscosim "github.com/hknutzen/Netspoc-Approve/go/test/ciscosim"
+	"github.com/hknutzen/Netspoc-Approve/go/test/ciscosim"
 	expect "github.com/tailscale/goexpect"
 )
 
@@ -39,24 +39,23 @@ func GetSSHConn(spocFile, user string, cfg *program.Config, logLogin *os.File) (
 	}
 	short := time.Duration(cfg.LoginTimeout) * time.Second
 
+	var con interface {
+		Send(string) error
+		Expect(*regexp.Regexp, time.Duration) (string, []string, error)
+		Close() error
+	}
+
 	// Always treat SIMULATE_ROUTER as a scenario file path when set.
 	if simul := os.Getenv("SIMULATE_ROUTER"); simul != "" {
 		device := codefiles.GetHostname(spocFile)
-		ge, _, err := ciscosim.SpawnScenarioFake(device, simul, int(short.Seconds()))
-		if err != nil {
-			return nil, err
-		}
-		return &Conn{
-			con:          ge,
-			log:          logLogin,
-			Timeout:      time.Duration(cfg.Timeout) * time.Second,
-			ShortTimeout: short,
-		}, nil
+		con, _, err = ciscosim.SpawnScenarioFake(device, simul, int(short.Seconds()))
+	} else {
+		con, _, err = expect.SpawnWithArgs(cmd, short, expect.PartialMatch(true))
 	}
-	con, _, err := expect.SpawnWithArgs(cmd, short, expect.PartialMatch(true))
 	if err != nil {
 		return nil, err
 	}
+
 	return &Conn{
 		con:          con,
 		log:          logLogin,
@@ -98,7 +97,8 @@ func (c *Conn) Close() {
 
 // Wait for prompt.
 // Remove all "\r" characters in output for simplicity.
-func (c *Conn) expectLog(prompt *regexp.Regexp, t time.Duration) (string, error) {
+func (c *Conn) expectLog(prompt *regexp.Regexp, t time.Duration,
+) (string, error) {
 	out, _, err := c.con.Expect(prompt, t)
 	out = strings.ReplaceAll(out, "\r\n", "\n")
 	c.logString(out)
