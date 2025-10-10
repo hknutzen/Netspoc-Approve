@@ -3,6 +3,7 @@ package ios
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -63,6 +64,10 @@ func (s *State) PrepareDevice(conn *console.Conn) {
 
 func (s *State) WriteMem(conn *console.Conn) {
 	retries := 2
+	sleepTime := 3 * time.Second
+	if os.Getenv("SIMULATE_ROUTER") != "" {
+		sleepTime = 10 * time.Millisecond
+	}
 	for {
 		out := conn.IssueCmd("write memory", `#[ ]?|\[confirm\]`)
 		if strings.Contains(out, "Overwrite the previous NVRAM configuration") {
@@ -74,7 +79,7 @@ func (s *State) WriteMem(conn *console.Conn) {
 		if strings.Contains(out, "startup-config file open failed") {
 			if retries > 0 {
 				retries--
-				time.Sleep(3 * time.Second)
+				time.Sleep(sleepTime)
 				continue
 			}
 			errlog.Abort("write mem: startup-config open failed - giving up")

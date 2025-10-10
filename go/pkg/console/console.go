@@ -9,11 +9,16 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/program"
+	"github.com/hknutzen/Netspoc-Approve/go/test/ciscosim"
 	expect "github.com/tailscale/goexpect"
 )
 
 type Conn struct {
-	con          *expect.GExpect
+	con interface {
+		Send(string) error
+		Expect(*regexp.Regexp, time.Duration) (string, []string, error)
+		Close() error
+	}
 	promptRE     *regexp.Regexp
 	Timeout      time.Duration
 	ShortTimeout time.Duration
@@ -32,14 +37,25 @@ func GetSSHConn(spocFile, user string, cfg *program.Config, logLogin *os.File) (
 		cmd = append(cmd,
 			[]string{"-o", "ProxyCommand ssh " + pdp + " -W %h:%p"}...)
 	}
-	if simul := os.Getenv("SIMULATE_ROUTER"); simul != "" {
-		cmd = strings.Fields(simul)
-	}
 	short := time.Duration(cfg.LoginTimeout) * time.Second
-	con, _, err := expect.SpawnWithArgs(cmd, short, expect.PartialMatch(true))
+
+	var con interface {
+		Send(string) error
+		Expect(*regexp.Regexp, time.Duration) (string, []string, error)
+		Close() error
+	}
+
+	// Always treat SIMULATE_ROUTER as a scenario file path when set.
+	if simul := os.Getenv("SIMULATE_ROUTER"); simul != "" {
+		device := codefiles.GetHostname(spocFile)
+		con, _, err = ciscosim.SpawnScenarioFake(device, simul, int(short.Seconds()))
+	} else {
+		con, _, err = expect.SpawnWithArgs(cmd, short, expect.PartialMatch(true))
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	return &Conn{
 		con:          con,
 		log:          logLogin,
