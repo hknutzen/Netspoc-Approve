@@ -210,7 +210,7 @@ func (s *State) LoadDevice(
 			if len(s.spocCfg.GatewayRoutes[name]) > 0 {
 				ipMap[name] = ips
 				routeMap[name] = collect0(extractRoute,
-					"gaia-api/v1.7/show-static-routes",
+					"gaia-api/v1.8/show-static-routes",
 					jsonMap{"target": ip, "limit": 200})
 			}
 		}
