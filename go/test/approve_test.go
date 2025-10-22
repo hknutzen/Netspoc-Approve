@@ -22,7 +22,7 @@ import (
 
 func talksHTTPS(model string) bool {
 	switch model {
-	case "CHECKPOINT", "NSX", "PAN-OS":
+	case "Checkpoint", "NSX", "PAN-OS":
 		return true
 	}
 	return false
@@ -57,9 +57,12 @@ func runTestFiles(t *testing.T) {
 	for _, file := range dataFiles {
 		base := path.Base(file)
 		prefix, _, _ := strings.Cut(strings.TrimSuffix(base, ".t"), "_")
-		prefix = strings.ToUpper(prefix)
-		if prefix == "LINUX" {
-			prefix = "Linux"
+		model := strings.ToUpper(prefix)
+		switch model {
+		case "LINUX":
+			model = "Linux"
+		case "CHECKPOINT":
+			model = "Checkpoint"
 		}
 		t.Run(base, func(t *testing.T) {
 			var l []descr
@@ -68,7 +71,7 @@ func runTestFiles(t *testing.T) {
 			}
 			for _, descr := range l {
 				t.Run(descr.Title, func(t *testing.T) {
-					runTest(t, descr, prefix)
+					runTest(t, descr, model)
 				})
 			}
 		})
