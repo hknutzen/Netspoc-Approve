@@ -39,7 +39,7 @@ func getRealDevice(fname string) RealDevice {
 		result = cisco.Setup(&asa.State{})
 	case "IOS":
 		result = cisco.Setup(&ios.State{})
-	case "CHECKPOINT":
+	case "Checkpoint":
 		result = &checkpoint.State{}
 	case "Linux":
 		result = &linux.State{}
