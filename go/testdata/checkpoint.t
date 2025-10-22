@@ -358,7 +358,7 @@ delete-service-udp
 =DEVICE=
 {
   "Rules": [
-    [[rule http]]
+    [[idrule http]]
     ]
 }
 =NETSPOC=
@@ -378,7 +378,7 @@ add-access-rule
  "destination":["Any"],
  "service":["https"],
  "install-on":["test-fw"],
- "position":{"above":"http"}}
+ "position":{"above":"id-http"}}
 =END=
 
 ############################################################
@@ -439,7 +439,7 @@ add-access-rule
  "destination":["Any"],
  "service":["ssh"],
  "install-on":["test-fw"],
- "position":{"above":"ldap"}}
+ "position":{"above":"id-ldap"}}
 =END=
 
 ############################################################
