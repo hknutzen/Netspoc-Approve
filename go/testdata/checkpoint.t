@@ -74,7 +74,7 @@ delete-access-rule
 =END=
 
 ############################################################
-=TITLE=Replace simple rule
+=TITLE=Replace simple rule, ignore uid from Netspoc
 =DEVICE=
 {
   "Rules": [
@@ -84,7 +84,7 @@ delete-access-rule
 =NETSPOC=
 {
   "Rules": [
-    [[rule https]]
+    [[idrule https]]
   ]
 }
 =OUTPUT=

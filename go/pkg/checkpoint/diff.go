@@ -166,6 +166,9 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			for _, bRule := range b.Rules[r.LowB:r.HighB] {
 				setInstallOn(bRule)
 				bRule.Position = pos
+				// Original UID must not be applied to device.
+				// This occurs if original config was read from file.
+				bRule.UID = ""
 				addChange("add-access-rule", bRule)
 			}
 		} else if r.IsEqual() {
