@@ -159,7 +159,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			// - add at bottom of ruleset.
 			var pos any
 			if r.LowA < len(a.Rules) {
-				pos = jsonMap{"above": a.Rules[r.LowA].Name}
+				pos = jsonMap{"above": a.Rules[r.LowA].UID}
 			} else {
 				pos = "bottom"
 			}

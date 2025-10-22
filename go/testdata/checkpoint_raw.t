@@ -80,8 +80,8 @@ ERROR>>> While reading file router.raw: Must not reference name from Netspoc in 
 =TITLE=Merge rule from raw with rule from netspoc
 =DEVICE=
 { "Rules": [
- { "name": "rule_1", "action": "Accept", "service": ["http"] },
- { "name": "rule_2", "action": "Drop" }
+ { "name": "rule_1", "uid": "id-1", "action": "Accept", "service": ["http"] },
+ { "name": "rule_2", "uid": "id-2", "action": "Drop" }
 ]}
 =NETSPOC=
 -- router
@@ -97,15 +97,15 @@ ERROR>>> While reading file router.raw: Must not reference name from Netspoc in 
 }
 =OUTPUT=
 add-access-rule
-{"name":"Raw top","layer":"network","action":"Accept","source":null,"destination":null,"service":["https"],"install-on":null,"position":{"above":"rule_1"}}
+{"name":"Raw top","layer":"network","action":"Accept","source":null,"destination":null,"service":["https"],"install-on":null,"position":{"above":"id-1"}}
 add-access-rule
-{"name":"Raw bot","layer":"network","action":"Accept","source":null,"destination":null,"service":["smtp"],"install-on":null,"position":{"above":"rule_2"}}
+{"name":"Raw bot","layer":"network","action":"Accept","source":null,"destination":null,"service":["smtp"],"install-on":null,"position":{"above":"id-2"}}
 =END=
 
 ############################################################
 =TITLE=Merge host, group, service and rule from raw
 =DEVICE=
-{ "Rules": [ { "name": "Cleanup rule", "action": "Drop" } ]
+{ "Rules": [ { "name": "Cleanup rule", "uid": "id", "action": "Drop" } ]
 }
 =NETSPOC=
 -- router
@@ -143,7 +143,7 @@ add-service-tcp
 add-service-tcp
 {"name":"Raw s2","ignore-warnings":true,"port":"8082"}
 add-access-rule
-{"name":"Raw 2","layer":"network","action":"Accept","source":["Raw g2"],"destination":null,"service":["Raw s2"],"enabled":false,"install-on":null,"position":{"above":"Cleanup rule"}}
+{"name":"Raw 2","layer":"network","action":"Accept","source":["Raw g2"],"destination":null,"service":["Raw s2"],"enabled":false,"install-on":null,"position":{"above":"id"}}
 add-access-rule
-{"name":"rule_1","layer":"network","action":"Accept","source":["g1"],"destination":null,"service":["tcp_8080"],"install-on":null,"position":{"above":"Cleanup rule"}}
+{"name":"rule_1","layer":"network","action":"Accept","source":["g1"],"destination":null,"service":["tcp_8080"],"install-on":null,"position":{"above":"id"}}
 =END=
