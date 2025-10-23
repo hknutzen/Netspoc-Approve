@@ -135,6 +135,22 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			diff[1].IsInsert() && diff[1].Len() == len(b.Rules) {
 			diff[1].LowA = len(a.Rules)
 			diff[1].HighA = len(a.Rules)
+			// Deleting all rules before inserting new rules
+			// would result in this error:
+			//  Action cannot be executed on object:
+			//  Cleanup rule due to: Layer ('Network') has only one rule.
+			// Hence
+			// - delete rules up to the last but one rule,
+			// - then insert new rules,
+			// - then delete last rule.
+			if len(a.Rules) == 1 {
+				diff[0], diff[1] = diff[1], diff[0]
+			} else {
+				last := diff[0]
+				diff[0].HighA--
+				last.LowA = diff[0].HighA
+				diff = append(diff, last)
+			}
 		}
 	}
 	for _, r := range diff {
