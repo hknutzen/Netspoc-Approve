@@ -78,7 +78,8 @@ delete-access-rule
 =DEVICE=
 {
   "Rules": [
-    [[idrule http]]
+    [[idrule http]],
+    [[idrule smtp]]
   ]
 }
 =NETSPOC=
@@ -100,6 +101,8 @@ add-access-rule
  "service":["https"],
  "install-on":["test-fw"],
  "position":"bottom"}
+delete-access-rule
+{"layer":"network","uid":"id-smtp"}
 =END=
 
 ############################################################
@@ -601,8 +604,6 @@ set-access-rule
   ]
 }
 =OUTPUT=
-delete-access-rule
-{"layer":"network","uid":"id-http"}
 add-access-rule
 {
  "name":"http",
@@ -613,6 +614,8 @@ add-access-rule
  "service":["http"],
  "install-on":["other-fw"],
  "position":"bottom"}
+delete-access-rule
+{"layer":"network","uid":"id-http"}
 =END=
 
 ############################################################
