@@ -265,7 +265,7 @@ delete-service-udp
       "name": "test rule",
       "uid": "id-test",
       "action": "Accept",
-      "source": ["n_10.1.1.0-24", "n_10.1.2.0-24"],
+      "source": ["DöMINET", "n_10.1.2.0-24"],
       "destination": ["h_10.1.8.1", "h_10.1.9.9"],
       "service": ["tcp_81", "udp_123"],
       "install-on": ["test-fw"]
@@ -273,7 +273,7 @@ delete-service-udp
  ],
   "Networks": [
     {
-      "name": "n_10.1.1.0-24",
+      "name": "DöMINET",
       "uid": "id-1-1",
       "subnet4": "10.1.1.0",
       "mask-length4": 24
@@ -318,13 +318,18 @@ delete-service-udp
     {
       "name": "test rule",
       "action": "Accept",
-      "source": ["n_10.1.1.0-24", "n_10.1.2.0-24", "n_10.1.3.0-24"],
+      "source": ["Döminet", "n_10.1.2.0-24", "n_10.1.3.0-24"],
       "destination": ["h_10.1.8.1", "h_10.1.9.1"],
       "service": ["tcp_81"],
       "install-on": ["test-fw"]
     }
  ],
   "Networks": [
+    {
+      "name": "Döminet",
+      "subnet4": "10.1.1.0",
+      "mask-length4": 24
+    },
     {
       "name": "n_10.1.3.0-24",
       "subnet4": "10.1.3.0",
