@@ -198,11 +198,13 @@ add-access-rule
   "Networks": [
     {
       "name": "n_10.1.1.0-24",
+      "uid": "id-1-1",
       "subnet4": "10.1.1.0",
       "mask-length4": 24
     },
     {
       "name": "n_10.1.2.0-24",
+      "uid": "id-1-2",
       "subnet4": "10.1.2.0",
       "mask-length4": 24
     }
@@ -210,22 +212,26 @@ add-access-rule
   "Hosts": [
     {
       "name": "h_10.1.8.1",
+      "uid": "id-1-8",
       "ipv4-address": "10.1.8.1"
     },
     {
       "name": "h_10.1.9.9",
+      "uid": "id-1-9",
       "ipv4-address": "10.1.9.9"
     }
  ],
   "TCP": [
     {
       "name": "tcp_81",
+      "uid": "id-81",
       "port": "81"
     }
  ],
   "UDP": [
     {
       "name": "udp_123",
+      "uid": "id-123",
       "port": "123"
     }
  ]
@@ -237,17 +243,17 @@ delete-access-rule
 {"layer":"network",
  "uid":"id-test"}
 delete-network
-{"name":"n_10.1.1.0-24"}
+{"uid":"id-1-1"}
 delete-network
-{"name":"n_10.1.2.0-24"}
+{"uid":"id-1-2"}
 delete-host
-{"name":"h_10.1.8.1"}
+{"uid":"id-1-8"}
 delete-host
-{"name":"h_10.1.9.9"}
+{"uid":"id-1-9"}
 delete-service-tcp
-{"name":"tcp_81"}
+{"uid":"id-81"}
 delete-service-udp
-{"name":"udp_123"}
+{"uid":"id-123"}
 =END=
 
 ############################################################
@@ -268,11 +274,13 @@ delete-service-udp
   "Networks": [
     {
       "name": "n_10.1.1.0-24",
+      "uid": "id-1-1",
       "subnet4": "10.1.1.0",
       "mask-length4": 24
     },
     {
       "name": "n_10.1.2.0-24",
+      "uid": "id-1-2",
       "subnet4": "10.1.2.0",
       "mask-length4": 24
     }
@@ -280,22 +288,26 @@ delete-service-udp
   "Hosts": [
     {
       "name": "h_10.1.8.1",
+      "uid": "id-1-8",
       "ipv4-address": "10.1.8.1"
     },
     {
       "name": "h_10.1.9.9",
+      "uid": "id-1-9",
       "ipv4-address": "10.1.9.9"
     }
  ],
   "TCP": [
     {
       "name": "tcp_81",
+      "uid": "id-81",
       "port": "81"
     }
  ],
   "UDP": [
     {
       "name": "udp_123",
+      "uid": "id-123",
       "port": "123"
     }
  ]
@@ -351,9 +363,9 @@ set-access-rule
  "layer":"network",
  "uid":"id-test"}
 delete-host
-{"name":"h_10.1.9.9"}
+{"uid":"id-1-9"}
 delete-service-udp
-{"name":"udp_123"}
+{"uid":"id-123"}
 =END=
 
 ############################################################
@@ -695,9 +707,9 @@ add-access-rule
     }
   ],
   "Groups": [{ "name": "my-group", "members": ["my-net"] }],
-  "Networks": [{ "name": "my-net", "subnet4": "10.1.2.0", "mask-length4": 24 }],
-  "Hosts": [{ "name": "my-host", "ipv4-address": "10.1.9.9" }],
-  "TCP": [{ "name": "my-srv", "port": "81" }]
+  "Networks": [{ "name": "my-net", "uid": "my-net", "subnet4": "10.1.2.0", "mask-length4": 24 }],
+  "Hosts": [{ "name": "my-host", "uid": "my-host", "ipv4-address": "10.1.9.9" }],
+  "TCP": [{ "name": "my-srv", "uid": "my-srv", "port": "81" }]
 }
 =DEVICE=
 [[input]]
@@ -708,11 +720,11 @@ add-access-rule
 =SUBST=/81/80/
 =OUTPUT=
 set-network
-{"name":"my-net","subnet4":"10.1.2.0","mask-length4":25}
+{"uid":"my-net","subnet4":"10.1.2.0","mask-length4":25}
 set-host
-{"name":"my-host","ipv4-address":"10.1.9.8"}
+{"uid":"my-host","ipv4-address":"10.1.9.8"}
 set-service-tcp
-{"name":"my-srv","port":"80"}
+{"uid":"my-srv","port":"80"}
 =END=
 
 ############################################################
@@ -782,15 +794,18 @@ add-access-rule
   "ICMP": [
     {
       "name": "icmp-2",
+      "uid": "id-2",
       "icmp-type": 2
     },
     {
       "name": "icmp-2-0",
+      "uid": "id-2-0",
       "icmp-type": 2,
       "icmp-code": 0
     },
     {
       "name": "icmp-3-1",
+      "uid": "id-3-1",
       "icmp-type": 3,
       "icmp-code": 1
     }
@@ -824,7 +839,7 @@ add-access-rule
 }
 =OUTPUT=
 set-service-icmp
-{"name":"icmp-2-0","icmp-type":2}
+{"uid":"id-2-0","icmp-type":2}
 add-service-icmp
 {"name":"icmp-3-0","icmp-type":3,"icmp-code":0}
 add-service-icmp
@@ -832,5 +847,5 @@ add-service-icmp
 delete-access-rule
 {"layer":"network","uid":"id-icmp-2"}
 delete-service-icmp
-{"name":"icmp-2"}
+{"uid":"id-2"}
 =END=

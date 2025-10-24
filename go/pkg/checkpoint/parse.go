@@ -88,6 +88,9 @@ type chkpTrack struct {
 type object interface {
 	getAPIObject() string
 	getName() string
+	clearName()
+	getUID() string
+	setUID(string)
 	getIPKey() string
 	getComments() string
 	setIgnoreWarnings()
@@ -99,7 +102,8 @@ type object interface {
 }
 
 type chkpObject struct {
-	Name           string `json:"name"`
+	Name           string `json:"name,omitempty"`
+	UID            string `json:"uid,omitempty"`
 	Comments       string `json:"comments,omitempty"`
 	IgnoreWarnings bool   `json:"ignore-warnings,omitempty"`
 	ReadOnly       bool   `json:"read-only,omitempty"`
@@ -108,6 +112,9 @@ type chkpObject struct {
 }
 
 func (o *chkpObject) getName() string     { return o.Name }
+func (o *chkpObject) clearName()          { o.Name = "" }
+func (o *chkpObject) getUID() string      { return o.UID }
+func (o *chkpObject) setUID(uid string)   { o.UID = uid }
 func (o *chkpObject) getComments() string { return o.Comments }
 func (o *chkpObject) setIgnoreWarnings()  { o.IgnoreWarnings = true }
 func (o *chkpObject) getReadOnly() bool   { return o.ReadOnly }

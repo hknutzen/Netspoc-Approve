@@ -1,6 +1,7 @@
 =TEMPL=host
  {
   "name": "h{{.}}",
+  "uid": "id-h{{.}}",
   "ipv4-address": "10.1.1.{{.}}"
  }
 =END=
@@ -12,6 +13,7 @@
  "Groups": [
   {
    "name": "g1",
+   "uid": "id-1",
    "members": ["h1", "h2", "h3"]
   }
  ],
@@ -42,11 +44,11 @@ add-host
 add-host
 {"name":"h5","ignore-warnings":true,"ipv4-address":"10.1.1.5"}
 set-group
-{"members":{"add":["h4","h5"]},"name":"g1"}
+{"members":{"add":["h4","h5"]},"uid":"id-1"}
 set-group
-{"members":{"remove":["h1"]},"name":"g1"}
+{"members":{"remove":["h1"]},"uid":"id-1"}
 delete-host
-{"name":"h1"}
+{"uid":"id-h1"}
 =END=
 
 ############################################################
@@ -56,10 +58,12 @@ delete-host
  "Groups": [
   {
    "name": "g1",
+   "uid": "id-1",
    "members": ["g2", "h3"]
   },
   {
    "name": "g2",
+   "uid": "id-2",
    "members": ["h1", "h2", "h4"]
   }
  ],
@@ -86,13 +90,13 @@ delete-host
 }
 =OUTPUT=
 set-group
-{"members":{"add":["h1","h2"]},"name":"g1"}
+{"members":{"add":["h1","h2"]},"uid":"id-1"}
 set-group
-{"members":{"remove":["g2"]},"name":"g1"}
+{"members":{"remove":["g2"]},"uid":"id-1"}
 delete-group
-{"name":"g2"}
+{"uid":"id-2"}
 delete-host
-{"name":"h4"}
+{"uid":"id-h4"}
 =END=
 
 ############################################################
@@ -102,6 +106,7 @@ delete-host
  "Groups": [
   {
    "name": "g1",
+   "uid": "id-g1",
    "members": ["h1", "h2", "h3"]
   }
  ],
@@ -131,9 +136,9 @@ delete-host
 }
 =OUTPUT=
 set-group
-{"members":{"add":["g2"]},"name":"g1"}
+{"members":{"add":["g2"]},"uid":"id-g1"}
 set-group
-{"members":{"remove":["h1","h2"]},"name":"g1"}
+{"members":{"remove":["h1","h2"]},"uid":"id-g1"}
 add-group
 {"name":"g2","members":["h1","h2"]}
 =END=
