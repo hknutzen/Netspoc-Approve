@@ -18,12 +18,25 @@ func (ab *rulesPair) LenA() int { return len(ab.aRules) }
 func (ab *rulesPair) LenB() int { return len(ab.bRules) }
 
 func (ab *rulesPair) Equal(ai, bi int) bool {
-	return ab.aRules[ai].Name == ab.bRules[bi].Name &&
+	// Checkpoint compares ASCII-case-insensitively.
+	return equalFold(ab.aRules[ai].Name, ab.bRules[bi].Name) &&
 		// We may have different rules with identical name on different devices,
 		// because rule names are generated from service names in Netspoc.
 		// Reason is, that the same service may expand to different rules
 		// on different firewalls.
 		slices.Equal(ab.aRules[ai].InstallOn, ab.bRules[bi].InstallOn)
+}
+
+type namesPair struct {
+	aNames, bNames []chkpName
+}
+
+func (ab *namesPair) LenA() int { return len(ab.aNames) }
+func (ab *namesPair) LenB() int { return len(ab.bNames) }
+
+func (ab *namesPair) Equal(ai, bi int) bool {
+	// Checkpoint compares ASCII-case-insensitively.
+	return equalFold(string(ab.aNames[ai]), string(ab.bNames[bi]))
 }
 
 func diffConfig(a, b *chkpConfig) ([]change, []string) {
@@ -38,81 +51,83 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 		}
 	}
 	aObjects := getObjList(a)
-	aObjMap := getObjMap(aObjects)
-	markDeletable := func(n string) {
+	aObjMap := make(map[string]object)
+	for _, o := range aObjects {
+		aObjMap[toLower(o.getName())] = o
+	}
+	lookup := func(n string) (object, bool) {
+		obj, found := aObjMap[toLower(n)]
+		return obj, found
+	}
+	markDeletable := func(n chkpName) {
 		// Predefined objects like "Any" won't be found.
-		if aObj, ok := aObjMap[n]; ok {
+		if aObj, found := lookup(string(n)); found {
 			aObj.setDeletable()
 		}
 	}
 	// Compare objects referenced by src/dst/srv of rule or by members of group.
 	compareObjects := func(attr string, chg1, chg2 jsonMap, aL, bL []chkpName) {
-		getNameMap := func(l []chkpName) map[chkpName]bool {
-			m := make(map[chkpName]bool)
-			for _, n := range l {
-				m[n] = true
-			}
-			return m
+		cmpFold := func(a, b chkpName) int {
+			return strings.Compare(toLower(string(a)), toLower(string(b)))
 		}
-		aMap := getNameMap(aL)
-		bMap := getNameMap(bL)
+		slices.SortFunc(aL, cmpFold)
+		slices.SortFunc(bL, cmpFold)
+		ab := &namesPair{aNames: aL, bNames: bL}
 		var add []chkpName
 		var remove []string
-		for _, aName := range aL {
-			if !bMap[aName] {
-				id := string(aName)
-				if aObj, ok := aObjMap[string(aName)]; ok {
-					id = aObj.getUID()
+		diff := myers.Diff(nil, ab).Ranges
+		for _, r := range diff {
+			if r.IsDelete() {
+				for _, aName := range aL[r.LowA:r.HighA] {
+					id := string(aName)
+					if aObj, found := lookup(string(aName)); found {
+						id = aObj.getUID()
+					}
+					remove = append(remove, id)
+					markDeletable(aName)
 				}
-				remove = append(remove, id)
-				markDeletable(string(aName))
-			}
-		}
-		for _, bName := range bL {
-			if !aMap[bName] {
-				add = append(add, bName)
+			} else if r.IsInsert() {
+				add = append(add, bL[r.LowB:r.HighB]...)
 			}
 		}
 		if add != nil {
 			chg1[attr] = map[string][]chkpName{"add": add}
-			// It is currently not supported by Checkpoint to do both,
-			// add and remove in one change.
-			if remove != nil {
-				chg2[attr] = map[string][]string{"remove": remove}
-			}
-		} else if remove != nil {
-			chg1[attr] = map[string][]string{"remove": remove}
+		}
+		if remove != nil {
+			chg2[attr] = map[string][]string{"remove": remove}
 		}
 	}
 	// Compare objects defined from Netspoc with objects from device.
 	for _, bObj := range getObjList(b) {
 		name := bObj.getName()
-		if aObj, found := aObjMap[string(name)]; found {
+		if aObj, found := lookup(name); found {
 			// Object is found on device and marked as needed.
 			aObj.setNeeded()
 			// Compare members of groups or attributes of other objects.
-			switch aReal := aObj.(type) {
+			switch aObj.(type) {
 			case *chkpGroup:
-				bReal := bObj.(*chkpGroup)
+				aGrp := aObj.(*chkpGroup)
+				bGrp := bObj.(*chkpGroup)
 				chg1 := make(jsonMap)
 				chg2 := make(jsonMap)
-				compareObjects("members", chg1, chg2, aReal.Members, bReal.Members)
+				compareObjects("members", chg1, chg2, aGrp.Members, bGrp.Members)
 				if len(chg1) > 0 {
-					chg1["uid"] = aReal.UID
+					chg1["uid"] = aGrp.UID
 					addChange("set-group", chg1)
 				}
 				if len(chg2) > 0 {
-					chg2["uid"] = aReal.UID
+					chg2["uid"] = aGrp.UID
 					addChange("set-group", chg2)
 				}
 			default:
 				uid := aObj.getUID()
 				bObj.setUID(uid)
+				aObj.clearName()
+				bObj.clearName()
 				ja, _ := json.Marshal(aObj)
 				jb, _ := json.Marshal(bObj)
 				if d := cmp.Diff(ja, jb); d != "" {
 					// Modify existing object on device.
-					bObj.clearName()
 					addChange("set-"+bObj.getAPIObject(), bObj)
 				}
 			}
@@ -170,7 +185,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				setInstallOn(aRule)
 				setDeletable := func(l []chkpName) {
 					for _, n := range l {
-						markDeletable(string(n))
+						markDeletable(n)
 					}
 				}
 				setDeletable(aRule.Source)
@@ -252,7 +267,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	markAndDelete = func(group *chkpGroup) {
 		if willDelete(group) {
 			for _, name := range group.Members {
-				if obj := aObjMap[string(name)]; obj != nil {
+				if obj, found := lookup(string(name)); found {
 					if !obj.getDeletable() {
 						obj.setDeletable()
 						if g2, ok := obj.(*chkpGroup); ok {
@@ -275,14 +290,6 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 		}
 	}
 	return changes, slices.Sorted(maps.Keys(installMap))
-}
-
-func getObjMap(l []object) map[string]object {
-	m := make(map[string]object)
-	for _, o := range l {
-		m[o.getName()] = o
-	}
-	return m
 }
 
 func getObjList(cf *chkpConfig) []object {
@@ -312,4 +319,40 @@ func getObjList(cf *chkpConfig) []object {
 		result = append(result, o)
 	}
 	return result
+}
+
+// Copied from go/src/net/http/internal/ascii/print.go
+
+// equalFold is [strings.EqualFold], ASCII only. It reports whether s and t
+// are equal, ASCII-case-insensitively.
+func equalFold(s, t string) bool {
+	if len(s) != len(t) {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if lower(s[i]) != lower(t[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// lower returns the ASCII lowercase version of b.
+func lower(b byte) byte {
+	if 'A' <= b && b <= 'Z' {
+		return b + ('a' - 'A')
+	}
+	return b
+}
+
+// tolower converts uppercase ASCII characters in s to lowercase.
+func toLower(s string) string {
+	l := make([]rune, 0, len(s))
+	for _, r := range s {
+		if 'A' <= r && r <= 'Z' {
+			r += ('a' - 'A')
+		}
+		l = append(l, r)
+	}
+	return string(l)
 }
