@@ -46,7 +46,7 @@ add-host
 set-group
 {"members":{"add":["h4","h5"]},"uid":"id-1"}
 set-group
-{"members":{"remove":["h1"]},"uid":"id-1"}
+{"members":{"remove":["id-h1"]},"uid":"id-1"}
 delete-host
 {"uid":"id-h1"}
 =END=
@@ -92,7 +92,7 @@ delete-host
 set-group
 {"members":{"add":["h1","h2"]},"uid":"id-1"}
 set-group
-{"members":{"remove":["g2"]},"uid":"id-1"}
+{"members":{"remove":["id-2"]},"uid":"id-1"}
 delete-group
 {"uid":"id-2"}
 delete-host
@@ -138,7 +138,7 @@ delete-host
 set-group
 {"members":{"add":["g2"]},"uid":"id-g1"}
 set-group
-{"members":{"remove":["h1","h2"]},"uid":"id-g1"}
+{"members":{"remove":["id-h1","id-h2"]},"uid":"id-g1"}
 add-group
 {"name":"g2","members":["h1","h2"]}
 =END=
