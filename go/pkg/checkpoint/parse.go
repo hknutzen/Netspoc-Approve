@@ -1,7 +1,6 @@
 package checkpoint
 
 import (
-	"cmp"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -91,7 +90,6 @@ type object interface {
 	clearName()
 	getUID() string
 	setUID(string)
-	getIPKey() string
 	getComments() string
 	setIgnoreWarnings()
 	getReadOnly() bool
@@ -122,29 +120,12 @@ func (o *chkpObject) getNeeded() bool     { return o.needed }
 func (o *chkpObject) setNeeded()          { o.needed = true }
 func (o *chkpObject) getDeletable() bool  { return o.deletable }
 func (o *chkpObject) setDeletable()       { o.deletable = true }
-func (o *chkpObject) getIPKey() string    { return "" }
 
 func (o *chkpNetwork) getAPIObject() string { return "network" }
-func (o *chkpNetwork) getIPKey() string {
-	if o.Subnet4 != "" {
-		return fmt.Sprintf("%s/%d", o.Subnet4, o.MaskLength4)
-	} else {
-		return fmt.Sprintf("%s/%d", o.Subnet6, o.MaskLength6)
-	}
-}
-func (o *chkpHost) getAPIObject() string { return "host" }
-func (o *chkpHost) getIPKey() string {
-	return cmp.Or(o.IPv4Address, o.IPv6Address)
-}
-func (o *chkpGroup) getAPIObject() string { return "group" }
-func (o *chkpTCP) getAPIObject() string   { return "service-tcp" }
-func (o *chkpTCP) getIPKey() string {
-	return fmt.Sprintf("tcp %s:%s", o.SourcePort, o.Port)
-}
-func (o *chkpUDP) getAPIObject() string { return "service-udp" }
-func (o *chkpUDP) getIPKey() string {
-	return fmt.Sprintf("udp %s:%s", o.SourcePort, o.Port)
-}
+func (o *chkpHost) getAPIObject() string    { return "host" }
+func (o *chkpGroup) getAPIObject() string   { return "group" }
+func (o *chkpTCP) getAPIObject() string     { return "service-tcp" }
+func (o *chkpUDP) getAPIObject() string     { return "service-udp" }
 func (o *chkpICMP) getAPIObject() string    { return "service-icmp" }
 func (o *chkpICMP6) getAPIObject() string   { return "service-icmp6" }
 func (o *chkpSvOther) getAPIObject() string { return "service-other" }

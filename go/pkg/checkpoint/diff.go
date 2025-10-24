@@ -285,16 +285,6 @@ func getObjMap(l []object) map[string]object {
 	return m
 }
 
-func getIPMap(l []object) map[string]object {
-	m := make(map[string]object)
-	for _, o := range l {
-		if k := o.getIPKey(); k != "" {
-			m[k] = o
-		}
-	}
-	return m
-}
-
 func getObjList(cf *chkpConfig) []object {
 	var result []object
 	for _, o := range cf.Networks {
