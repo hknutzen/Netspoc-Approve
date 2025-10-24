@@ -7,12 +7,12 @@
 =END=
 
 ############################################################
-=TITLE=Change group members
+=TITLE=Change group members, ignore case in names
 =DEVICE=
 {
  "Groups": [
   {
-   "name": "g1",
+   "name": "G1",
    "uid": "id-1",
    "members": ["h1", "h2", "h3"]
   }
@@ -23,6 +23,7 @@
   [[host 3]]
  ]
 }
+=SUBST=/"h3/"H3/
 =NETSPOC=
 {
  "Groups": [
@@ -38,6 +39,7 @@
   [[host 5]]
  ]
 }
+=SUBST=/"h2/"H2/
 =OUTPUT=
 add-host
 {"name":"h4","ignore-warnings":true,"ipv4-address":"10.1.1.4"}
