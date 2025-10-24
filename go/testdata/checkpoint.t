@@ -355,11 +355,11 @@ add-host
 set-access-rule
 {"destination":{"add":["h_10.1.9.1"]},
  "layer":"network",
- "service":{"remove":["udp_123"]},
+ "service":{"remove":["id-123"]},
  "source":{"add":["n_10.1.3.0-24"]},
  "uid":"id-test"}
 set-access-rule
-{"destination":{"remove":["h_10.1.9.9"]},
+{"destination":{"remove":["id-1-9"]},
  "layer":"network",
  "uid":"id-test"}
 delete-host

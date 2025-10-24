@@ -40,6 +40,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	aObjects := getObjList(a)
 	aObjMap := getObjMap(aObjects)
 	markDeletable := func(n string) {
+		// Predefined objects like "Any" won't be found.
 		if aObj, ok := aObjMap[n]; ok {
 			aObj.setDeletable()
 		}
@@ -56,10 +57,14 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 		aMap := getNameMap(aL)
 		bMap := getNameMap(bL)
 		var add []chkpName
-		var remove []chkpName
+		var remove []string
 		for _, aName := range aL {
 			if !bMap[aName] {
-				remove = append(remove, aName)
+				id := string(aName)
+				if aObj, ok := aObjMap[string(aName)]; ok {
+					id = aObj.getUID()
+				}
+				remove = append(remove, id)
 				markDeletable(string(aName))
 			}
 		}
@@ -73,10 +78,10 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			// It is currently not supported by Checkpoint to do both,
 			// add and remove in one change.
 			if remove != nil {
-				chg2[attr] = map[string][]chkpName{"remove": remove}
+				chg2[attr] = map[string][]string{"remove": remove}
 			}
 		} else if remove != nil {
-			chg1[attr] = map[string][]chkpName{"remove": remove}
+			chg1[attr] = map[string][]string{"remove": remove}
 		}
 	}
 	// Compare objects defined from Netspoc with objects from device.
