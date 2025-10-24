@@ -70,7 +70,8 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 		}
 		if add != nil {
 			chg1[attr] = map[string][]chkpName{"add": add}
-			// It is currently not allowed to both, add and remove in one change.
+			// It is currently not supported by Checkpoint to do both,
+			// add and remove in one change.
 			if remove != nil {
 				chg2[attr] = map[string][]chkpName{"remove": remove}
 			}
@@ -92,18 +93,21 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				chg2 := make(jsonMap)
 				compareObjects("members", chg1, chg2, aReal.Members, bReal.Members)
 				if len(chg1) > 0 {
-					chg1["name"] = name
+					chg1["uid"] = aReal.UID
 					addChange("set-group", chg1)
 				}
 				if len(chg2) > 0 {
-					chg2["name"] = name
+					chg2["uid"] = aReal.UID
 					addChange("set-group", chg2)
 				}
 			default:
+				uid := aObj.getUID()
+				bObj.setUID(uid)
 				ja, _ := json.Marshal(aObj)
 				jb, _ := json.Marshal(bObj)
 				if d := cmp.Diff(ja, jb); d != "" {
-					// Modify existimg object on device.
+					// Modify existing object on device.
+					bObj.clearName()
 					addChange("set-"+bObj.getAPIObject(), bObj)
 				}
 			}
@@ -118,6 +122,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				//   but source ports are different.
 				bObj.setIgnoreWarnings()
 			}
+			bObj.setUID("")
 			addChange("add-"+bObj.getAPIObject(), bObj)
 		}
 	}
@@ -251,7 +256,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 					}
 				}
 			}
-			addChange("delete-group", jsonMap{"name": group.Name})
+			addChange("delete-group", jsonMap{"uid": group.UID})
 		}
 	}
 	for _, g := range a.Groups {
@@ -261,7 +266,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	for _, aObj := range aObjects {
 		if _, ok := aObj.(*chkpGroup); !ok && willDelete(aObj) {
 			addChange("delete-"+aObj.getAPIObject(),
-				jsonMap{"name": aObj.getName()})
+				jsonMap{"uid": aObj.getUID()})
 		}
 	}
 	return changes, slices.Sorted(maps.Keys(installMap))
