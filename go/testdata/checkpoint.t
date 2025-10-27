@@ -574,6 +574,14 @@ add-access-rule
       "name": "test",
       "action": "Drop",
       "enabled": true,
+      "track" : {
+        "type": "Log",
+        "per-session": false,
+        "per-connection": true,
+        "accounting": false,
+        "enable-firewall-session": false,
+        "alert": "none"
+      },
       "install-on": ["test-fw"]
     }
   ]
@@ -588,8 +596,43 @@ set-access-rule
  "layer":"network",
  "service-negate":false,
  "source-negate":false,
+ "track":{"alert":"none","per-connection":true,"type":"Log"},
  "uid":"id-test"}
 =END=
+
+############################################################
+=TITLE=Equal attribute track
+=DEVICE=
+{
+  "Rules": [
+    {
+      "name": "test",
+      "uid": "id-test",
+      "action": "Accept",
+      "track" : {
+        "type": { "name": "Log" },
+        "per-session": false,
+        "per-connection": true,
+        "accounting": false,
+        "enable-firewall-session": false,
+        "alert": "none"
+      },
+      "install-on": ["test-fw"]
+    }
+  ]
+}
+=NETSPOC=
+{
+  "Rules": [
+    {
+      "name": "test",
+      "action": "Accept",
+      "track":{"alert":"none","per-connection":true,"type":"Log"},
+      "install-on": ["test-fw"]
+    }
+  ]
+}
+=OUTPUT=NONE
 
 ############################################################
 =TITLE=Change attribute "install-on"
