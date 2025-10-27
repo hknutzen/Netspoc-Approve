@@ -244,6 +244,14 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				if aRule.Disabled != bRule.Disabled {
 					chg1["enabled"] = !bRule.Disabled
 				}
+				t1, t2 := aRule.Track, bRule.Track
+				if t1 == nil || t2 == nil {
+					if t1 != t2 {
+						chg1["track"] = bRule.Track
+					}
+				} else if *t1 != *t2 {
+					chg1["track"] = bRule.Track
+				}
 				compareObjects("source", chg1, chg2, aRule.Source, bRule.Source)
 				compareObjects("destination", chg1, chg2,
 					aRule.Destination, bRule.Destination)
