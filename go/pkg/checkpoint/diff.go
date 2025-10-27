@@ -18,13 +18,23 @@ func (ab *rulesPair) LenA() int { return len(ab.aRules) }
 func (ab *rulesPair) LenB() int { return len(ab.bRules) }
 
 func (ab *rulesPair) Equal(ai, bi int) bool {
+	aRule := ab.aRules[ai]
+	bRule := ab.bRules[bi]
 	// Checkpoint compares ASCII-case-insensitively.
-	return equalFold(ab.aRules[ai].Name, ab.bRules[bi].Name) &&
+	if equalFold(aRule.Name, bRule.Name) {
 		// We may have different rules with identical name on different devices,
 		// because rule names are generated from service names in Netspoc.
 		// Reason is, that the same service may expand to different rules
 		// on different firewalls.
-		slices.Equal(ab.aRules[ai].InstallOn, ab.bRules[bi].InstallOn)
+		aL := ab.aRules[ai].InstallOn
+		bL := ab.bRules[bi].InstallOn
+		slices.SortFunc(aL, cmpFold)
+		slices.SortFunc(bL, cmpFold)
+		return slices.EqualFunc(aL, bL, func(a, b chkpName) bool {
+			return equalFold(string(a), string(b))
+		})
+	}
+	return false
 }
 
 type namesPair struct {
@@ -67,9 +77,6 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	}
 	// Compare objects referenced by src/dst/srv of rule or by members of group.
 	compareObjects := func(attr string, chg1, chg2 jsonMap, aL, bL []chkpName) {
-		cmpFold := func(a, b chkpName) int {
-			return strings.Compare(toLower(string(a)), toLower(string(b)))
-		}
 		slices.SortFunc(aL, cmpFold)
 		slices.SortFunc(bL, cmpFold)
 		ab := &namesPair{aNames: aL, bNames: bL}
@@ -241,8 +248,6 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				compareObjects("destination", chg1, chg2,
 					aRule.Destination, bRule.Destination)
 				compareObjects("service", chg1, chg2, aRule.Service, bRule.Service)
-				compareObjects("install-on", chg1, chg2,
-					aRule.InstallOn, bRule.InstallOn)
 				add := func(chg jsonMap) {
 					if len(chg) > 0 {
 						setInstallOn(bRule)
@@ -355,4 +360,8 @@ func toLower(s string) string {
 		l = append(l, r)
 	}
 	return string(l)
+}
+
+func cmpFold(a, b chkpName) int {
+	return strings.Compare(toLower(string(a)), toLower(string(b)))
 }

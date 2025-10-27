@@ -636,6 +636,37 @@ delete-access-rule
 =END=
 
 ############################################################
+=TITLE=Equal "install-on" with different order and different case
+=DEVICE=
+{
+  "Rules": [
+    {
+      "name": "http",
+      "uid": "id-http",
+      "action": "Accept",
+      "source": ["Any"],
+      "destination": ["Any"],
+      "service": ["http"],
+      "install-on": ["test-fw", "other-fw"]
+    }
+  ]
+}
+=NETSPOC=
+{
+  "Rules": [
+    {
+      "name": "http",
+      "action": "Accept",
+      "source": ["Any"],
+      "destination": ["Any"],
+      "service": ["http"],
+      "install-on": ["other-fw", "TEST-FW"]
+    }
+  ]
+}
+=OUTPUT=NONE
+
+############################################################
 =TITLE=Delete, add rule with duplicate name and different install-on
 =DEVICE=
 {
