@@ -20,7 +20,8 @@ import (
 type State struct {
 	client       *http.Client
 	devUser      string
-	urlPrefix    string
+	url          string
+	apiKey       string
 	deviceCfg    *panConfig
 	spocCfg      *panConfig
 	changes      []change
@@ -44,7 +45,8 @@ func (s *State) LoadDevice(
 			if err != nil {
 				return err
 			}
-			s.urlPrefix = fmt.Sprintf("%s/api/?key=%s&", addr, key)
+			s.url = fmt.Sprintf("%s/api/", addr)
+			s.apiKey = key
 			if !s.checkHA(logLogin) {
 				return fmt.Errorf("not in active state: %s (%s)", ip, name)
 			}
@@ -61,8 +63,8 @@ func (s *State) LoadDevice(
 	// run of this program.
 	// Don't request full "config", but only "devices" part, since
 	// config contains very large predefined application data.
-	uri := "type=config&action=get&xpath=/config/devices"
-	body, err := s.httpPrefixGetLog(uri, logConfig)
+	params := "type=config&action=get&xpath=/config/devices"
+	body, err := s.httpPrefixPostLog(params, logConfig)
 	if err != nil {
 		return err
 	}
@@ -73,30 +75,23 @@ func (s *State) LoadDevice(
 	return s.deviceCfg.checkDeviceName(devName)
 }
 
-func (s *State) getAPIKey(addr, user, pass string, logFH *os.File) (
-	string, error) {
-
-	base, err := url.Parse(addr)
-	if err != nil {
-		return "", err
-	}
-	base.Path += "api"
+func (s *State) getAPIKey(addr, user, pass string, logFH *os.File,
+) (string, error) {
+	addr += "/api/"
+	errlog.DoLog(logFH, addr)
 	params := url.Values{}
 	params.Set("type", "keygen")
 	params.Set("user", user)
+	params.Set("password", "xxx")
+	errlog.DoLog(logFH, "DATA: "+params.Encode())
 	params.Set("password", pass)
-	base.RawQuery = params.Encode()
-	uri := base.String()
-	passRE := regexp.MustCompile(`(password=).*?(&|$)`)
-	loggedURI := passRE.ReplaceAllString(uri, "${1}xxx$2")
-	errlog.DoLog(logFH, loggedURI)
-	body, err := s.httpGet(uri)
+	vals := params.Encode()
+	body, err := s.httpPost(addr, vals)
 	keyRE := regexp.MustCompile(`<key>.*</key>`)
 	loggedBody := keyRE.ReplaceAllString(string(body), "<key>xxx</key>")
 	errlog.DoLog(logFH, loggedBody)
 	if err != nil {
 		msg := err.Error()
-		msg = passRE.ReplaceAllString(msg, "${1}xxx$2")
 		return "", fmt.Errorf("API key %s", msg)
 	}
 	return parseAPIKey(body)
@@ -120,9 +115,9 @@ func (s *State) getAPIKey(addr, user, pass string, logFH *os.File) (
 */
 // Result is true if HA not enabled or if enabled and active.
 func (s *State) checkHA(logFH *os.File) bool {
-	uri :=
+	cmd :=
 		"type=op&cmd=<show><high-availability><state/></high-availability></show>"
-	body, err := s.httpPrefixGetLog(uri, logFH)
+	body, err := s.httpPrefixPostLog(cmd, logFH)
 	if err != nil {
 		return false
 	}
@@ -190,7 +185,7 @@ func (s *State) GetErrUnmanaged() []error {
 
 func (s *State) ApplyCommands(logFH *os.File) error {
 	doCmd := func(cmd string) (string, []byte, error) {
-		body, err := s.httpPrefixGetLog(cmd, logFH)
+		body, err := s.httpPrefixPostLog(cmd, logFH)
 		if err != nil {
 			return "", nil, err
 		}
@@ -261,19 +256,19 @@ func (s *State) ApplyCommands(logFH *os.File) error {
 	return nil
 }
 
-var apiRE = regexp.MustCompile(`[?]key=.*?&`)
-
-func (s *State) httpPrefixGetLog(uri string, logFH *os.File) ([]byte, error) {
-	uri = s.urlPrefix + uri
-	loggedURI := apiRE.ReplaceAllString(uri, "?key=xxx&")
-	errlog.DoLog(logFH, loggedURI)
-	body, err := s.httpGet(uri)
+func (s *State) httpPrefixPostLog(params string, logFH *os.File,
+) ([]byte, error) {
+	errlog.DoLog(logFH, s.url)
+	errlog.DoLog(logFH, "DATA: key=xxx&"+params)
+	data := "key=" + s.apiKey + "&" + params
+	body, err := s.httpPost(s.url, data)
 	errlog.DoLog(logFH, string(body))
 	return body, err
 }
 
-func (s *State) httpGet(uri string) ([]byte, error) {
-	resp, err := s.client.Get(uri)
+func (s *State) httpPost(url string, params string) ([]byte, error) {
+	data := strings.NewReader(params)
+	resp, err := s.client.Post(url, "application/x-www-form-urlencoded", data)
 	if err != nil {
 		return nil, err
 	}

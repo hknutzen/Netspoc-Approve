@@ -6,7 +6,7 @@ H: x-xsrf-token: secret
 ############################################################
 =TITLE=Device gives status 500
 =SCENARIO=
-POST /api
+POST /api/
 500
 device not ready
 =NETSPOC=NONE
@@ -23,7 +23,7 @@ j_password=xxx&j_username=admin
 ############################################################
 =TITLE=Device gives no valid answer
 =SCENARIO=
-POST /api
+POST /api/
 EOF
 =NETSPOC=NONE
 =ERROR=

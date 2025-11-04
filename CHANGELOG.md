@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- PAN-OS: Use POST not GET for sending commands to device.
 - ASA: Use command 'sh run' instead of 'write term' to request configuration.
 - Linux: Leave static routes unchanged, if no routes are given by Netspoc.
 

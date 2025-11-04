@@ -24,7 +24,7 @@ func Warning(format string, args ...any) {
 
 func DoLog(fh *os.File, s string) {
 	if fh != nil {
-		if strings.HasPrefix(s, "http") || strings.HasPrefix(s, "action=") {
+		if strings.HasPrefix(s, "http") || strings.HasPrefix(s, "DATA: ") {
 			s, _ = url.QueryUnescape(s)
 		}
 		fmt.Fprintln(fh, s)
