@@ -89,18 +89,21 @@ func NewTLSServer(t *testing.T, input string) *httptest.Server {
 		m[pattern] = append(m[pattern], e)
 	}
 	for pattern, l := range m {
-		// Check largest number of params first, to check most specific first.
-		slices.SortFunc(l, func(a, b *match) int {
+		// Sort by largest number of params, to check most specific first.
+		// Keep original order on same length.
+		slices.SortStableFunc(l, func(a, b *match) int {
 			return cmp.Compare(b.size, a.size)
 		})
 		// Add route for found pattern from method and path.
 		mux.HandleFunc(pattern,
 			func(w http.ResponseWriter, r *http.Request) {
+				// Take params from URL and from POST data.
 				r.ParseForm()
 			MATCH:
 				for _, e := range l {
+					// Check if params of current request match specified params.
 					for k := range e.query {
-						if r.Form.Get(k) != e.query.Get(k) {
+						if e.query.Get(k) != r.Form.Get(k) {
 							continue MATCH
 						}
 					}
