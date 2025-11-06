@@ -260,8 +260,8 @@ func (s *State) httpPrefixPostLog(params string, logFH *os.File,
 ) ([]byte, error) {
 	errlog.DoLog(logFH, s.url)
 	errlog.DoLog(logFH, "DATA: key=xxx&"+params)
-	data := "key=" + s.apiKey + "&" + params
-	body, err := s.httpPost(s.url, data)
+	params = "key=" + s.apiKey + "&" + params
+	body, err := s.httpPost(s.url, params)
 	errlog.DoLog(logFH, string(body))
 	return body, err
 }
