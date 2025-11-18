@@ -104,7 +104,16 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			chg2[attr] = map[string][]string{"remove": remove}
 		}
 	}
-	// Compare objects defined from Netspoc with objects from device.
+	hasChange := func(aL []chkpName) bool {
+		for _, name := range aL {
+			if aObj, found := lookup(string(name)); found && aObj.getChanged() {
+				return true
+			}
+		}
+		return false
+	}
+	// Compare objects defined from Netspoc with objects from device
+	// and mark changed objects.
 	for _, bObj := range getObjList(b) {
 		name := bObj.getName()
 		if aObj, found := lookup(name); found {
@@ -118,14 +127,15 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				chg1 := make(jsonMap)
 				chg2 := make(jsonMap)
 				compareObjects("members", chg1, chg2, aGrp.Members, bGrp.Members)
-				if len(chg1) > 0 {
-					chg1["uid"] = aGrp.UID
-					addChange("set-group", chg1)
+				add := func(chg jsonMap) {
+					if len(chg) > 0 {
+						chg["uid"] = aGrp.UID
+						addChange("set-group", chg)
+						aGrp.changed = true
+					}
 				}
-				if len(chg2) > 0 {
-					chg2["uid"] = aGrp.UID
-					addChange("set-group", chg2)
-				}
+				add(chg1)
+				add(chg2)
 			default:
 				uid := aObj.getUID()
 				bObj.setUID(uid)
@@ -136,6 +146,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				if d := cmp.Diff(ja, jb); d != "" {
 					// Modify existing object on device.
 					addChange("set-"+bObj.getAPIObject(), bObj)
+					aObj.setChanged()
 				}
 			}
 		} else {
@@ -152,6 +163,27 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 			bObj.setUID("")
 			addChange("add-"+bObj.getAPIObject(), bObj)
 		}
+	}
+	// Mark groups as changed, that reference changed objects.
+	var markChanged func(*chkpGroup)
+	markChanged = func(group *chkpGroup) {
+		for _, name := range group.Members {
+			if obj, found := lookup(string(name)); found {
+				if obj.getChanged() {
+					group.changed = true
+					break
+				} else if g2, ok := obj.(*chkpGroup); ok {
+					markChanged(g2)
+					if g2.changed {
+						group.changed = true
+						break
+					}
+				}
+			}
+		}
+	}
+	for _, g := range a.Groups {
+		markChanged(g)
 	}
 	// Compare rules.
 	ab := &rulesPair{
@@ -264,8 +296,17 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 						addChange("set-access-rule", chg)
 					}
 				}
-				add(chg1)
-				add(chg2)
+				if len(chg1) != 0 || len(chg2) != 0 {
+					add(chg1)
+					add(chg2)
+				} else {
+					if hasChange(aRule.Source) ||
+						hasChange(aRule.Destination) ||
+						hasChange(aRule.Service) {
+
+						setInstallOn(aRule)
+					}
+				}
 			}
 		}
 	}

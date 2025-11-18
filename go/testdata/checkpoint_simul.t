@@ -374,6 +374,99 @@ POST /web_api/
 =END=
 
 ############################################################
+=TITLE=Unchanged rule references changed object
+=SCENARIO=
+[[standard]]
+POST /web_api/show-access-rulebase
+{
+  "from" : 1,
+  "to" : 1,
+  "total" : 1,
+  "rulebase" : [ {
+    "name" : "rule1",
+    "uid": "id1",
+    "action" : "Accept",
+    "source" : ["my-group"],
+    "destination" : ["Any"],
+    "service" : ["https"],
+    "install-on" : ["test-fw"]
+  } ]
+}
+POST /web_api/show-groups
+{
+  "from" : 1,
+  "to" : 1,
+  "total" : 1,
+  "objects" : [ {
+   "name": "my-group",
+   "uid": "id-1",
+   "members": ["my-net"]
+  } ]
+}
+POST /web_api/show-networks
+{
+  "from" : 1,
+  "to" : 1,
+  "total" : 1,
+  "objects" : [ {
+   "name": "my-net",
+   "uid": "my-net",
+   "subnet4": "10.1.2.0",
+   "mask-length4": 25
+  } ]
+}
+POST /web_api/
+{}
+=NETSPOC=
+{
+  "Rules": [
+   {
+     "name": "rule1",
+     "action": "Accept",
+     "source": ["my-group"],
+     "destination": ["Any"],
+     "service": ["https"],
+     "install-on": ["test-fw"]
+   }
+  ],
+  "Groups": [{ "name": "my-group", "members": ["my-net"] }],
+  "Networks": [{ "name": "my-net", "subnet4": "10.1.2.0", "mask-length4": 24 }]
+}
+=OUTPUT=
+--router.change
+/web_api/set-network
+{"uid":"my-net","subnet4":"10.1.2.0","mask-length4":24}
+{}
+
+/web_api/publish
+{}
+{}
+
+/web_api/show-task
+{"task-id":""}
+{
+  "Tasks": [ {
+    "status" : "succeeded",
+    "task-name" : ""
+  } ]
+}
+
+/web_api/install-policy
+{"policy-package":"standard","targets":["test-fw"]}
+{}
+
+/web_api/show-task
+{"task-id":""}
+{
+  "Tasks": [ {
+    "status" : "succeeded",
+    "task-name" : ""
+  } ]
+}
+
+=END=
+
+############################################################
 =TITLE=Use gateway IP in GAIA API for changing static routes
 =SCENARIO=
 [[standard]]

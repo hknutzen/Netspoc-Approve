@@ -97,6 +97,8 @@ type object interface {
 	setNeeded()
 	getDeletable() bool
 	setDeletable()
+	getChanged() bool
+	setChanged()
 }
 
 type chkpObject struct {
@@ -107,6 +109,7 @@ type chkpObject struct {
 	ReadOnly       bool   `json:"read-only,omitempty"`
 	needed         bool
 	deletable      bool
+	changed        bool
 }
 
 func (o *chkpObject) getName() string     { return o.Name }
@@ -120,6 +123,8 @@ func (o *chkpObject) getNeeded() bool     { return o.needed }
 func (o *chkpObject) setNeeded()          { o.needed = true }
 func (o *chkpObject) getDeletable() bool  { return o.deletable }
 func (o *chkpObject) setDeletable()       { o.deletable = true }
+func (o *chkpObject) getChanged() bool    { return o.changed }
+func (o *chkpObject) setChanged()         { o.changed = true }
 
 func (o *chkpNetwork) getAPIObject() string { return "network" }
 func (o *chkpHost) getAPIObject() string    { return "host" }
