@@ -381,12 +381,9 @@ func (s *State) discardSessions(logFh *os.File) error {
 		json.Unmarshal(body, &v)
 		if v.UserName == s.user && v.Application == "WEB_API" {
 			postData, _ := json.Marshal(jsonMap{"uid": v.UID})
-			body, err := s.sendRequest("/web_api/discard", postData, logFh)
+			// Ignore error and continue with next session.
+			body, _ := s.sendRequest("/web_api/discard", postData, logFh)
 			errlog.DoLog(logFh, string(body))
-			if err != nil {
-				// Ignore error and continue with next session.
-				continue
-			}
 		}
 	}
 	return nil
