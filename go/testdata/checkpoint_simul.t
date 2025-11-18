@@ -73,7 +73,7 @@ ERROR>>> 404 page not found
 =TITLE=No sessions to discard and empty config
 =SCENARIO=
 [[standard]]
-POST /web_api
+POST /web_api/
 {}
 =NETSPOC=NONE
 =OUTPUT=
@@ -395,7 +395,7 @@ POST /web_api/show-simple-cluster
 }
 POST /web_api/gaia-api/v1.8/show-static-routes
 { "response-message": { "objects" : [] } }
-POST /web_api
+POST /web_api/
 {}
 =NETSPOC=
 { "GatewayRoutes": {
@@ -452,7 +452,7 @@ POST /web_api/show-simple-cluster
 }
 POST /web_api/gaia-api/v1.8/show-static-routes
 { "response-message": { "objects" : [] } }
-POST /web_api
+POST /web_api/
 {}
 =NETSPOC=
 { "GatewayRoutes": {} }
