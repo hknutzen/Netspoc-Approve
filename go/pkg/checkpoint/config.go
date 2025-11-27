@@ -34,28 +34,32 @@ func (s *State) mergeSpoc(b *chkpConfig) {
 	// Add rules.
 	// Rules are prepended per default.
 	// Rules with attribute .Append are appended after last non Drop line.
-	var prependACL, appendACL []*chkpRule
-	for _, ru := range b.Rules {
-		if ru.Append {
-			ru.Append = false
-			appendACL = append(appendACL, ru)
-		} else {
-			prependACL = append(prependACL, ru)
-		}
-	}
-	if len(prependACL) > 0 {
-		a.Rules = append(prependACL, a.Rules...)
-	}
-	if len(appendACL) > 0 {
-		// Find last non Drop line.
-		i := len(a.Rules) - 1
-		for ; i >= 0; i-- {
-			if a.Rules[i].Action != "Drop" {
-				i++
-				break
+	for target, bRules := range b.TargetRules {
+		aRules := a.TargetRules[target]
+		var prependACL, appendACL []*chkpRule
+		for _, ru := range bRules {
+			if ru.Append {
+				ru.Append = false
+				appendACL = append(appendACL, ru)
+			} else {
+				prependACL = append(prependACL, ru)
 			}
 		}
-		a.Rules = slices.Insert(a.Rules, i, appendACL...)
+		if len(prependACL) > 0 {
+			aRules = append(prependACL, aRules...)
+		}
+		if len(appendACL) > 0 {
+			// Find last non Drop line.
+			i := len(aRules) - 1
+			for ; i >= 0; i-- {
+				if aRules[i].Action != "Drop" {
+					i++
+					break
+				}
+			}
+			aRules = slices.Insert(aRules, i, appendACL...)
+		}
+		a.TargetRules[target] = aRules
 	}
 	for gw, lb := range b.GatewayRoutes {
 		a.GatewayRoutes[gw] = append(a.GatewayRoutes[gw], lb...)

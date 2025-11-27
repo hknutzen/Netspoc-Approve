@@ -10,6 +10,16 @@ POST /web_api/show-task
     "task-name" : ""
   } ]
 }
+POST /web_api/show-packages
+{
+  "packages": [ {
+    "name": "pkg1",
+    "access": true,
+    "comment": "Managed by NetSPoC",
+    "access-layers": ["network"],
+    "installation-targets": ["fw1"]
+  }]
+}
 =END=
 
 ############################################################
@@ -87,6 +97,8 @@ TESTSERVER/web_api/login
 
 /web_api/show-sessions
 {"details-level": "uid"}
+/web_api/show-packages
+{"details-level": "full"}
 /web_api/show-access-rulebase
 {"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
 /web_api/show-networks
@@ -144,6 +156,8 @@ TESTSERVER/web_api/login
 {"uid":"id1"}
 {}
 
+/web_api/show-packages
+{"details-level": "full"}
 /web_api/show-access-rulebase
 {"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
 404
@@ -196,6 +210,8 @@ TESTSERVER/web_api/login
 404 page not found
 
 
+/web_api/show-packages
+{"details-level": "full"}
 /web_api/show-access-rulebase
 {"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
 404
@@ -206,8 +222,18 @@ TESTSERVER/web_api/login
 ############################################################
 =TITLE=Invalid config in response
 =SCENARIO=
-[[standard]]
-POST /web_api/show-access-rulebase
+POST /web_api/login
+{
+  "sid": "secret"
+}
+POST /web_api/show-task
+{
+  "Tasks": [ {
+    "status" : "succeeded",
+    "task-name" : ""
+  } ]
+}
+POST /web_api/show-packages
 INVALID
 POST /web_api/
 {}
@@ -241,7 +267,7 @@ POST /web_api/show-access-rulebase
       "name" : "Accept"
     },
     "install-on" : [ {
-      "name" : "gw7"
+      "name" : "Policy Targets"
     } ],
     "tags" : [ ]
   } ]
@@ -249,7 +275,7 @@ POST /web_api/show-access-rulebase
 POST /web_api/
 {}
 =NETSPOC=
-{}
+{ "TargetRules": {"fw1": []} }
 =OUTPUT=
 --router.login
 TESTSERVER/web_api/login
@@ -261,6 +287,8 @@ TESTSERVER/web_api/login
 
 /web_api/show-sessions
 {"details-level": "uid"}
+/web_api/show-packages
+{"details-level": "full"}
 /web_api/show-access-rulebase
 {"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
 /web_api/show-networks
@@ -284,7 +312,7 @@ TESTSERVER/web_api/login
 /web_api/show-simple-clusters
 {"details-level": "uid"}
 --router.config
-{"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"Rules":[{"name":"rule1","uid":"id1","source":[{"name":"Any"}],"destination":[{"name":"Any"}],"service":[{"name":"icmp-proto"}],"action":{"name":"Accept"},"install-on":[{"name":"gw7"}],"tags":[]}],"SvOther":null,"TCP":null,"UDP":null}
+{"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"SvOther":null,"TCP":null,"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":[{"name":"rule1","uid":"id1","source":[{"name":"Any"}],"destination":[{"name":"Any"}],"service":[{"name":"icmp-proto"}],"action":{"name":"Accept"},"install-on":[{"name":"Policy Targets"}],"tags":[]}]},"UDP":null}
 --router.change
 /web_api/delete-access-rule
 {"layer":"network","uid":"id1"}
@@ -304,7 +332,7 @@ TESTSERVER/web_api/login
 }
 
 /web_api/install-policy
-{"policy-package":"standard","targets":["gw7"]}
+{"policy-package":"pkg1","targets":["fw1"]}
 {}
 
 /web_api/show-task
@@ -325,24 +353,23 @@ TESTSERVER/web_api/login
 POST /web_api/
 {}
 =NETSPOC=
-{
-  "Rules": [
+{ "TargetRules": {"fw1": [
    {
      "name": "rule1",
      "action": "Accept",
      "source": ["Any"],
      "destination": ["Any"],
      "service": ["https"],
-     "install-on": ["test-fw"]
+     "install-on": ["Policy Targets"]
    }
-  ]
+  ]}
 }
 =OUTPUT=
 --router.config
-{"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"Rules":null,"SvOther":null,"TCP":null,"UDP":null}
+{"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"SvOther":null,"TCP":null,"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":null},"UDP":null}
 --router.change
 /web_api/add-access-rule
-{"name":"rule1","layer":"network","action":"Accept","source":["Any"],"destination":["Any"],"service":["https"],"install-on":["test-fw"],"position":"bottom"}
+{"name":"rule1","layer":"network","action":"Accept","source":["Any"],"destination":["Any"],"service":["https"],"install-on":["Policy Targets"],"position":"bottom"}
 {}
 
 /web_api/publish
@@ -359,7 +386,7 @@ POST /web_api/
 }
 
 /web_api/install-policy
-{"policy-package":"standard","targets":["test-fw"]}
+{"policy-package":"pkg1","targets":["fw1"]}
 {}
 
 /web_api/show-task
@@ -389,7 +416,7 @@ POST /web_api/show-access-rulebase
     "source" : ["my-group"],
     "destination" : ["Any"],
     "service" : ["https"],
-    "install-on" : ["test-fw"]
+    "install-on" : ["Policy Targets"]
   } ]
 }
 POST /web_api/show-groups
@@ -418,17 +445,16 @@ POST /web_api/show-networks
 POST /web_api/
 {}
 =NETSPOC=
-{
-  "Rules": [
+{ "TargetRules": {"fw1": [
    {
      "name": "rule1",
      "action": "Accept",
      "source": ["my-group"],
      "destination": ["Any"],
      "service": ["https"],
-     "install-on": ["test-fw"]
+     "install-on": ["Policy Targets"]
    }
-  ],
+  ]},
   "Groups": [{ "name": "my-group", "members": ["my-net"] }],
   "Networks": [{ "name": "my-net", "subnet4": "10.1.2.0", "mask-length4": 24 }]
 }
@@ -452,7 +478,7 @@ POST /web_api/
 }
 
 /web_api/install-policy
-{"policy-package":"standard","targets":["test-fw"]}
+{"policy-package":"pkg1","targets":["fw1"]}
 {}
 
 /web_api/show-task
@@ -560,6 +586,8 @@ TESTSERVER/web_api/login
 
 /web_api/show-sessions
 {"details-level": "uid"}
+/web_api/show-packages
+{"details-level": "full"}
 /web_api/show-access-rulebase
 {"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
 /web_api/show-networks

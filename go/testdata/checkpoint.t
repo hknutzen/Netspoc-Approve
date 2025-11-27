@@ -5,7 +5,7 @@
   "source": ["Any"],
   "destination": ["Any"],
   "service": ["{{.}}"],
-  "install-on": ["test-fw"]
+  "install-on": ["Policy Targets"]
 }
 =END=
 
@@ -17,20 +17,19 @@
   "source": ["Any"],
   "destination": ["Any"],
   "service": ["{{.}}"],
-  "install-on": ["test-fw"]
+  "install-on": ["Policy Targets"]
 }
 =END=
 
 ############################################################
 =TITLE=Add simple rules to empty device
 =DEVICE=
-{}
+{"TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}}}
 =NETSPOC=
-{
-  "Rules": [
+{"TargetRules": {"fw1": [
     [[rule http]],
     [[rule https]]
-  ]
+  ]}
 }
 =OUTPUT=
 add-access-rule
@@ -41,7 +40,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["http"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 add-access-rule
 {
@@ -51,7 +50,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["https"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 =END=
 
@@ -59,13 +58,16 @@ add-access-rule
 =TITLE=Remove simple rules from device
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     [[idrule http]],
     [[idrule https]]
-  ]
+  ]}
 }
 =NETSPOC=
-{}
+{
+  "TargetRules": { "fw1": []}
+}
 =OUTPUT=
 delete-access-rule
 {"layer":"network","uid":"id-http"}
@@ -77,16 +79,17 @@ delete-access-rule
 =TITLE=Replace simple rule, ignore uid from Netspoc
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     [[idrule http]],
     [[idrule smtp]]
-  ]
+  ]}
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     [[idrule https]]
-  ]
+  ]}
 }
 =OUTPUT=
 delete-access-rule
@@ -99,7 +102,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["https"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 delete-access-rule
 {"layer":"network","uid":"id-smtp"}
@@ -108,19 +111,19 @@ delete-access-rule
 ############################################################
 =TITLE=Add rule and new objects
 =DEVICE=
-{}
+{"TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}}}
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     {
       "name": "test rule",
       "action": "Accept",
       "source": ["n_10.1.1.0-24", "n_10.1.2.0-24"],
       "destination": ["h_10.1.8.1", "h_10.1.9.9"],
       "service": ["tcp_81", "udp_123"],
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     }
- ],
+  ]},
   "Networks": [
     {
       "name": "n_10.1.1.0-24",
@@ -176,7 +179,7 @@ add-access-rule
  "source":["n_10.1.1.0-24","n_10.1.2.0-24"],
  "destination":["h_10.1.8.1","h_10.1.9.9"],
  "service":["tcp_81","udp_123"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 =END=
 
@@ -184,7 +187,8 @@ add-access-rule
 =TITLE=Delete rule and referenced objects
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     {
       "name": "test rule",
       "uid": "id-test",
@@ -192,9 +196,9 @@ add-access-rule
       "source": ["n_10.1.1.0-24", "n_10.1.2.0-24"],
       "destination": ["h_10.1.8.1", "h_10.1.9.9"],
       "service": ["tcp_81", "udp_123"],
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     }
- ],
+ ]},
   "Networks": [
     {
       "name": "n_10.1.1.0-24",
@@ -237,7 +241,9 @@ add-access-rule
  ]
 }
 =NETSPOC=
-{}
+{
+  "TargetRules": {"fw1": []}
+}
 =OUTPUT=
 delete-access-rule
 {"layer":"network",
@@ -260,7 +266,8 @@ delete-service-udp
 =TITLE=Change rule and referenced objects
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     {
       "name": "test rule",
       "uid": "id-test",
@@ -268,9 +275,9 @@ delete-service-udp
       "source": ["DöMINET", "n_10.1.2.0-24"],
       "destination": ["h_10.1.8.1", "h_10.1.9.9"],
       "service": ["tcp_81", "udp_123"],
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     }
- ],
+ ]},
   "Networks": [
     {
       "name": "DöMINET",
@@ -314,16 +321,16 @@ delete-service-udp
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     {
       "name": "test rule",
       "action": "Accept",
       "source": ["Döminet", "n_10.1.2.0-24", "n_10.1.3.0-24"],
       "destination": ["h_10.1.8.1", "h_10.1.9.1"],
       "service": ["tcp_81"],
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     }
- ],
+ ]},
   "Networks": [
     {
       "name": "Döminet",
@@ -377,16 +384,17 @@ delete-service-udp
 =TITLE=Prepend rule at top
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     [[idrule http]]
-    ]
+  ]}
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     [[rule https]],
     [[rule http]]
-    ]
+  ]}
 }
 =OUTPUT=
 add-access-rule
@@ -397,7 +405,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["https"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":{"above":"id-http"}}
 =END=
 
@@ -405,16 +413,17 @@ add-access-rule
 =TITLE=Append rule at bottom
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     [[rule http]]
-  ]
+  ]}
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     [[rule http]],
     [[rule https]]
-  ]
+  ]}
 }
 =OUTPUT=
 add-access-rule
@@ -425,7 +434,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["https"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 =END=
 
@@ -433,19 +442,20 @@ add-access-rule
 =TITLE=Replace rule between unchanged rules
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     [[idrule http]],
     [[idrule https]],
     [[idrule ldap]]
-  ]
+  ]}
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     [[rule http]],
     [[rule ssh]],
     [[rule ldap]]
-  ]
+  ]}
 }
 =OUTPUT=
 delete-access-rule
@@ -458,7 +468,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["ssh"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":{"above":"id-ldap"}}
 =END=
 
@@ -466,20 +476,21 @@ add-access-rule
 =TITLE=Replace 2 by 3 rules after 1 unchanged
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     [[idrule http]],
     [[idrule https]],
     [[idrule ldap]]
-  ]
+  ]}
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     [[rule http]],
     [[rule ssh]],
     [[rule smtp]],
     [[rule pop-3]]
-  ]
+  ]}
 }
 =OUTPUT=
 delete-access-rule
@@ -494,7 +505,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["ssh"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 add-access-rule
 {
@@ -504,7 +515,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["smtp"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 add-access-rule
 {
@@ -514,7 +525,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["pop-3"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 =END=
 
@@ -522,17 +533,18 @@ add-access-rule
 =TITLE=Replace last rule
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     [[idrule http]],
     [[idrule https]]
-  ]
+  ]}
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     [[rule http]],
     [[rule ssh]]
-  ]
+  ]}
 }
 =OUTPUT=
 delete-access-rule
@@ -545,7 +557,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["ssh"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 =END=
 
@@ -553,7 +565,8 @@ add-access-rule
 =TITLE=Change typically unused attributes
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     {
       "name": "test",
       "uid": "id-test",
@@ -563,13 +576,13 @@ add-access-rule
       "destination-negate": true,
       "service-negate": true,
       "enabled": false,
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     }
-  ]
+  ]}
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     {
       "name": "test",
       "action": "Drop",
@@ -582,9 +595,9 @@ add-access-rule
         "enable-firewall-session": false,
         "alert": "none"
       },
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     }
-  ]
+  ]}
 }
 =OUTPUT=
 set-access-rule
@@ -604,7 +617,8 @@ set-access-rule
 =TITLE=Equal attribute track
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     {
       "name": "test",
       "uid": "id-test",
@@ -617,72 +631,52 @@ set-access-rule
         "enable-firewall-session": false,
         "alert": "none"
       },
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     }
-  ]
+  ]}
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     {
       "name": "test",
       "action": "Accept",
       "track":{"alert":"none","per-connection":true,"type":"Log"},
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     }
-  ]
+  ]}
 }
 =OUTPUT=NONE
 
 ############################################################
-=TITLE=Change attribute "install-on"
+=TITLE=Invalid value in attribute "install-on"
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     {
       "name": "http",
       "uid": "id-http",
-      "action": "Accept",
-      "source": ["Any"],
-      "destination": ["Any"],
-      "service": ["http"],
-      "install-on": ["test-fw"]
-    }
-  ]
-}
-=NETSPOC=
-{
-  "Rules": [
-    {
-      "name": "http",
       "action": "Accept",
       "source": ["Any"],
       "destination": ["Any"],
       "service": ["http"],
       "install-on": ["other-fw"]
     }
-  ]
+  ]}
 }
-=OUTPUT=
-add-access-rule
-{
- "name":"http",
- "layer":"network",
- "action":"Accept",
- "source":["Any"],
- "destination":["Any"],
- "service":["http"],
- "install-on":["other-fw"],
- "position":"bottom"}
-delete-access-rule
-{"layer":"network","uid":"id-http"}
+=NETSPOC=
+{"TargetRules": {"fw1": []}}
+=ERROR=
+ERROR>>> Must use "install-on": ["Policy Targets"] in rule "http" of "fw1"
 =END=
 
 ############################################################
-=TITLE=Equal "install-on" with different order and different case
+=TITLE=Too many values in attribute "install-on"
 =DEVICE=
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     {
       "name": "http",
       "uid": "id-http",
@@ -690,91 +684,82 @@ delete-access-rule
       "source": ["Any"],
       "destination": ["Any"],
       "service": ["http"],
-      "install-on": ["test-fw", "other-fw"]
+      "install-on": ["Policy Targets", "other-fw"]
     }
-  ]
+  ]}
 }
 =NETSPOC=
-{
-  "Rules": [
-    {
-      "name": "http",
-      "action": "Accept",
-      "source": ["Any"],
-      "destination": ["Any"],
-      "service": ["http"],
-      "install-on": ["other-fw", "TEST-FW"]
-    }
-  ]
-}
-=OUTPUT=NONE
+{"TargetRules": {"fw1": []}}
+=ERROR=
+ERROR>>> Must use "install-on": ["Policy Targets"] in rule "http" of "fw1"
+=END=
 
 ############################################################
-=TITLE=Delete, add rule with duplicate name and different install-on
+=TITLE=Missing policy package on device
+=DEVICE=
+{}
+=NETSPOC=
+{"TargetRules": {"fw1": []}}
+=ERROR=
+ERROR>>> Missing policy package for target "fw1"
+=END=
+
+############################################################
+=TITLE=Identical rule name in different layers
 =DEVICE=
 {
-  "Rules": [
-    {
+  "TargetPolicy": {"fw1": {"Name": "p1", "Layer": "layer1"},
+                   "fw2": {"Name": "p2", "Layer": "layer2"}},
+  "TargetRules": {
+    "fw1": [{
       "name": "http",
       "uid": "id-http",
       "action": "Accept",
       "source": ["Any"],
       "destination": ["Any"],
       "service": ["http"],
-      "install-on": ["test-fw"]
-    },
-    {
+      "install-on": ["Policy Targets"]
+    }],
+    "fw2": [{
       "name": "http",
       "uid": "id-http2",
       "action": "Accept",
       "source": ["Any"],
       "destination": ["Any"],
       "service": ["http"],
-      "install-on": ["other-fw"]
-    }
-  ]
+      "install-on": ["Policy Targets"]
+    }]
+  }
 }
 =NETSPOC=
 {
-  "Rules": [
-    {
+  "TargetRules": {
+    "fw2": [{
       "name": "http",
       "action": "Accept",
       "source": ["Any"],
       "destination": ["Any"],
       "service": ["http"],
-      "install-on": ["other-fw"]
-    },
-    {
+      "install-on": ["Policy Targets"]
+    }],
+    "fw1": [{
       "name": "http",
       "action": "Accept",
       "source": ["Any"],
       "destination": ["Any"],
       "service": ["http"],
-      "install-on": ["test-fw"]
-    }
-  ]
+      "install-on": ["Policy Targets"]
+    }]
+  }
 }
-=OUTPUT=
-delete-access-rule
-{"layer":"network","uid":"id-http"}
-add-access-rule
-{
- "name":"http",
- "layer":"network",
- "action":"Accept",
- "source":["Any"],
- "destination":["Any"],
- "service":["http"],
- "install-on":["test-fw"],
- "position":"bottom"}
-=END=
+=OUTPUT=NONE
 
 ############################################################
 =TITLE=Change attributes of referenced objects
 =TEMPL=input
 {
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     {
       "name": "test rule",
       "uid": "id-test",
@@ -782,9 +767,9 @@ add-access-rule
       "source": ["my-group"],
       "destination": ["my-host"],
       "service": ["my-srv"],
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     }
-  ],
+  ]},
   "Groups": [{ "name": "my-group", "members": ["my-net"] }],
   "Networks": [{ "name": "my-net", "uid": "my-net", "subnet4": "10.1.2.0", "mask-length4": 24 }],
   "Hosts": [{ "name": "my-host", "uid": "my-host", "ipv4-address": "10.1.9.9" }],
@@ -827,7 +812,8 @@ set-service-tcp
       "read-only": true
     }
   ],
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     {
       "name": "echo-reply",
       "uid": "id-echo-reply",
@@ -835,17 +821,17 @@ set-service-tcp
       "source": ["Any"],
       "destination": ["Any"],
       "service": ["redirect"],
-      "install-on": ["test-fw"]
+      "install-on": ["Policy Targets"]
     },
     [[idrule source-quench]]
-  ]
+  ]}
 }
 =NETSPOC=
 {
-  "Rules": [
+  "TargetRules": {"fw1": [
     [[rule echo-reply]],
     [[rule dest-unreach]]
-  ]
+  ]}
 }
 =OUTPUT=
 set-access-rule
@@ -862,7 +848,7 @@ add-access-rule
  "source":["Any"],
  "destination":["Any"],
  "service":["dest-unreach"],
- "install-on":["test-fw"],
+ "install-on":["Policy Targets"],
  "position":"bottom"}
 =END=
 
@@ -889,12 +875,14 @@ add-access-rule
       "icmp-code": 1
     }
   ],
-  "Rules": [
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
     [[idrule icmp-2]]
-  ]
+  ]}
 }
 =NETSPOC=
 {
+  "TargetRules": {"fw1": []},
   "ICMP": [
     {
       "name": "icmp-2-0",

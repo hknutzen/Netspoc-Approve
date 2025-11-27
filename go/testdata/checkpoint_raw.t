@@ -5,7 +5,7 @@
 =NETSPOC=
 --router.raw
 {
- "Rules": [{ "name": "test" }]
+ "TargetRules": {"fw1": [{ "name": "test" }]}
 }
 =ERROR=
 ERROR>>> While reading file router.raw: Must only define name starting with 'Raw ': test
@@ -44,7 +44,9 @@ ERROR>>> While reading file router.raw: Must only define name starting with 'Raw
 =NETSPOC=
 --router.raw
 {
- "Rules": [{ "name": "Raw rule", "source": ["Raw ref", "Net_10.1.0.0-16"] }]
+ "TargetRules": {"fw1": [
+  { "name": "Raw rule", "source": ["Raw ref", "Net_10.1.0.0-16"] }
+ ]}
 }
 =ERROR=
 ERROR>>> While reading file router.raw: Must not reference name from Netspoc in "Raw rule": Net_10.1.0.0-16
@@ -57,7 +59,9 @@ ERROR>>> While reading file router.raw: Must not reference name from Netspoc in 
 =NETSPOC=
 --router.raw
 {
- "Rules": [{ "name": "Raw rule", "service": ["http", "tcp_8080"] }]
+ "TargetRules": {"fw1":
+  [{ "name": "Raw rule", "service": ["http", "tcp_8080"] }]
+ }
 }
 =ERROR=
 ERROR>>> While reading file router.raw: Must not reference name from Netspoc in "Raw rule": tcp_8080
@@ -77,41 +81,88 @@ ERROR>>> While reading file router.raw: Must not reference name from Netspoc in 
 =END=
 
 ############################################################
+=TITLE=Check attribute "install-on" from raw
+=DEVICE=
+{ "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}} }
+=NETSPOC=
+--router
+{
+  "TargetRules": {"fw1": []}
+}
+--router.raw
+{
+  "TargetRules": {"fw1": [
+    {
+      "name": "Raw http",
+      "uid": "id-http",
+      "action": "Accept",
+      "source": ["Any"],
+      "destination": ["Any"],
+      "service": ["http"],
+      "install-on": ["other-fw"]
+    }
+  ]}
+}
+=ERROR=
+ERROR>>> While reading file router.raw: Must use "install-on": ["Policy Targets"] in rule "Raw http" of "fw1"
+=END=
+
+############################################################
 =TITLE=Merge rule from raw with rule from netspoc
 =DEVICE=
-{ "Rules": [
- { "name": "rule_1", "uid": "id-1", "action": "Accept", "service": ["http"] },
- { "name": "rule_2", "uid": "id-2", "action": "Drop" }
-]}
+{ "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
+   { "name": "rule_1", "uid": "id-1", "install-on": ["Policy Targets"],
+     "action": "Accept", "service": ["http"] },
+   { "name": "rule_2", "uid": "id-2", "install-on": ["Policy Targets"],
+     "action": "Drop" }
+  ]}
+}
 =NETSPOC=
 -- router
-{ "Rules": [
- { "name": "rule_1", "action": "Accept", "service": ["http"] },
- { "name": "rule_2", "action": "Drop" }
-]}
+{ "TargetRules": {"fw1": [
+   { "name": "rule_1", "install-on": ["Policy Targets"],
+     "action": "Accept", "service": ["http"] },
+   { "name": "rule_2", "install-on": ["Policy Targets"],
+     "action": "Drop" }
+  ]}
+}
 -- router.raw
-{ "Rules": [
-   { "name": "Raw top", "action": "Accept", "service": ["https"],"enabled":true},
-   { "name": "Raw bot", "action": "Accept", "service": ["smtp"], "append": true }
-  ]
+{ "TargetRules": {"fw1": [
+   { "name": "Raw top", "install-on": ["Policy Targets"],
+     "action": "Accept", "service": ["https"],"enabled":true},
+   { "name": "Raw bot", "install-on": ["Policy Targets"],
+     "action": "Accept", "service": ["smtp"], "append": true }
+  ]}
 }
 =OUTPUT=
 add-access-rule
-{"name":"Raw top","layer":"network","action":"Accept","source":null,"destination":null,"service":["https"],"install-on":null,"position":{"above":"id-1"}}
+{"name":"Raw top","layer":"network",
+ "action":"Accept","source":null,"destination":null,"service":["https"],
+ "install-on":["Policy Targets"],"position":{"above":"id-1"}}
 add-access-rule
-{"name":"Raw bot","layer":"network","action":"Accept","source":null,"destination":null,"service":["smtp"],"install-on":null,"position":{"above":"id-2"}}
+{"name":"Raw bot","layer":"network",
+ "action":"Accept","source":null,"destination":null,"service":["smtp"],
+ "install-on":["Policy Targets"],"position":{"above":"id-2"}}
 =END=
 
 ############################################################
 =TITLE=Merge host, group, service and rule from raw
 =DEVICE=
-{ "Rules": [ { "name": "Cleanup rule", "uid": "id", "action": "Drop" } ]
+{"TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+ "TargetRules": {"fw1": [
+  { "name": "Cleanup rule", "uid": "id", "install-on": ["Policy Targets"],
+    "action": "Drop" }
+ ]}
 }
 =NETSPOC=
 -- router
-{ "Rules": [
- { "name": "rule_1", "action": "Accept", "source": ["g1"], "service": ["tcp_8080"] },
- { "name": "Cleanup rule", "action": "Drop" } ],
+{"TargetRules": {"fw1": [
+   { "name": "rule_1", "install-on": ["Policy Targets"],
+     "action": "Accept", "source": ["g1"], "service": ["tcp_8080"] },
+   { "name": "Cleanup rule", "install-on": ["Policy Targets"],
+     "action": "Drop" }
+ ]},
  "Hosts": [
  { "name": "h_1", "ipv4-address": "10.1.8.1" } ],
  "Groups": [
@@ -120,8 +171,9 @@ add-access-rule
  { "name": "tcp_8080", "port": "8080" } ]
 }
 -- router.raw
-{ "Rules": [
- { "name": "Raw 2", "action": "Accept", "source": ["Raw g2"], "service": ["Raw s2"], "enabled": false } ],
+{"TargetRules": {"fw1": [
+  { "name": "Raw 2", "install-on": ["Policy Targets"],
+    "action": "Accept", "source": ["Raw g2"], "service": ["Raw s2"], "enabled": false } ]},
  "Hosts": [
  { "name": "Raw h2", "ipv4-address": "10.1.8.2" } ],
  "Groups": [
@@ -143,7 +195,11 @@ add-service-tcp
 add-service-tcp
 {"name":"Raw s2","ignore-warnings":true,"port":"8082"}
 add-access-rule
-{"name":"Raw 2","layer":"network","action":"Accept","source":["Raw g2"],"destination":null,"service":["Raw s2"],"enabled":false,"install-on":null,"position":{"above":"id"}}
+{"name":"Raw 2","layer":"network",
+ "action":"Accept","source":["Raw g2"],"destination":null,"service":["Raw s2"],
+ "enabled":false,"install-on":["Policy Targets"],"position":{"above":"id"}}
 add-access-rule
-{"name":"rule_1","layer":"network","action":"Accept","source":["g1"],"destination":null,"service":["tcp_8080"],"install-on":null,"position":{"above":"id"}}
+{"name":"rule_1","layer":"network",
+ "action":"Accept","source":["g1"],"destination":null,"service":["tcp_8080"],
+ "install-on":["Policy Targets"],"position":{"above":"id"}}
 =END=

@@ -2,7 +2,6 @@ package checkpoint
 
 import (
 	"encoding/json"
-	"maps"
 	"slices"
 	"strings"
 
@@ -21,20 +20,7 @@ func (ab *rulesPair) Equal(ai, bi int) bool {
 	aRule := ab.aRules[ai]
 	bRule := ab.bRules[bi]
 	// Checkpoint compares ASCII-case-insensitively.
-	if equalFold(aRule.Name, bRule.Name) {
-		// We may have different rules with identical name on different devices,
-		// because rule names are generated from service names in Netspoc.
-		// Reason is, that the same service may expand to different rules
-		// on different firewalls.
-		aL := ab.aRules[ai].InstallOn
-		bL := ab.bRules[bi].InstallOn
-		slices.SortFunc(aL, cmpFold)
-		slices.SortFunc(bL, cmpFold)
-		return slices.EqualFunc(aL, bL, func(a, b chkpName) bool {
-			return equalFold(string(a), string(b))
-		})
-	}
-	return false
+	return equalFold(aRule.Name, bRule.Name)
 }
 
 type namesPair struct {
@@ -54,12 +40,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	addChange := func(e string, d any) {
 		changes = append(changes, change{endpoint: e, postData: d})
 	}
-	installMap := make(map[string]bool)
-	setInstallOn := func(r *chkpRule) {
-		for _, name := range r.InstallOn {
-			installMap[string(name)] = true
-		}
-	}
+	var installTargets []string
 	aObjects := getObjList(a)
 	aObjMap := make(map[string]object)
 	for _, o := range aObjects {
@@ -186,128 +167,135 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 		markChanged(g)
 	}
 	// Compare rules.
-	ab := &rulesPair{
-		aRules: a.Rules,
-		bRules: b.Rules,
-	}
-	diff := myers.Diff(nil, ab).Ranges
-	// Fix result of myers.Diff.
-	// Insert position is set to 0,0 if edit script is a full replace.
-	// But we need to insert behind deleted rules.
-	if len(diff) == 2 {
-		if diff[0].IsDelete() && diff[0].Len() == len(a.Rules) &&
-			diff[1].IsInsert() && diff[1].Len() == len(b.Rules) {
-			diff[1].LowA = len(a.Rules)
-			diff[1].HighA = len(a.Rules)
-			// Deleting all rules before inserting new rules
-			// would result in this error:
-			//  Action cannot be executed on object:
-			//  Cleanup rule due to: Layer ('Network') has only one rule.
-			// Hence
-			// - delete rules up to the last but one rule,
-			// - then insert new rules,
-			// - then delete last rule.
-			if len(a.Rules) == 1 {
-				diff[0], diff[1] = diff[1], diff[0]
-			} else {
-				last := diff[0]
-				diff[0].HighA--
-				last.LowA = diff[0].HighA
-				diff = append(diff, last)
+	for target, bRules := range b.TargetRules {
+		layer := a.TargetPolicy[target].Layer
+		aRules := a.TargetRules[target]
+		needInstall := false
+		ab := &rulesPair{
+			aRules: aRules,
+			bRules: bRules,
+		}
+		diff := myers.Diff(nil, ab).Ranges
+		// Fix result of myers.Diff.
+		// Insert position is set to 0,0 if edit script is a full replace.
+		// But we need to insert behind deleted rules.
+		if len(diff) == 2 {
+			if diff[0].IsDelete() && diff[0].Len() == len(aRules) &&
+				diff[1].IsInsert() && diff[1].Len() == len(bRules) {
+				diff[1].LowA = len(aRules)
+				diff[1].HighA = len(aRules)
+				// Deleting all rules before inserting new rules
+				// would result in this error:
+				//  Action cannot be executed on object:
+				//  Cleanup rule due to: Layer ('Network') has only one rule.
+				// Hence
+				// - delete rules up to the last but one rule,
+				// - then insert new rules,
+				// - then delete last rule.
+				if len(aRules) == 1 {
+					diff[0], diff[1] = diff[1], diff[0]
+				} else {
+					last := diff[0]
+					diff[0].HighA--
+					last.LowA = diff[0].HighA
+					diff = append(diff, last)
+				}
 			}
 		}
-	}
-	for _, r := range diff {
-		if r.IsDelete() {
-			// Remove unneeded rules from device.
-			for _, aRule := range a.Rules[r.LowA:r.HighA] {
-				setInstallOn(aRule)
-				setDeletable := func(l []chkpName) {
-					for _, n := range l {
-						markDeletable(n)
+		for _, r := range diff {
+			if r.IsDelete() {
+				needInstall = true
+				// Remove unneeded rules from device.
+				for _, aRule := range aRules[r.LowA:r.HighA] {
+					setDeletable := func(l []chkpName) {
+						for _, n := range l {
+							markDeletable(n)
+						}
 					}
+					setDeletable(aRule.Source)
+					setDeletable(aRule.Destination)
+					setDeletable(aRule.Service)
+					addChange("delete-access-rule",
+						jsonMap{"uid": aRule.UID, "layer": layer})
 				}
-				setDeletable(aRule.Source)
-				setDeletable(aRule.Destination)
-				setDeletable(aRule.Service)
-				addChange("delete-access-rule",
-					jsonMap{"uid": aRule.UID, "layer": "network"})
-			}
-		} else if r.IsInsert() {
-			// Add rules from Netspoc
-			// - add before exiting rule on device or
-			// - add at bottom of ruleset.
-			var pos any
-			if r.LowA < len(a.Rules) {
-				pos = jsonMap{"above": a.Rules[r.LowA].UID}
-			} else {
-				pos = "bottom"
-			}
-			for _, bRule := range b.Rules[r.LowB:r.HighB] {
-				setInstallOn(bRule)
-				bRule.Position = pos
-				// Original UID must not be applied to device.
-				// This occurs if original config was read from file.
-				bRule.UID = ""
-				addChange("add-access-rule", bRule)
-			}
-		} else if r.IsEqual() {
-			// Change attributes of rules remaining at same position.
-			for i, aRule := range a.Rules[r.LowA:r.HighA] {
-				bRule := b.Rules[r.LowB:r.HighB][i]
-				aRule.needed = true
-				chg1 := make(jsonMap)
-				chg2 := make(jsonMap)
-				if aRule.Comments != bRule.Comments {
-					chg1["comments"] = bRule.Comments
+			} else if r.IsInsert() {
+				needInstall = true
+				// Add rules from Netspoc
+				// - add before exiting rule on device or
+				// - add at bottom of ruleset.
+				var pos any
+				if r.LowA < len(aRules) {
+					pos = jsonMap{"above": aRules[r.LowA].UID}
+				} else {
+					pos = "bottom"
 				}
-				if aRule.Action != bRule.Action {
-					chg1["action"] = bRule.Action
+				for _, bRule := range bRules[r.LowB:r.HighB] {
+					bRule.Layer = layer
+					bRule.Position = pos
+					// Original UID must not be applied to device.
+					// This occurs if original config was read from file.
+					bRule.UID = ""
+					addChange("add-access-rule", bRule)
 				}
-				if aRule.SourceNegate != bRule.SourceNegate {
-					chg1["source-negate"] = bRule.SourceNegate
-				}
-				if aRule.DestinationNegate != bRule.DestinationNegate {
-					chg1["destination-negate"] = bRule.DestinationNegate
-				}
-				if aRule.ServiceNegate != bRule.ServiceNegate {
-					chg1["service-negate"] = bRule.ServiceNegate
-				}
-				if aRule.Disabled != bRule.Disabled {
-					chg1["enabled"] = !bRule.Disabled
-				}
-				t1, t2 := aRule.Track, bRule.Track
-				if t1 == nil || t2 == nil {
-					if t1 != t2 {
+			} else if r.IsEqual() {
+				// Change attributes of rules remaining at same position.
+				for i, aRule := range aRules[r.LowA:r.HighA] {
+					bRule := bRules[r.LowB:r.HighB][i]
+					aRule.needed = true
+					chg1 := make(jsonMap)
+					chg2 := make(jsonMap)
+					if aRule.Comments != bRule.Comments {
+						chg1["comments"] = bRule.Comments
+					}
+					if aRule.Action != bRule.Action {
+						chg1["action"] = bRule.Action
+					}
+					if aRule.SourceNegate != bRule.SourceNegate {
+						chg1["source-negate"] = bRule.SourceNegate
+					}
+					if aRule.DestinationNegate != bRule.DestinationNegate {
+						chg1["destination-negate"] = bRule.DestinationNegate
+					}
+					if aRule.ServiceNegate != bRule.ServiceNegate {
+						chg1["service-negate"] = bRule.ServiceNegate
+					}
+					if aRule.Disabled != bRule.Disabled {
+						chg1["enabled"] = !bRule.Disabled
+					}
+					if t1, t2 := aRule.Track, bRule.Track; t1 == nil || t2 == nil {
+						if t1 != t2 {
+							chg1["track"] = bRule.Track
+						}
+					} else if *t1 != *t2 {
 						chg1["track"] = bRule.Track
 					}
-				} else if *t1 != *t2 {
-					chg1["track"] = bRule.Track
-				}
-				compareObjects("source", chg1, chg2, aRule.Source, bRule.Source)
-				compareObjects("destination", chg1, chg2,
-					aRule.Destination, bRule.Destination)
-				compareObjects("service", chg1, chg2, aRule.Service, bRule.Service)
-				add := func(chg jsonMap) {
-					if len(chg) > 0 {
-						setInstallOn(bRule)
-						chg["uid"] = aRule.UID
-						chg["layer"] = "network"
-						addChange("set-access-rule", chg)
+					compareObjects("source", chg1, chg2, aRule.Source, bRule.Source)
+					compareObjects("destination", chg1, chg2,
+						aRule.Destination, bRule.Destination)
+					compareObjects("service", chg1, chg2,
+						aRule.Service, bRule.Service)
+					add := func(chg jsonMap) {
+						if len(chg) > 0 {
+							needInstall = true
+							chg["uid"] = aRule.UID
+							chg["layer"] = layer
+							addChange("set-access-rule", chg)
+						}
 					}
-				}
-				if len(chg1) != 0 || len(chg2) != 0 {
-					add(chg1)
-					add(chg2)
-				} else {
-					if hasChange(aRule.Source) ||
-						hasChange(aRule.Destination) ||
-						hasChange(aRule.Service) {
-
-						setInstallOn(aRule)
+					if len(chg1) != 0 || len(chg2) != 0 {
+						add(chg1)
+						add(chg2)
+					} else if !needInstall &&
+						(hasChange(aRule.Source) ||
+							hasChange(aRule.Destination) ||
+							hasChange(aRule.Service)) {
+						needInstall = true
 					}
 				}
 			}
+		}
+		if needInstall {
+			installTargets = append(installTargets, target)
 		}
 	}
 	willDelete := func(obj object) bool {
@@ -343,7 +331,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				jsonMap{"uid": aObj.getUID()})
 		}
 	}
-	return changes, slices.Sorted(maps.Keys(installMap))
+	return changes, installTargets
 }
 
 func getObjList(cf *chkpConfig) []object {

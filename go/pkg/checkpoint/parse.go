@@ -1,6 +1,7 @@
 package checkpoint
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -8,7 +9,8 @@ import (
 )
 
 type chkpConfig struct {
-	Rules         []*chkpRule
+	TargetPolicy  map[string]*chkpPolicy
+	TargetRules   map[string][]*chkpRule
 	Networks      []*chkpNetwork
 	Hosts         []*chkpHost
 	Groups        []*chkpGroup
@@ -19,6 +21,12 @@ type chkpConfig struct {
 	SvOther       []*chkpSvOther
 	GatewayRoutes map[string][]*chkpRoute
 	GatewayIPs    map[string][]string
+}
+
+type chkpPolicy struct {
+	Name    string
+	Layer   string
+	Comment string `json:",omitempty"`
 }
 
 type chkpRule struct {
@@ -207,9 +215,6 @@ func (s *State) ParseConfig(data []byte, fName string,
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range cf.Rules {
-		r.Layer = "network"
-	}
 	if path.Ext(fName) == ".raw" {
 		if err := checkRaw(cf); err != nil {
 			return nil, err
@@ -240,14 +245,19 @@ func checkRaw(cf *chkpConfig) error {
 		}
 		return nil
 	}
-	for _, r := range cf.Rules {
-		if err := checkName(r.Name); err != nil {
-			return err
-		}
-		for _, l := range [][]chkpName{r.Source, r.Destination, r.Service} {
-			if err := checkRef(r.Name, l); err != nil {
+	for target, rules := range cf.TargetRules {
+		for _, r := range rules {
+			if err := checkName(r.Name); err != nil {
 				return err
 			}
+			for _, l := range [][]chkpName{r.Source, r.Destination, r.Service} {
+				if err := checkRef(r.Name, l); err != nil {
+					return err
+				}
+			}
+		}
+		if err := checkInstallOn(rules, target); err != nil {
+			return err
 		}
 	}
 	for _, g := range cf.Groups {
@@ -259,6 +269,24 @@ func checkRaw(cf *chkpConfig) error {
 		if err := checkName(o.getName()); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func checkInstallOn(l []*chkpRule, target string) error {
+	for _, r := range l {
+		if l := r.InstallOn; len(l) == 1 {
+			if equalFold(string(l[0]), "Policy Targets") {
+				continue
+			}
+			if equalFold(string(l[0]), target) {
+				r.InstallOn[0] = chkpName("Policy Targets")
+				continue
+			}
+		}
+		return fmt.Errorf(
+			`Must use "install-on": ["Policy Targets"] in rule %q of %q`,
+			cmp.Or(r.Name, r.UID), target)
 	}
 	return nil
 }

@@ -20,15 +20,15 @@ import (
 )
 
 type State struct {
-	client       *http.Client
-	prefix       string
-	user         string
-	sid          string
-	deviceCfg    *chkpConfig
-	spocCfg      *chkpConfig
-	changes      []change
-	installOn    []string
-	routeChanges []change
+	client         *http.Client
+	prefix         string
+	user           string
+	sid            string
+	deviceCfg      *chkpConfig
+	spocCfg        *chkpConfig
+	changes        []change
+	installTargets []string
+	routeChanges   []change
 }
 type change struct {
 	endpoint string
@@ -144,12 +144,21 @@ func (s *State) LoadDevice(
 			args["offset"] = part.To
 		}
 	}
-	rawConf["Rules"] = collect0(extractRulebase, "show-access-rulebase",
-		jsonMap{
-			"name":                  "network",
-			"details-level":         "standard",
-			"use-object-dictionary": false,
-		})
+	targetPolicy, err := s.getTargetPolicy(logLogin)
+	if err != nil {
+		collectErr = err
+	}
+	rawConf["TargetPolicy"] = targetPolicy
+	targetRules := make(jsonMap)
+	for target, p := range targetPolicy {
+		targetRules[target] = collect0(extractRulebase, "show-access-rulebase",
+			jsonMap{
+				"name":                  p.Layer,
+				"details-level":         "standard",
+				"use-object-dictionary": false,
+			})
+	}
+	rawConf["TargetRules"] = targetRules
 	collect := func(attr, endPoint string, args jsonMap) {
 		rawConf[attr] = collect0(extractObject, endPoint, args)
 	}
@@ -163,7 +172,7 @@ func (s *State) LoadDevice(
 	collect("ICMP6", "show-services-icmp6", jsonMap{"details-level": "full"})
 	collect("SvOther", "show-services-other", jsonMap{"details-level": "full"})
 	// Collect static routes of all simple gateways and clusters.
-	getUIDs := func(kind string) []string {
+	getGatewayUIDs := func(kind string) []string {
 		if collectErr != nil {
 			return nil
 		}
@@ -201,7 +210,7 @@ func (s *State) LoadDevice(
 	routeMap := make(map[string][]json.RawMessage)
 	ipMap := make(map[string][]string)
 	for _, kind := range []string{"gateway", "cluster"} {
-		for _, uid := range getUIDs(kind) {
+		for _, uid := range getGatewayUIDs(kind) {
 			name, ip, ips := getNameIPList(kind, uid)
 			if collectErr != nil {
 				break
@@ -223,10 +232,10 @@ func (s *State) LoadDevice(
 	errlog.DoLog(logConfig, string(out))
 	s.deviceCfg, err = s.ParseConfig(out, "<device>")
 	if err != nil {
-		err = fmt.Errorf("While parsing device config: %v", err)
+		return fmt.Errorf("While parsing device config: %v", err)
 	}
 	s.deviceCfg.GatewayIPs = ipMap
-	return err
+	return nil
 }
 
 func (s *State) sendRequest(path string, body []byte, logFh *os.File,
@@ -260,7 +269,16 @@ func (s *State) sendRequest(path string, body []byte, logFh *os.File,
 }
 
 func (s *State) GetChanges() error {
-	s.changes, s.installOn = diffConfig(s.deviceCfg, s.spocCfg)
+	// Check for errors, before starting compare.
+	for t := range s.spocCfg.TargetRules {
+		if s.deviceCfg.TargetPolicy[t] == nil {
+			return fmt.Errorf("Missing policy package for target %q", t)
+		}
+		if err := checkInstallOn(s.deviceCfg.TargetRules[t], t); err != nil {
+			return err
+		}
+	}
+	s.changes, s.installTargets = diffConfig(s.deviceCfg, s.spocCfg)
 	s.routeChanges = diffRoutes(s.deviceCfg, s.spocCfg)
 	return nil
 }
@@ -347,9 +365,14 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 		if err := waitCmd("publish", jsonMap{}); err != nil {
 			return err
 		}
-		if err := waitCmd("install-policy",
-			jsonMap{"policy-package": "standard", "targets": s.installOn}); err != nil {
-			return err
+		for _, target := range s.installTargets {
+			pName := s.deviceCfg.TargetPolicy[target].Name
+			err := waitCmd("install-policy", jsonMap{
+				"policy-package": pName,
+				"targets":        []string{target}})
+			if err != nil {
+				return err
+			}
 		}
 	}
 	for _, c := range s.routeChanges {
@@ -399,8 +422,51 @@ func (s *State) getUIDs(call string, logFh *os.File) ([]string, error) {
 	var result struct {
 		Objects []string
 	}
-	json.Unmarshal(resp, &result)
-	return result.Objects, nil
+	err = json.Unmarshal(resp, &result)
+	return result.Objects, err
+}
+
+func (s *State) getTargetPolicy(logFh *os.File) (map[string]*chkpPolicy, error) {
+	url := "/web_api/show-packages"
+	args := []byte(`{"details-level": "full"}`)
+	resp, err := s.sendRequest(url, args, logFh)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Packages []*struct {
+			Name                string
+			Access              bool
+			Comment             string
+			AccessLayers        []chkpName `json:"access-layers"`
+			InstallationTargets []chkpName `json:"installation-targets"`
+		}
+	}
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	targetPolicy := make(map[string]*chkpPolicy)
+	for _, p := range result.Packages {
+		if p.Access {
+			if len(p.InstallationTargets) != 1 {
+				return nil, fmt.Errorf(
+					"Policy package %q must use exactly one installation-target",
+					p.Name)
+			}
+			target := string(p.InstallationTargets[0])
+			if len(p.AccessLayers) != 1 {
+				return nil, fmt.Errorf(
+					"Policy package %q must use exactly one access-layer", p.Name)
+			}
+			layer := string(p.AccessLayers[0])
+			targetPolicy[target] = &chkpPolicy{
+				Name:    p.Name,
+				Comment: p.Comment,
+				Layer:   layer,
+			}
+		}
+	}
+	return targetPolicy, nil
 }
 
 func (s *State) CloseConnection() {
@@ -409,4 +475,14 @@ func (s *State) CloseConnection() {
 	}
 }
 
-func (s *State) GetErrUnmanaged() []error { return nil }
+func (s *State) GetErrUnmanaged() []error {
+	var errors []error
+	for _, target := range s.installTargets {
+		p := s.deviceCfg.TargetPolicy[target]
+		if !strings.Contains(p.Comment, "NetSPoC") {
+			errors = append(errors,
+				fmt.Errorf(`Missing "NetSPoC" in comment of policy %q`, p.Name))
+		}
+	}
+	return errors
+}
