@@ -74,7 +74,7 @@ func (s *state) mergeSpoc(b *config) {
 	}
 	sort.Strings(warnings)
 	for _, w := range warnings {
-		errlog.Warning(w)
+		errlog.Warning("%v", w)
 	}
 }
 
