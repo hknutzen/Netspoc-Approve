@@ -215,9 +215,9 @@ func (s *State) LoadDevice(
 			if collectErr != nil {
 				break
 			}
+			ipMap[name] = ips
 			// Collect routes only if Netspoc has generated routes.
 			if len(s.spocCfg.GatewayRoutes[name]) > 0 {
-				ipMap[name] = ips
 				routeMap[name] = collect0(extractRoute,
 					"gaia-api/v1.8/show-static-routes",
 					jsonMap{"target": ip, "limit": 200})
@@ -225,6 +225,7 @@ func (s *State) LoadDevice(
 		}
 	}
 	rawConf["GatewayRoutes"] = routeMap
+	rawConf["GatewayIPs"] = ipMap
 	if collectErr != nil {
 		return fmt.Errorf("While reading device: %v", collectErr)
 	}
@@ -234,7 +235,6 @@ func (s *State) LoadDevice(
 	if err != nil {
 		return fmt.Errorf("While parsing device config: %v", err)
 	}
-	s.deviceCfg.GatewayIPs = ipMap
 	return nil
 }
 
