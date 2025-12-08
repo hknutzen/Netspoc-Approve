@@ -1,11 +1,11 @@
 #!/bin/sh
-# Usage: approve-all [parallel-count]
+# Usage: approve-all
 
 # Abort on every error.
 set -e
 
 # Start that many jobs in parallel.
-PARALLEL=$(expr "$1" \| 40)
+PARALLEL=40
 
 for device in $(missing-approve) ; do
     echo diamonds approve --brief $device

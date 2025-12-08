@@ -1,11 +1,11 @@
 #!/bin/sh
-# Usage: compare-all [parallel-count]
+# Usage: compare-all
 
 # Abort on every error.
 set -e
 
 # Start that many jobs in parallel.
-PARALLEL=$(expr "$1" \| 40)
+PARALLEL=40
 
 # Get directory from config file
 BASE=$(get-netspoc-approve-conf basedir)
