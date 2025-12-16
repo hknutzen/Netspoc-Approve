@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/asa"
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/checkpoint"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/cisco"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/codefiles"
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
@@ -38,6 +39,8 @@ func getRealDevice(fname string) RealDevice {
 		result = cisco.Setup(&asa.State{})
 	case "IOS":
 		result = cisco.Setup(&ios.State{})
+	case "Checkpoint":
+		result = &checkpoint.State{}
 	case "Linux":
 		result = &linux.State{}
 	case "NSX":
@@ -73,13 +76,13 @@ func ApproveOrCompare(
 		if logDir != "" {
 			s.logFname = path.Join(logDir, path.Base(fname))
 		}
+		defer s.CloseConnection()
 		var err error
 		if isCompare {
 			err = s.compare(fname)
 		} else {
 			err = s.approve(fname)
 		}
-		s.CloseConnection()
 		if err != nil {
 			errlog.Abort("%v", err)
 		}
