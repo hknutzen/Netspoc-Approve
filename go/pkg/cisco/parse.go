@@ -578,8 +578,26 @@ func postprocessParsed(lookup objLookup) {
 			}
 		}
 	}
+	lowerCaseRoutes := func(prefix string) {
+		for _, l := range lookup[prefix] {
+			for _, c := range l {
+				tokens := strings.Split(c.parsed, " ")
+				i := slices.IndexFunc(tokens, func(e string) bool {
+					return strings.Contains(e, "/")
+				})
+				if i > 0 {
+					tokens[i] = strings.ToLower(tokens[i])
+					if i+1 < len(tokens) {
+						tokens[i+1] = strings.ToLower(tokens[i+1])
+					}
+				}
+				c.parsed = strings.Join(tokens, " ")
+			}
+		}
+	}
 	stripMetric("route")
 	stripMetric("ipv6 route")
+	lowerCaseRoutes("ipv6 route")
 
 	// Normalize lines
 	// aaa-server NAME [(interface-name)] host {IP|NAME} [key] [timeout SECONDS]

@@ -74,14 +74,14 @@ ipv6 route inside 10::2:0/1 10::2:5
 ############################################################
 =TITLE=IPv6 routing - unchanged
 =DEVICE=
-ipv6 route outside 10::3:0/120 10::2:2 1
-ipv6 route outside 10::4:0/120 10::2:2 2
-ipv6 route outside 10::8:0/117 10::2:2
+ipv6 route outside DEAD:BEEF::3:0/120 DEAD:BEEF::2:2 1
+ipv6 route outside DEAD:BEEF::4:0/120 DEAD:BEEF::2:2 2
+ipv6 route outside DEAD:BEEF::C:0/117 DEAD:BEEF::2:2
 =NETSPOC=
 --ipv6/router
-ipv6 route outside 10::4:0/120 10::2:2
-ipv6 route outside 10::8:0/117 10::2:2
-ipv6 route outside 10::3:0/120 10::2:2 3
+ipv6 route outside dead:beef::4:0/120 dead:beef::2:2
+ipv6 route outside dead:beef::c:0/117 dead:beef::2:2
+ipv6 route outside dead:beef::3:0/120 dead:beef::2:2 3
 =OUTPUT=NONE
 
 ############################################################
