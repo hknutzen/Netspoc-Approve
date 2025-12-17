@@ -243,6 +243,19 @@ ERROR>>> While reading device: invalid character 'I' looking for beginning of va
 =END=
 
 ############################################################
+=TITLE=Not managed by NetSPoC
+=SCENARIO=
+[[standard]]
+POST /web_api/
+{}
+=SUBST=/by NetSPoC/by admin/
+=NETSPOC=
+{ "TargetRules": {"fw1": []} }
+=ERROR=
+ERROR>>> Missing "NetSPoC" in comment of policy "pkg1"
+=END=
+
+############################################################
 =TITLE=Remove simple rule
 =SCENARIO=
 [[standard]]
