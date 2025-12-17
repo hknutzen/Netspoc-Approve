@@ -195,7 +195,8 @@ func (s *State) LoadDevice(
 			ClusterMembers []member `json:"cluster-members"`
 			IP             string   `json:"ipv4-address"`
 		}
-		json.Unmarshal(resp, &result)
+		err = json.Unmarshal(resp, &result)
+		collectErr = cmp.Or(collectErr, err)
 		var ips []string
 		if kind == "gateway" {
 			ips = []string{result.IP}

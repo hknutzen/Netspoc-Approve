@@ -506,6 +506,21 @@ POST /web_api/
 =END=
 
 ############################################################
+=TITLE=Collecting gateway IP fails
+=SCENARIO=
+[[standard]]
+POST /web_api/show-simple-gateways
+{ "objects": [ "uid1" ] }
+POST /web_api/show-simple-gateway
+ERROR
+POST /web_api/
+{}
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: invalid character 'E' looking for beginning of value
+=END=
+
+############################################################
 =TITLE=Use gateway IP in GAIA API for changing static routes
 =SCENARIO=
 [[standard]]
