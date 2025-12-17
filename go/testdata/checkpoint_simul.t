@@ -513,8 +513,6 @@ POST /web_api/show-simple-gateways
 { "objects": [ "uid1" ] }
 POST /web_api/show-simple-gateway
 { "name": "gw1", "ipv4-address": "10.1.1.1" }
-POST /web_api/gaia-api/v1.8/show-static-routes
-{ "response-message": { "objects" : [] } }
 POST /web_api/show-simple-clusters
 { "objects": [ "uid2" ] }
 POST /web_api/show-simple-cluster
@@ -526,7 +524,17 @@ POST /web_api/show-simple-cluster
   { "ip-address": "10.2.2.3" } ]
 }
 POST /web_api/gaia-api/v1.8/show-static-routes
-{ "response-message": { "objects" : [] } }
+{ "response-message": {
+    "objects" : [
+    {
+     "address": "10.11.0.0",
+     "mask-length": 17,
+     "type": "gateway",
+     "next-hop" : [{ "gateway" : "10.1.2.2" }]
+    }
+    ]
+  }
+}
 POST /web_api/
 {}
 =NETSPOC=
@@ -547,9 +555,19 @@ POST /web_api/
  }]
 }}
 =OUTPUT=
+--router.config
+{"GatewayIPs":{"cluster1":["10.2.2.2","10.2.2.3"],"gw1":["10.1.1.1"]},"GatewayRoutes":{"cluster1":[{"address":"10.11.0.0","mask-length":17,"type":"gateway","next-hop":[{"gateway":"10.1.2.2"}]}],"gw1":[{"address":"10.11.0.0","mask-length":17,"type":"gateway","next-hop":[{"gateway":"10.1.2.2"}]}]},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"SvOther":null,"TCP":null,"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":null},"UDP":null}
 --router.change
+/web_api/gaia-api/v1.8/delete-static-route
+{"address":"10.11.0.0","mask-length":17,"target":"10.2.2.2"}
+{}
+
 /web_api/gaia-api/v1.8/set-static-route
 {"address":"10.1.2.0","mask-length":24,"next-hop":[{"gateway":"10.1.2.2"}],"target":"10.2.2.2","type":"gateway"}
+{}
+
+/web_api/gaia-api/v1.8/delete-static-route
+{"address":"10.11.0.0","mask-length":17,"target":"10.2.2.3"}
 {}
 
 /web_api/gaia-api/v1.8/set-static-route
@@ -557,7 +575,7 @@ POST /web_api/
 {}
 
 /web_api/gaia-api/v1.8/set-static-route
-{"address":"10.11.0.0","mask-length":17,"next-hop":[{"gateway":"10.11.1.12"}],"target":"10.1.1.1","type":"gateway"}
+{"address":"10.11.0.0","mask-length":17,"next-hop":[{"gateway":"10.11.1.12"}],"target":"10.1.1.1"}
 {}
 
 =END=
