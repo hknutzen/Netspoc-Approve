@@ -305,9 +305,10 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	}
 	// Mark members of to be deleted group.
 	// Delete group, but only after all references have been deleted.
+	isDeleted := make(map[*chkpGroup]bool)
 	var markAndDelete func(*chkpGroup)
 	markAndDelete = func(group *chkpGroup) {
-		if willDelete(group) {
+		if willDelete(group) && !isDeleted[group] {
 			for _, name := range group.Members {
 				if obj, found := lookup(string(name)); found {
 					if !obj.getDeletable() {
@@ -319,6 +320,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 				}
 			}
 			addChange("delete-group", jsonMap{"uid": group.UID})
+			isDeleted[group] = true
 		}
 	}
 	for _, g := range a.Groups {

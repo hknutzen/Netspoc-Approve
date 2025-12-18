@@ -193,12 +193,16 @@ add-access-rule
       "name": "test rule",
       "uid": "id-test",
       "action": "Accept",
-      "source": ["n_10.1.1.0-24", "n_10.1.2.0-24"],
+      "source": ["g1"],
       "destination": ["h_10.1.8.1", "h_10.1.9.9"],
       "service": ["tcp_81", "udp_123"],
       "install-on": ["Policy Targets"]
     }
  ]},
+  "Groups": [
+    { "name": "g1", "uid": "id-g1", "members": ["n_10.1.1.0-24", "g2"] },
+    { "name": "g2", "uid": "id-g2", "members": ["n_10.1.2.0-24"] }
+  ],
   "Networks": [
     {
       "name": "n_10.1.1.0-24",
@@ -248,6 +252,10 @@ add-access-rule
 delete-access-rule
 {"layer":"network",
  "uid":"id-test"}
+delete-group
+{"uid":"id-g2"}
+delete-group
+{"uid":"id-g1"}
 delete-network
 {"uid":"id-1-1"}
 delete-network
