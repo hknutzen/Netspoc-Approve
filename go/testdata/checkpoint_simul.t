@@ -55,6 +55,18 @@ TESTSERVER/web_api/login
 =END=
 
 ############################################################
+=TITLE=Login gives invalid JSON
+=SCENARIO=
+POST /web_api/login
+200
+INVALID
+=NETSPOC=NONE
+=ERROR=
+WARNING>>> invalid character 'I' looking for beginning of value
+ERROR>>> Devices unreachable: router
+=END=
+
+############################################################
 =TITLE=Login fails
 =SCENARIO=
 POST /web_api/login
@@ -243,6 +255,22 @@ Post "TESTSERVER/web_api/show-sessions": EOF
 =END=
 
 ############################################################
+=TITLE=EOF while reading policy packages
+=SCENARIO=
+POST /web_api/
+{}
+POST /web_api/login
+{
+  "sid": "secret"
+}
+POST /web_api/show-packages
+EOF
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: Post "TESTSERVER/web_api/show-packages": EOF
+=END=
+
+############################################################
 =TITLE=Invalid config in response
 =SCENARIO=
 [[standard]]
@@ -289,6 +317,55 @@ POST /web_api/
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: Policy package "pkg1" must use exactly one installation-target
+=END=
+
+############################################################
+=TITLE=EOF while reading rules
+=SCENARIO=
+[[standard]]
+POST /web_api/show-access-rulebase
+EOF
+POST /web_api/
+{}
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: Post "TESTSERVER/web_api/show-access-rulebase": EOF
+=END=
+
+############################################################
+=TITLE=Invalid list of rules
+=SCENARIO=
+[[standard]]
+POST /web_api/show-access-rulebase
+{
+  "from" : 1,
+  "to" : 1,
+  "total" : 1,
+  "rulebase" : 42
+}
+POST /web_api/
+{}
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: json: cannot unmarshal number into Go struct field .rulebase of type []json.RawMessage
+=END=
+
+############################################################
+=TITLE=Invalid data in rule
+=SCENARIO=
+[[standard]]
+POST /web_api/show-access-rulebase
+{
+  "from" : 1,
+  "to" : 1,
+  "total" : 1,
+  "rulebase" : [42]
+}
+POST /web_api/
+{}
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While parsing device config: json: cannot unmarshal number into Go struct field chkpConfig.TargetRules of type checkpoint.chkpRule
 =END=
 
 ############################################################
