@@ -562,6 +562,36 @@ add-access-rule
 =END=
 
 ############################################################
+=TITLE=Replace single rule
+=DEVICE=
+{
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
+    [[idrule https]]
+  ]}
+}
+=NETSPOC=
+{
+  "TargetRules": {"fw1": [
+    [[rule ssh]]
+  ]}
+}
+=OUTPUT=
+add-access-rule
+{
+ "name":"ssh",
+ "layer":"network",
+ "action":"Accept",
+ "source":["Any"],
+ "destination":["Any"],
+ "service":["ssh"],
+ "install-on":["Policy Targets"],
+ "position":"bottom"}
+delete-access-rule
+{"layer":"network","uid":"id-https"}
+=END=
+
+############################################################
 =TITLE=Change typically unused attributes
 =DEVICE=
 {
@@ -647,6 +677,37 @@ set-access-rule
   ]}
 }
 =OUTPUT=NONE
+
+############################################################
+=TITLE=Changed attribute track
+=DEVICE=
+{
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
+    {
+      "name": "test",
+      "uid": "id-test",
+      "action": "Accept",
+      "track":{"alert":"none","per-connection":false,"type":"Log"},
+      "install-on": ["Policy Targets"]
+    }
+  ]}
+}
+=NETSPOC=
+{
+  "TargetRules": {"fw1": [
+    {
+      "name": "test",
+      "action": "Accept",
+      "track":{"alert":"mail","per-connection":true,"type":"None"},
+      "install-on": ["Policy Targets"]
+    }
+  ]}
+}
+=OUTPUT=
+set-access-rule
+{"layer":"network","track":{"alert":"mail","per-connection":true,"type":"None"},"uid":"id-test"}
+=END=
 
 ############################################################
 =TITLE=Invalid value in attribute "install-on"
@@ -939,4 +1000,74 @@ delete-access-rule
 {"layer":"network","uid":"id-icmp-2"}
 delete-service-icmp
 {"uid":"id-2"}
+=END=
+
+############################################################
+=TITLE=Add and delete user defined ICMP6 object
+=DEVICE=
+{
+  "ICMP6": [
+    {
+      "name": "icmp-2",
+      "uid": "id-2",
+      "icmp-type": 2
+    }
+  ],
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
+    [[idrule icmp-2]]
+  ]}
+}
+=NETSPOC=
+{
+  "TargetRules": {"fw1": []},
+  "ICMP6": [
+    {
+      "name": "icmp-19",
+      "icmp-type": 19
+    }
+  ]
+}
+=OUTPUT=
+add-service-icmp6
+{"name":"icmp-19","icmp-type":19}
+delete-access-rule
+{"layer":"network","uid":"id-icmp-2"}
+delete-service-icmp6
+{"uid":"id-2"}
+=END=
+
+############################################################
+=TITLE=Add and delete user defined service other
+=DEVICE=
+{
+  "SvOther": [
+    {
+      "name": "New_Service_1",
+      "uid": "id-1",
+      "ip-protocol" : 51
+    }
+  ],
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
+    [[idrule New_Service_1]]
+  ]}
+}
+=NETSPOC=
+{
+  "TargetRules": {"fw1": []},
+  "SvOther": [
+    {
+      "name": "New_Service_2",
+      "ip-protocol" : 52
+    }
+  ]
+}
+=OUTPUT=
+add-service-other
+{"name":"New_Service_2","ip-protocol":52}
+delete-access-rule
+{"layer":"network","uid":"id-New_Service_1"}
+delete-service-other
+{"uid":"id-1"}
 =END=
