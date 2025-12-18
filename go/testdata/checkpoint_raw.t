@@ -1,4 +1,17 @@
 ############################################################
+=TITLE=Invalid JSON raw
+=DEVICE=
+{}
+=NETSPOC=
+--router.raw
+{
+ "TargetRules": INVALID
+}
+=ERROR=
+ERROR>>> While reading file router.raw: invalid character 'I' looking for beginning of value
+=END=
+
+############################################################
 =TITLE=Check name of rule from raw
 =DEVICE=
 {}
@@ -22,6 +35,36 @@ ERROR>>> While reading file router.raw: Must only define name starting with 'Raw
 }
 =ERROR=
 ERROR>>> While reading file router.raw: Must only define name starting with 'Raw ': test
+=END=
+
+############################################################
+=TITLE=Invalid JSON: action of rule
+=DEVICE=
+{}
+=NETSPOC=
+--router.raw
+{
+ "TargetRules": {"fw1": [
+  { "name": "Raw rule", "action": 42 }
+ ]}
+}
+=ERROR=
+ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go struct field chkpRule.TargetRules.action of type struct { Name string }
+=END=
+
+############################################################
+=TITLE=Invalid JSON: disabled rule
+=DEVICE=
+{}
+=NETSPOC=
+--router.raw
+{
+ "TargetRules": {"fw1": [
+  { "name": "Raw rule", "enabled": 42 }
+ ]}
+}
+=ERROR=
+ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go struct field chkpRule.TargetRules.enabled of type bool
 =END=
 
 ############################################################
