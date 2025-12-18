@@ -150,15 +150,12 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 	markChanged = func(group *chkpGroup) {
 		for _, name := range group.Members {
 			if obj, found := lookup(string(name)); found {
+				if g2, ok := obj.(*chkpGroup); ok {
+					markChanged(g2)
+				}
 				if obj.getChanged() {
 					group.changed = true
 					break
-				} else if g2, ok := obj.(*chkpGroup); ok {
-					markChanged(g2)
-					if g2.changed {
-						group.changed = true
-						break
-					}
 				}
 			}
 		}
