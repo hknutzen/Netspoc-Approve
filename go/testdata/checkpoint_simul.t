@@ -1,4 +1,6 @@
 =TEMPL=standard
+POST /web_api/
+{}
 POST /web_api/login
 {
   "sid": "secret"
@@ -84,7 +86,10 @@ ERROR>>> Devices unreachable: router
 ############################################################
 =TITLE=Only login succeeds
 =SCENARIO=
-[[standard]]
+POST /web_api/login
+{
+  "sid": "secret"
+}
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> status code: 404, uri: /web_api/show-sessions
@@ -95,8 +100,6 @@ ERROR>>> 404 page not found
 =TITLE=No sessions to discard and empty config
 =SCENARIO=
 [[standard]]
-POST /web_api/
-{}
 =NETSPOC=NONE
 =OUTPUT=
 --router.login
@@ -145,10 +148,13 @@ POST /web_api/show-session
 { "uid": "id1", "user-name": "admin", "application": "WEB_API" }
 POST /web_api/discard
 {}
+POST /web_api/show-access-rulebase
+500
+Internal server error
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: status code: 404, uri: /web_api/show-access-rulebase
-ERROR>>> 404 page not found
+ERROR>>> While reading device: status code: 500, uri: /web_api/show-access-rulebase
+ERROR>>> Internal server error
 =OUTPUT=
 --router.login
 TESTSERVER/web_api/login
@@ -172,8 +178,8 @@ TESTSERVER/web_api/login
 {"details-level": "full"}
 /web_api/show-access-rulebase
 {"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
-404
-404 page not found
+500
+Internal server error
 
 =END=
 
@@ -183,10 +189,13 @@ TESTSERVER/web_api/login
 [[standard]]
 POST /web_api/show-sessions
 { "objects": [ "id1" ] }
+POST /web_api/show-session
+500
+Internal server error
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> status code: 404, uri: /web_api/show-session
-ERROR>>> 404 page not found
+ERROR>>> status code: 500, uri: /web_api/show-session
+ERROR>>> Internal server error
 =END=
 
 ############################################################
@@ -197,10 +206,16 @@ POST /web_api/show-sessions
 { "objects": [ "uid1" ] }
 POST /web_api/show-session
 { "uid": "uid1", "user-name": "admin", "application": "WEB_API" }
+POST /web_api/discard
+500
+Internal server error
+POST /web_api/show-access-rulebase
+500
+Internal server error
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: status code: 404, uri: /web_api/show-access-rulebase
-ERROR>>> 404 page not found
+ERROR>>> While reading device: status code: 500, uri: /web_api/show-access-rulebase
+ERROR>>> Internal server error
 =OUTPUT=
 --router.login
 TESTSERVER/web_api/login
@@ -218,16 +233,16 @@ TESTSERVER/web_api/login
 
 /web_api/discard
 {"uid":"uid1"}
-404
-404 page not found
+500
+Internal server error
 
 
 /web_api/show-packages
 {"details-level": "full"}
 /web_api/show-access-rulebase
 {"details-level":"standard","limit":500,"name":"network","use-object-dictionary":false}
-404
-404 page not found
+500
+Internal server error
 
 =END=
 
@@ -274,8 +289,6 @@ ERROR>>> While reading device: Post "TESTSERVER/web_api/show-packages": EOF
 =TITLE=Invalid config in response
 =SCENARIO=
 [[standard]]
-POST /web_api/
-{}
 =SUBST=/"packages"/INVALID/
 =NETSPOC=NONE
 =ERROR=
@@ -286,8 +299,6 @@ ERROR>>> While reading device: invalid character 'I' looking for beginning of ob
 =TITLE=Not managed by NetSPoC
 =SCENARIO=
 [[standard]]
-POST /web_api/
-{}
 =SUBST=/by NetSPoC/by admin/
 =NETSPOC=
 { "TargetRules": {"fw1": []} }
@@ -299,8 +310,6 @@ ERROR>>> Missing "NetSPoC" in comment of policy "pkg1"
 =TITLE=Multiple access layers
 =SCENARIO=
 [[standard]]
-POST /web_api/
-{}
 =SUBST=/"network"/"L1","L2"/
 =NETSPOC=NONE
 =ERROR=
@@ -311,8 +320,6 @@ ERROR>>> While reading device: Policy package "pkg1" must use exactly one access
 =TITLE=Multiple installation targets
 =SCENARIO=
 [[standard]]
-POST /web_api/
-{}
 =SUBST=/"fw1"/"fw1","fw2"/
 =NETSPOC=NONE
 =ERROR=
@@ -325,8 +332,6 @@ ERROR>>> While reading device: Policy package "pkg1" must use exactly one instal
 [[standard]]
 POST /web_api/show-access-rulebase
 EOF
-POST /web_api/
-{}
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: Post "TESTSERVER/web_api/show-access-rulebase": EOF
@@ -343,8 +348,6 @@ POST /web_api/show-access-rulebase
   "total" : 1,
   "rulebase" : 42
 }
-POST /web_api/
-{}
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: json: cannot unmarshal number into Go struct field .rulebase of type []json.RawMessage
@@ -361,8 +364,6 @@ POST /web_api/show-access-rulebase
   "total" : 1,
   "rulebase" : [42]
 }
-POST /web_api/
-{}
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While parsing device config: json: cannot unmarshal number into Go struct field chkpConfig.TargetRules of type checkpoint.chkpRule
@@ -398,8 +399,6 @@ POST /web_api/show-access-rulebase
     "tags" : [ ]
   } ]
 }
-POST /web_api/
-{}
 =NETSPOC=
 { "TargetRules": {"fw1": []} }
 =OUTPUT=
@@ -476,8 +475,6 @@ TESTSERVER/web_api/login
 =TITLE=Add simple rule, show-task gives warning
 =SCENARIO=
 [[standard]]
-POST /web_api/
-{}
 =SUBST=/"succeeded"/"succeeded with warnings"/
 =NETSPOC=
 { "TargetRules": {"fw1": [
@@ -572,8 +569,6 @@ POST /web_api/show-networks
    "mask-length4": 25
   } ]
 }
-POST /web_api/
-{}
 =SUBST=/"succeeded"/"failed"/
 =NETSPOC=
 { "TargetRules": {"fw1": [
@@ -620,8 +615,6 @@ POST /web_api/show-simple-gateways
 { "objects": [ "uid1" ] }
 POST /web_api/show-simple-gateway
 ERROR
-POST /web_api/
-{}
 =NETSPOC=NONE
 =ERROR=
 ERROR>>> While reading device: invalid character 'E' looking for beginning of value
@@ -657,8 +650,6 @@ POST /web_api/gaia-api/v1.8/show-static-routes
     ]
   }
 }
-POST /web_api/
-{}
 =NETSPOC=
 { "GatewayRoutes": {
  "gw1": [
@@ -724,8 +715,6 @@ POST /web_api/show-simple-cluster
 }
 POST /web_api/gaia-api/v1.8/show-static-routes
 { "response-message": { "objects" : [] } }
-POST /web_api/
-{}
 =NETSPOC=
 { "GatewayRoutes": {} }
 =OUTPUT=
