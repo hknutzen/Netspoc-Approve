@@ -220,26 +220,38 @@ TESTSERVER/web_api/login
 =END=
 
 ############################################################
-=TITLE=Invalid config in response
+=TITLE=EOF during discard
 =SCENARIO=
-POST /web_api/login
-{
-  "sid": "secret"
-}
-POST /web_api/show-task
-{
-  "Tasks": [ {
-    "status" : "succeeded",
-    "task-name" : ""
-  } ]
-}
-POST /web_api/show-packages
-INVALID
-POST /web_api/
-{}
+[[standard]]
+POST /web_api/show-sessions
+EOF
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: invalid character 'I' looking for beginning of value
+ERROR>>> Post "TESTSERVER/web_api/show-sessions": EOF
+=OUTPUT=
+--router.login
+TESTSERVER/web_api/login
+{"user":"admin","password":"xxx"}
+200 OK
+{
+  "sid": "xxx"
+}
+
+/web_api/show-sessions
+{"details-level": "uid"}
+Post "TESTSERVER/web_api/show-sessions": EOF
+=END=
+
+############################################################
+=TITLE=Invalid config in response
+=SCENARIO=
+[[standard]]
+POST /web_api/
+{}
+=SUBST=/"packages"/INVALID/
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: invalid character 'I' looking for beginning of object key string
 =END=
 
 ############################################################
@@ -253,6 +265,30 @@ POST /web_api/
 { "TargetRules": {"fw1": []} }
 =ERROR=
 ERROR>>> Missing "NetSPoC" in comment of policy "pkg1"
+=END=
+
+############################################################
+=TITLE=Multiple access layers
+=SCENARIO=
+[[standard]]
+POST /web_api/
+{}
+=SUBST=/"network"/"L1","L2"/
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: Policy package "pkg1" must use exactly one access-layer
+=END=
+
+############################################################
+=TITLE=Multiple installation targets
+=SCENARIO=
+[[standard]]
+POST /web_api/
+{}
+=SUBST=/"fw1"/"fw1","fw2"/
+=NETSPOC=NONE
+=ERROR=
+ERROR>>> While reading device: Policy package "pkg1" must use exactly one installation-target
 =END=
 
 ############################################################
@@ -360,11 +396,12 @@ TESTSERVER/web_api/login
 =END=
 
 ############################################################
-=TITLE=Add simple rule
+=TITLE=Add simple rule, show-task gives warning
 =SCENARIO=
 [[standard]]
 POST /web_api/
 {}
+=SUBST=/"succeeded"/"succeeded with warnings"/
 =NETSPOC=
 { "TargetRules": {"fw1": [
    {
@@ -377,6 +414,9 @@ POST /web_api/
    }
   ]}
 }
+=WARNING=
+WARNING>>> task "" succeeded with warnings
+WARNING>>> task "" succeeded with warnings
 =OUTPUT=
 --router.config
 {"GatewayIPs":{},"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"SvOther":null,"TCP":null,"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":null},"UDP":null}
@@ -393,7 +433,7 @@ POST /web_api/
 {"task-id":""}
 {
   "Tasks": [ {
-    "status" : "succeeded",
+    "status" : "succeeded with warnings",
     "task-name" : ""
   } ]
 }
@@ -406,7 +446,7 @@ POST /web_api/
 {"task-id":""}
 {
   "Tasks": [ {
-    "status" : "succeeded",
+    "status" : "succeeded with warnings",
     "task-name" : ""
   } ]
 }
@@ -414,7 +454,7 @@ POST /web_api/
 =END=
 
 ############################################################
-=TITLE=Unchanged rule references changed object
+=TITLE=Unchanged rule references changed object, publish fails
 =SCENARIO=
 [[standard]]
 POST /web_api/show-access-rulebase
@@ -457,6 +497,7 @@ POST /web_api/show-networks
 }
 POST /web_api/
 {}
+=SUBST=/"succeeded"/"failed"/
 =NETSPOC=
 { "TargetRules": {"fw1": [
    {
@@ -471,6 +512,8 @@ POST /web_api/
   "Groups": [{ "name": "my-group", "members": ["my-net"] }],
   "Networks": [{ "name": "my-net", "subnet4": "10.1.2.0", "mask-length4": 24 }]
 }
+=ERROR=
+ERROR>>> Unexpected status of task "": "failed"
 =OUTPUT=
 --router.change
 /web_api/set-network
@@ -485,20 +528,7 @@ POST /web_api/
 {"task-id":""}
 {
   "Tasks": [ {
-    "status" : "succeeded",
-    "task-name" : ""
-  } ]
-}
-
-/web_api/install-policy
-{"policy-package":"pkg1","targets":["fw1"]}
-{}
-
-/web_api/show-task
-{"task-id":""}
-{
-  "Tasks": [ {
-    "status" : "succeeded",
+    "status" : "failed",
     "task-name" : ""
   } ]
 }
