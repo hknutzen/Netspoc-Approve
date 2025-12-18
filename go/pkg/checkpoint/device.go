@@ -335,10 +335,10 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 			case "succeeded":
 				return nil
 			case "succeeded with warnings":
-				errlog.Warning("command %q succeeded with warnings", cmd)
+				errlog.Warning("task %q succeeded with warnings", cmd)
 				return nil
 			default:
-				return fmt.Errorf("Unexpected status of command %q: %q",
+				return fmt.Errorf("Unexpected status of task %q: %q",
 					cmd, status)
 			}
 		}
