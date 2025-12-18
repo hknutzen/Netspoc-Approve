@@ -695,6 +695,30 @@ ERROR>>> Must use "install-on": ["Policy Targets"] in rule "http" of "fw1"
 =END=
 
 ############################################################
+=TITLE=Valid name used in attribute "install-on"
+=DEVICE=
+{
+  "TargetPolicy": {"fw1": {"Name": "standard", "Layer": "network"}},
+  "TargetRules": {"fw1": [
+    {
+      "name": "http",
+      "uid": "id-http",
+      "action": "Accept",
+      "source": ["Any"],
+      "destination": ["Any"],
+      "service": ["http"],
+      "install-on": ["fw1"]
+    }
+  ]}
+}
+=NETSPOC=
+{"TargetRules": {"fw1": []}}
+=OUTPUT=
+delete-access-rule
+{"layer":"network","uid":"id-http"}
+=END=
+
+############################################################
 =TITLE=Missing policy package on device
 =DEVICE=
 {}
