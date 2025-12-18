@@ -83,7 +83,7 @@ func (s *State) LoadDevice(
 	}
 
 	// Collect unparsed configuration of device.
-	rawConf := make(jsonMap)
+	deviceConf := make(jsonMap)
 	// Parts of configuration read from checkpoint device.
 	type rawPart struct {
 		To      int
@@ -148,7 +148,7 @@ func (s *State) LoadDevice(
 	if err != nil {
 		collectErr = err
 	}
-	rawConf["TargetPolicy"] = targetPolicy
+	deviceConf["TargetPolicy"] = targetPolicy
 	targetRules := make(jsonMap)
 	for target, p := range targetPolicy {
 		targetRules[target] = collect0(extractRulebase, "show-access-rulebase",
@@ -158,9 +158,9 @@ func (s *State) LoadDevice(
 				"use-object-dictionary": false,
 			})
 	}
-	rawConf["TargetRules"] = targetRules
+	deviceConf["TargetRules"] = targetRules
 	collect := func(attr, endPoint string, args jsonMap) {
-		rawConf[attr] = collect0(extractObject, endPoint, args)
+		deviceConf[attr] = collect0(extractObject, endPoint, args)
 	}
 	collect("Networks", "show-networks", jsonMap{"details-level": "full"})
 	collect("Hosts", "show-hosts", jsonMap{"details-level": "full"})
@@ -225,12 +225,12 @@ func (s *State) LoadDevice(
 			}
 		}
 	}
-	rawConf["GatewayRoutes"] = routeMap
-	rawConf["GatewayIPs"] = ipMap
+	deviceConf["GatewayRoutes"] = routeMap
+	deviceConf["GatewayIPs"] = ipMap
 	if collectErr != nil {
 		return fmt.Errorf("While reading device: %v", collectErr)
 	}
-	out, _ := json.Marshal(rawConf)
+	out, _ := json.Marshal(deviceConf)
 	errlog.DoLog(logConfig, string(out))
 	s.deviceCfg, err = s.ParseConfig(out, "<device>")
 	if err != nil {
