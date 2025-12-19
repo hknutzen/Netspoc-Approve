@@ -242,10 +242,7 @@ func (s *State) LoadDevice(
 func (s *State) sendRequest(path string, body []byte, logFh *os.File,
 ) ([]byte, error) {
 	errlog.DoLog(logFh, path)
-	req, err := http.NewRequest("POST", s.prefix+path, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
+	req, _ := http.NewRequest("POST", s.prefix+path, bytes.NewReader(body))
 	req.Header.Set("X-chkp-sid", s.sid)
 	if body != nil {
 		req.Header.Set("content-type", "application/json")
