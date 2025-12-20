@@ -286,7 +286,7 @@ ERROR>>> While reading device: Post "TESTSERVER/web_api/show-packages": EOF
 =END=
 
 ############################################################
-=TITLE=Invalid config in response
+=TITLE=Invalid config in response of show-packages
 =SCENARIO=
 [[standard]]
 =SUBST=/"packages"/INVALID/
@@ -369,10 +369,7 @@ POST /web_api/show-access-rulebase
 ERROR>>> While parsing device config: json: cannot unmarshal number into Go struct field chkpConfig.TargetRules of type checkpoint.chkpRule
 =END=
 
-############################################################
-=TITLE=Remove simple rule
-=SCENARIO=
-[[standard]]
+=TEMPL=simple_rule
 POST /web_api/show-access-rulebase
 {
   "from" : 1,
@@ -399,6 +396,13 @@ POST /web_api/show-access-rulebase
     "tags" : [ ]
   } ]
 }
+=END=
+
+############################################################
+=TITLE=Remove simple rule
+=SCENARIO=
+[[standard]]
+[[simple_rule]]
 =NETSPOC=
 { "TargetRules": {"fw1": []} }
 =OUTPUT=
@@ -472,6 +476,196 @@ TESTSERVER/web_api/login
 =END=
 
 ############################################################
+=TITLE=Remove simple rule, delete-access-rule fails
+=SCENARIO=
+[[standard]]
+[[simple_rule]]
+POST /web_api/delete-access-rule
+EOF
+=NETSPOC=
+{ "TargetRules": {"fw1": []} }
+=ERROR=
+ERROR>>> Post "TESTSERVER/web_api/delete-access-rule": EOF
+=OUTPUT=
+--router.change
+/web_api/delete-access-rule
+{"layer":"network","uid":"id1"}
+Post "TESTSERVER/web_api/delete-access-rule": EOF
+
+=END=
+
+############################################################
+=TITLE=Remove simple rule, publish fails
+=SCENARIO=
+[[standard]]
+[[simple_rule]]
+POST /web_api/publish
+EOF
+=NETSPOC=
+{ "TargetRules": {"fw1": []} }
+=ERROR=
+ERROR>>> Post "TESTSERVER/web_api/publish": EOF
+=OUTPUT=
+--router.change
+/web_api/delete-access-rule
+{"layer":"network","uid":"id1"}
+{}
+
+/web_api/publish
+{}
+Post "TESTSERVER/web_api/publish": EOF
+
+=END=
+
+############################################################
+=TITLE=Remove simple rule, publish gives wrong JSON
+=SCENARIO=
+[[standard]]
+[[simple_rule]]
+POST /web_api/publish
+{"task-id": 42}
+=NETSPOC=
+{ "TargetRules": {"fw1": []} }
+=ERROR=
+ERROR>>> json: cannot unmarshal number into Go struct field .task-id of type string
+=OUTPUT=
+--router.change
+/web_api/delete-access-rule
+{"layer":"network","uid":"id1"}
+{}
+
+/web_api/publish
+{}
+{"task-id": 42}
+
+=END=
+
+############################################################
+=TITLE=Remove simple rule, show-task fails
+=SCENARIO=
+POST /web_api/show-task
+EOF
+[[standard]]
+[[simple_rule]]
+=NETSPOC=
+{ "TargetRules": {"fw1": []} }
+=ERROR=
+ERROR>>> Post "TESTSERVER/web_api/show-task": EOF
+=OUTPUT=
+--router.change
+/web_api/delete-access-rule
+{"layer":"network","uid":"id1"}
+{}
+
+/web_api/publish
+{}
+{}
+
+/web_api/show-task
+{"task-id":""}
+Post "TESTSERVER/web_api/show-task": EOF
+
+=END=
+
+############################################################
+=TITLE=Remove simple rule, show-task gives invalid JSON
+=SCENARIO=
+[[standard]]
+[[simple_rule]]
+=SUBST=/"succeeded"/INVALID/
+=NETSPOC=
+{ "TargetRules": {"fw1": []} }
+=ERROR=
+ERROR>>> invalid character 'I' looking for beginning of value
+=OUTPUT=
+--router.change
+/web_api/delete-access-rule
+{"layer":"network","uid":"id1"}
+{}
+
+/web_api/publish
+{}
+{}
+
+/web_api/show-task
+{"task-id":""}
+{
+  "Tasks": [ {
+    "status" : INVALID,
+    "task-name" : ""
+  } ]
+}
+
+=END=
+
+############################################################
+=TITLE=Remove simple rule, show-task gives unexpected status
+=SCENARIO=
+[[standard]]
+[[simple_rule]]
+=SUBST=/"succeeded"/"failed"/
+=NETSPOC=
+{ "TargetRules": {"fw1": []} }
+=ERROR=
+ERROR>>> Unexpected status of task "": "failed"
+=OUTPUT=
+--router.change
+/web_api/delete-access-rule
+{"layer":"network","uid":"id1"}
+{}
+
+/web_api/publish
+{}
+{}
+
+/web_api/show-task
+{"task-id":""}
+{
+  "Tasks": [ {
+    "status" : "failed",
+    "task-name" : ""
+  } ]
+}
+
+=END=
+
+############################################################
+=TITLE=Remove simple rule, install-policy fails
+=SCENARIO=
+[[standard]]
+[[simple_rule]]
+POST /web_api/install-policy
+EOF
+=NETSPOC=
+{ "TargetRules": {"fw1": []} }
+=ERROR=
+ERROR>>> Post "TESTSERVER/web_api/install-policy": EOF
+=OUTPUT=
+--router.change
+/web_api/delete-access-rule
+{"layer":"network","uid":"id1"}
+{}
+
+/web_api/publish
+{}
+{}
+
+/web_api/show-task
+{"task-id":""}
+{
+  "Tasks": [ {
+    "status" : "succeeded",
+    "task-name" : ""
+  } ]
+}
+
+/web_api/install-policy
+{"policy-package":"pkg1","targets":["fw1"]}
+Post "TESTSERVER/web_api/install-policy": EOF
+
+=END=
+
+############################################################
 =TITLE=Add simple rule, show-task gives warning
 =SCENARIO=
 [[standard]]
@@ -528,7 +722,7 @@ WARNING>>> task "" succeeded with warnings
 =END=
 
 ############################################################
-=TITLE=Unchanged rule references changed object, publish fails
+=TITLE=Unchanged rule references changed object
 =SCENARIO=
 [[standard]]
 POST /web_api/show-access-rulebase
@@ -569,7 +763,6 @@ POST /web_api/show-networks
    "mask-length4": 25
   } ]
 }
-=SUBST=/"succeeded"/"failed"/
 =NETSPOC=
 { "TargetRules": {"fw1": [
    {
@@ -584,8 +777,6 @@ POST /web_api/show-networks
   "Groups": [{ "name": "my-group", "members": ["my-net"] }],
   "Networks": [{ "name": "my-net", "subnet4": "10.1.2.0", "mask-length4": 24 }]
 }
-=ERROR=
-ERROR>>> Unexpected status of task "": "failed"
 =OUTPUT=
 --router.change
 /web_api/set-network
@@ -600,7 +791,20 @@ ERROR>>> Unexpected status of task "": "failed"
 {"task-id":""}
 {
   "Tasks": [ {
-    "status" : "failed",
+    "status" : "succeeded",
+    "task-name" : ""
+  } ]
+}
+
+/web_api/install-policy
+{"policy-package":"pkg1","targets":["fw1"]}
+{}
+
+/web_api/show-task
+{"task-id":""}
+{
+  "Tasks": [ {
+    "status" : "succeeded",
     "task-name" : ""
   } ]
 }
@@ -690,6 +894,41 @@ POST /web_api/gaia-api/v1.8/show-static-routes
 /web_api/gaia-api/v1.8/set-static-route
 {"address":"10.11.0.0","mask-length":17,"next-hop":[{"gateway":"10.11.1.12"}],"target":"10.1.1.1"}
 {}
+
+=END=
+
+############################################################
+=TITLE=Adding static route fails
+=SCENARIO=
+[[standard]]
+POST /web_api/show-simple-gateways
+{ "objects": [ "uid1" ] }
+POST /web_api/show-simple-gateway
+{ "name": "gw1", "ipv4-address": "10.1.1.1" }
+POST /web_api/gaia-api/v1.8/show-static-routes
+{ "response-message": {
+    "objects" : []
+  }
+}
+POST /web_api/gaia-api/v1.8/set-static-route
+EOF
+=NETSPOC=
+{ "GatewayRoutes": {
+ "gw1": [
+ {
+  "address": "10.11.0.0",
+  "mask-length": 17,
+  "type": "gateway",
+  "next-hop" : [{ "gateway" : "10.11.1.12" }]
+ }]
+}}
+=ERROR=
+ERROR>>> Post "TESTSERVER/web_api/gaia-api/v1.8/set-static-route": EOF
+=OUTPUT=
+--router.change
+/web_api/gaia-api/v1.8/set-static-route
+{"address":"10.11.0.0","mask-length":17,"next-hop":[{"gateway":"10.11.1.12"}],"target":"10.1.1.1","type":"gateway"}
+Post "TESTSERVER/web_api/gaia-api/v1.8/set-static-route": EOF
 
 =END=
 
