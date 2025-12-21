@@ -133,7 +133,7 @@ DATA: key=xxx&type=op&cmd=<show><high-availability><state/></high-availability><
 =END=
 
 ############################################################
-=TITLE=HA check fails with EOF
+=TITLE=HA check fails with invalid response
 =SCENARIO=
 [[apikey]]
 POST /api/?type=op&cmd=<show><high-availability><state/></high-availability></show>
