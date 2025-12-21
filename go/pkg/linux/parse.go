@@ -9,7 +9,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
-func (s *State) parseConfig(data []byte, fName string) (*config, error) {
+func (s *State) parseConfig(data []byte, fName string) *config {
 	var rLines, tLines []string
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
@@ -25,7 +25,7 @@ func (s *State) parseConfig(data []byte, fName string) (*config, error) {
 	return &config{
 		routes:   parseRoutes(rLines),
 		iptables: s.parseIPTables(tLines),
-	}, nil
+	}
 }
 
 type route struct {

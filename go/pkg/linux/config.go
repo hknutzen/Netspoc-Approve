@@ -7,10 +7,7 @@ import (
 )
 
 func (s *State) LoadNetspoc(data []byte, fName string) error {
-	cfg, err := s.parseConfig(data, fName)
-	if err != nil {
-		return err
-	}
+	cfg := s.parseConfig(data, fName)
 	if s.spocCfg == nil {
 		s.spocCfg = cfg
 	} else {
