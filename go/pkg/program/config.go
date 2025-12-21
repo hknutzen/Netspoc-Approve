@@ -150,9 +150,7 @@ func LoadConfig() (*Config, error) {
 	}
 	for key, val := range defaultVals {
 		if !seen[key] {
-			if err := insert(key, val); err != nil {
-				return nil, err
-			}
+			insert(key, val)
 		}
 	}
 	if c.BaseDir == "" {
