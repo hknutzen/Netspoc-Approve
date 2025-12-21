@@ -232,7 +232,7 @@ func (s *State) LoadDevice(
 	}
 	out, _ := json.Marshal(deviceConf)
 	errlog.DoLog(logConfig, string(out))
-	s.deviceCfg, err = s.ParseConfig(out, "<device>")
+	s.deviceCfg, err = s.parseConfig(out, "<device>")
 	if err != nil {
 		return fmt.Errorf("While parsing device config: %v", err)
 	}

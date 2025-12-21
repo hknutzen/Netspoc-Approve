@@ -107,7 +107,7 @@ type nsxConfig struct {
 	Services []*nsxService
 }
 
-func (s *State) ParseConfig(data []byte, fName string) (*nsxConfig, error) {
+func (s *State) parseConfig(data []byte, fName string) (*nsxConfig, error) {
 
 	config := &nsxConfig{}
 	if len(data) == 0 {

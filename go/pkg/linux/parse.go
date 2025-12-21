@@ -9,7 +9,7 @@ import (
 	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
 )
 
-func (s *State) ParseConfig(data []byte, fName string) (*config, error) {
+func (s *State) parseConfig(data []byte, fName string) (*config, error) {
 	var rLines, tLines []string
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)

@@ -1,7 +1,7 @@
 package nsx
 
 func (s *State) LoadNetspoc(data []byte, fName string) error {
-	cfg, err := s.ParseConfig(data, fName)
+	cfg, err := s.parseConfig(data, fName)
 	if err != nil {
 		return err
 	}

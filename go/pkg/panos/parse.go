@@ -35,7 +35,7 @@ func parseResponse(data []byte) (string, []byte, error) {
 	return v.Msg, b, nil
 }
 
-func (s *State) ParseConfig(data []byte, fName string) (*panConfig, error) {
+func (s *State) parseConfig(data []byte, fName string) (*panConfig, error) {
 
 	config := &panConfig{}
 	if len(data) == 0 {

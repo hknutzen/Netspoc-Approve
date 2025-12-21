@@ -205,7 +205,7 @@ type chkpGateway struct {
 	Gateway string `json:"gateway"`
 }
 
-func (s *State) ParseConfig(data []byte, fName string,
+func (s *State) parseConfig(data []byte, fName string,
 ) (*chkpConfig, error) {
 	cf := &chkpConfig{}
 	if len(data) == 0 {
