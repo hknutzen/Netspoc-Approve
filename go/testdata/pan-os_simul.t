@@ -433,7 +433,7 @@ DATA: key=xxx&type=commit&action=partial&cmd=<commit><partial><admin><member>adm
 =END=
 
 ############################################################
-=TITLE=Commit with unknown message
+=TITLE=Commit gives unknown message
 =SCENARIO=
 [[empty_with_vsys]]
 POST /api/?action=set&type=config
@@ -444,6 +444,20 @@ POST /api/?type=commit&action=partial
 [[minimal_netspoc]]
 =ERROR=
 ERROR>>> Commit failed: Unexpected message: Unknown
+=END=
+
+############################################################
+=TITLE=Commit gives invalid result
+=SCENARIO=
+[[empty_with_vsys]]
+POST /api/?action=set&type=config
+<response status="success" code="20"></response>
+POST /api/?type=commit&action=partial
+<response status="success"><INVALID/></response>
+=NETSPOC=
+[[minimal_netspoc]]
+=ERROR=
+ERROR>>> Commit failed: EOF
 =END=
 
 ############################################################
@@ -476,6 +490,22 @@ POST /api/?type=op&cmd=<show><jobs><id>6</id></jobs></show>
 [[minimal_netspoc]]
 =ERROR=
 ERROR>>> Commit failed: Parsing response: expected element type <response> but have <invalid>
+=END=
+
+############################################################
+=TITLE=Invalid result in job status
+=SCENARIO=
+[[empty_with_vsys]]
+POST /api/?action=set&type=config
+<response status="success" code="20"></response>
+POST /api/?type=commit&action=partial
+<response status="success" code="19"><result><job>6</job></result></response>
+POST /api/?type=op&cmd=<show><jobs><id>6</id></jobs></show>
+<response status="success"><INVALID/></response>
+=NETSPOC=
+[[minimal_netspoc]]
+=ERROR=
+ERROR>>> Commit failed: EOF
 =END=
 
 ############################################################
