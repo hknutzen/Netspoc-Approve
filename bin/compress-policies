@@ -16,7 +16,7 @@ BASE=$(get-netspoc-approve-conf basedir)
 
 # Find toplevel directories, created DAYS days ago.
 DIR="$BASE/policies"
-find $DIR -maxdepth 1 -mindepth 1 -type d -daystart -ctime $DAYS -print0 |
+find $DIR -maxdepth 1 -mindepth 1 -type d -daystart -mtime $DAYS -print0 |
 # Find files inside these directories,
 # but ignore toplevel files, i.e. "compile.log".
 xargs -r -0 -I '{}' find '{}' -mindepth 2 -type f -print0 |
