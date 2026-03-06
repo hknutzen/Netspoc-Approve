@@ -22,25 +22,7 @@ POST /api/?type=op&cmd=<show><high-availability><state/></high-availability></sh
 </response>
 =END=
 
-=TEMPL=empty_missing_vsys
-POST /api/?type=config&action=get&xpath=/config/devices
-<response status = 'success'>
- <result>
-  <devices>
-   <entry name="localhost.localdomain">
-    <deviceconfig>
-     <system>
-      <hostname>router</hostname>
-     </system>
-    </deviceconfig>
-   </entry>
-  </devices>
- </result>
-</response>
-=END=
-
-=TEMPL=empty_with_vsys
-[[checkHA]]
+=TEMPL=empty_with_vsys_param
 POST /api/?type=config&action=get&xpath=/config/devices
 <response status = 'success'>
  <result>
@@ -52,14 +34,25 @@ POST /api/?type=config&action=get&xpath=/config/devices
      </system>
     </deviceconfig>
     <vsys>
-     <entry name="vsys1">
-     <display-name>FW7-managed-by-Netspoc</display-name>
-     </entry>
+     {{range .}}
+      <entry name="{{.}}">
+       <display-name>{{.}}-managed-by-Netspoc</display-name>
+      </entry>
+     {{end}}
     </vsys>
    </entry>
   </devices>
  </result>
 </response>
+=END=
+
+=TEMPL=empty_missing_vsys
+[[empty_with_vsys_param [] ]]
+=END=
+
+=TEMPL=empty_with_vsys
+[[checkHA]]
+[[empty_with_vsys_param ["vsys1"] ]]
 =END=
 
 ############################################################
@@ -327,8 +320,8 @@ ERROR>>> Wrong device name "", expected "router"
 =NETSPOC=NONE
 =WARNING=NONE
 
-=TEMPL=minimal_netspoc
-<config><devices><entry name="localhost.localdomain"><vsys><entry name="vsys1">
+=TEMPL=netspoc_vsys1
+<entry name="vsys1">
 <rulebase><security><rules>
 <entry name="r1">
 <action>allow</action>
@@ -348,7 +341,17 @@ ERROR>>> Wrong device name "", expected "router"
  </protocol>
 </entry>
 </service>
-</entry></vsys></entry></devices></config>
+</entry>
+=END=
+
+=TEMPL=netspoc_vsys2
+[[netspoc_vsys1]]
+=SUBST=/vsys1/vsys2/
+
+=TEMPL=minimal_netspoc
+<config><devices><entry name="localhost.localdomain"><vsys>
+[[netspoc_vsys1]]
+</vsys></entry></devices></config>
 =END=
 
 ############################################################
@@ -548,6 +551,68 @@ DATA: key=xxx&action=set&type=config&xpath=/config/devices/entry[@name='localhos
 
 TESTSERVER/api/
 DATA: key=xxx&action=set&type=config&xpath=/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules/entry[@name='r1']&element=<action>allow</action><from><member>z1</member></from><to><member>z2</member></to><source><member>any</member></source><destination><member>any</member></destination><service><member>tcp 80</member></service><application><member>any</member></application><rule-type>interzone</rule-type>
+<response status="success" code="20"></response>
+
+TESTSERVER/api/
+DATA: key=xxx&type=commit&action=partial&cmd=<commit><partial><admin><member>admin</member></admin></partial></commit>
+<response status="success" code="19"><result><job>6</job></result></response>
+
+TESTSERVER/api/
+DATA: key=xxx&type=op&cmd=<show><jobs><id>6</id></jobs></show>
+<response status="success"><result><job>
+<result>OK</result>
+</job></result></response>
+
+=END=
+
+=TEMPL=netspoc_vsys2
+[[netspoc_vsys1]]
+=SUBST=/vsys1/vsys2/
+
+############################################################
+=TITLE=Commit two VSYS separately
+=SCENARIO=
+[[checkHA]]
+[[empty_with_vsys_param ["vsys1", "vsys2"] ]]
+POST /api/?action=set&type=config
+<response status="success" code="20"></response>
+POST /api/?type=commit&action=partial
+<response status="success" code="19"><result><job>6</job></result></response>
+POST /api/?type=op&cmd=<show><jobs><id>6</id></jobs></show>
+<response status="success"><result><job>
+<result>OK</result>
+</job></result></response>
+=NETSPOC=
+<config><devices><entry name="localhost.localdomain"><vsys>
+[[netspoc_vsys1]]
+[[netspoc_vsys2]]
+</vsys></entry></devices></config>
+=OUTPUT=
+--router.change
+TESTSERVER/api/
+DATA: key=xxx&action=set&type=config&xpath=/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/service/entry[@name='tcp 80']&element=<protocol><tcp><port>80</port></tcp></protocol>
+<response status="success" code="20"></response>
+
+TESTSERVER/api/
+DATA: key=xxx&action=set&type=config&xpath=/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/rulebase/security/rules/entry[@name='r1']&element=<action>allow</action><from><member>z1</member></from><to><member>z2</member></to><source><member>any</member></source><destination><member>any</member></destination><service><member>tcp 80</member></service><application><member>any</member></application><rule-type>interzone</rule-type>
+<response status="success" code="20"></response>
+
+TESTSERVER/api/
+DATA: key=xxx&type=commit&action=partial&cmd=<commit><partial><admin><member>admin</member></admin></partial></commit>
+<response status="success" code="19"><result><job>6</job></result></response>
+
+TESTSERVER/api/
+DATA: key=xxx&type=op&cmd=<show><jobs><id>6</id></jobs></show>
+<response status="success"><result><job>
+<result>OK</result>
+</job></result></response>
+
+TESTSERVER/api/
+DATA: key=xxx&action=set&type=config&xpath=/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys2']/service/entry[@name='tcp 80']&element=<protocol><tcp><port>80</port></tcp></protocol>
+<response status="success" code="20"></response>
+
+TESTSERVER/api/
+DATA: key=xxx&action=set&type=config&xpath=/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys2']/rulebase/security/rules/entry[@name='r1']&element=<action>allow</action><from><member>z1</member></from><to><member>z2</member></to><source><member>any</member></source><destination><member>any</member></destination><service><member>tcp 80</member></service><application><member>any</member></application><rule-type>interzone</rule-type>
 <response status="success" code="20"></response>
 
 TESTSERVER/api/
