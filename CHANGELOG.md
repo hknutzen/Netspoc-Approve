@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2026-03-06-0809]
+
 ### Changed
 
 - Changes to PAN-OS devices are no longer committed in one run, but one
