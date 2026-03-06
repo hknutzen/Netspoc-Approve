@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Changes to PAN-OS devices are no longer committed in one run, but one
+  by one for each VSYS. This works around a limitation that the
+  nummber of uncommitted changes must not exceed 250.
+
 ## [2025-12-16-1656]
 
 ### Added

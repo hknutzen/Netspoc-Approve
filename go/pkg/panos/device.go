@@ -249,9 +249,9 @@ func (s *State) ApplyCommands(logFH *os.File) error {
 				return fmt.Errorf("Command failed with %v", err)
 			}
 		}
-	}
-	if err := commit(); err != nil {
-		return fmt.Errorf("Commit failed: %v", err)
+		if err := commit(); err != nil {
+			return fmt.Errorf("Commit failed: %v", err)
+		}
 	}
 	return nil
 }
