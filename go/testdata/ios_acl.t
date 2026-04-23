@@ -433,6 +433,33 @@ ip access-list resequence test 10 10
 =END=
 
 ############################################################
+=TITLE=Replace empty ACL instead of changing it incrementally
+=DEVICE=
+ip access-list extended emptyACL
+interface eth0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group emptyACL in
+interface eth1
+ ip address 10.1.2.1 255.255.255.0
+=NETSPOC=
+ip access-list extended newACL
+ permit tcp 10.1.1.0 255.255.255.0 any eq 80
+interface eth0
+ ip address 10.1.1.1 255.255.255.0
+ ip access-group newACL in
+interface eth1
+ ip address 10.1.2.1 255.255.255.0
+=OUTPUT=
+ip access-list extended newACL-DRC-0
+permit tcp 10.1.1.0 255.255.255.0 any eq 80
+exit
+interface eth0
+ip access-group newACL-DRC-0 in
+exit
+no ip access-list extended emptyACL
+=END=
+
+############################################################
 =TITLE=Change ACL, avoid ephemeral permit
 =DEVICE=
 ip access-list extended test

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Empty IOS ACL is no longer updated incrementally but replaced by a newly generated ACL instead.
+
+
 ## [2026-03-06-0809]
 
 ### Changed

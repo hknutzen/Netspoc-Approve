@@ -224,6 +224,19 @@ func (s *state) diffCmds(al, bl []*cmd, key keyFunc) string {
 			return ""
 		}
 	}
+
+	// Do not incrementally alter empty IOS ACL to prevent connectivity issues.
+	if isEq {
+		for i, c := range al {
+			if strings.HasPrefix(c.parsed, "ip access-list extended $NAME") {
+				if len(c.sub) == 0 && len(bl[i].sub) > 0 {
+					hasEq = false
+					break
+				}
+			}
+		}
+	}
+
 	// Standard ACL can't be changed incrementally.
 	// Ignore "access-list $NAME remark " in first line.
 	if !isEq {
