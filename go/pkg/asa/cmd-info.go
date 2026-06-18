@@ -69,11 +69,13 @@ group-policy $NAME attributes
  vpn-filter value $access-list
  split-tunnel-network-list value $access-list
  address-pools value $ip_local_pool
+ ipv6-address-pools value $ipv6_local_pool
  !webvpn
  *
 
 [SIMPLE_OBJ]
 ip_local_pool $NAME *
+ipv6_local_pool $NAME *
 crypto_ipsec_ikev1_transform-set $NAME *
 crypto_ipsec_ikev2_ipsec-proposal $NAME
  protocol esp encryption *

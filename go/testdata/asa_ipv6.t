@@ -293,6 +293,52 @@ access-group outside_in-DRC-0 in interface outside
 =END=
 
 ############################################################
+=TITLE=merge vpn-filter and split-tunnel ACL
+=DEVICE=NONE
+=NETSPOC=
+--router
+access-list split-tunnel standard permit 10.1.0.0 255.255.255.0
+access-list vpn-filter extended permit ip host 10.1.1.2 host 10.1.0.2
+access-list vpn-filter extended deny ip any4 any4
+group-policy VPN-group-bar@domain.x internal
+group-policy VPN-group4 internal
+group-policy VPN-group4 attributes
+ split-tunnel-network-list value split-tunnel
+ split-tunnel-policy tunnelspecified
+ vpn-filter value vpn-filter
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy VPN-group4
+--ipv6/router
+access-list split-tunnel standard permit 1000::1:0:0/120
+access-list vpn-filter extended permit ip host 1000::1:1:2 host 1000::1:0:2
+access-list vpn-filter extended deny ip any6 any6
+group-policy VPN-group6 internal
+group-policy VPN-group6 attributes
+ split-tunnel-network-list value split-tunnel
+ split-tunnel-policy tunnelspecified
+ vpn-filter value vpn-filter
+tunnel-group 1.1.1.1 type ipsec-l2l
+tunnel-group 1.1.1.1 general-attributes
+ default-group-policy VPN-group6
+=OUTPUT=
+tunnel-group 1.1.1.1 type ipsec-l2l
+group-policy VPN-group4-DRC-0 internal
+access-list split-tunnel-DRC-0 standard permit 1000::1:0:0/120
+access-list split-tunnel-DRC-0 standard permit 10.1.0.0 255.255.255.0
+access-list vpn-filter-DRC-0 extended permit ip host 1000::1:1:2 host 1000::1:0:2
+access-list vpn-filter-DRC-0 extended permit ip host 10.1.1.2 host 10.1.0.2
+access-list vpn-filter-DRC-0 extended deny ip any4 any4
+access-list vpn-filter-DRC-0 extended deny ip any6 any6
+group-policy VPN-group4-DRC-0 attributes
+split-tunnel-network-list value split-tunnel-DRC-0
+split-tunnel-policy tunnelspecified
+vpn-filter value vpn-filter-DRC-0
+tunnel-group 1.1.1.1 general-attributes
+default-group-policy VPN-group4-DRC-0
+=END=
+
+############################################################
 =TITLE=ipv6 interface unknown in ipv4
 =DEVICE=[[minimal_device]]
 =NETSPOC=

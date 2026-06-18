@@ -41,10 +41,6 @@ func (s *state) mergeSpoc(b *config) {
 	for prefix, bMap := range b.lookup {
 		aMap := lookup[prefix]
 		for name, bl := range bMap {
-			switch prefix {
-			case "tunnel-group-map", "webvpn":
-				errlog.Abort("Command '%s' not supported in raw file", prefix)
-			}
 			bCmd := bl[0]
 			// Select anchor commands.
 			// Collect non anchor commands.
@@ -79,6 +75,7 @@ func (s *state) mergeSpoc(b *config) {
 }
 
 func mergeCmds(ab *cmdsPair, name, prefix string) {
+	key := byParsedCmd
 	switch prefix {
 	case "crypto map":
 		mergeCryptoMap(ab, name, prefix)
@@ -92,15 +89,17 @@ func mergeCmds(ab *cmdsPair, name, prefix string) {
 	case "ip access-list extended":
 		mergeIOSACLs(ab, name, prefix)
 		return
+	case "tunnel-group-map":
+		key = byCertMapKey
 	}
 	al := ab.aCmds
 	bl := ab.bCmds
 	m := make(map[string]*cmd)
 	for _, a := range al {
-		m[a.parsed] = a
+		m[key(ab.a, a)] = a
 	}
 	for _, b := range bl {
-		if a, found := m[b.parsed]; found {
+		if a, found := m[key(ab.b, b)]; found {
 			mergeSubCmds(ab, a, b)
 			mergeRefs(ab, a, b)
 		} else {
@@ -115,12 +114,16 @@ func mergeCmds(ab *cmdsPair, name, prefix string) {
 }
 
 func mergeSubCmds(ab *cmdsPair, a, b *cmd) {
+	key := byParsedCmd
+	if a.typ.prefix == "webvpn" {
+		key = byCertMapKey
+	}
 	m := make(map[string]*cmd)
 	for _, as := range a.sub {
-		m[as.parsed] = as
+		m[key(ab.a, as)] = as
 	}
 	for _, bs := range b.sub {
-		as := m[bs.parsed]
+		as := m[key(ab.b, bs)]
 		mergeRefs(ab, as, bs)
 		if as == nil {
 			a.sub = append(a.sub, bs)
@@ -154,7 +157,7 @@ func mergeRefs(ab *cmdsPair, a, b *cmd) {
 		var al []*cmd = nil
 		storeName := bName
 		if a != nil {
-			if isReferenced[refCmd] {
+			if ab.b.isRaw && isReferenced[refCmd] {
 				errlog.Abort("Must reference '%s %s' only once in raw",
 					prefix, bName)
 			}

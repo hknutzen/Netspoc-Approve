@@ -1444,6 +1444,38 @@ no ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
 =END=
 
 ############################################################
+=TITLE=Modify ipv6 local pool
+=DEVICE=
+ipv6 local pool pool 1000::abcd:2:0/112 16384
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ ipv6-address-pools value pool
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ default-group-policy VPN-group
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 10 VPN-tunnel
+=NETSPOC=
+ipv6 local pool pool 1000::abcd:3:0/112 16384
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ ipv6-address-pools value pool
+tunnel-group VPN-tunnel type remote-access
+tunnel-group VPN-tunnel general-attributes
+ default-group-policy VPN-group
+crypto ca certificate map ca-map 10
+ subject-name attr ea co @sub.example.com
+tunnel-group-map ca-map 10 VPN-tunnel
+=OUTPUT=
+ipv6 local pool pool-DRC-0 1000::abcd:3:0/112 16384
+group-policy VPN-group attributes
+ipv6-address-pools value pool-DRC-0
+exit
+no ipv6 local pool pool 1000::abcd:2:0/112 16384
+=END=
+
+############################################################
 =TITLE=Add webvpn-attributes, delete ipsec-attributes
 =DEVICE=
 tunnel-group NAME type remote-access

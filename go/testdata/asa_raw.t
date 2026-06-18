@@ -556,9 +556,24 @@ peer-id-validate nocheck
 =END=
 
 ############################################################
-=TITLE=tunnel-group-map not supported in raw
+=TITLE=Merge tunnel-group-maps
 =DEVICE=NONE
 =NETSPOC=
+--router
+crypto ca certificate map cm1 10
+ subject-name attr ea eq other-name
+ extended-key-usage co 1.2.3.4
+tunnel-group tg1 type ipsec-l2l
+tunnel-group tg1 ipsec-attributes
+ ikev2 remote-authentication certificate
+tunnel-group-map cm1 10 tg1
+crypto ca certificate map cm2 10
+ subject-name attr ea eq some-name
+tunnel-group tg2 type ipsec-l2l
+tunnel-group tg2 ipsec-attributes
+ ikev2 local-authentication certificate Trustpoint2
+ ikev2 remote-authentication certificate
+tunnel-group-map cm2 10 tg2
 --router.raw
 crypto ca certificate map name1 10
  subject-name attr ea eq some-name
@@ -566,11 +581,76 @@ crypto ca certificate map name1 10
 tunnel-group name2 type ipsec-l2l
 tunnel-group name2 ipsec-attributes
  peer-id-validate nocheck
+tunnel-group-map name1 10 name2
+crypto ca certificate map name3 10
+ subject-name attr ea eq other-name
+tunnel-group name4 type ipsec-l2l
+tunnel-group name4 ipsec-attributes
+ ikev2 local-authentication certificate Trustpoint3
+ ikev2 remote-authentication certificate
+tunnel-group-map name3 10 name4
+=OUTPUT=
+crypto ca certificate map cm1-DRC-0 10
+subject-name attr ea eq other-name
+extended-key-usage co 1.2.3.4
+tunnel-group tg1-DRC-0 type ipsec-l2l
+tunnel-group tg1-DRC-0 ipsec-attributes
+ikev2 remote-authentication certificate
+ikev2 local-authentication certificate Trustpoint3
+tunnel-group-map cm1-DRC-0 10 tg1-DRC-0
+crypto ca certificate map cm2-DRC-0 10
+subject-name attr ea eq some-name
+extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group tg2-DRC-0 type ipsec-l2l
+tunnel-group tg2-DRC-0 ipsec-attributes
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+peer-id-validate nocheck
+tunnel-group-map cm2-DRC-0 10 tg2-DRC-0
+=END=
+
+############################################################
+=TITLE=Merge certificate-group-maps
+=DEVICE=NONE
+=NETSPOC=
+--router
+crypto ca certificate map cm1 10
+ subject-name attr ea eq other-name
+ extended-key-usage co 1.2.3.4
+tunnel-group tg1 type ipsec-l2l
+tunnel-group tg1 ipsec-attributes
+ peer-id-validate nocheck
  ikev2 local-authentication certificate Trustpoint2
  ikev2 remote-authentication certificate
-tunnel-group-map name1 10 name2
-=ERROR=
-ERROR>>> Command 'tunnel-group-map' not supported in raw file
+webvpn
+ certificate-group-map cm1 10 tg1
+--router.raw
+crypto ca certificate map name1 10
+ subject-name attr ea eq some-name
+ extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group name2 type ipsec-l2l
+tunnel-group name2 ipsec-attributes
+ peer-id-validate nocheck
+webvpn
+ certificate-group-map name1 10 name2
+=OUTPUT=
+crypto ca certificate map cm1-DRC-0 10
+subject-name attr ea eq other-name
+extended-key-usage co 1.2.3.4
+tunnel-group tg1-DRC-0 type ipsec-l2l
+tunnel-group tg1-DRC-0 ipsec-attributes
+peer-id-validate nocheck
+ikev2 local-authentication certificate Trustpoint2
+ikev2 remote-authentication certificate
+crypto ca certificate map name1-DRC-0 10
+subject-name attr ea eq some-name
+extended-key-usage co 1.3.6.1.4.1.311.20.2.2
+tunnel-group name2-DRC-0 type ipsec-l2l
+tunnel-group name2-DRC-0 ipsec-attributes
+peer-id-validate nocheck
+webvpn
+certificate-group-map cm1-DRC-0 10 tg1-DRC-0
+certificate-group-map name1-DRC-0 10 name2-DRC-0
 =END=
 
 ############################################################
@@ -638,9 +718,11 @@ default-group-policy VPN-group2-DRC-0
 =NETSPOC=
 --router
 ip local pool pool 10.1.219.192-10.1.219.255 mask 0.0.0.63
+access-list vpn-filter extended permit ip host 10.1.1.2 host 10.1.0.2
 group-policy VPN-group internal
 group-policy VPN-group attributes
  address-pools value pool
+ vpn-filter value vpn-filter
 tunnel-group 1.1.1.1 type ipsec-l2l
 tunnel-group 1.1.1.1 general-attributes
  default-group-policy VPN-group
@@ -656,10 +738,11 @@ tunnel-group 1.1.1.1 general-attributes
 tunnel-group 1.1.1.1 type ipsec-l2l
 group-policy VPN-group-DRC-0 internal
 ip local pool pool-DRC-0 10.1.219.192-10.1.219.255 mask 0.0.0.63
-access-list raw-filter-DRC-0 extended permit ip host 10.1.2.2 host 10.1.0.2
+access-list vpn-filter-DRC-0 extended permit ip host 10.1.2.2 host 10.1.0.2
+access-list vpn-filter-DRC-0 extended permit ip host 10.1.1.2 host 10.1.0.2
 group-policy VPN-group-DRC-0 attributes
 address-pools value pool-DRC-0
-vpn-filter value raw-filter-DRC-0
+vpn-filter value vpn-filter-DRC-0
 tunnel-group 1.1.1.1 general-attributes
 default-group-policy VPN-group-DRC-0
 =END=

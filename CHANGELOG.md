@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- ASA:
+  - Additional commands are supported:
+    - 'ipv6 local pool'
+    - 'ipv6-address-pools'
+  - More commands are merged between configuration files from raw and ipv6:
+    - 'tunnel-group-map'
+    - sub command 'certificate-group-map' of command 'webvpn'
+
 ## [2026-06-08-1146]
 
 ### Changed
