@@ -22,7 +22,7 @@
 #   Logs approve and compare operations for each device.
 # - credentials file
 #   Password file for systemuser.
-basedir = /home/diamonds
+basedir = /home/netspoc
 
 # Git repository used to check out Netspoc files.
 netspoc_git = git@localhost:netspoc.git
@@ -36,8 +36,8 @@ netspoc_git = git@localhost:netspoc.git
 checkbanner = NetSPoC
 
 # If value is set, call newpolicy and approve with "sudo" as this user.
-# In this case, read the password from file given in credentials.
-systemuser = diamonds
+# In this case, read the password from file given in 'credentials'.
+systemuser = netspoc
 
 # Space delimited list of IP addresses of this server.
 # Each address is compared with value of policy_distribution_point from Netspoc
