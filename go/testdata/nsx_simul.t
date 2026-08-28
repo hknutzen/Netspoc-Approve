@@ -98,7 +98,7 @@ GET /policy/api/v1/infra/domains/default/groups
 {}
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While parsing JSON from device: json: error calling MarshalJSON for type json.RawMessage: invalid character 'I' looking for beginning of value
+ERROR>>> While parsing JSON from device: json: error calling MarshalJSON for type *jsontext.Value: invalid character 'I' looking for beginning of value
 =END=
 
 ############################################################

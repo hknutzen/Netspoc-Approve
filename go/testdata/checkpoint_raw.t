@@ -49,7 +49,7 @@ ERROR>>> While reading file router.raw: Must only define name starting with 'Raw
  ]}
 }
 =ERROR=
-ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go struct field chkpRule.TargetRules.action of type struct { Name string }
+ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go value of type struct { Name string }
 =END=
 
 ############################################################
@@ -64,7 +64,7 @@ ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go st
  ]}
 }
 =ERROR=
-ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go struct field chkpRule.TargetRules.enabled of type bool
+ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go value of type bool
 =END=
 
 ############################################################

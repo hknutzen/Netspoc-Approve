@@ -1,6 +1,6 @@
 module github.com/hknutzen/Netspoc-Approve/go
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/creack/pty v1.1.23

@@ -350,7 +350,7 @@ POST /web_api/show-access-rulebase
 }
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: json: cannot unmarshal number into Go struct field .rulebase of type []json.RawMessage
+ERROR>>> While reading device: json: cannot unmarshal number into Go struct field .rulebase of type []jsontext.Value
 =END=
 
 ############################################################
@@ -366,7 +366,7 @@ POST /web_api/show-access-rulebase
 }
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While parsing device config: json: cannot unmarshal number into Go struct field chkpConfig.TargetRules of type checkpoint.chkpRule
+ERROR>>> While parsing device config: json: cannot unmarshal number into chkpConfig.TargetRules.fw1.0 of type checkpoint.chkpRule
 =END=
 
 =TEMPL=simple_rule
