@@ -102,8 +102,8 @@ func Main() int {
 	if err != nil {
 		return abort("can't %v", err)
 	}
-	lines := strings.Split(string(data), "\n")
-	for _, ln := range lines {
+	lines := strings.SplitSeq(string(data), "\n")
+	for ln := range lines {
 		if strings.HasPrefix(ln, "ERROR>>>") {
 			errors = true
 		} else if strings.HasPrefix(ln, "WARNING>>>") {

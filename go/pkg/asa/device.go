@@ -66,7 +66,7 @@ var validOutput = map[string]*regexp.Regexp{
 
 func (s *State) IsValidOutput(cmd, out string) bool {
 LINE:
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if line == "" {
 			continue
 		}

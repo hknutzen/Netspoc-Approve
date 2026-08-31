@@ -89,7 +89,7 @@ func (s *State) WriteMem(conn *console.Conn) {
 }
 
 func (s *State) IsValidOutput(cmd, out string) bool {
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		if line == "" {
 			continue
 		}

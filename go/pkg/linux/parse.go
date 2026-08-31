@@ -11,7 +11,7 @@ import (
 
 func (s *State) parseConfig(data []byte, fName string) *config {
 	var rLines, tLines []string
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || line[0] == '#' {
 			continue
@@ -77,7 +77,7 @@ func parseRoutes(lines []string) []route {
 		}
 		result = append(result,
 			route{
-				spec: spec{dst: dst{ip: ip, prefix: prefix}, hop: hop},
+				ip: ip, prefix: prefix, hop: hop,
 				orig: line,
 			})
 	}

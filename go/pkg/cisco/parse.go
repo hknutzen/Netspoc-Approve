@@ -335,7 +335,7 @@ func (p *parser) setupCmdDescr(info string) {
 func parseHeader(line string) header {
 	h := header{}
 	line = strings.Trim(line, "[]")
-	for _, w := range strings.Split(line, ",") {
+	for w := range strings.SplitSeq(line, ",") {
 		w = strings.TrimSpace(w)
 		switch w {
 		case "ANCHOR":

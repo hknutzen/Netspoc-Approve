@@ -128,8 +128,7 @@ func LoadConfig() (*Config, error) {
 		return err
 	}
 
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		words := strings.Fields(line)
 		if len(words) == 0 || words[0][0] == '#' {
 			continue

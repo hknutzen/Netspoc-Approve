@@ -36,8 +36,7 @@ func TestDrc(t *testing.T) {
 	os.Args = []string{
 		"drc", "-q", "-C", "-u", "adm", "-L", workDir, "code/router"}
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() { drc.Main(); tty.Close(); pty.Close(); wg.Done() }()
+	wg.Go(func() { drc.Main(); tty.Close(); pty.Close() })
 	var buf = make([]byte, 256)
 	nr, _ := pty.Read(buf)
 	got := string(buf[:nr])

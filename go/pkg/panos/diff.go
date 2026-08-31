@@ -3,6 +3,7 @@ package panos
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/pkg/diff/myers"
 )
@@ -501,7 +502,7 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 		if 2*d > u+1 { // +1: allow some deletes in small group
 			return false
 		}
-		insert := ""
+		var insert strings.Builder
 		for _, r := range s.Ranges {
 			if r.IsDelete() {
 				for _, adr := range la[r.LowA:r.HighA] {
@@ -511,7 +512,7 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 				}
 			} else if r.IsInsert() {
 				object := &panMembers{Member: lb[r.LowB:r.HighB]}
-				insert += printXMLValue(object)
+				insert.WriteString(printXMLValue(object))
 			} else {
 				// Check that addressgroups are equal or can be made equal.
 				offset := r.LowB - r.LowA
@@ -527,8 +528,8 @@ func (ab *rulesPair) equalize(a, b *panRule, vsysPath string) []string {
 				}
 			}
 		}
-		if insert != "" {
-			elem := "&element=" + insert
+		if insert.Len() != 0 {
+			elem := "&element=" + insert.String()
 			cmd := "action=set&" + cmd0 + path + elem
 			result = append(result, cmd)
 		}

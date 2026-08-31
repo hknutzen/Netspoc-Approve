@@ -42,8 +42,7 @@ func (c *Config) getSystemPassword(name string) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("Can't %v", err)
 	}
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || line[0] == '#' {
 			continue
