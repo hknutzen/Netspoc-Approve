@@ -354,3 +354,37 @@ access-group outside_in-DRC-0 in interface outside
 access-list inside_in-DRC-0 extended deny ip any6 any6
 access-group inside_in-DRC-0 in interface inside
 =END=
+
+############################################################
+=TITLE=Merge IPv4 and IPv6 parts of group-policy
+# Must change attribute subCmdOf of merged sub commands.
+=DEVICE=
+ip local pool pool 10.3.4.0-10.3.4.15 mask 255.255.255.240
+group-policy VPN-group internal
+group-policy VPN-group attributes
+ address-pools value pool
+username jon.doe@token.example.com nopassword
+username jon.doe@token.example.com attributes
+ vpn-group-policy VPN-group
+=NETSPOC=
+--router
+ip local pool pool 10.3.4.0-10.3.4.15 mask 255.255.255.240
+group-policy VPN-group4 internal
+group-policy VPN-group4 attributes
+ address-pools value pool
+username jon.doe@token.example.com nopassword
+username jon.doe@token.example.com attributes
+ vpn-group-policy VPN-group4
+--ipv6/router
+ipv6 local pool pool 1000::abcd:2:0/124 15
+group-policy VPN-group6 internal
+group-policy VPN-group6 attributes
+ ipv6-address-pools value pool
+username jon.doe@token.example.com nopassword
+username jon.doe@token.example.com attributes
+ vpn-group-policy VPN-group6
+=OUTPUT=
+ipv6 local pool pool-DRC-0 1000::abcd:2:0/124 15
+group-policy VPN-group attributes
+ipv6-address-pools value pool-DRC-0
+=END=

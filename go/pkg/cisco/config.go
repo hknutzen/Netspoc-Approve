@@ -127,6 +127,7 @@ func mergeSubCmds(ab *cmdsPair, a, b *cmd) {
 		mergeRefs(ab, as, bs)
 		if as == nil {
 			a.sub = append(a.sub, bs)
+			bs.subCmdOf = a
 		}
 	}
 }
