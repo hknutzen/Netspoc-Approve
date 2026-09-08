@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Netspoc writes code for IPv4 and IPv6 to different files.
+  Netspoc-Approve merges them into a single configuration.
+  If different sub commands from IPv4 and IPv6 are merged into a
+  single command, a wrong name was used for the enclosing command.
+  This has been fixed.
+
 ## [2026-06-18-1417]
 
 ### Added
