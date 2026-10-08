@@ -250,6 +250,9 @@ timeout = 1
 	// Normalize error messages.
 	stderr = strings.ReplaceAll(stderr, workDir+"/", "")
 	stdout = strings.ReplaceAll(stdout, workDir+"/", "")
+	// Normalize non-deterministic error messages of encoding/json/v2.
+	stderr = strings.Replace(stderr, "json: unable to ", "json: cannot ", 1)
+
 	if httpServer != nil {
 		stderr = strings.ReplaceAll(stderr, httpServer.URL, "TESTSERVER")
 	}

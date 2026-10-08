@@ -64,7 +64,7 @@ POST /web_api/login
 INVALID
 =NETSPOC=NONE
 =ERROR=
-WARNING>>> invalid character 'I' looking for beginning of value
+WARNING>>> jsontext: invalid character 'I' at start of value
 ERROR>>> Devices unreachable: router
 =END=
 
@@ -292,7 +292,7 @@ ERROR>>> While reading device: Post "TESTSERVER/web_api/show-packages": EOF
 =SUBST=/"packages"/INVALID/
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: invalid character 'I' looking for beginning of object key string
+ERROR>>> While reading device: jsontext: invalid character 'I' at start of value after offset 4
 =END=
 
 ############################################################
@@ -350,7 +350,7 @@ POST /web_api/show-access-rulebase
 }
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: json: cannot unmarshal number into Go struct field .rulebase of type []jsontext.Value
+ERROR>>> While reading device: json: cannot unmarshal JSON number into Go []jsontext.Value within "/rulebase"
 =END=
 
 ############################################################
@@ -366,7 +366,7 @@ POST /web_api/show-access-rulebase
 }
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While parsing device config: json: cannot unmarshal number into chkpConfig.TargetRules.fw1.0 of type checkpoint.chkpRule
+ERROR>>> While parsing device config: json: cannot unmarshal JSON number into Go checkpoint.chkpRule within "/TargetRules/fw1/0"
 =END=
 
 =TEMPL=simple_rule
@@ -441,7 +441,7 @@ TESTSERVER/web_api/login
 /web_api/show-simple-clusters
 {"details-level": "uid"}
 --router.config
-{"GatewayIPs":{},"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"SvOther":null,"TCP":null,"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":[{"name":"rule1","uid":"id1","source":[{"name":"Any"}],"destination":[{"name":"Any"}],"service":[{"name":"icmp-proto"}],"action":{"name":"Accept"},"install-on":[{"name":"Policy Targets"}],"tags":[]}]},"UDP":null}
+{"GatewayIPs":{},"GatewayRoutes":{},"Groups":[],"Hosts":[],"ICMP":[],"ICMP6":[],"Networks":[],"SvOther":[],"TCP":[],"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":[{"name":"rule1","uid":"id1","source":[{"name":"Any"}],"destination":[{"name":"Any"}],"service":[{"name":"icmp-proto"}],"action":{"name":"Accept"},"install-on":[{"name":"Policy Targets"}],"tags":[]}]},"UDP":[]}
 --router.change
 /web_api/delete-access-rule
 {"layer":"network","uid":"id1"}
@@ -527,7 +527,7 @@ POST /web_api/publish
 =NETSPOC=
 { "TargetRules": {"fw1": []} }
 =ERROR=
-ERROR>>> json: cannot unmarshal number into Go struct field .task-id of type string
+ERROR>>> json: cannot unmarshal JSON number into Go string within "/task-id"
 =OUTPUT=
 --router.change
 /web_api/delete-access-rule
@@ -576,7 +576,7 @@ Post "TESTSERVER/web_api/show-task": EOF
 =NETSPOC=
 { "TargetRules": {"fw1": []} }
 =ERROR=
-ERROR>>> invalid character 'I' looking for beginning of value
+ERROR>>> jsontext: invalid character 'I' at start of value within "/Tasks/0/status" after offset 32
 =OUTPUT=
 --router.change
 /web_api/delete-access-rule
@@ -687,7 +687,7 @@ WARNING>>> task "" succeeded with warnings
 WARNING>>> task "" succeeded with warnings
 =OUTPUT=
 --router.config
-{"GatewayIPs":{},"GatewayRoutes":{},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"SvOther":null,"TCP":null,"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":null},"UDP":null}
+{"GatewayIPs":{},"GatewayRoutes":{},"Groups":[],"Hosts":[],"ICMP":[],"ICMP6":[],"Networks":[],"SvOther":[],"TCP":[],"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":[]},"UDP":[]}
 --router.change
 /web_api/add-access-rule
 {"name":"rule1","layer":"network","action":"Accept","source":["Any"],"destination":["Any"],"service":["https"],"install-on":["Policy Targets"],"position":"bottom"}
@@ -821,7 +821,7 @@ POST /web_api/show-simple-gateway
 ERROR
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While reading device: invalid character 'E' looking for beginning of value
+ERROR>>> While reading device: jsontext: invalid character 'E' at start of value
 =END=
 
 ############################################################
@@ -873,7 +873,7 @@ POST /web_api/gaia-api/v1.8/show-static-routes
 }}
 =OUTPUT=
 --router.config
-{"GatewayIPs":{"cluster1":["10.2.2.2","10.2.2.3"],"gw1":["10.1.1.1"]},"GatewayRoutes":{"cluster1":[{"address":"10.11.0.0","mask-length":17,"type":"gateway","next-hop":[{"gateway":"10.1.2.2"}]}],"gw1":[{"address":"10.11.0.0","mask-length":17,"type":"gateway","next-hop":[{"gateway":"10.1.2.2"}]}]},"Groups":null,"Hosts":null,"ICMP":null,"ICMP6":null,"Networks":null,"SvOther":null,"TCP":null,"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":null},"UDP":null}
+{"GatewayIPs":{"cluster1":["10.2.2.2","10.2.2.3"],"gw1":["10.1.1.1"]},"GatewayRoutes":{"cluster1":[{"address":"10.11.0.0","mask-length":17,"type":"gateway","next-hop":[{"gateway":"10.1.2.2"}]}],"gw1":[{"address":"10.11.0.0","mask-length":17,"type":"gateway","next-hop":[{"gateway":"10.1.2.2"}]}]},"Groups":[],"Hosts":[],"ICMP":[],"ICMP6":[],"Networks":[],"SvOther":[],"TCP":[],"TargetPolicy":{"fw1":{"Name":"pkg1","Layer":"network","Comment":"Managed by NetSPoC"}},"TargetRules":{"fw1":[]},"UDP":[]}
 --router.change
 /web_api/gaia-api/v1.8/delete-static-route
 {"address":"10.11.0.0","mask-length":17,"target":"10.2.2.2"}

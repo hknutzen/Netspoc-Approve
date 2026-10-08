@@ -58,7 +58,7 @@ GET /policy/api/v1/infra/domains/default/gateway-policies
 invalid
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> while parsing /policy/api/v1/infra/domains/default/gateway-policies: invalid character 'i' looking for beginning of value
+ERROR>>> while parsing /policy/api/v1/infra/domains/default/gateway-policies: jsontext: invalid character 'i' at start of value
 =END=
 
 ############################################################
@@ -98,7 +98,7 @@ GET /policy/api/v1/infra/domains/default/groups
 {}
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> While parsing JSON from device: json: error calling MarshalJSON for type *jsontext.Value: invalid character 'I' looking for beginning of value
+ERROR>>> While parsing JSON from device: json: cannot marshal from Go jsontext.Value: invalid character 'I' at start of value within "/policies/0" after offset 39
 =END=
 
 ############################################################
@@ -123,7 +123,7 @@ GET /policy/api/v1/infra/domains/default/gateway-policies
 GET /policy/api/v1/infra/services
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> while parsing /policy/api/v1/infra/services: unexpected end of JSON input
+ERROR>>> while parsing /policy/api/v1/infra/services: jsontext: unexpected EOF
 =END=
 
 ############################################################
@@ -141,7 +141,7 @@ GET /policy/api/v1/infra/domains/default/groups
 }
 =NETSPOC=NONE
 =ERROR=
-ERROR>>> json: cannot unmarshal string into Go value of type struct { Id string }
+ERROR>>> json: cannot unmarshal JSON string into Go struct { Id string "json:\"id\"" }
 =END=
 
 ############################################################

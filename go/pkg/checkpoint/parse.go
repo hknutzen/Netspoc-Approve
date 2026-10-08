@@ -2,7 +2,7 @@ package checkpoint
 
 import (
 	"cmp"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"path"
 	"strings"
@@ -26,26 +26,26 @@ type chkpConfig struct {
 type chkpPolicy struct {
 	Name    string
 	Layer   string
-	Comment string `json:",omitempty"`
+	Comment string `json:",omitzero"`
 }
 
 type chkpRule struct {
 	Name              string       `json:"name"`
-	UID               string       `json:"uid,omitempty"`
-	Layer             string       `json:"layer,omitempty"`
-	Comments          string       `json:"comments,omitempty"`
+	UID               string       `json:"uid,omitzero"`
+	Layer             string       `json:"layer,omitzero"`
+	Comments          string       `json:"comments,omitzero"`
 	Action            chkpName     `json:"action"`
 	Source            []chkpName   `json:"source"`
 	Destination       []chkpName   `json:"destination"`
 	Service           []chkpName   `json:"service"`
-	Disabled          invertedBool `json:"enabled,omitempty"`
-	SourceNegate      bool         `json:"source-negate,omitempty"`
-	DestinationNegate bool         `json:"destination-negate,omitempty"`
-	ServiceNegate     bool         `json:"service-negate,omitempty"`
-	Track             *chkpTrack   `json:"track,omitempty"`
+	Disabled          invertedBool `json:"enabled,omitzero"`
+	SourceNegate      bool         `json:"source-negate,omitzero"`
+	DestinationNegate bool         `json:"destination-negate,omitzero"`
+	ServiceNegate     bool         `json:"service-negate,omitzero"`
+	Track             *chkpTrack   `json:"track,omitzero"`
 	InstallOn         []chkpName   `json:"install-on"`
-	Position          any          `json:"position,omitempty"`
-	Append            bool         `json:"append,omitempty"` // From raw file.
+	Position          any          `json:"position,omitzero"`
+	Append            bool         `json:"append,omitzero"` // From raw file.
 	needed            bool
 }
 
@@ -56,7 +56,9 @@ type chkpName string
 func (n *chkpName) UnmarshalJSON(b []byte) error {
 	var name string
 	if err := json.Unmarshal(b, &name); err != nil {
-		var obj struct{ Name string }
+		var obj struct {
+			Name string `json:"name"`
+		}
 		if err := json.Unmarshal(b, &obj); err != nil {
 			return err
 		}
@@ -71,25 +73,25 @@ func (n *chkpName) UnmarshalJSON(b []byte) error {
 // Hence we store the inverted value in attribute 'disabled'.
 type invertedBool bool
 
-func (inv *invertedBool) UnmarshalJSON(b []byte) error {
+func (b *invertedBool) UnmarshalJSON(in []byte) error {
 	var v bool
-	if err := json.Unmarshal(b, &v); err != nil {
+	if err := json.Unmarshal(in, &v); err != nil {
 		return err
 	}
-	*inv = invertedBool(!v)
+	*b = invertedBool(!v)
 	return nil
 }
 func (b *invertedBool) MarshalJSON() ([]byte, error) {
-	return json.Marshal(!*b)
+	return json.Marshal(!bool(*b))
 }
 
 type chkpTrack struct {
-	Accounting            bool     `json:"accounting,omitempty"`
-	Alert                 string   `json:"alert,omitempty"`
-	EnableFirewallSession bool     `json:"enable-firewall-session,omitempty"`
-	PerConnection         bool     `json:"per-connection,omitempty"`
-	PerSession            bool     `json:"per-session,omitempty"`
-	Type                  chkpName `json:"type,omitempty"`
+	Accounting            bool     `json:"accounting,omitzero"`
+	Alert                 string   `json:"alert,omitzero"`
+	EnableFirewallSession bool     `json:"enable-firewall-session,omitzero"`
+	PerConnection         bool     `json:"per-connection,omitzero"`
+	PerSession            bool     `json:"per-session,omitzero"`
+	Type                  chkpName `json:"type,omitzero"`
 }
 
 type object interface {
@@ -110,11 +112,11 @@ type object interface {
 }
 
 type chkpObject struct {
-	Name           string `json:"name,omitempty"`
-	UID            string `json:"uid,omitempty"`
-	Comments       string `json:"comments,omitempty"`
-	IgnoreWarnings bool   `json:"ignore-warnings,omitempty"`
-	ReadOnly       bool   `json:"read-only,omitempty"`
+	Name           string `json:"name,omitzero"`
+	UID            string `json:"uid,omitzero"`
+	Comments       string `json:"comments,omitzero"`
+	IgnoreWarnings bool   `json:"ignore-warnings,omitzero"`
+	ReadOnly       bool   `json:"read-only,omitzero"`
 	needed         bool
 	deletable      bool
 	changed        bool
@@ -145,16 +147,16 @@ func (o *chkpSvOther) getAPIObject() string { return "service-other" }
 
 type chkpNetwork struct {
 	chkpObject
-	Subnet4     string `json:"subnet4,omitempty"`
-	Subnet6     string `json:"subnet6,omitempty"`
-	MaskLength4 int    `json:"mask-length4,omitempty"`
-	MaskLength6 int    `json:"mask-length6,omitempty"`
+	Subnet4     string `json:"subnet4,omitzero"`
+	Subnet6     string `json:"subnet6,omitzero"`
+	MaskLength4 int    `json:"mask-length4,omitzero"`
+	MaskLength6 int    `json:"mask-length6,omitzero"`
 }
 
 type chkpHost struct {
 	chkpObject
-	IPv4Address string `json:"ipv4-address,omitempty"`
-	IPv6Address string `json:"ipv6-address,omitempty"`
+	IPv4Address string `json:"ipv4-address,omitzero"`
+	IPv6Address string `json:"ipv6-address,omitzero"`
 }
 
 type chkpGroup struct {
@@ -165,33 +167,33 @@ type chkpGroup struct {
 type chkpTCP struct {
 	chkpObject
 	Port       string `json:"port"`
-	SourcePort string `json:"source-port,omitempty"`
-	Protocol   string `json:"protocol,omitempty"`
+	SourcePort string `json:"source-port,omitzero"`
+	Protocol   string `json:"protocol,omitzero"`
 }
 
 type chkpUDP struct {
 	chkpObject
 	Port       string `json:"port"`
-	SourcePort string `json:"source-port,omitempty"`
-	Protocol   string `json:"protocol,omitempty"`
+	SourcePort string `json:"source-port,omitzero"`
+	Protocol   string `json:"protocol,omitzero"`
 }
 
 type chkpICMP struct {
 	chkpObject
 	IcmpType *int `json:"icmp-type"`
-	IcmpCode *int `json:"icmp-code,omitempty"`
+	IcmpCode *int `json:"icmp-code,omitzero"`
 }
 
 type chkpICMP6 struct {
 	chkpObject
 	IcmpType *int `json:"icmp-type"`
-	IcmpCode *int `json:"icmp-code,omitempty"`
+	IcmpCode *int `json:"icmp-code,omitzero"`
 }
 
 type chkpSvOther struct {
 	chkpObject
 	IpProtocol int    `json:"ip-protocol"`
-	Match      string `json:"match,omitempty"`
+	Match      string `json:"match,omitzero"`
 }
 
 type chkpRoute struct {

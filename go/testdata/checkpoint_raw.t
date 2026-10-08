@@ -8,7 +8,7 @@
  "TargetRules": INVALID
 }
 =ERROR=
-ERROR>>> While reading file router.raw: invalid character 'I' looking for beginning of value
+ERROR>>> While reading file router.raw: jsontext: invalid character 'I' at start of value within "/TargetRules" after offset 18
 =END=
 
 ############################################################
@@ -49,7 +49,7 @@ ERROR>>> While reading file router.raw: Must only define name starting with 'Raw
  ]}
 }
 =ERROR=
-ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go value of type struct { Name string }
+ERROR>>> While reading file router.raw: json: cannot unmarshal JSON number into Go struct { Name string "json:\"name\"" } within "/TargetRules/fw1/0/action"
 =END=
 
 ############################################################
@@ -64,7 +64,7 @@ ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go va
  ]}
 }
 =ERROR=
-ERROR>>> While reading file router.raw: json: cannot unmarshal number into Go value of type bool
+ERROR>>> While reading file router.raw: json: cannot unmarshal JSON number into Go bool within "/TargetRules/fw1/0/enabled"
 =END=
 
 ############################################################
@@ -181,11 +181,11 @@ ERROR>>> While reading file router.raw: Must use "install-on": ["Policy Targets"
 =OUTPUT=
 add-access-rule
 {"name":"Raw top","layer":"network",
- "action":"Accept","source":null,"destination":null,"service":["https"],
+ "action":"Accept","source":[],"destination":[],"service":["https"],
  "install-on":["Policy Targets"],"position":{"above":"id-1"}}
 add-access-rule
 {"name":"Raw bot","layer":"network",
- "action":"Accept","source":null,"destination":null,"service":["smtp"],
+ "action":"Accept","source":[],"destination":[],"service":["smtp"],
  "install-on":["Policy Targets"],"position":{"above":"id-2"}}
 =END=
 
@@ -239,10 +239,10 @@ add-service-tcp
 {"name":"Raw s2","ignore-warnings":true,"port":"8082"}
 add-access-rule
 {"name":"Raw 2","layer":"network",
- "action":"Accept","source":["Raw g2"],"destination":null,"service":["Raw s2"],
+ "action":"Accept","source":["Raw g2"],"destination":[],"service":["Raw s2"],
  "enabled":false,"install-on":["Policy Targets"],"position":{"above":"id"}}
 add-access-rule
 {"name":"rule_1","layer":"network",
- "action":"Accept","source":["g1"],"destination":null,"service":["tcp_8080"],
+ "action":"Accept","source":["g1"],"destination":[],"service":["tcp_8080"],
  "install-on":["Policy Targets"],"position":{"above":"id"}}
 =END=

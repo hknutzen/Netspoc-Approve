@@ -1,7 +1,7 @@
 package codefiles
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"os"
@@ -30,7 +30,7 @@ func LoadInfoFile(path string) (*codeInfo, []string) {
 		}
 		checked = append(checked, file)
 		defer fd.Close()
-		if err := json.NewDecoder(fd).Decode(&info); err != nil {
+		if err := json.UnmarshalRead(fd, &info); err != nil {
 			panic(err)
 		}
 		// Must also read IPv6 file if v4 file has no IP.

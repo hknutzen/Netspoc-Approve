@@ -3,7 +3,7 @@ package nsx
 import (
 	"bytes"
 	"cmp"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"slices"
 	"sort"
@@ -40,8 +40,8 @@ func diffConfig(a, b *nsxConfig) []change {
 			method := "PUT"
 			if sa := ma[sb.Id]; sa != nil {
 				sa.needed = true
-				ja, _ := json.Marshal(sa)
-				jb, _ := json.Marshal(sb)
+				ja, _ := json.Marshal(sa, json.Deterministic(true))
+				jb, _ := json.Marshal(sb, json.Deterministic(true))
 				if bytes.Equal(ja, jb) {
 					continue
 				}
@@ -49,7 +49,7 @@ func diffConfig(a, b *nsxConfig) []change {
 			}
 			url := "/policy/api/v1/infra/services/" + sb.Id
 			sb.Id = "" // Don't send Id twice.
-			postData, _ := json.Marshal(sb)
+			postData, _ := json.Marshal(sb, json.Deterministic(true))
 			changes = append(changes, change{method, url, postData})
 		}
 	}
@@ -121,7 +121,7 @@ func diffPolicies(a, b *nsxPolicy, ab *rulesPair) []change {
 		}
 		url := fmt.Sprintf(
 			"/policy/api/v1/infra/domains/default/gateway-policies/%s", b.Id)
-		postData, _ := json.Marshal(b)
+		postData, _ := json.Marshal(b, json.Deterministic(true))
 		chgs = append(chgs, change{"PUT", url, postData})
 	}
 	if a == nil {
@@ -245,7 +245,7 @@ func (ab *rulesPair) writeRule(method string, r *nsxRule) change {
 	url := fmt.Sprintf("/policy/api/v1/infra/domains/default/gateway-policies/%s/rules/%s",
 		ab.policy.Id, r.Id)
 	r.Id = "" // Don't send Id twice.
-	postData, _ := json.Marshal(r)
+	postData, _ := json.Marshal(r, json.Deterministic(true))
 	return change{method, url, postData}
 }
 
@@ -260,7 +260,7 @@ func addGroup(g *nsxGroup) []change {
 	url := "/policy/api/v1/infra/domains/default/groups/" + g.Id
 	g.nameOnDevice = g.Id
 	g.Id = ""
-	postData, _ := json.Marshal(g)
+	postData, _ := json.Marshal(g, json.Deterministic(true))
 	return []change{{"PUT", url, postData}}
 }
 
@@ -350,7 +350,7 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 				url := fmt.Sprintf("/policy/api/v1/infra/domains/default/groups/%s/ip-address-expressions/%s?action=%s",
 					ga.Id, ga.Expression[0].Id, action)
 				data.IpAddresses = addresses
-				postData, _ := json.Marshal(data)
+				postData, _ := json.Marshal(data, json.Deterministic(true))
 				result = append(result, change{"POST", url, postData})
 			}
 		}
@@ -370,7 +370,8 @@ func (ab *rulesPair) equalizeGroups(ra, rb *nsxRule) []change {
 			url := fmt.Sprintf("/policy/api/v1/infra/domains/default/groups/%s/ip-address-expressions/%s",
 				ga.Id, ga.Expression[0].Id)
 			gb.Expression[0].Id = ""
-			postData, _ := json.Marshal(gb.Expression[0])
+			postData, _ := json.Marshal(
+				gb.Expression[0], json.Deterministic(true))
 			result = append(result, change{"PATCH", url, postData})
 
 		} else {

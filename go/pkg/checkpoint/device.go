@@ -3,7 +3,8 @@ package checkpoint
 import (
 	"bytes"
 	"cmp"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -63,7 +64,9 @@ func (s *State) LoadDevice(
 			if err != nil {
 				return err
 			}
-			var result struct{ Sid string }
+			var result struct {
+				Sid string `json:"sid"`
+			}
 			err = json.Unmarshal(body, &result)
 			if err != nil {
 				return err
@@ -86,9 +89,9 @@ func (s *State) LoadDevice(
 	deviceConf := make(jsonMap)
 	// Parts of configuration read from checkpoint device.
 	type rawPart struct {
-		To      int
-		Total   int
-		Objects []json.RawMessage
+		To      int              `json:"to"`
+		Total   int              `json:"total"`
+		Objects []jsontext.Value `json:"objects"`
 	}
 	// Functions that extract configuration parts from response data.
 	type extractFunc func([]byte) (*rawPart, error)
@@ -99,9 +102,9 @@ func (s *State) LoadDevice(
 	}
 	extractRulebase := func(data []byte) (*rawPart, error) {
 		part := struct {
-			To      int
-			Total   int
-			Objects []json.RawMessage `json:"rulebase"`
+			To      int              `json:"to"`
+			Total   int              `json:"total"`
+			Objects []jsontext.Value `json:"rulebase"`
 		}{}
 		err := json.Unmarshal(data, &part)
 		part2 := rawPart(part)
@@ -117,7 +120,7 @@ func (s *State) LoadDevice(
 	// Collect JSON data from different API endpoints.
 	var collectErr error
 	collect0 := func(extract extractFunc, endPoint string, args jsonMap,
-	) (result []json.RawMessage) {
+	) (result []jsontext.Value) {
 		if collectErr != nil {
 			return
 		}
@@ -126,7 +129,7 @@ func (s *State) LoadDevice(
 		}
 		// Read partial results until 'total' is reached.
 		for {
-			body, _ := json.Marshal(args)
+			body, _ := json.Marshal(args, json.Deterministic(true))
 			partJSON, err := s.sendRequest("/web_api/"+endPoint, body, logLogin)
 			if err != nil {
 				collectErr = err
@@ -191,7 +194,7 @@ func (s *State) LoadDevice(
 			IP string `json:"ip-address"`
 		}
 		var result struct {
-			Name           string
+			Name           string   `json:"name"`
 			ClusterMembers []member `json:"cluster-members"`
 			IP             string   `json:"ipv4-address"`
 		}
@@ -208,7 +211,7 @@ func (s *State) LoadDevice(
 		}
 		return result.Name, result.IP, ips
 	}
-	routeMap := make(map[string][]json.RawMessage)
+	routeMap := make(map[string][]jsontext.Value)
 	ipMap := make(map[string][]string)
 	for _, kind := range []string{"gateway", "cluster"} {
 		for _, uid := range getGatewayUIDs(kind) {
@@ -230,7 +233,7 @@ func (s *State) LoadDevice(
 	if collectErr != nil {
 		return fmt.Errorf("While reading device: %v", collectErr)
 	}
-	out, _ := json.Marshal(deviceConf)
+	out, _ := json.Marshal(deviceConf, json.Deterministic(true))
 	errlog.DoLog(logConfig, string(out))
 	s.deviceCfg, err = s.parseConfig(out, "<device>")
 	if err != nil {
@@ -288,7 +291,7 @@ func (s *State) HasChanges() bool {
 func (s *State) ShowChanges() string {
 	var collect strings.Builder
 	for _, chg := range slices.Concat(s.changes, s.routeChanges) {
-		postData, _ := json.Marshal(chg.postData)
+		postData, _ := json.Marshal(chg.postData, json.Deterministic(true))
 		fmt.Fprintln(&collect, chg.endpoint)
 		fmt.Fprintln(&collect, string(postData))
 	}
@@ -299,7 +302,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 	simulated := os.Getenv("SIMULATE_ROUTER") != ""
 	sendCmd := func(endpoint string, args any) ([]byte, error) {
 		url := "/web_api/" + endpoint
-		postData, _ := json.Marshal(args)
+		postData, _ := json.Marshal(args, json.Deterministic(true))
 		resp, err := s.sendRequest(url, postData, logFh)
 		errlog.DoLog(logFh, string(resp))
 		return resp, err
@@ -315,7 +318,7 @@ func (s *State) ApplyCommands(logFh *os.File) error {
 			}
 			var result struct {
 				Tasks []struct {
-					Status   string
+					Status   string `json:"status"`
 					TaskName string `json:"task-name"`
 				}
 			}
@@ -395,9 +398,9 @@ func (s *State) discardSessions(logFh *os.File) error {
 			return err
 		}
 		var v struct {
-			UID         string
+			UID         string `json:"uid"`
 			UserName    string `json:"user-name"`
-			Application string
+			Application string `json:"application"`
 		}
 		json.Unmarshal(body, &v)
 		if v.UserName == s.user && v.Application == "WEB_API" {
@@ -418,7 +421,7 @@ func (s *State) getUIDs(call string, logFh *os.File) ([]string, error) {
 		return nil, err
 	}
 	var result struct {
-		Objects []string
+		Objects []string `json:"objects"`
 	}
 	err = json.Unmarshal(resp, &result)
 	return result.Objects, err
@@ -433,12 +436,12 @@ func (s *State) getTargetPolicy(logFh *os.File) (map[string]*chkpPolicy, error) 
 	}
 	var result struct {
 		Packages []*struct {
-			Name                string
-			Access              bool
-			Comment             string
+			Name                string     `json:"name"`
+			Access              bool       `json:"access"`
+			Comment             string     `json:"comment"`
 			AccessLayers        []chkpName `json:"access-layers"`
 			InstallationTargets []chkpName `json:"installation-targets"`
-		}
+		} `json:"packages"`
 	}
 	if err := json.Unmarshal(resp, &result); err != nil {
 		return nil, err

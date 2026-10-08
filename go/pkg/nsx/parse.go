@@ -2,7 +2,8 @@ package nsx
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"path"
 	"regexp"
@@ -15,40 +16,40 @@ type nsxPolicy struct {
 }
 
 type nsxRule struct {
-	Id                   string          `json:"id,omitempty"`
-	Action               string          `json:"action"`
-	SequenceNumber       int             `json:"sequence_number"`
-	SourcesExcluded      bool            `json:"sources_excluded,omitempty"`
-	DestinationsExcluded bool            `json:"destinations_excluded,omitempty"`
-	SourceGroups         []string        `json:"source_groups"`
-	DestinationGroups    []string        `json:"destination_groups"`
-	Services             []string        `json:"services"`
-	ServiceEntries       json.RawMessage `json:"service_entries,omitempty"`
-	Profiles             []string        `json:"profiles,omitempty"`
-	Scope                []string        `json:"scope"`
-	Disabled             bool            `json:"disabled,omitempty"`
-	Logged               bool            `json:"logged,omitempty"`
-	Tag                  string          `json:"tag,omitempty"`
-	Direction            string          `json:"direction"`
-	IPProtocol           string          `json:"ip_protocol,omitempty"`
-	Revision             int             `json:"_revision,omitempty"`
+	Id                   string         `json:"id,omitzero"`
+	Action               string         `json:"action"`
+	SequenceNumber       int            `json:"sequence_number"`
+	SourcesExcluded      bool           `json:"sources_excluded,omitzero"`
+	DestinationsExcluded bool           `json:"destinations_excluded,omitzero"`
+	SourceGroups         []string       `json:"source_groups"`
+	DestinationGroups    []string       `json:"destination_groups"`
+	Services             []string       `json:"services"`
+	ServiceEntries       jsontext.Value `json:"service_entries,omitzero"`
+	Profiles             []string       `json:"profiles,omitzero"`
+	Scope                []string       `json:"scope"`
+	Disabled             bool           `json:"disabled,omitzero"`
+	Logged               bool           `json:"logged,omitzero"`
+	Tag                  string         `json:"tag,omitzero"`
+	Direction            string         `json:"direction"`
+	IPProtocol           string         `json:"ip_protocol,omitzero"`
+	Revision             int            `json:"_revision,omitzero"`
 }
 
 type nsxGroup struct {
-	Id           string                `json:"id,omitempty"`
+	Id           string                `json:"id,omitzero"`
 	Expression   []*nsxGroupExpression `json:"expression"`
 	needed       bool
 	nameOnDevice string
 }
 
 type nsxGroupExpression struct {
-	Id           string   `json:"id,omitempty"`
+	Id           string   `json:"id,omitzero"`
 	ResourceType string   `json:"resource_type"`
 	IPAddresses  []string `json:"ip_addresses"`
 }
 
 type nsxService struct {
-	Id             string             `json:"id,omitempty"`
+	Id             string             `json:"id,omitzero"`
 	ServiceEntries []*nsxServiceEntry `json:"service_entries"`
 	needed         bool
 }
@@ -98,13 +99,13 @@ func (e *nsxServiceEntry) MarshalJSON() ([]byte, error) {
 		}
 
 	}
-	return json.Marshal(result)
+	return json.Marshal(result, json.Deterministic(true))
 }
 
 type nsxConfig struct {
-	Policies []*nsxPolicy
-	Groups   []*nsxGroup
-	Services []*nsxService
+	Policies []*nsxPolicy  `json:"policies"`
+	Groups   []*nsxGroup   `json:"groups"`
+	Services []*nsxService `json:"services"`
 }
 
 func (s *State) parseConfig(data []byte, fName string) (*nsxConfig, error) {

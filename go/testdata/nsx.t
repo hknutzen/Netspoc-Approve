@@ -952,7 +952,7 @@ ERROR>>> While reading file device: Expecting exactly one element in source/dest
 =NETSPOC=
 {invalid
 =ERROR=
-ERROR>>> While reading file router: invalid character 'i' looking for beginning of object key string
+ERROR>>> While reading file router: jsontext: invalid character 'i' at start of value after offset 1
 =END=
 
 ############################################################
@@ -964,7 +964,7 @@ ERROR>>> While reading file router: invalid character 'i' looking for beginning 
 =NETSPOC=
 [[one_rule]]
 =ERROR=
-ERROR>>> While reading file device: invalid character '#' looking for beginning of value
+ERROR>>> While reading file device: jsontext: invalid character '#' at start of value after offset 1
 =END=
 
 ############################################################
@@ -983,15 +983,15 @@ ERROR>>> While reading file device: invalid character '#' looking for beginning 
 =DEVICE=# Some comment
 =NETSPOC={}
 =ERROR=
-ERROR>>> While reading file device: unexpected end of JSON input
+ERROR>>> While reading file device: jsontext: unexpected EOF
 =END=
 
 ############################################################
 =TITLE=Patch existing Service
-# Remove source_ports from service
+# Change source_ports in service
 =DEVICE=
 [[one_rule]]
-=SUBST=/[]/null/
+=SUBST=/[]/["1024"]/
 =NETSPOC=
 [[one_rule]]
 =OUTPUT=

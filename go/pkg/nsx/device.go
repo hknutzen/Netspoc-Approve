@@ -2,7 +2,8 @@ package nsx
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -69,13 +70,17 @@ func (s *State) LoadDevice(
 	}
 
 	type rawConfig struct {
-		Groups   []json.RawMessage
-		Services []json.RawMessage
-		Policies []json.RawMessage
+		Groups   []jsontext.Value `json:"groups"`
+		Services []jsontext.Value `json:"services"`
+		Policies []jsontext.Value `json:"policies"`
 	}
 
 	var rawConf rawConfig
-	var resultStruct struct{ Results []struct{ Id string } }
+	var resultStruct struct {
+		Results []struct {
+			Id string `json:"id"`
+		} `json:"results"`
+	}
 	err = json.Unmarshal(data, &resultStruct)
 	if err != nil {
 		return fmt.Errorf("while parsing %s: %w", path, err)
@@ -117,15 +122,17 @@ func (s *State) LoadDevice(
 	return nil
 }
 
-func (s *State) getRawJSON(path string) ([]json.RawMessage, error) {
-	var data []json.RawMessage
+func (s *State) getRawJSON(path string) ([]jsontext.Value, error) {
+	var data []jsontext.Value
 	var cursor string
 	for {
 		var results struct {
-			Cursor  string
-			Results []json.RawMessage
+			Cursor  string           `json:"cursor"`
+			Results []jsontext.Value `json:"results"`
 		}
-		var id struct{ Id string }
+		var id struct {
+			Id string `json:"id"`
+		}
 		out, err := s.sendRequest("GET", path+"?cursor="+cursor, nil)
 		if err != nil {
 			return nil, err

@@ -1,7 +1,7 @@
 package checkpoint
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"slices"
 	"strings"
 
@@ -257,7 +257,7 @@ func diffConfig(a, b *chkpConfig) ([]change, []string) {
 						chg1["service-negate"] = bRule.ServiceNegate
 					}
 					if aRule.Disabled != bRule.Disabled {
-						chg1["enabled"] = !bRule.Disabled
+						chg1["enabled"] = !bool(bRule.Disabled)
 					}
 					if t1, t2 := aRule.Track, bRule.Track; t1 == nil || t2 == nil {
 						if t1 != t2 {

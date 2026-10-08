@@ -76,7 +76,7 @@ ERROR>>> Unexpected model "" in file code/router.info
 --router.info
 NO_JSON
 =ERROR=
-panic: invalid character 'N' looking for beginning of value
+panic: jsontext: invalid character 'N' at start of value
 =END=
 
 ############################################################
