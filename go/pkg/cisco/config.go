@@ -249,6 +249,9 @@ func mergeIOSACLs(ab *cmdsPair, name, prefix string) {
 	}
 	// Store changed ACL.
 	b0 := ab.bCmds[0]
+	for _, ac := range acl {
+		ac.subCmdOf = b0
+	}
 	b0.sub = acl
 	ab.a.lookup[prefix][name] = []*cmd{b0}
 }

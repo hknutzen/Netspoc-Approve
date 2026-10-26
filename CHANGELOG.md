@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- ACLs for Cisco IOS are read from generated code file and from
+  optional manually written raw file.
+  Netspoc-Approve merges them into a single configuration.
+  Each sub command has an attribute subCmdOf, that links to it
+  enclosing command.
+  When merging ACL lines, this attribute still pointed to the original
+  enclosing command.
+  As a result, a wrong name was used, when changing ACLs.
+  This has been fixed.
+
 ## [2026-09-08-1616]
 
 ### Fixed

@@ -42,7 +42,38 @@ ip route 10.20.0.0 255.255.0.0 10.1.2.3
 =END=
 
 ############################################################
-=TITLE=Merge ACL using [APPEND]
+=TITLE=Compare with merged ACL
+=DEVICE=
+ip access-list extended Ethernet1_in-DRC-0
+ permit udp 10.0.6.0 0.0.0.255 host 224.0.1.1 eq 123
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.11 eq 123
+ deny ip any any
+interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
+ ip access-group Ethernet1_in-DRC-0 in
+=NETSPOC=
+--router.raw
+ip access-list extended from-raw
+ permit udp 10.0.6.0 0.0.0.255 host 224.0.1.1 eq 123
+interface Ethernet1
+ ip access-group from-raw in
+--router
+ip access-list extended from-spoc
+ permit udp 10.0.6.0 0.0.0.255 host 10.0.1.12 eq 123
+ deny ip any any
+interface Ethernet1
+ ip address 10.0.6.1 255.255.255.0
+ ip access-group from-spoc in
+=OUTPUT=
+ip access-list resequence Ethernet1_in-DRC-0 10000 10000
+ip access-list extended Ethernet1_in-DRC-0
+20001 permit udp 10.0.6.0 0.0.0.255 host 10.0.1.12 eq 123
+no 20000
+ip access-list resequence Ethernet1_in-DRC-0 10 10
+=END=
+
+############################################################
+=TITLE= Add merged ACL using [APPEND]
 =DEVICE=
 interface Ethernet1
  ip address 10.0.6.1 255.255.255.0
