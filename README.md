@@ -10,9 +10,9 @@ Use NetSPoC-Approve to
   
 
 If you are part of a team with many contributors working on your input files,
-you may find our NetSPoC-Approve tools for automation and user management helpful.
+you may find our NetSPoC-Approve tools helpful for automation and user management.
 
-Run NetSPoC within its own user account to hide login data from single contributors. Let contributors conduct NetSPoC-Approve operations as user netspoc to make them audit-proof.
+Run NetSPoC within its own user account to hide login data from single contributors. Let contributors conduct NetSPoC-Approve operations as this priviledged user to make them audit-proof.
 
 Automate policy generation, compression and deletion as well as config application and status examination of your devices by using our management scripts within your cron jobs.
 
@@ -20,14 +20,15 @@ Automate policy generation, compression and deletion as well as config applicati
 
 To use NetSPoC-Approve, you need to
 - Make your NetSPoC input directory a git repo.
-- Adapt the config file (see _Netspoc-Approve/etc/netspoc-approve_) to your needs and save within the suggested location. As a minimum, you need to specify your base directory and your NetSPoC input directory.
+- Adapt the config file (see _Netspoc-Approve/etc/netspoc-approve_) to your needs and save within the suggested location. As a minimum, you need to specify your base directory and the location of your NetSPoC git repository.
 - Within your base dir, create the directories _policies_, _lock_, _status_ and _history_:
    - _/policies_ is going to contain your generated policies
    - _/status_ will monitor the state of your devices
    - _/lock_ keeps lockfiles to prevent update conflicts on your devices
    - _/history_ records the program calls affecting your devices
 - Also within your base dir, set up a _credentials_ file to store the login data to your devices. NetSPoC-Approve expects 3 field lines containing following information:
-  `<devicename> <username> <password>`     
+  `<devicename> <username> <password>`  
+  This pattern may contain '\*' to match groups of devices with similar name. Entries are matched top to bottom.
 
 Then calculate your policy by running:
 `newpolicy.sh`
