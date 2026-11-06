@@ -133,7 +133,7 @@ func (s *State) getRawJSON(path string) ([]jsontext.Value, error) {
 		var id struct {
 			Id string `json:"id"`
 		}
-		out, err := s.sendRequest("GET", path+"?cursor="+cursor, nil)
+		out, err := s.sendRequest("GET", path+"?cursor="+url.QueryEscape(cursor), nil)
 		if err != nil {
 			return nil, err
 		}

@@ -192,6 +192,54 @@ GET /policy/api/v1/infra/domains/default/groups
 =WARNING=NONE
 
 ############################################################
+=TITLE=Read paginated objects with special characters in cursor
+=SCENARIO=
+[[session]]
+GET /policy/api/v1/infra/domains/default/gateway-policies
+{}
+GET /policy/api/v1/infra/services
+{}
+GET /policy/api/v1/infra/domains/default/groups?cursor=
+{
+ "cursor": "[offset]+&=%#?/ page",
+ "results": [
+  {
+   "id": "Netspoc-first",
+   "expression": [
+    {
+     "id": "id1",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": ["10.1.1.1"]
+    }
+   ]
+  }
+ ]
+}
+GET /policy/api/v1/infra/domains/default/groups?cursor=%5Boffset%5D%2B%26%3D%25%23%3F%2F+page
+{
+ "results": [
+  {
+   "id": "Netspoc-second",
+   "expression": [
+    {
+     "id": "id2",
+     "resource_type": "IPAddressExpression",
+     "ip_addresses": ["10.1.1.2"]
+    }
+   ]
+  }
+ ]
+}
+DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-first
+DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-second
+=NETSPOC=NONE
+=OUTPUT=
+--router.change
+URI: DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-first
+URI: DELETE /policy/api/v1/infra/domains/default/groups/Netspoc-second
+=END=
+
+############################################################
 =TITLE=Leave non Netspoc policies unchanged
 =SCENARIO=
 [[session]]
