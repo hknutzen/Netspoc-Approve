@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/hknutzen/Netspoc-Approve/go/pkg/errlog"
+
 	"github.com/pkg/diff/myers"
 )
 
@@ -149,6 +151,10 @@ func groupMap(g []*nsxGroup) map[string]*nsxGroup {
 func serviceMap(s []*nsxService) map[string]*nsxService {
 	m := make(map[string]*nsxService)
 	for _, o := range s {
+		if m[o.Id] != nil {
+			errlog.Warning("Service %s is defined more than once on device.\n", o.Id)
+			continue
+		}
 		m[o.Id] = o
 	}
 	return m
