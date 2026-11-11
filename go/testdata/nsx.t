@@ -130,17 +130,35 @@ services:
 
 ############################################################
 =TITLE=No differences, service declared twice within configs
-# This is expected to happen only with drc being called on two netspoc configs, both containing ipv4 and ipv6 files. For Netspoc configs, two declarations of the same service are expected and ignored. For device configs, multiple declarations of a service should never happen. Multiples are therefore deleted, generating a warning.
-=TEMPL=double_service
+# This is expected to happen only with drc being called on two Netspoc
+# generated configs, both containing ipv4 and ipv6 files. For Netspoc configs,
+# two declarations of the same service are expected and ignored.
+# For device configs, multiple declarations of a service should never happen.
+# Multiples are therefore deleted, generating a warning.
+=TEMPL=v4_service
 [[config
 rules:
 - { id: r1, src: 10.1.1.10, dst: 10.1.2.30, srv: tcp_80 }
 services:
 - [tcp, 80]
-- [tcp, 80]
 ]]
-=DEVICE=[[double_service]]
-=NETSPOC=[[double_service]]
+=TEMPL=v6_service
+[[config
+rules:
+- { id: v6r1, src: '::a01:1:10', dst: '::a01:2:30', srv: tcp_80, proto: IPV6 }
+services:
+- [ tcp, 80 ]
+]]
+=DEVICE=
+[[v4_service]]
+=NETSPOC=
+-- router
+[[v4_service]]
+-- ipv6/router
+[[v6_service]]
+=SETUP=
+mkdir ipv6
+echo '[[v6_service]]' >ipv6/device
 =WARNING=
 WARNING>>> Service Netspoc-tcp_80 is defined more than once on device.
 =OUTPUT=
